@@ -103,6 +103,15 @@ app.get('/api/download/qbittorrent/detect', async (req, res) => {
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
-app.listen(PORT, () => {
-  console.log(`Torrent search app listening on http://localhost:${PORT}`);
-});
+function start(port = PORT) {
+  return app.listen(port, () => {
+    console.log(`Torrent search app listening on http://localhost:${port}`);
+  });
+}
+
+// 直接 `node server.js` 才自启；被 Electron 主进程 require 时不自动监听
+if (require.main === module) {
+  start();
+}
+
+module.exports = { app, start };

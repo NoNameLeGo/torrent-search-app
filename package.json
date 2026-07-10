@@ -4,14 +4,42 @@
   "private": true,
   "description": "Desktop BT torrent meta-search web app aggregating multiple engines (1337x, TPB, NYAA).",
   "type": "commonjs",
-  "main": "server.js",
+  "main": "electron/main.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "electron": "set ELECTRON_CACHE=.cache\\electron&& electron .",
+    "dist": "set ELECTRON_CACHE=.cache\\electron&& set ELECTRON_BUILDER_CACHE=.cache\\builder&& electron-builder"
   },
   "dependencies": {
     "axios": "^1.7.7",
     "cheerio": "^1.0.0",
     "express": "^4.21.0"
+  },
+  "build": {
+    "appId": "com.torrentsearch.app",
+    "productName": "BT 聚合搜索",
+    "files": [
+      "server.js",
+      "electron/**/*",
+      "src/**/*",
+      "public/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis",
+      "artifactName": "BT聚合搜索-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "devDependencies": {
+    "electron": "^43.1.0",
+    "electron-builder": "^26.15.3"
   }
 }

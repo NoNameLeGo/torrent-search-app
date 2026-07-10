@@ -24,6 +24,37 @@ npm start            # 或 node server.js
 
 > **为什么需要后端、不能直接双击一个 HTML？** 真正的搜索请求发往 1337x / TPB / NYAA 等站点，浏览器有跨域（CORS）限制，网页无法直接抓取它们。所以必须由 Node 后端在服务端代为抓取，前端只跟本地 `localhost:3000` 通信。`public/index.html` 单独用 `file://` 打开是连不上后端的——这也是为什么提供了 `start.bat` 来一键把后端和浏览器都拉起来。
 
+## 桌面应用（Electron，推荐日常使用）
+
+除了用浏览器访问，本项目也打包成了 **Electron 桌面应用**，行为像一个普通本地软件：
+
+- **开 = 启动**：双击应用，后端随主进程一起拉起，窗口直接打开搜索界面；
+- **关 = 全关**：关掉窗口，整个进程退出，后端被操作系统一并回收，**不留任何残留进程**（不用再手动 stop）。
+
+### 方式 A：免安装便携版（已生成，直接双击即可）
+
+仓库已附带打包好的便携版，位于：
+
+```
+dist/portable/BT聚合搜索/BT聚合搜索.exe
+```
+
+**直接双击 `BT聚合搜索.exe` 就能用**——无需安装、不写注册表、不占 C 盘（所有文件都在项目目录 `dist/portable/` 下，约 360MB，全部在 D 盘）。
+需要转移或删除时，整个 `dist/portable/BT聚合搜索/` 文件夹剪切/删除即可，不留任何残留。
+
+> 便携版是手动拼装的：`node_modules/electron/dist/` 改名为 `BT聚合搜索.exe`，应用代码放在 `resources/app/` 下，生产依赖（express/axios/cheerio）只装一份、已裁剪掉 electron/electron-builder 等开发依赖。行为与下方安装包完全一致：开=起后端，关=净退出。
+
+### 方式 B：开发模式 / 自行打包安装包
+
+```bash
+npm install          # 已含 electron / electron-builder（开发依赖）
+npm run electron     # 开发模式：直接开桌面窗口运行
+npm run dist         # 打包成 Windows 安装包（输出到 dist/，形如 BT聚合搜索-Setup-1.0.0.exe）
+```
+
+> 打包用的是 `electron-builder`（NSIS 安装包，可自选安装目录）。安装包约 70–90MB、解压后硬盘占用约 150–200MB——体积主要来自 Electron 自带的 Chromium 运行时，与项目代码量无关。
+> 后端在 Electron 主进程内以 `require('./server').start(port)` 方式启动（见 `electron/main.js`），因此无需单独的 node 进程，关闭即净退出。
+
 ## 需求对照
 
 | # | 需求 | 实现 |
