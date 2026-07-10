@@ -9,7 +9,7 @@
     "start": "node server.js",
     "dev": "node server.js",
     "electron": "set ELECTRON_CACHE=.cache\\electron&& electron .",
-    "dist": "set ELECTRON_CACHE=.cache\\electron&& set ELECTRON_BUILDER_CACHE=.cache\\builder&& electron-builder",
+    "dist": "set ELECTRON_CACHE=.cache\\electron&& set ELECTRON_BUILDER_CACHE=.cache\\builder&& electron-builder --publish=never",
     "build:portable": "node scripts/build-portable.js"
   },
   "dependencies": {
