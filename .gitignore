@@ -1,10 +1,22 @@
 # 依赖（已在项目内安装，不入库）
 node_modules/
 
-# 环境变量 / 本地配置
+# 环境变量 / 本地配置（忽略所有 .env 变体，但保留示例模板）
 .env
-.env.local
+.env.*
+!.env.example
 *.local
+
+# 密钥 / 证书（防止误提交导致泄露）
+*.pem
+*.key
+*.crt
+*.cer
+*.pfx
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
 
 # 日志
 *.log
@@ -18,6 +30,9 @@ Thumbs.db
 
 # 构建缓存（重定向到项目目录，避免占用 C 盘）
 .cache/
+
+# 本地工具数据（本机/每用户，不入库）
+.workbuddy/
 
 # 打包产物（portable 版约 360MB，不入库）
 dist/
