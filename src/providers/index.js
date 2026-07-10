@@ -3,6 +3,9 @@
 const tpb = require('./tpb');
 const x1337 = require('./1337x');
 const nyaa = require('./nyaa');
+const yts = require('./yts');
+const knaben = require('./knaben');
+const torrentscsv = require('./torrentscsv');
 const demo = require('./demo');
 
 // Order here is the default enable order shown in the UI.
@@ -10,6 +13,9 @@ const REGISTRY = [
   { ...tpb, enabled: true },
   { ...x1337, enabled: true },
   { ...nyaa, enabled: true },
+  { ...yts, enabled: true },
+  { ...knaben, enabled: true },
+  { ...torrentscsv, enabled: true },
   { ...demo, enabled: true },
 ];
 

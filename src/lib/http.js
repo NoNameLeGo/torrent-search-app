@@ -51,4 +51,18 @@ async function getJSON(url, opts = {}) {
   }
 }
 
-module.exports = { http, getText, getJSON, pickUA };
+// Perform a POST with a JSON body returning parsed JSON. Never throws.
+async function postJSON(url, payload, opts = {}) {
+  try {
+    const res = await http.post(url, payload, {
+      responseType: 'json',
+      headers: { 'User-Agent': pickUA(), ...(opts.headers || {}) },
+      ...opts,
+    });
+    return { data: res.data, status: res.status, error: null };
+  } catch (e) {
+    return { data: null, status: null, error: e.code || e.message || 'request_failed' };
+  }
+}
+
+module.exports = { http, getText, getJSON, postJSON, pickUA };
