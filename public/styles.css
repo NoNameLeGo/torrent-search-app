@@ -151,6 +151,7 @@ main { padding: 16px 20px 60px; }
   position: fixed; inset: 0; z-index: 50;
   background: rgba(0,0,0,.6); display: grid; place-items: center;
 }
+.modal[hidden] { display: none; }
 .modal-card {
   width: min(440px, 92vw); background: var(--bg-card); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 22px;
