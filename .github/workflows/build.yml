@@ -3,7 +3,12 @@ name: Build Windows 发行包
 on:
   push:
     branches: [main]
+    tags: ['v*']
   workflow_dispatch:
+
+# 发布到 GitHub Release 需要写权限
+permissions:
+  contents: write
 
 jobs:
   build-windows:
@@ -13,21 +18,28 @@ jobs:
         uses: actions/checkout@v4
 
       - name: 设置 Node.js
+        # electron@43 要求 node >= 22.12.0，低于此版本会导致 electron 二进制下载失败
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: 安装依赖（含 electron / electron-builder）
         run: npm ci
 
-      # ---- 1) NSIS 安装包（不签名）----
+      # 显式确保 electron 二进制解压到 node_modules/electron/dist
+      # （build:portable 需要它；部分 CI 环境下 postinstall 可能未触发下载）
+      - name: 确保 electron 二进制已下载
+        run: node node_modules/electron/install.js
+
+      # ---- 1) NSIS 安装包（不签名，仅打 tag 时发布到 Release）----
       # 本地沙箱会卡死在代码签名子进程，但 GitHub 托管的真 Windows 不会。
       # 关闭证书自动发现即可跳过签名，产出未签名安装包（Windows 会弹 SmartScreen 警告）。
       - name: 构建 NSIS 安装包
         run: npm run dist
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # ---- 2) 免安装便携版（复用本地验证过的手动拼装）----
       - name: 拼装便携版文件夹
@@ -37,14 +49,14 @@ jobs:
         working-directory: dist/portable/BT聚合搜索/resources/app
         run: npm install --omit=dev
 
-      - name: 上传安装包
+      - name: 上传安装包（Artifact 备份）
         uses: actions/upload-artifact@v4
         with:
           name: BT聚合搜索-安装包
           path: dist/*Setup*.exe
           if-no-files-found: error
 
-      - name: 上传便携版
+      - name: 上传便携版（Artifact 备份）
         uses: actions/upload-artifact@v4
         with:
           name: BT聚合搜索-便携版

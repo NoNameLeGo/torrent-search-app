@@ -9,7 +9,7 @@
     "start": "node server.js",
     "dev": "node server.js",
     "electron": "set ELECTRON_CACHE=.cache\\electron&& electron .",
-    "dist": "set ELECTRON_CACHE=.cache\\electron&& set ELECTRON_BUILDER_CACHE=.cache\\builder&& electron-builder --publish=never",
+    "dist": "set ELECTRON_CACHE=.cache\\electron&& set ELECTRON_BUILDER_CACHE=.cache\\builder&& electron-builder --publish=onTag",
     "build:portable": "node scripts/build-portable.js"
   },
   "dependencies": {
@@ -37,6 +37,11 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "NoNameLeGo",
+      "repo": "torrent-search-app"
     }
   },
   "devDependencies": {
