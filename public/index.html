@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BT 聚合搜索 · Torrent Meta-Search</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">⬇</span>
+      <h1>BT 聚合搜索</h1>
+    </div>
+    <form id="search-form" class="search-form" autocomplete="off">
+      <input id="search-input" type="text" placeholder="输入关键词，如 Ubuntu, 4K Movie, Naruto…" />
+      <button type="submit" id="search-btn">搜索</button>
+    </form>
+    <button id="settings-btn" class="icon-btn" title="下载工具设置">⚙</button>
+  </header>
+
+  <section class="controls">
+    <div id="provider-chips" class="chips"></div>
+
+    <div class="toolbar">
+      <label class="field">
+        排序
+        <select id="sort-select">
+          <option value="relevance">相关度</option>
+          <option value="seeders">做种数</option>
+          <option value="size">文件大小</option>
+          <option value="date">上传时间</option>
+        </select>
+      </label>
+      <button id="order-btn" class="icon-btn" title="切换升/降序">↓</button>
+
+      <label class="field">
+        最小做种
+        <input id="min-seeders" type="number" min="0" placeholder="0" />
+      </label>
+      <label class="field">
+        最小大小
+        <select id="min-size">
+          <option value="0">不限</option>
+          <option value="104857600">≥ 100 MB</option>
+          <option value="1073741824">≥ 1 GB</option>
+          <option value="5368709120">≥ 5 GB</option>
+          <option value="10737418240">≥ 10 GB</option>
+        </select>
+      </label>
+      <label class="field">
+        名称含
+        <input id="name-contains" type="text" placeholder="筛选关键词" />
+      </label>
+      <button id="reset-filters" class="ghost-btn">重置</button>
+    </div>
+  </section>
+
+  <section id="status-bar" class="status-bar" hidden></section>
+
+  <main>
+    <div id="results" class="results"></div>
+    <div id="sentinel" class="sentinel"></div>
+    <div id="loading" class="loading" hidden>加载中…</div>
+    <div id="empty" class="empty" hidden>没有结果。试试别的关键词，或检查引擎状态。</div>
+  </main>
+
+  <!-- Settings modal -->
+  <div id="settings-modal" class="modal" hidden>
+    <div class="modal-card">
+      <h2>下载工具设置</h2>
+      <p class="hint">点击磁力链接会用系统默认客户端（如 qBittorrent / 迅雷）打开。也可配置 qBittorrent WebUI，直接把磁力推送到客户端。</p>
+      <label class="field block">
+        qBittorrent WebUI 地址
+        <input id="qb-url" type="text" placeholder="http://localhost:8080" />
+      </label>
+      <label class="field block">
+        用户名
+        <input id="qb-user" type="text" placeholder="admin" />
+      </label>
+      <label class="field block">
+        密码
+        <input id="qb-pass" type="password" placeholder="password" />
+      </label>
+      <div class="modal-actions">
+        <button id="qb-detect" class="ghost-btn">自动探测本机</button>
+        <button id="qb-test" class="ghost-btn">测试连接</button>
+        <span class="spacer"></span>
+        <button id="settings-cancel" class="ghost-btn">取消</button>
+        <button id="settings-save" class="primary-btn">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
