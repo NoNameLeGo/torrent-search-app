@@ -1,0 +1,52 @@
+name: Build Windows 发行包
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: 安装依赖（含 electron / electron-builder）
+        run: npm ci
+
+      # ---- 1) NSIS 安装包（不签名）----
+      # 本地沙箱会卡死在代码签名子进程，但 GitHub 托管的真 Windows 不会。
+      # 关闭证书自动发现即可跳过签名，产出未签名安装包（Windows 会弹 SmartScreen 警告）。
+      - name: 构建 NSIS 安装包
+        run: npm run dist
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      # ---- 2) 免安装便携版（复用本地验证过的手动拼装）----
+      - name: 拼装便携版文件夹
+        run: npm run build:portable
+
+      - name: 便携版安装生产依赖
+        working-directory: dist/portable/BT聚合搜索/resources/app
+        run: npm install --omit=dev
+
+      - name: 上传安装包
+        uses: actions/upload-artifact@v4
+        with:
+          name: BT聚合搜索-安装包
+          path: dist/*Setup*.exe
+          if-no-files-found: error
+
+      - name: 上传便携版
+        uses: actions/upload-artifact@v4
+        with:
+          name: BT聚合搜索-便携版
+          path: dist/portable/BT聚合搜索
+          if-no-files-found: error
