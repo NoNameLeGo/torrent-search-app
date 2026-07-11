@@ -1,11 +1,9 @@
 'use strict';
 
-// Rutor HTML scraper. Russian site served as windows-1251, so we fetch the raw
-// bytes and decode with iconv-lite before loading into cheerio. The results
-// list already carries the magnet link and all metadata.
+// Rutor HTML scraper. The results list already carries the magnet link and all
+// metadata. The site is served as UTF-8, so plain getText decoding is correct.
 const cheerio = require('cheerio');
-const iconv = require('iconv-lite');
-const { http, pickUA } = require('../lib/http');
+const { getText } = require('../lib/http');
 const { normalize } = require('../lib/normalize');
 
 const DOMAINS = [
@@ -26,18 +24,9 @@ function ruDate(s) {
   return s.replace(/[а-яё]+/gi, (m) => RU_MONTHS[m.toLowerCase()] || m);
 }
 
-// Fetch as raw bytes and decode windows-1251. Never throws.
+// Site is served as UTF-8; getText decodes it correctly. Never throws.
 async function getWin1251(url) {
-  try {
-    const res = await http.get(url, {
-      responseType: 'arraybuffer',
-      headers: { 'User-Agent': pickUA() },
-    });
-    const html = iconv.decode(Buffer.from(res.data), 'win1251');
-    return { html, error: null };
-  } catch (e) {
-    return { html: null, error: e.code || e.message || 'request_failed' };
-  }
+  return getText(url);
 }
 
 async function searchOn(base, query, page) {
