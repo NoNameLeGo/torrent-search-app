@@ -10,17 +10,6 @@
     "frontendDist": "../public"
   },
   "app": {
-    "windows": [
-      {
-        "label": "main",
-        "title": "BT 聚合搜索",
-        "width": 1280,
-        "height": 800,
-        "minWidth": 900,
-        "minHeight": 600,
-        "backgroundColor": "#0f1115"
-      }
-    ],
     "security": {
       "csp": "default-src 'self' http://127.0.0.1:* http://localhost:* data: blob: 'unsafe-inline' 'unsafe-eval'"
     }
@@ -44,8 +33,7 @@
     },
     "windows": {
       "nsis": {
-        "oneClick": false,
-        "allowToChangeInstallationDirectory": true
+        "installMode": "both"
       }
     }
   }

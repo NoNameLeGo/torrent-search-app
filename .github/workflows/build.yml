@@ -3,7 +3,6 @@ name: Build Windows 发行包
 on:
   push:
     branches: [main]
-    tags: ['v*']
   workflow_dispatch:
 
 # 发布到 GitHub Release 需要写权限

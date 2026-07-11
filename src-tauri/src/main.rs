@@ -5,7 +5,7 @@ use std::net::TcpStream;
 use std::sync::Mutex;
 use std::time::Duration;
 
-use tauri::{Emitter, Manager};
+use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 
@@ -42,6 +42,23 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .manage(SidecarProc(Mutex::new(None)))
         .setup(|app| {
+            // 开发模式：sidecar 由 beforeDevCommand 拉起，固定监听 3000
+            #[cfg(debug_assertions)]
+            {
+                let _main = WebviewWindowBuilder::new(
+                    app,
+                    "main",
+                    WebviewUrl::External("http://127.0.0.1:3000/".parse().unwrap()),
+                )
+                .title("BT 聚合搜索")
+                .inner_size(1280.0, 800.0)
+                .min_inner_size(900.0, 600.0)
+                .background_color(tauri::webview::Color(15, 17, 21, 255))
+                .build()
+                .expect("failed to build main window (dev)");
+            }
+
+            // 发布模式：在 setup 里拉起 sidecar（随机端口），就绪后创建窗口
             #[cfg(not(debug_assertions))]
             {
                 let port = free_port();
@@ -64,7 +81,13 @@ fn main() {
                     .shell()
                     .sidecar(SIDECAR)
                     .expect("sidecar 'server' is not configured in tauri.conf.json (bundle.externalBin)")
-                    .args([&server_arg, "--port", &port.to_string(), "--public-dir", &public_arg])
+                    .args([
+                        server_arg,
+                        "--port".to_string(),
+                        port.to_string(),
+                        "--public-dir".to_string(),
+                        public_arg,
+                    ])
                     .spawn()
                     .expect("failed to spawn sidecar server process");
 
@@ -90,9 +113,20 @@ fn main() {
                     eprintln!("sidecar server did not become healthy in time");
                 }
 
-                if let Some(win) = app.get_webview_window("main") {
-                    let _ = win.load(format!("http://127.0.0.1:{port}/"));
-                }
+                // 用动态端口直接创建窗口（Tauri v2 的 WebviewWindow 没有 load()）
+                let _main = WebviewWindowBuilder::new(
+                    app,
+                    "main",
+                    WebviewUrl::External(
+                        format!("http://127.0.0.1:{port}/").parse().expect("invalid sidecar url"),
+                    ),
+                )
+                .title("BT 聚合搜索")
+                .inner_size(1280.0, 800.0)
+                .min_inner_size(900.0, 600.0)
+                .background_color(tauri::webview::Color(15, 17, 21, 255))
+                .build()
+                .expect("failed to build main window (release)");
             }
             Ok(())
         })

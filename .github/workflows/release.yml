@@ -1,0 +1,150 @@
+name: Release (Electron + Tauri)
+
+# 打 `v*` tag（或手动触发）时，构建 Electron 与 Tauri 两个 Windows 安装包，
+# 并统一上传到【同一个】GitHub Release。
+#
+# - Electron job 用当前触发分支的代码（建议从 feat/tauri 打 tag，已包含全部移植引擎 + Tauri 源码）
+# - Tauri job 显式 checkout feat/tauri 取 Tauri 代码
+# - 两个 job 都【只构建不发布】，最后由 publish job 用 softprops 统一发布，避免竞态
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  electron:
+    name: Build Electron (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Ensure electron binary
+        run: node node_modules/electron/install.js
+
+      - name: Build NSIS installer (no publish)
+        # 覆盖 package.json 里 dist 脚本的 --publish=onTag，仅本地构建、不自动发布
+        run: npm run dist -- --publish=never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: Build portable
+        run: npm run build:portable
+
+      - name: Install portable prod deps
+        working-directory: dist/portable/BT聚合搜索/resources/app
+        run: npm install --omit=dev
+
+      - name: Zip portable
+        run: Compress-Archive -Path "dist/portable/BT聚合搜索" -DestinationPath "dist/portable/BT聚合搜索-portable.zip"
+
+      - name: Upload Electron artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-dist
+          path: |
+            dist/*Setup*.exe
+            dist/portable/*.zip
+          if-no-files-found: error
+
+  tauri:
+    name: Build Tauri (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/tauri
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+
+      # 只构建、不发布：不传 tagName/releaseName，tauri-action 就不会创建 release
+      - name: Build Tauri installer (no release)
+        uses: tauri-apps/tauri-action@v1
+        with:
+          args: ''
+
+      - name: Upload Tauri artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tauri-dist
+          path: src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
+
+  publish:
+    name: Publish to GitHub Release
+    needs: [electron, tauri]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout (for release notes template)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 1
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Build release body
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          {
+            echo "# BT 聚合搜索 ${{ github.ref_name }}"
+            echo ""
+            echo "## 更新内容"
+            echo ""
+            # 复用 GitHub 的自动更新日志引擎（基于 tag 区间的提交）
+            gh api repos/${{ github.repository }}/releases/generate-notes \
+              -f tag_name="${{ github.ref_name }}" \
+              -f target_commitish="${{ github.sha }}" \
+              -q .body 2>/dev/null || echo "_本次更新的详细内容请查看提交历史。_"
+            echo ""
+            echo "---"
+            echo ""
+            # 追加产物区别说明模板（每次发布都带，方便用户选择）
+            cat docs/RELEASE_ARTIFACTS.md
+          } > release-body.md
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: BT 聚合搜索 ${{ github.ref_name }}
+          draft: true
+          body_path: release-body.md
+          files: artifacts/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
