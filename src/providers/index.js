@@ -9,6 +9,21 @@ const knaben = require('./knaben');
 const torrentscsv = require('./torrentscsv');
 const demo = require('./demo');
 
+// Torznab support (user-added Jackett / Prowlarr indexers).
+const torznabStore = require('../lib/torznabStore');
+const { makeProvider: makeTorznab } = require('./torznab');
+
+// Build dynamic provider objects from stored, enabled Torznab indexers.
+function dynamicTorznabProviders() {
+  try {
+    return torznabStore.loadAll()
+      .filter((c) => c.enabled !== false && c.url)
+      .map((c) => makeTorznab(c));
+  } catch (e) {
+    return [];
+  }
+}
+
 // Batch 1 — anime / asian.
 const anilibria = require('./anilibria');
 const anirena = require('./anirena');
@@ -101,12 +116,20 @@ const REGISTRY = [
 ];
 
 function list() {
-  return REGISTRY.map((p) => ({
-    id: p.id, name: p.name, enabled: p.enabled, demo: !!p.demo,
+  const dyn = dynamicTorznabProviders().map((p) => ({
+    id: p.id, name: p.name, enabled: true,
   }));
+  return [
+    ...REGISTRY.map((p) => ({ id: p.id, name: p.name, enabled: p.enabled, demo: !!p.demo })),
+    ...dyn,
+  ];
 }
 
 function getProvider(id) {
+  if (id && id.startsWith('torznab:')) {
+    const cfg = torznabStore.get(id);
+    return cfg ? makeTorznab(cfg) : null;
+  }
   return REGISTRY.find((p) => p.id === id);
 }
 
@@ -117,7 +140,7 @@ async function search(query, { providers = null, page = 1 } = {}) {
     ? providers.split(',').map((s) => s.trim()).filter(Boolean)
     : null;
 
-  const targets = REGISTRY.filter((p) =>
+  const targets = REGISTRY.concat(dynamicTorznabProviders()).filter((p) =>
     p.enabled && (!wanted || wanted.includes(p.id)));
 
   const perProvider = {};

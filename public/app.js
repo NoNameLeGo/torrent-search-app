@@ -265,7 +265,7 @@ function openSettings() {
 }
 function closeSettings() { $('#settings-modal').hidden = true; }
 
-$('#settings-btn').onclick = openSettings;
+$('#settings-btn').onclick = () => { openSettings(); loadTorznab(); };
 $('#settings-cancel').onclick = closeSettings;
 $('#settings-save').onclick = () => {
   state.qb = {
@@ -348,6 +348,78 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { t.hidden = true; }, 2200);
 }
+
+// ---------- torznab indexers ----------
+async function loadTorznab() {
+  const wrap = $('#torznab-list');
+  if (!wrap) return;
+  try {
+    const r = await fetch('/api/torznab');
+    const { indexers } = await r.json();
+    wrap.innerHTML = '';
+    (indexers || []).forEach((it) => {
+      const row = document.createElement('div');
+      row.className = 'tn-item';
+      row.innerHTML =
+        `<span class="tn-name">${esc(it.name)}</span>` +
+        `<span class="tn-url">${esc(it.url)}</span>` +
+        `<button class="btn ghost tn-del" data-id="${esc(it.id)}">删除</button>`;
+      wrap.appendChild(row);
+    });
+  } catch (e) { /* ignore */ }
+}
+
+$('#torznab-form').addEventListener('submit', (e) => e.preventDefault());
+
+$('#tn-add').onclick = async () => {
+  const name = $('#tn-name').value.trim();
+  const url = $('#tn-url').value.trim();
+  const apiKey = $('#tn-key').value;
+  const enabled = $('#tn-enabled').checked;
+  if (!name || !url) return toast('请填写名称和 URL');
+  try {
+    const r = await fetch('/api/torznab', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, url, apiKey, enabled }),
+    });
+    const d = await r.json();
+    if (d.indexer) {
+      $('#tn-name').value = ''; $('#tn-url').value = ''; $('#tn-key').value = '';
+      await loadTorznab();
+      loadProviders();
+      toast('已添加 Torznab 索引器');
+    } else {
+      toast('添加失败：' + (d.error || ''));
+    }
+  } catch (e) { toast('添加失败：网络错误'); }
+};
+
+$('#torznab-list').addEventListener('click', async (e) => {
+  const btn = e.target.closest('.tn-del');
+  if (!btn) return;
+  const id = btn.dataset.id;
+  try {
+    await fetch(`/api/torznab/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    await loadTorznab();
+    loadProviders();
+    toast('已删除');
+  } catch (e) { toast('删除失败'); }
+});
+
+$('#tn-test').onclick = async () => {
+  const url = $('#tn-url').value.trim();
+  const apiKey = $('#tn-key').value;
+  if (!url) return toast('请填写 URL');
+  toast('测试连接中…');
+  try {
+    const r = await fetch('/api/torznab/test', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, apiKey }),
+    });
+    const d = await r.json();
+    toast(d.ok ? '连接成功' : ('连接失败：' + (d.error || '')));
+  } catch (e) { toast('测试失败：网络错误'); }
+};
 
 // ---------- init ----------
 loadProviders();

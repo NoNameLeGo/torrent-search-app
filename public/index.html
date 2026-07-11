@@ -89,6 +89,30 @@
         <button id="settings-cancel" class="ghost-btn">取消</button>
         <button id="settings-save" class="primary-btn">保存</button>
       </div>
+
+      <hr class="sep" />
+      <h2>Torznab 索引器</h2>
+      <p class="hint">添加 Jackett / Prowlarr 的 Torznab Feed（到 <code>/api</code> 的完整 URL + API Key），即可把自建索引器当作搜索引擎使用。</p>
+      <div id="torznab-list" class="tn-list"></div>
+      <form id="torznab-form" class="tn-form" autocomplete="off">
+        <label class="field block">名称
+          <input id="tn-name" type="text" placeholder="如 Jackett-1337x" />
+        </label>
+        <label class="field block">Torznab API URL
+          <input id="tn-url" type="text" placeholder="http://localhost:9117/api/v2.0/indexers/xxx/results/torznab/api" />
+        </label>
+        <label class="field block">API Key
+          <input id="tn-key" type="password" placeholder="apikey" />
+        </label>
+        <label class="field block inline">
+          <input id="tn-enabled" type="checkbox" checked /> 启用
+        </label>
+        <div class="modal-actions">
+          <button id="tn-test" type="button" class="ghost-btn">测试连接</button>
+          <span class="spacer"></span>
+          <button id="tn-add" type="button" class="primary-btn">添加索引器</button>
+        </div>
+      </form>
     </div>
   </div>
 

@@ -34,5 +34,8 @@ Thumbs.db
 # 本地工具数据（本机/每用户，不入库）
 .workbuddy/
 
+# Torznab 索引器配置（含 API Key，本地数据，禁止入库）
+data/
+
 # 打包产物（portable 版约 360MB，不入库）
 dist/
