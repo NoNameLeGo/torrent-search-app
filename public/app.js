@@ -15,7 +15,9 @@ const state = {
   qb: JSON.parse(localStorage.getItem('qb') || 'null'),
 };
 
-const PROVIDER_LABEL = { '1337x': '1337x', tpb: 'The Pirate Bay', nyaa: 'NYAA', demo: 'Demo' };
+// Map of provider id → display name, populated from /api/providers.
+// Used by the status bar and result cards; falls back to the raw id.
+const PROVIDER_LABEL = {};
 
 // ---------- providers ----------
 async function loadProviders() {
@@ -25,6 +27,7 @@ async function loadProviders() {
     const chips = $('#provider-chips');
     chips.innerHTML = '';
     providers.forEach((p) => {
+      PROVIDER_LABEL[p.id] = p.name;
       const el = document.createElement('div');
       el.className = `chip${p.enabled ? ' on' : ''}${p.demo ? ' demo' : ''}`;
       el.dataset.id = p.id;

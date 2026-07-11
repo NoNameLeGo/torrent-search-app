@@ -51,7 +51,9 @@ This is a **Windows-first** project. `start.bat`/`stop.bat` are the primary dev 
 
 ## Tauri experiment branch (`feat/tauri`)
 
-Route A proof-of-concept: keep the existing Node/Express backend as a **sidecar** bundled inside a Tauri app, so the 44 providers and `public/` frontend are reused unchanged.
+> **分支用途**：`feat/tauri` 是一条**独立的实验分支**，专门用来用 GitHub Actions 构建 Tauri 打包版本，与 `main` 上的 Electron 打包相互隔离。Tauri 相关代码（Rust shell、配置、CI）只在这一分支演进；要发布 Tauri 安装包，从这条分支打 `v*` tag 并推到 GitHub 即可触发统一发布工作流。
+
+Route A proof-of-concept: keep the existing Node/Express backend as a **sidecar** bundled inside a Tauri app, so the 40 providers and `public/` frontend are reused unchanged.
 
 ```
 src-tauri/                 ← Tauri v2 Rust shell + config (Cargo.toml, tauri.conf.json, src/main.rs, capabilities)
@@ -63,7 +65,56 @@ scripts/gen-icon.mjs       ← regenerates src-tauri/icons/* (run if icons chang
 - `server.js` gains two optional flags for Tauri: `--port <n>` and `--public-dir <path>`. The frontend is shipped as a Tauri `bundle.resources` entry (`../public` → `public`), so express serves it from the real OS path at runtime.
 - Dev: `npm run dev:tauri` — Tauri serves `http://localhost:3000` from a plain `node server.js` (no sidecar used in dev).
 - Release: `npm run build:tauri` — Rust picks a free port, spawns the bundled sidecar with `--port`/`--public-dir`, waits for `/api/health`, then loads it.
-- CI: `.github/workflows/tauri-build.yml` validates the build on push/PR (no release); `.github/workflows/tauri-release.yml` produces the NSIS installer on `tauri-v*` tags.
-- Route B (later): port the 44 providers to Rust/Tauri commands to drop the Node sidecar and shrink the bundle.
+- Route B (later): port the 40 providers to Rust/Tauri commands to drop the Node sidecar and shrink the bundle.
+
+### Release 产物对照（哪个是 Tauri、哪个是 Electron）
+
+统一发布工作流 `.github/workflows/release.yml` 在打 `v*` tag 时，会**并行构建 Electron 与 Tauri 两个安装包，并上传到【同一个】GitHub Release**。Asset 文件名区分如下：
+
+| 产物 | 文件名（示例） | 来自 |
+| --- | --- | --- |
+| Electron 安装包 (NSIS) | `dist/BT聚合搜索-Setup-<版本>.exe` | Electron job（基于 `main` 分支代码） |
+| Electron 便携版 (zip) | `dist/portable/BT聚合搜索-portable.zip` | Electron job |
+| Tauri 安装包 (NSIS) | `src-tauri/target/release/bundle/nsis/BT聚合搜索_<版本>_x64-setup.exe` | Tauri job（**显式 `checkout ref: feat/tauri`** 取 Tauri 代码） |
+
+- **识别要点**：文件名带下划线 `_x64-setup`、且来自 `src-tauri/...` 的是 **Tauri**；带 `Setup` 或 `-portable.zip`、来自 `dist/` 的是 **Electron**。
+- Tauri job 会单独 `checkout feat/tauri`，所以即使从其他分支打 `v*` tag，Tauri 包也始终基于 `feat/tauri` 分支。
+
+### Release 末尾自动附「Tauri vs Electron 区别」
+
+每次发布，`release.yml` 的 publish job 会把 `docs/RELEASE_ARTIFACTS.md` 的内容**自动追加到 Release 正文末尾**（GitHub 自动更新日志 + 分隔线 + 该模板），说明三种安装包的体积、运行方式、成熟度与选型建议。**要修改文案只改 `docs/RELEASE_ARTIFACTS.md` 一个文件即可，无需改动 workflow。**
+
+### Tauri 构建验证（CI）
+
+- `.github/workflows/tauri-build.yml`：push / PR 到 `feat/tauri` 时**仅构建验证，不发布**（省略 tagName/releaseName，tauri-action 不会创建 release）。
 
 Note: `Cargo.lock` is generated on first `tauri build` (local Rust toolchain or CI) and should be committed for reproducible Windows builds.
+
+### `feat/tauri` is a permanent CI branch, not throwaway
+
+`feat/tauri` exists specifically so GitHub Actions can build the Tauri package: `release.yml`'s `tauri` job does an explicit `checkout` with `ref: feat/tauri`, and `tauri-build.yml` triggers on pushes to it. It is not meant to be squash-merged and deleted — keep the Tauri shell (`src-tauri/`, sidecar scripts) living here. The `main` branch carries the Electron shell.
+
+### Electron vs Tauri — what actually differs
+
+Both ship the **identical** backend (`server.js` + `src/`) and frontend (`public/`); only the desktop wrapper changes. Same search results, same download logic.
+
+| | Electron | Tauri |
+| --- | --- | --- |
+| Renderer | bundled Chromium | system **WebView2** (Win10/11 usually preinstalled) |
+| Installer size | ~150 MB+ | ~40 MB |
+| Backend launch | in-process `require('./server').start(port)` | node.exe **sidecar** spawned with `--port`/`--public-dir` |
+| Maturity | stable, default | experimental |
+| Shell code | `electron/main.js` | `src-tauri/` (Rust) |
+| Lives on branch | `main` | `feat/tauri` |
+
+### Which release artifact is which
+
+`release.yml` (on a `v*` tag) publishes **three** Windows installers to one GitHub Release. Tell them apart by filename:
+
+| Filename pattern | Shell | Build step |
+| --- | --- | --- |
+| `BT聚合搜索-Setup-<ver>.exe` | Electron | `npm run dist` (NSIS) |
+| `BT聚合搜索-portable.zip` | Electron | `npm run build:portable` (green/portable) |
+| `BT聚合搜索_<ver>_x64-setup.exe` | Tauri | `tauri-action` (NSIS) |
+
+User-facing details of the three artifacts live in `docs/RELEASE_ARTIFACTS.md`, which `release.yml` appends to every Release body.

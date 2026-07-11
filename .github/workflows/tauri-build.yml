@@ -1,6 +1,6 @@
 name: Tauri Build (validate)
 
-# Validates that the Tauri app (Rust shell + pkg-compiled Node sidecar) builds
+# Validates that the Tauri app (Rust shell + node.exe sidecar) builds
 # on Windows. Builds only — does NOT create a GitHub Release.
 on:
   push:
