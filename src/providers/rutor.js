@@ -57,12 +57,38 @@ async function searchOn(base, query, page) {
     const m = magnet.match(/btih:([a-f0-9]+)/i);
     if (m) infoHash = m[1];
 
+    // rutor's column layout has drifted from the reference Kotlin source (an
+    // extra "comments" column was inserted), so match cells by content instead
+    // of a fixed index: the size cell looks like "1.44 GB"; seeders/leechers
+    // live in the td that carries two <span>s (green up / red down).
+    let sizeText = '';
+    let seedersText = '';
+    let leechersText = '';
+    $row.find('td').each((_, td) => {
+      const $td = $(td);
+      const t = $td.text().trim();
+      // Russian site may render sizes with Cyrillic units (ГБ/МБ/КБ).
+      // Note: no \b boundary (JS \b only matches ASCII words, so it would
+      // never anchor a Cyrillic unit), and NO bare "B"/"Б" — a name like
+      // "Black Box (2026)" contains a digit AND a "B" and would false-match.
+      if (!sizeText && /\d/.test(t) && /(GB|MB|KB|TB|ГБ|МБ|КБ|ТБ)/i.test(t)) sizeText = t;
+      const spans = $td.find('span');
+      if (spans.length >= 2) {
+        seedersText = $(spans[0]).text().trim();
+        leechersText = $(spans[spans.length - 1]).text().trim();
+      }
+    });
+    // Normalize Cyrillic units + comma decimals so downstream size parsing works.
+    sizeText = sizeText
+      .replace(/ГБ/gi, 'GB').replace(/МБ/gi, 'MB').replace(/КБ/gi, 'KB')
+      .replace(',', '.');
+
     results.push(normalize({
       provider: 'rutor',
       name,
-      size: $row.find('td:nth-child(3)').text(),
-      seeders: $row.find('td:nth-child(4) > span:nth-child(1)').text(),
-      leechers: $row.find('td:nth-child(4) > span:nth-child(3)').text(),
+      size: sizeText,
+      seeders: seedersText,
+      leechers: leechersText,
       date: ruDate($row.find('td:nth-child(1)').text()),
       infoHash,
       magnet,
