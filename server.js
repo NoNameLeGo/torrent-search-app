@@ -4,6 +4,9 @@ const path = require('path');
 const express = require('express');
 const axios = require('axios');
 const providers = require('./src/providers');
+const torznabStore = require('./src/lib/torznabStore');
+const { normalizeApiUrl } = require('./src/providers/torznab');
+const { getText } = require('./src/lib/http');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -102,6 +105,38 @@ app.get('/api/download/qbittorrent/detect', async (req, res) => {
 });
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+// ---- Torznab indexer management (Jackett / Prowlarr / *arr) ----
+// List configured indexers (api keys are masked for the client).
+app.get('/api/torznab', (req, res) => {
+  res.json({ indexers: torznabStore.listPublic() });
+});
+
+// Add a new Torznab indexer.
+app.post('/api/torznab', (req, res) => {
+  const { name, url, apiKey, enabled } = req.body || {};
+  if (!name || !url) return res.status(400).json({ error: 'name and url are required' });
+  const entry = torznabStore.add({ name, url, apiKey, enabled });
+  const pub = torznabStore.listPublic().find((c) => c.id === entry.id);
+  res.json({ indexer: pub });
+});
+
+// Delete a Torznab indexer.
+app.delete('/api/torznab/:id', (req, res) => {
+  torznabStore.remove(req.params.id);
+  res.json({ ok: true });
+});
+
+// Validate an indexer endpoint via a `t=caps` request (no query needed).
+app.post('/api/torznab/test', async (req, res) => {
+  const { url, apiKey } = req.body || {};
+  if (!url) return res.status(400).json({ error: 'url required' });
+  const api = normalizeApiUrl(url);
+  const params = new URLSearchParams({ apikey: apiKey || '', t: 'caps' });
+  const { html, error } = await getText(`${api}?${params.toString()}`, { timeout: 8000 });
+  if (error) return res.json({ ok: false, error });
+  res.json({ ok: true, length: (html || '').length });
+});
 
 function start(port = PORT) {
   return app.listen(port, () => {

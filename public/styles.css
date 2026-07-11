@@ -174,3 +174,19 @@ main { padding: 16px 20px 60px; }
   .search-form { order: 3; flex-basis: 100%; max-width: none; }
   .results { grid-template-columns: 1fr; }
 }
+
+/* Torznab indexers */
+.tn-list { margin: 8px 0; display: flex; flex-direction: column; gap: 6px; }
+.tn-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px; border-radius: 8px; background: rgba(255,255,255,.04);
+  border: 1px solid var(--border);
+}
+.tn-name { font-weight: 600; }
+.tn-url {
+  color: var(--text-dim); font-size: 12px; flex: 1;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tn-form { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.field.inline { flex-direction: row; align-items: center; gap: 6px; }
+.sep { border: none; border-top: 1px solid var(--border); margin: 18px 0; }
