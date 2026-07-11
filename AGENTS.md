@@ -49,6 +49,12 @@ Build caches are redirected to `.cache/` (project-local, gitignored) to avoid po
 
 This is a **Windows-first** project. `start.bat`/`stop.bat` are the primary dev launchers. `npm run electron` and `npm run dist` use `set` (not `export`) for env vars — they are Windows-only scripts.
 
+## Conventions & gotchas
+
+- **Test scrapers from the agent sandbox, not your machine.** The user's local Windows has DNS pollution for many BT sites (Facebook blackhole IPv6 `2a03:2880:face:b00c`), so a provider that fails locally may work from the agent and vice-versa. Verify reachability from the agent runtime; never ask the user to share their network. Status bar ✓/✕ reflects real reachability.
+- **Russian sites (rutor, …):** UTF-8 not windows-1251; match table cells by *content* not column index (an extra `comments` column shifts indices); JS `\b` misses Cyrillic; require a full unit (`GB|MB|TB|ГБ|МБ|ТБ`) so a bare `B` doesn't match "Black Box".
+- **Torznab dynamic indexers** (Jackett/Prowlarr): user-added indexers become runtime providers (`torznab:` id prefix) via `src/lib/torznabStore.js` → `data/torznab.json` (git-ignored, holds API keys). Full contract in `CLAUDE.md`.
+
 ## Tauri experiment branch (`feat/tauri`)
 
 > **分支用途**：`feat/tauri` 是一条**独立的实验分支**，专门用来用 GitHub Actions 构建 Tauri 打包版本，与 `main` 上的 Electron 打包相互隔离。Tauri 相关代码（Rust shell、配置、CI）只在这一分支演进；要发布 Tauri 安装包，从这条分支打 `v*` tag 并推到 GitHub 即可触发统一发布工作流。
