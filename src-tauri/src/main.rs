@@ -5,7 +5,7 @@ use std::net::TcpStream;
 use std::sync::Mutex;
 use std::time::Duration;
 
-use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 
@@ -37,25 +37,47 @@ fn wait_for_health(port: u16) -> bool {
     false
 }
 
+// 创建主窗口，并拦截 Magnet 链接交给系统默认下载工具处理
+// （WebView2 不会自动调起 magnet:，等价于 Electron 的 shell.openExternal）
+fn create_main_window(app: &tauri::AppHandle, url: WebviewUrl) -> WebviewWindow {
+    WebviewWindowBuilder::new(app, "main", url)
+        .title("BT 聚合搜索")
+        .inner_size(1280.0, 800.0)
+        .min_inner_size(900.0, 600.0)
+        .background_color(tauri::webview::Color(15, 17, 21, 255))
+        .on_navigation(|url| {
+            if url.scheme() == "magnet" {
+                // 用系统默认程序（如 qBittorrent）打开磁力链接，不在 webview 内导航
+                let _ = tauri_plugin_opener::open_url(url.to_string(), None::<&str>);
+                false
+            } else {
+                true
+            }
+        })
+        .build()
+        .expect("failed to build main window")
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            // 第二实例启动 → 聚焦已存在的窗口（避免重复开后端）
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.show();
+                let _ = w.set_focus();
+            }
+        }))
         .manage(SidecarProc(Mutex::new(None)))
         .setup(|app| {
             // 开发模式：sidecar 由 beforeDevCommand 拉起，固定监听 3000
             #[cfg(debug_assertions)]
             {
-                let _main = WebviewWindowBuilder::new(
-                    app,
-                    "main",
+                let _main = create_main_window(
+                    app.handle(),
                     WebviewUrl::External("http://127.0.0.1:3000/".parse().unwrap()),
-                )
-                .title("BT 聚合搜索")
-                .inner_size(1280.0, 800.0)
-                .min_inner_size(900.0, 600.0)
-                .background_color(tauri::webview::Color(15, 17, 21, 255))
-                .build()
-                .expect("failed to build main window (dev)");
+                );
             }
 
             // 发布模式：在 setup 里拉起 sidecar（随机端口），就绪后创建窗口
@@ -113,20 +135,12 @@ fn main() {
                     eprintln!("sidecar server did not become healthy in time");
                 }
 
-                // 用动态端口直接创建窗口（Tauri v2 的 WebviewWindow 没有 load()）
-                let _main = WebviewWindowBuilder::new(
-                    app,
-                    "main",
+                let _main = create_main_window(
+                    app.handle(),
                     WebviewUrl::External(
                         format!("http://127.0.0.1:{port}/").parse().expect("invalid sidecar url"),
                     ),
-                )
-                .title("BT 聚合搜索")
-                .inner_size(1280.0, 800.0)
-                .min_inner_size(900.0, 600.0)
-                .background_color(tauri::webview::Color(15, 17, 21, 255))
-                .build()
-                .expect("failed to build main window (release)");
+                );
             }
             Ok(())
         })
