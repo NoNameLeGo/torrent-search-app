@@ -79,13 +79,13 @@
 | XXXTracker | xxxtracker | src/providers/xxxtracker.js |
 | ZeroMagnet | zeromagnet | src/providers/zeromagnet.js |
 
-### 仍待实现（1 个框架引擎）
+### Torznab 框架引擎（已实现）
 
 | 原仓库引擎 | 当前项目状态 |
 |---|---|
-| `TorznabSearchProvider`（Jackett / Prowlarr / *arr 自定义索引器接入） | ❌ 未移植 |
+| `TorznabSearchProvider`（Jackett / Prowlarr / *arr 自定义索引器接入） | ✅ 已实现（动态索引器框架） |
 
-> 当前项目暂无 `torznab` 实现，无法通过 Torznab API 接入自托管索引器；可后续单独实现。
+> 以“用户配置型索引器”形式实现：用户在前端设置面板添加 Jackett/Prowlarr 的 Torznab Feed（到 `/api` 的完整 URL + API Key），后端存入 `data/torznab.json`（已被 `.gitignore` 忽略，含 API Key 不入库），`src/providers/index.js` 的 `list()/getProvider()/search()` 动态合并已启用的索引器（`id` 前缀 `torznab:`）。涉及文件：`src/providers/torznab.js`、`src/lib/torznabStore.js`、`server.js`（GET/POST/DELETE `/api/torznab` + `/api/torznab/test`）、`public/*`（配置面板）。`parseItems` 已通过单元测试验证可正确解析 RSS（seeders/leechers/infohash/size/category）。
 
 ---
 
@@ -102,19 +102,20 @@
 | 维度 | 数量 |
 |---|---|
 | 原仓库内置站点引擎总数 | 40 |
-| 原仓库 Torznab 框架引擎 | 1 |
-| 当前项目已移植的站点引擎 | 6 |
-| 当前项目未移植的站点引擎 | 34 |
+| 原仓库 Torznab 框架引擎 | 1（已实现，动态索引器框架） |
+| 当前项目已移植的站点引擎 | 40（含原 6 + 新 34） |
+| 当前项目未移植的站点引擎 | 0 |
 | 当前项目特有引擎（Demo） | 1 |
-| 站点引擎移植覆盖率 | 6 / 40 ≈ 15% |
+| 站点引擎移植覆盖率 | 40 / 40 = 100% |
+| Torznab 框架 | ✅ 已实现 |
 
 ---
 
 ## 建议
 
-若需提升覆盖率，优先级建议（按站点通用性与中文用户友好度粗排）：
-1. `Eztv`、`LimeTorrents`、`Rutor`、`Torrent9`、`TorrentKitty`、`TorrentDownloads` —— 通用影视/综合类，移植价值高。
-2. `AnimeTosho`、`SubsPlease`、`Dmhy`、`Mikan` —— 动漫类补充（当前仅有 NYAA / Sukebei 缺位）。
-3. 实现 `TorznabSearchProvider` 框架 —— 一次性接入 Jackett / Prowlarr，可间接覆盖海量索引器，性价比最高。
+站点引擎与 Torznab 框架均已落地，移植已 100% 对齐原仓库。后续可关注：
+1. **逐站选择器精修**（需联网）：部分引擎的尺寸/做种列选择器可能与当前站点 HTML 漂移（如 rutor 的 `size` 显示为 "12 B"、`seeders` 为 null；`eztv` 站点启用 Cloudflare 防护，直连报 `ERR_BAD_REQUEST`，可能需要绕过或更新域名）。
+2. **Torznab 进阶**：可补充 caps 分类缓存、按分类搜索、失败重试与超时控制。
+3. 运行 `npm start`（或 `npm run electron`）后，在设置面板添加 Jackett/Prowlarr 索引器，应用会自动把它作为搜索引擎加载。
 
 每个引擎的移植方式：在 `src/providers/` 下新增同名 `.js`，导出 `{ id, name, search, resolveMagnet? }`，并在 `src/providers/index.js` 的 `REGISTRY` 中注册即可。
