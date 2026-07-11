@@ -1,0 +1,43 @@
+name: Tauri Build (validate)
+
+# Validates that the Tauri app (Rust shell + pkg-compiled Node sidecar) builds
+# on Windows. Builds only — does NOT create a GitHub Release.
+on:
+  push:
+    branches: [feat/tauri]
+  pull_request:
+    branches: [feat/tauri, main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install dependencies
+        # --ignore-scripts skips Electron's Chromium download (not needed here).
+        run: npm install --ignore-scripts
+
+      - name: Build Tauri app (no release)
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: ''

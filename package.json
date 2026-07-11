@@ -10,7 +10,11 @@
     "dev": "node server.js",
     "electron": "set ELECTRON_CACHE=.cache\\electron&& electron .",
     "dist": "set ELECTRON_CACHE=.cache\\electron&& set ELECTRON_BUILDER_CACHE=.cache\\builder&& electron-builder --publish=onTag",
-    "build:portable": "node scripts/build-portable.js"
+    "build:portable": "node scripts/build-portable.js",
+    "tauri": "tauri",
+    "dev:tauri": "tauri dev",
+    "build:tauri": "tauri build",
+    "build:sidecar": "node scripts/prepare-sidecar.mjs"
   },
   "dependencies": {
     "axios": "^1.7.7",
@@ -45,6 +49,7 @@
     }
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2",
     "electron": "^43.1.0",
     "electron-builder": "^26.15.3"
   }

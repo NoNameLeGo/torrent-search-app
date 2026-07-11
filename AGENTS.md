@@ -48,3 +48,22 @@ Build caches are redirected to `.cache/` (project-local, gitignored) to avoid po
 ## Platform note
 
 This is a **Windows-first** project. `start.bat`/`stop.bat` are the primary dev launchers. `npm run electron` and `npm run dist` use `set` (not `export`) for env vars — they are Windows-only scripts.
+
+## Tauri experiment branch (`feat/tauri`)
+
+Route A proof-of-concept: keep the existing Node/Express backend as a **sidecar** bundled inside a Tauri app, so the 44 providers and `public/` frontend are reused unchanged.
+
+```
+src-tauri/                 ← Tauri v2 Rust shell + config (Cargo.toml, tauri.conf.json, src/main.rs, capabilities)
+scripts/prepare-sidecar.mjs ← copies the real node.exe to src-tauri/binaries/server-<triple>.exe
+scripts/gen-icon.mjs       ← regenerates src-tauri/icons/* (run if icons change)
+```
+
+- The sidecar binary (`src-tauri/binaries/server-<triple>.exe`) is a **copy of node.exe**, prepared by `npm run build:sidecar` and git-ignored. The backend code (`server.js`, `src/`) and `node_modules` are shipped as Tauri `bundle.resources`, so no `pkg`/compilation step is needed — robust against ESM deps (cheerio) and network restrictions.
+- `server.js` gains two optional flags for Tauri: `--port <n>` and `--public-dir <path>`. The frontend is shipped as a Tauri `bundle.resources` entry (`../public` → `public`), so express serves it from the real OS path at runtime.
+- Dev: `npm run dev:tauri` — Tauri serves `http://localhost:3000` from a plain `node server.js` (no sidecar used in dev).
+- Release: `npm run build:tauri` — Rust picks a free port, spawns the bundled sidecar with `--port`/`--public-dir`, waits for `/api/health`, then loads it.
+- CI: `.github/workflows/tauri-build.yml` validates the build on push/PR (no release); `.github/workflows/tauri-release.yml` produces the NSIS installer on `tauri-v*` tags.
+- Route B (later): port the 44 providers to Rust/Tauri commands to drop the Node sidecar and shrink the bundle.
+
+Note: `Cargo.lock` is generated on first `tauri build` (local Rust toolchain or CI) and should be committed for reproducible Windows builds.

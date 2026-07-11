@@ -9,10 +9,29 @@ const { normalizeApiUrl } = require('./src/providers/torznab');
 const { getText } = require('./src/lib/http');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+
+// Resolve listen port from --port <n> (used by the Tauri sidecar) or PORT env, default 3000.
+function resolvePort() {
+  const i = process.argv.indexOf('--port');
+  if (i !== -1 && process.argv[i + 1]) {
+    const p = parseInt(process.argv[i + 1], 10);
+    if (Number.isFinite(p) && p > 0) return p;
+  }
+  return process.env.PORT || 3000;
+}
+const PORT = resolvePort();
+
+// Static frontend dir: --public-dir <path> (Tauri ships `public/` as a resource),
+// else fall back to ./public (normal `node server.js` dev run).
+function resolvePublicDir() {
+  const i = process.argv.indexOf('--public-dir');
+  if (i !== -1 && process.argv[i + 1]) return process.argv[i + 1];
+  return path.join(__dirname, 'public');
+}
+const PUBLIC_DIR = resolvePublicDir();
 
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(PUBLIC_DIR));
 
 // List available search engines.
 app.get('/api/providers', (req, res) => {

@@ -39,3 +39,8 @@ data/
 
 # 打包产物（portable 版约 360MB，不入库）
 dist/
+
+# Tauri（Rust 构建产物 + 生成的 sidecar 二进制与生成文件）
+src-tauri/target/
+src-tauri/binaries/
+src-tauri/gen/

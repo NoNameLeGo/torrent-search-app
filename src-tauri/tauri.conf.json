@@ -1,0 +1,52 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "BT 聚合搜索",
+  "version": "0.0.1-beta",
+  "identifier": "com.torrentsearch.app",
+  "build": {
+    "beforeDevCommand": "npm run build:sidecar && node server.js",
+    "devUrl": "http://localhost:3000",
+    "beforeBuildCommand": "npm prune --omit=dev --ignore-scripts && npm run build:sidecar",
+    "frontendDist": "../public"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "BT 聚合搜索",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 900,
+        "minHeight": 600,
+        "backgroundColor": "#0f1115"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self' http://127.0.0.1:* http://localhost:* data: blob: 'unsafe-inline' 'unsafe-eval'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico",
+      "icons/icon.png"
+    ],
+    "externalBin": ["binaries/server"],
+    "resources": {
+      "../server.js": "server.js",
+      "../src": "src",
+      "../public": "public",
+      "../node_modules": "node_modules"
+    },
+    "windows": {
+      "nsis": {
+        "oneClick": false,
+        "allowToChangeInstallationDirectory": true
+      }
+    }
+  }
+}
