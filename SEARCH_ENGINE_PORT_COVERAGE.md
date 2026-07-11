@@ -7,7 +7,7 @@
 
 ## 结论
 
-**未完整移植。** 当前项目仅移植了原仓库 40 个内置站点引擎中的 **6 个**（覆盖率约 15%），并且 **未实现** 原仓库的 Torznab 自定义引擎框架。此外，当前项目多出一个原仓库不存在的本地 `Demo (offline)` 引擎（仅用于离线演示/测试）。
+**已全部移植完成。** 当前项目已覆盖原仓库 40 个内置站点引擎中的 **全部 40 个**（覆盖率 100%），并保留原仓库没有的本地 `Demo (offline)` 引擎（离线演示/测试用）。**唯一未实现的是** 原仓库的 Torznab 自定义索引器框架（Jackett / Prowlarr / *arr 接入），可后续单独做。详见下方“移植状态更新”。
 
 ---
 
@@ -35,54 +35,57 @@
 
 ---
 
-## 未移植（34 / 40 站点 + 1 Torznab）
+## 移植状态更新（已全部完成 ✅）
 
-### 1. 未移植的内置站点引擎（34 个）
+> 更新于 2026-07-11：原报告撰写时的“未移植 34 个”现已全部移植完毕。
+> 当前项目 `src/providers/` 已覆盖原仓库全部 **40 个内置站点引擎** + 1 个本地 `Demo` 引擎（共 41 个，见 `index.js` 的 REGISTRY）。
 
-| # | 原仓库引擎 | 当前项目状态 |
+### 本次新增移植的 34 个引擎（对应原报告中的“未移植”清单）
+
+| 原仓库引擎 | 当前项目 id | 文件 |
 |---|---|---|
-| 1 | `AniLibria` | ❌ 未移植 |
-| 2 | `AniRena` | ❌ 未移植 |
-| 3 | `AnimeTosho` | ❌ 未移植 |
-| 4 | `AudioBookBay` | ❌ 未移植 |
-| 5 | `BTDigg` | ❌ 未移植 |
-| 6 | `BangumiMoe` | ❌ 未移植 |
-| 7 | `BitSearch` | ❌ 未移植 |
-| 8 | `BlueRoms` | ❌ 未移植 |
-| 9 | `Bt4g` | ❌ 未移植 |
-| 10 | `Dmhy` | ❌ 未移植 |
-| 11 | `Eztv` | ❌ 未移植 |
-| 12 | `FileMood` | ❌ 未移植 |
-| 13 | `InternetArchive` | ❌ 未移植 |
-| 14 | `LimeTorrents` | ❌ 未移植 |
-| 15 | `LinuxTracker` | ❌ 未移植 |
-| 16 | `MegaPeer` | ❌ 未移植 |
-| 17 | `Mikan` | ❌ 未移植 |
-| 18 | `MyPornClub` | ❌ 未移植 |
-| 19 | `NekoBT` | ❌ 未移植 |
-| 20 | `OxTorrent` | ❌ 未移植 |
-| 21 | `Rutor` | ❌ 未移植 |
-| 22 | `SubsPlease` | ❌ 未移植 |
-| 23 | `Sukebei` | ❌ 未移植 |
-| 24 | `TheRarBg` | ❌ 未移植 |
-| 25 | `TokyoToshokan` | ❌ 未移植 |
-| 26 | `Torrent9` | ❌ 未移植 |
-| 27 | `TorrentDatabase` | ❌ 未移植 |
-| 28 | `TorrentDownload` | ❌ 未移植 |
-| 29 | `TorrentDownloads` | ❌ 未移植 |
-| 30 | `TorrentKitty` | ❌ 未移植 |
-| 31 | `UIndex` | ❌ 未移植 |
-| 32 | `XXXClub` | ❌ 未移植 |
-| 33 | `XXXTracker` | ❌ 未移植 |
-| 34 | `ZeroMagnet` | ❌ 未移植 |
+| AniLibria | anilibria | src/providers/anilibria.js |
+| AniRena | anirena | src/providers/anirena.js |
+| AnimeTosho | animetosho | src/providers/animetosho.js |
+| AudioBookBay | audiobookbay | src/providers/audiobookbay.js |
+| BTDigg | btdigg | src/providers/btdigg.js |
+| BangumiMoe | bangumimoe | src/providers/bangumimoe.js |
+| BitSearch | bitsearch | src/providers/bitsearch.js |
+| BlueRoms | blueroms | src/providers/blueroms.js |
+| Bt4g | bt4g | src/providers/bt4g.js |
+| Dmhy | dmhy | src/providers/dmhy.js |
+| Eztv | eztv | src/providers/eztv.js |
+| FileMood | filemood | src/providers/filemood.js |
+| InternetArchive | internetarchive | src/providers/internetarchive.js |
+| LimeTorrents | limetorrents | src/providers/limetorrents.js |
+| LinuxTracker | linuxtracker | src/providers/linuxtracker.js |
+| MegaPeer | megapeer | src/providers/megapeer.js |
+| Mikan | mikan | src/providers/mikan.js |
+| MyPornClub | mypornclub | src/providers/mypornclub.js |
+| NekoBT | nekobt | src/providers/nekobt.js |
+| OxTorrent | oxtorrent | src/providers/oxtorrent.js |
+| Rutor | rutor | src/providers/rutor.js |
+| SubsPlease | subsplease | src/providers/subsplease.js |
+| Sukebei | sukebei | src/providers/sukebei.js |
+| TheRarBg | therarbg | src/providers/therarbg.js |
+| TokyoToshokan | tokyotoshokan | src/providers/tokyotoshokan.js |
+| Torrent9 | torrent9 | src/providers/torrent9.js |
+| TorrentDatabase | torrentdatabase | src/providers/torrentdatabase.js |
+| TorrentDownload | torrentdownload | src/providers/torrentdownload.js |
+| TorrentDownloads | torrentdownloads | src/providers/torrentdownloads.js |
+| TorrentKitty | torrentkitty | src/providers/torrentkitty.js |
+| UIndex | uindex | src/providers/uindex.js |
+| XXXClub | xxxclub | src/providers/xxxclub.js |
+| XXXTracker | xxxtracker | src/providers/xxxtracker.js |
+| ZeroMagnet | zeromagnet | src/providers/zeromagnet.js |
 
-### 2. 未移植的通用框架引擎（1 个）
+### 仍待实现（1 个框架引擎）
 
 | 原仓库引擎 | 当前项目状态 |
 |---|---|
 | `TorznabSearchProvider`（Jackett / Prowlarr / *arr 自定义索引器接入） | ❌ 未移植 |
 
-> 当前项目无任何 `torznab` 相关实现，无法通过 Torznab API 接入自托管索引器。
+> 当前项目暂无 `torznab` 实现，无法通过 Torznab API 接入自托管索引器；可后续单独实现。
 
 ---
 
