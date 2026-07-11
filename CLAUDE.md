@@ -79,3 +79,4 @@ Three workflows, split by shell and trigger:
 - Windows-only npm scripts use `set` (not `export`) for env vars.
 - Scraper providers depend on target-site HTML structure; when a site redesigns, its provider's selectors need updating (the status bar shows per-provider ✓/✕ so breakage is visible).
 - `SEARCH_ENGINE_PORT_COVERAGE.md` tracks which upstream (prajwalch/TorrentSearch) engines have been ported.
+- **Tauri local validation**: `cargo check` (dev) skips code behind `#[cfg(not(debug_assertions))]` — Tauri's release-only `setup` block. CI builds release, so run `cargo check --release` to actually compile it. Also validate `tauri.conf.json` against `node_modules/@tauri-apps/cli/config.schema.json` with `ajv` before pushing (skip `pattern` keywords). The full Tauri v2 gotcha list lives in `AGENTS.md`.

@@ -61,7 +61,7 @@ scripts/prepare-sidecar.mjs ← copies the real node.exe to src-tauri/binaries/s
 scripts/gen-icon.mjs       ← regenerates src-tauri/icons/* (run if icons change)
 ```
 
-- The sidecar binary (`src-tauri/binaries/server-<triple>.exe`) is a **copy of node.exe**, prepared by `npm run build:sidecar` and git-ignored. The backend code (`server.js`, `src/`) and `node_modules` are shipped as Tauri `bundle.resources`, so no `pkg`/compilation step is needed — robust against ESM deps (cheerio) and network restrictions.
+- The sidecar binary (`src-tauri/binaries/server-<triple>.exe`) is a **copy of node.exe**, prepared by `npm run build:sidecar` and git-ignored. The backend code (`server.js`, `src/`) and `node_modules` are shipped as Tauri `bundle.resources`, so no `pkg`/compilation step is needed — robust against ESM deps (cheerio) and network restrictions. **Why not `pkg`**: we evaluated compiling `server.js` into a single exe with `pkg` first; when its prebuilt-Node download misses (common behind rate limits / in CI), `pkg` falls back to **compiling Node from source**, which is slow and fragile. The node.exe-copy sidecar avoids that entirely.
 - `server.js` gains two optional flags for Tauri: `--port <n>` and `--public-dir <path>`. The frontend is shipped as a Tauri `bundle.resources` entry (`../public` → `public`), so express serves it from the real OS path at runtime.
 - Dev: `npm run dev:tauri` — Tauri serves `http://localhost:3000` from a plain `node server.js` (no sidecar used in dev).
 - Release: `npm run build:tauri` — Rust picks a free port, spawns the bundled sidecar with `--port`/`--public-dir`, waits for `/api/health`, then loads it.
@@ -118,3 +118,17 @@ Both ship the **identical** backend (`server.js` + `src/`) and frontend (`public
 | `BT聚合搜索_<ver>_x64-setup.exe` | Tauri | `tauri-action` (NSIS) |
 
 User-facing details of the three artifacts live in `docs/RELEASE_ARTIFACTS.md`, which `release.yml` appends to every Release body.
+
+### Tauri v2 migration gotchas (learned the hard way)
+
+These are compile-time / config-parse errors, not discoverable by reading code — verify against them whenever you touch `src-tauri/`.
+
+- **`tauri.conf.json` `bundle.windows.nsis`** uses `installMode` (`currentUser` / `perMachine` / `both`). The v1 fields `oneClick` / `allowToChangeInstallationDirectory` are **rejected by the v2 schema** → build fails at config parse.
+- **Don't declare `app.windows` in `tauri.conf.json` AND create the window in `setup`** → duplicate label `main` panics at runtime in release. Create the window in `setup` only (so the dynamic-port URL works), leave `app.windows` absent.
+- **`WebviewWindow::load(url)` does not exist in v2.** Create the window with `WebviewWindowBuilder::new(app, "main", url).build()` inside `setup` instead.
+- **`on_navigation(|url| …)` receives `&tauri::Url`, not `&str`** → match on `url.scheme() == "magnet"`, not `url.starts_with(...)`.
+- **`tauri_plugin_shell::Shell::open` is deprecated** → use `tauri_plugin_opener::open_url(url, None::<&str>)` (the `None` must be typed `None::<&str>` or inference fails).
+- **`Color` is `tauri::webview::Color`** in v2 (not `tauri::Color`).
+- **`cargo check` (dev) does NOT compile code behind `#[cfg(not(debug_assertions))]`** — i.e. Tauri's release-only `setup` block (sidecar spawn, dynamic-port window). CI builds release, so run **`cargo check --release`** locally to actually validate it.
+- **Validate `tauri.conf.json` before pushing**: run `ajv` against the bundled `node_modules/@tauri-apps/cli/config.schema.json` (skip `pattern` keywords — a Windows-path regex breaks `ajv` on Windows). This catches schema errors locally instead of burning a CI run.
+- **`tauri-apps/tauri-action` is `@v1`** (not v0). Build-only (no release) is achieved by **omitting** `tagName`/`releaseName`, not by an `includeRelease: false` flag.
