@@ -8,9 +8,9 @@
 
 | 产物 | 文件名（示例） | 体积（约） | 一句话定位 |
 | --- | --- | --- | --- |
-| Electron 安装包 (NSIS) | `BT聚合搜索-Setup-<版本>.exe` | 150 MB+ | 标准安装，最成熟稳定 |
-| Electron 便携版 (zip) | `BT聚合搜索-portable.zip` | 150 MB+ | 解压即用，绿色免安装 |
-| Tauri 安装包 (NSIS) | `BT聚合搜索_<版本>_x64-setup.exe` | 40 MB | 小巧轻量，实验性尝鲜 |
+| Electron 安装包 (NSIS) | `BT聚合搜索-Electron-Setup-<版本>.exe` | 150 MB+ | 标准安装，最成熟稳定 |
+| Electron 便携版 (zip) | `BT聚合搜索-Electron-便携版.zip` | 150 MB+ | 解压即用，绿色免安装 |
+| Tauri 安装包 (NSIS) | `BT聚合搜索-Tauri-Setup-<版本>.exe` | 40 MB | 小巧轻量，实验性尝鲜 |
 
 ## 三者有什么区别？
 
