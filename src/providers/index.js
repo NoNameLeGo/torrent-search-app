@@ -71,10 +71,15 @@ const xxxclub = require('./xxxclub');
 const xxxtracker = require('./xxxtracker');
 
 // Order here is the default enable order shown in the UI.
+// `paginated: true` marks providers whose `search` actually consumes the `page`
+// argument (page reaches the request URL/params). The other providers ignore
+// `page` and return the same single-shot result set regardless — so from page 2
+// onward we only re-query the paginated ones (see search()/searchStream()),
+// avoiding wasted requests that just get deduped away client-side.
 const REGISTRY = [
   { ...tpb, enabled: true },
-  { ...x1337, enabled: true },
-  { ...nyaa, enabled: true },
+  { ...x1337, enabled: true, paginated: true },
+  { ...nyaa, enabled: true, paginated: true },
   { ...yts, enabled: true },
   { ...knaben, enabled: true },
   { ...torrentscsv, enabled: true },
@@ -82,18 +87,18 @@ const REGISTRY = [
   { ...anirena, enabled: true },
   { ...animetosho, enabled: true },
   { ...bangumimoe, enabled: true },
-  { ...dmhy, enabled: true },
+  { ...dmhy, enabled: true, paginated: true },
   { ...mikan, enabled: true },
   { ...subsplease, enabled: true },
   { ...sukebei, enabled: true },
   { ...tokyotoshokan, enabled: true },
   { ...nekobt, enabled: true },
-  { ...bt4g, enabled: true },
+  { ...bt4g, enabled: true, paginated: true },
   { ...btdigg, enabled: true },
   { ...eztv, enabled: true },
-  { ...limetorrents, enabled: true },
+  { ...limetorrents, enabled: true, paginated: true },
   { ...therarbg, enabled: true },
-  { ...rutor, enabled: true },
+  { ...rutor, enabled: true, paginated: true },
   { ...torrent9, enabled: true },
   { ...torrentdownload, enabled: true },
   { ...torrentdownloads, enabled: true },
@@ -101,7 +106,7 @@ const REGISTRY = [
   { ...torrentkitty, enabled: true },
   { ...uindex, enabled: true },
   { ...zeromagnet, enabled: true },
-  { ...bitsearch, enabled: true },
+  { ...bitsearch, enabled: true, paginated: true },
   { ...oxtorrent, enabled: true },
   { ...audiobookbay, enabled: true },
   { ...blueroms, enabled: true },
@@ -120,7 +125,7 @@ function list() {
     id: p.id, name: p.name, enabled: true,
   }));
   return [
-    ...REGISTRY.map((p) => ({ id: p.id, name: p.name, enabled: p.enabled, demo: !!p.demo })),
+    ...REGISTRY.map((p) => ({ id: p.id, name: p.name, enabled: p.enabled, demo: !!p.demo, paginated: !!p.paginated })),
     ...dyn,
   ];
 }
@@ -133,14 +138,20 @@ function getProvider(id) {
   return REGISTRY.find((p) => p.id === id);
 }
 
-// Resolve the enabled provider objects matching an optional comma-separated
-// id filter (static registry + dynamic Torznab indexers).
-function resolveTargets(providers) {
+// Resolve the enabled provider objects for a request. From page 2 onward we
+// drop the single-shot providers: they ignore `page` and would just return the
+// same results to be deduped away — only paginated providers (and demo, which
+// paginates its local pool) can yield genuinely new results deeper in.
+function resolveTargets(providers, page) {
   const wanted = providers
     ? providers.split(',').map((s) => s.trim()).filter(Boolean)
     : null;
-  return REGISTRY.concat(dynamicTorznabProviders()).filter((p) =>
-    p.enabled && (!wanted || wanted.includes(p.id)));
+
+  return REGISTRY.concat(dynamicTorznabProviders()).filter((p) => {
+    if (!p.enabled || (wanted && !wanted.includes(p.id))) return false;
+    if (page > 1 && !p.paginated && !p.demo) return false;
+    return true;
+  });
 }
 
 // Run a single provider in isolation, timing it and never throwing.
@@ -168,19 +179,22 @@ async function runProvider(p, query, page) {
   }
 }
 
-// Aggregate the per-provider hasMore flags into a single boolean.
-// Demo paginates locally; a real provider signalling hasMore also counts.
-function aggregateHasMore(targets, perProvider, totalResults) {
-  if (totalResults === 0) return false;
-  const demoProv = targets.find((p) => p.demo);
-  if (demoProv && perProvider[demoProv.id] && perProvider[demoProv.id].hasMore) return true;
-  return Object.values(perProvider).some((s) => s.status === 'ok' && !demoProv);
+// Honest aggregate hasMore: a paginated provider that returned results this page
+// may have a next page; demo reports its own hasMore; single-shot providers are
+// exhausted after page 1 and never claim more. Empty result set ⇒ no next page.
+function aggregateHasMore(targets, perProvider) {
+  return targets.some((p) => {
+    const s = perProvider[p.id];
+    if (!s || s.status !== 'ok' || s.count === 0) return false;
+    if (p.demo) return !!s.hasMore;
+    return !!p.paginated;
+  });
 }
 
 // Run search across the requested (enabled) providers in parallel.
 // Each provider is isolated: a failure in one never breaks the others.
 async function search(query, { providers = null, page = 1 } = {}) {
-  const targets = resolveTargets(providers);
+  const targets = resolveTargets(providers, page);
 
   const perProvider = {};
   const settled = await Promise.all(targets.map(async (p) => {
@@ -190,7 +204,7 @@ async function search(query, { providers = null, page = 1 } = {}) {
   }));
 
   const results = settled.flat();
-  const hasMore = aggregateHasMore(targets, perProvider, results.length);
+  const hasMore = aggregateHasMore(targets, perProvider);
   return { results, providers: perProvider, hasMore };
 }
 
@@ -199,21 +213,19 @@ async function search(query, { providers = null, page = 1 } = {}) {
 // updates instead of waiting for the slowest provider. Resolves once every
 // provider has reported, returning the same aggregate as search().
 async function searchStream(query, { providers = null, page = 1 } = {}, onProvider) {
-  const targets = resolveTargets(providers);
+  const targets = resolveTargets(providers, page);
 
   const perProvider = {};
-  let total = 0;
   await Promise.all(targets.map(async (p) => {
     const { results, status } = await runProvider(p, query, page);
     perProvider[p.id] = status;
-    total += results.length;
     if (typeof onProvider === 'function') {
       onProvider({ id: p.id, name: p.name, results, status });
     }
   }));
 
-  const hasMore = aggregateHasMore(targets, perProvider, total);
-  return { providers: perProvider, hasMore, count: total };
+  const hasMore = aggregateHasMore(targets, perProvider);
+  return { providers: perProvider, hasMore };
 }
 
 module.exports = { list, getProvider, search, searchStream };
