@@ -152,7 +152,7 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           name: BT 聚合搜索 ${{ github.ref_name }}
-          draft: true
+          draft: false
           body_path: release-body.md
           files: artifacts/**/*
         env:
