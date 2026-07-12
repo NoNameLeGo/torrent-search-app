@@ -39,7 +39,7 @@ src/lib/normalize.js  ← size/date/magnet parsing → canonical TorrentResult s
 ## Electron packaging
 
 ```bash
-npm run dist          # NSIS installer → dist/BT聚合搜索-Electron-Setup-<版本>.exe
+npm run dist          # NSIS installer → dist/BT-Search-Electron-Setup-<版本>.exe
 npm run build:portable  # manual portable build → dist/portable/
 ```
 
@@ -79,9 +79,9 @@ scripts/gen-icon.mjs       ← regenerates src-tauri/icons/* (run if icons chang
 
 | 产物 | 文件名（示例） | 来自 |
 | --- | --- | --- |
-| Electron 安装包 (NSIS) | `dist/BT聚合搜索-Electron-Setup-<版本>.exe` | Electron job（基于 `main` 分支代码） |
-| Electron 便携版 (zip) | `dist/portable/BT聚合搜索-Electron-便携版.zip` | Electron job |
-| Tauri 安装包 (NSIS) | `src-tauri/target/release/bundle/nsis/BT聚合搜索-Tauri-Setup-<版本>.exe` | Tauri job（**显式 `checkout ref: feat/tauri`** 取 Tauri 代码） |
+| Electron 安装包 (NSIS) | `dist/BT-Search-Electron-Setup-<版本>.exe` | Electron job（基于 `main` 分支代码） |
+| Electron 便携版 (zip) | `dist/portable/BT-Search-Electron-Portable.zip` | Electron job |
+| Tauri 安装包 (NSIS) | `src-tauri/target/release/bundle/nsis/BT-Search-Tauri-Setup-<版本>.exe` | Tauri job（**显式 `checkout ref: feat/tauri`** 取 Tauri 代码） |
 
 - **识别要点**：文件名带 `-Tauri-` 的是 **Tauri**（`release.yml` 的 tauri job 用 `mv` 重命名，版本号取自 `tauri.conf.json`）；带 `-Electron-` 的是 **Electron**。所有产物名都显式含 shell 标识，用户不会混淆。
 - Electron 安装包名由 `package.json` 的 `build.win.artifactName` 决定；Electron 便携版 zip 名与 Tauri 安装包名都在 `release.yml` 里定（便携版是 `Compress-Archive` 的 `-DestinationPath`，Tauri 是 upload 前的 `Rename Tauri installer` 步）。**改命名要同时改这三处 + `docs/RELEASE_ARTIFACTS.md` 的示例名。**
@@ -124,9 +124,9 @@ Both ship the **identical** backend (`server.js` + `src/`) and frontend (`public
 
 | Filename pattern | Shell | Build step |
 | --- | --- | --- |
-| `BT聚合搜索-Electron-Setup-<ver>.exe` | Electron | `npm run dist` (NSIS) |
-| `BT聚合搜索-Electron-便携版.zip` | Electron | `npm run build:portable` (green/portable) |
-| `BT聚合搜索-Tauri-Setup-<ver>.exe` | Tauri | `tauri-action` (NSIS), renamed in the `Rename Tauri installer` step |
+| `BT-Search-Electron-Setup-<ver>.exe` | Electron | `npm run dist` (NSIS) |
+| `BT-Search-Electron-Portable.zip` | Electron | `npm run build:portable` (green/portable) |
+| `BT-Search-Tauri-Setup-<ver>.exe` | Tauri | `tauri-action` (NSIS), renamed in the `Rename Tauri installer` step |
 
 Every artifact name carries an explicit `-Electron-`/`-Tauri-` tag so users can't confuse them. User-facing details of the three artifacts live in `docs/RELEASE_ARTIFACTS.md`, which `release.yml` appends to every Release body. The Release is published **directly (not as a draft)** — publish job uses `draft: false`, so a `v*` tag ships a live Release with no manual "Publish" click.
 

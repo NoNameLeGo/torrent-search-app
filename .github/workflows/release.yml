@@ -48,7 +48,7 @@ jobs:
         run: npm install --omit=dev
 
       - name: Zip portable
-        run: Compress-Archive -Path "dist/portable/BT聚合搜索" -DestinationPath "dist/portable/BT聚合搜索-Electron-便携版.zip"
+        run: Compress-Archive -Path "dist/portable/BT聚合搜索" -DestinationPath "dist/portable/BT-Search-Electron-Portable.zip"
 
       - name: Upload Electron artifacts
         uses: actions/upload-artifact@v4
@@ -97,7 +97,7 @@ jobs:
         run: |
           ver=$(node -p "require('./src-tauri/tauri.conf.json').version")
           exe=$(ls src-tauri/target/release/bundle/nsis/*.exe | head -1)
-          mv "$exe" "src-tauri/target/release/bundle/nsis/BT聚合搜索-Tauri-Setup-${ver}.exe"
+          mv "$exe" "src-tauri/target/release/bundle/nsis/BT-Search-Tauri-Setup-${ver}.exe"
 
       - name: Upload Tauri artifact
         uses: actions/upload-artifact@v4

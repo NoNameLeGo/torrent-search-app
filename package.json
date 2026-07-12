@@ -36,7 +36,7 @@
     },
     "win": {
       "target": "nsis",
-      "artifactName": "BT聚合搜索-Electron-Setup-${version}.${ext}"
+      "artifactName": "BT-Search-Electron-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,

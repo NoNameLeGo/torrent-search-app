@@ -49,7 +49,7 @@ dist/portable/BT聚合搜索/BT聚合搜索.exe
 ```bash
 npm install          # 已含 electron / electron-builder（开发依赖）
 npm run electron     # 开发模式：直接开桌面窗口运行
-npm run dist         # 打包成 Windows 安装包（输出到 dist/，形如 BT聚合搜索-Setup-1.0.0.exe）
+npm run dist         # 打包成 Windows 安装包（输出到 dist/，形如 BT-Search-Electron-Setup-<版本>.exe）
 ```
 
 > 打包用的是 `electron-builder`（NSIS 安装包，可自选安装目录）。安装包约 70–90MB、解压后硬盘占用约 150–200MB——体积主要来自 Electron 自带的 Chromium 运行时，与项目代码量无关。
