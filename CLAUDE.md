@@ -67,7 +67,7 @@ Magnet links: WebView2/Electron won't auto-invoke `magnet:`, so both shells inte
 Three workflows, split by shell and trigger:
 
 - **`build.yml`** — Electron only. Runs on push to `main` (or manual). Builds the NSIS installer + portable zip, uploads as artifacts.
-- **`release.yml`** — Electron **and** Tauri together. Runs on `v*` tags (or manual). Three parallel jobs: `electron` (checks out the trigger ref), `tauri` (explicitly checks out `feat/tauri`), then `publish` bundles both into a single **draft** GitHub Release, appending `docs/RELEASE_ARTIFACTS.md` as the body.
+- **`release.yml`** — Electron **and** Tauri together. Runs on `v*` tags (or manual). Three parallel jobs: `electron` (checks out the trigger ref), `tauri` (explicitly checks out `feat/tauri`), then `publish` bundles both into a single GitHub Release (published **directly, `draft: false`** — no manual "Publish" click), appending `docs/RELEASE_ARTIFACTS.md` as the body. Every artifact name carries an explicit `-Electron-`/`-Tauri-` tag (`BT聚合搜索-Electron-Setup-<ver>.exe`, `BT聚合搜索-Electron-便携版.zip`, `BT聚合搜索-Tauri-Setup-<ver>.exe`) so the two shells' installers can't be confused. Renaming lives in three places — `package.json` `build.win.artifactName` (Electron installer), `release.yml`'s `Zip portable` step (Electron portable) and `Rename Tauri installer` step (Tauri) — plus the example names in `docs/RELEASE_ARTIFACTS.md`.
 - **`tauri-build.yml`** — Tauri only, validation. Runs on push to `feat/tauri` and on PRs; builds but never releases.
 
 `src-tauri/Cargo.lock` is committed for reproducible Windows builds. See the "Two desktop shells" section and `docs/RELEASE_ARTIFACTS.md` for how the resulting installers differ.
