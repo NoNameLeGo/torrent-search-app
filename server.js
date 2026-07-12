@@ -30,6 +30,21 @@ function resolvePublicDir() {
 }
 const PUBLIC_DIR = resolvePublicDir();
 
+// 仅允许 http/https 协议的外部 URL。qBittorrent / Jackett / Prowlarr 本身
+// 通常跑在 localhost 或内网，这里不做主机白名单，只挡掉 file:// / ftp:// 等
+// 非预期协议，避免把后端当成任意协议的代理。返回规范化后的 URL 字符串或 null。
+function safeHttpUrl(raw) {
+  if (!raw) return null;
+  let u;
+  try {
+    u = new URL(String(raw).trim());
+  } catch (e) {
+    return null;
+  }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+  return u.toString();
+}
+
 app.use(express.json());
 app.use(express.static(PUBLIC_DIR));
 
@@ -100,6 +115,7 @@ app.get('/api/search/stream', async (req, res) => {
 app.get('/api/magnet', async (req, res) => {
   const { provider, url } = req.query;
   if (!url) return res.status(400).json({ error: 'missing url' });
+  if (!safeHttpUrl(url)) return res.status(400).json({ error: 'invalid_url_scheme' });
   const p = providers.getProvider(provider);
   if (p && typeof p.resolveMagnet === 'function') {
     const r = await p.resolveMagnet(url);
@@ -113,6 +129,22 @@ app.get('/api/magnet', async (req, res) => {
   }
   res.status(404).json({ error: 'no resolver' });
 });
+
+// Validate that a user-supplied URL uses http/https only, rejecting other
+// schemes (file:, ftp:, etc.). Returns the trimmed URL or null if invalid.
+// The backend fetches these URLs server-side, so an unvalidated scheme would
+// let the client point us at arbitrary local resources.
+function safeHttpUrl(url) {
+  const s = String(url || '').trim();
+  if (!s) return null;
+  try {
+    const u = new URL(s);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+    return s;
+  } catch (e) {
+    return null;
+  }
+}
 
 // Login to a qBittorrent WebUI; returns the session cookie or throws.
 async function qbLogin(base, user, pass) {
@@ -130,8 +162,10 @@ async function qbLogin(base, user, pass) {
 app.post('/api/download/qbittorrent', async (req, res) => {
   const { url, user, pass, magnet } = req.body || {};
   if (!url || !magnet) return res.status(400).json({ error: 'missing url or magnet' });
+  const safeUrl = safeHttpUrl(url);
+  if (!safeUrl) return res.status(400).json({ error: 'invalid_url_scheme' });
   try {
-    const base = url.replace(/\/+$/, '');
+    const base = safeUrl.replace(/\/+$/, '');
     const cookie = await qbLogin(base, user, pass);
     const add = await axios.post(
       `${base}/api/v2/torrents/add`,
@@ -178,6 +212,7 @@ app.get('/api/torznab', (req, res) => {
 app.post('/api/torznab', (req, res) => {
   const { name, url, apiKey, enabled } = req.body || {};
   if (!name || !url) return res.status(400).json({ error: 'name and url are required' });
+  if (!safeHttpUrl(url)) return res.status(400).json({ error: 'invalid_url_scheme' });
   const entry = torznabStore.add({ name, url, apiKey, enabled });
   const pub = torznabStore.listPublic().find((c) => c.id === entry.id);
   res.json({ indexer: pub });
@@ -193,6 +228,7 @@ app.delete('/api/torznab/:id', (req, res) => {
 app.post('/api/torznab/test', async (req, res) => {
   const { url, apiKey } = req.body || {};
   if (!url) return res.status(400).json({ error: 'url required' });
+  if (!safeHttpUrl(url)) return res.json({ ok: false, error: 'invalid_url_scheme' });
   const api = normalizeApiUrl(url);
   const params = new URLSearchParams({ apikey: apiKey || '', t: 'caps' });
   const { html, error } = await getText(`${api}?${params.toString()}`, { timeout: 8000 });
@@ -201,7 +237,10 @@ app.post('/api/torznab/test', async (req, res) => {
 });
 
 function start(port = PORT) {
-  return app.listen(port, () => {
+  // 绑定回环地址：桌面单机应用无需对局域网暴露服务。这可避免同网段其他机器
+  // 访问搜索接口，尤其是 /api/download/qbittorrent 与 /api/torznab/test
+  // 这类会代为向外发起请求的端点被当作开放代理探测内网。
+  return app.listen(port, '127.0.0.1', () => {
     console.log(`Torrent search app listening on http://localhost:${port}`);
   });
 }
