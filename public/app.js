@@ -10,6 +10,8 @@ const state = {
   seen: new Set(),         // dedupe ids
   hasMore: false,
   loading: false,
+  searchId: 0,             // 递增令牌：每次新搜索 +1，用于作废在途的旧请求
+  abort: null,             // 当前在途请求的 AbortController
   order: 'desc',
   sort: 'relevance',
   status: {},              // provider id → { status, count, error, ms } (streamed)
@@ -49,6 +51,11 @@ async function loadProviders() {
 async function doSearch() {
   state.query = $('#search-input').value.trim();
   if (!state.query) return;
+  // 开启一次全新搜索：作废所有在途请求（快速改词/连点引擎时，晚到的旧响应
+  // 不能覆盖新结果），重置分页与累积状态。
+  state.searchId++;
+  if (state.abort) { state.abort.abort(); state.abort = null; }
+  state.loading = false;
   state.page = 1;
   state.all = [];
   state.seen = new Set();
@@ -66,6 +73,10 @@ function loadPage() {
   // Reset the per-provider status map at the start of a fresh search (page 1).
   if (state.page === 1) state.status = {};
 
+  // 绑定本次流所属的搜索令牌：SSE 没有 fetch 可 abort，改用令牌 + es.close()
+  // 作废旧流。晚到的旧流事件若发现 searchId 已变，直接丢弃，消除竞态覆盖。
+  const myId = state.searchId;
+
   const params = new URLSearchParams({
     q: state.query,
     page: state.page,
@@ -80,12 +91,14 @@ function loadPage() {
   const finish = () => {
     if (state.es === es) state.es = null;
     es.close();
+    if (myId !== state.searchId) return; // 已被新搜索取代，别动新搜索的加载态
     state.loading = false;
     $('#loading').hidden = true;
     if (state.hasMore) state.page++;
   };
 
   es.addEventListener('provider', (ev) => {
+    if (myId !== state.searchId) { es.close(); return; } // 旧流，结果作废
     let msg;
     try { msg = JSON.parse(ev.data); } catch { return; }
     state.status[msg.id] = msg.status || {};
@@ -101,17 +114,19 @@ function loadPage() {
   es.addEventListener('done', (ev) => {
     let msg = {};
     try { msg = JSON.parse(ev.data); } catch { /* ignore */ }
-    state.hasMore = !!msg.hasMore;
+    if (myId === state.searchId) state.hasMore = !!msg.hasMore;
     finish();
   });
 
   es.addEventListener('error', () => {
     // EventSource fires `error` both on server-sent error events and on
     // transport failure; either way we stop this page's stream.
-    if (state.all.length === 0 && Object.keys(state.status).length === 0) {
-      toast('搜索请求失败');
+    if (myId === state.searchId) {
+      if (state.all.length === 0 && Object.keys(state.status).length === 0) {
+        toast('搜索请求失败');
+      }
+      state.hasMore = false;
     }
-    state.hasMore = false;
     finish();
   });
 }
