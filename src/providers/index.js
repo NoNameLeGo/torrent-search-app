@@ -133,42 +133,87 @@ function getProvider(id) {
   return REGISTRY.find((p) => p.id === id);
 }
 
-// Run search across the requested (enabled) providers in parallel.
-// Each provider is isolated: a failure in one never breaks the others.
-async function search(query, { providers = null, page = 1 } = {}) {
+// Resolve the enabled provider objects matching an optional comma-separated
+// id filter (static registry + dynamic Torznab indexers).
+function resolveTargets(providers) {
   const wanted = providers
     ? providers.split(',').map((s) => s.trim()).filter(Boolean)
     : null;
-
-  const targets = REGISTRY.concat(dynamicTorznabProviders()).filter((p) =>
+  return REGISTRY.concat(dynamicTorznabProviders()).filter((p) =>
     p.enabled && (!wanted || wanted.includes(p.id)));
+}
 
-  const perProvider = {};
-  const settled = await Promise.all(targets.map(async (p) => {
-    try {
-      const out = await p.search(query, { page });
-      perProvider[p.id] = {
+// Run a single provider in isolation, timing it and never throwing.
+// Returns { results, status } where status is the per-provider summary the
+// client renders in the status bar.
+async function runProvider(p, query, page) {
+  const startedAt = Date.now();
+  try {
+    const out = await p.search(query, { page });
+    return {
+      results: out.results,
+      status: {
         status: out.error ? 'error' : 'ok',
         count: out.results.length,
         error: out.error || null,
         hasMore: out.hasMore,
-      };
-      return out.results;
-    } catch (e) {
-      perProvider[p.id] = { status: 'error', count: 0, error: e.message || 'crash' };
-      return [];
-    }
+        ms: Date.now() - startedAt,
+      },
+    };
+  } catch (e) {
+    return {
+      results: [],
+      status: { status: 'error', count: 0, error: e.message || 'crash', ms: Date.now() - startedAt },
+    };
+  }
+}
+
+// Aggregate the per-provider hasMore flags into a single boolean.
+// Demo paginates locally; a real provider signalling hasMore also counts.
+function aggregateHasMore(targets, perProvider, totalResults) {
+  if (totalResults === 0) return false;
+  const demoProv = targets.find((p) => p.demo);
+  if (demoProv && perProvider[demoProv.id] && perProvider[demoProv.id].hasMore) return true;
+  return Object.values(perProvider).some((s) => s.status === 'ok' && !demoProv);
+}
+
+// Run search across the requested (enabled) providers in parallel.
+// Each provider is isolated: a failure in one never breaks the others.
+async function search(query, { providers = null, page = 1 } = {}) {
+  const targets = resolveTargets(providers);
+
+  const perProvider = {};
+  const settled = await Promise.all(targets.map(async (p) => {
+    const { results, status } = await runProvider(p, query, page);
+    perProvider[p.id] = status;
+    return results;
   }));
 
   const results = settled.flat();
-  const demoProv = targets.find((p) => p.demo);
-  const nonDemoOk = Object.values(perProvider).some((s) => s.status === 'ok' && !demoProv);
-  let hasMore = false;
-  if (demoProv && perProvider[demoProv.id] && perProvider[demoProv.id].hasMore) hasMore = true;
-  if (nonDemoOk) hasMore = true;
-  if (results.length === 0) hasMore = false;
-
+  const hasMore = aggregateHasMore(targets, perProvider, results.length);
   return { results, providers: perProvider, hasMore };
 }
 
-module.exports = { list, getProvider, search };
+// Streaming variant: invoke onProvider({ id, name, results, status }) as soon
+// as each provider settles, so the caller (SSE endpoint) can push incremental
+// updates instead of waiting for the slowest provider. Resolves once every
+// provider has reported, returning the same aggregate as search().
+async function searchStream(query, { providers = null, page = 1 } = {}, onProvider) {
+  const targets = resolveTargets(providers);
+
+  const perProvider = {};
+  let total = 0;
+  await Promise.all(targets.map(async (p) => {
+    const { results, status } = await runProvider(p, query, page);
+    perProvider[p.id] = status;
+    total += results.length;
+    if (typeof onProvider === 'function') {
+      onProvider({ id: p.id, name: p.name, results, status });
+    }
+  }));
+
+  const hasMore = aggregateHasMore(targets, perProvider, total);
+  return { providers: perProvider, hasMore, count: total };
+}
+
+module.exports = { list, getProvider, search, searchStream };

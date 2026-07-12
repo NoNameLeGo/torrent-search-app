@@ -12,6 +12,8 @@ const state = {
   loading: false,
   order: 'desc',
   sort: 'relevance',
+  status: {},              // provider id → { status, count, error, ms } (streamed)
+  es: null,                // active EventSource, so a new search can cancel it
   qb: JSON.parse(localStorage.getItem('qb') || 'null'),
 };
 
@@ -53,11 +55,16 @@ async function doSearch() {
   await loadPage();
 }
 
-async function loadPage() {
-  if (state.loading || !state.hasMore && state.page > 1) return;
-  if (state.loading) return;
+// Stream a page of results over SSE. Each provider's results and status arrive
+// incrementally (one `provider` event apiece), so the list and status bar light
+// up as engines return rather than waiting for the slowest one.
+function loadPage() {
+  if (state.loading || (!state.hasMore && state.page > 1)) return;
   state.loading = true;
   $('#loading').hidden = false;
+
+  // Reset the per-provider status map at the start of a fresh search (page 1).
+  if (state.page === 1) state.status = {};
 
   const params = new URLSearchParams({
     q: state.query,
@@ -65,26 +72,48 @@ async function loadPage() {
   });
   if (state.selected.size) params.set('providers', [...state.selected].join(','));
 
-  try {
-    const r = await fetch(`/api/search?${params}`);
-    const data = await r.json();
-    if (data.error) { toast(data.error); return; }
+  // Tear down any previous stream before opening a new one.
+  if (state.es) { state.es.close(); state.es = null; }
+  const es = new EventSource(`/api/search/stream?${params}`);
+  state.es = es;
 
-    (data.results || []).forEach((it) => {
+  const finish = () => {
+    if (state.es === es) state.es = null;
+    es.close();
+    state.loading = false;
+    $('#loading').hidden = true;
+    if (state.hasMore) state.page++;
+  };
+
+  es.addEventListener('provider', (ev) => {
+    let msg;
+    try { msg = JSON.parse(ev.data); } catch { return; }
+    state.status[msg.id] = msg.status || {};
+    (msg.results || []).forEach((it) => {
       if (state.seen.has(it.id)) return;
       state.seen.add(it.id);
       state.all.push(it);
     });
-    state.hasMore = !!data.hasMore;
-    renderStatus(data.providers || {});
+    renderStatus(state.status);
     render();
-  } catch (e) {
-    toast('搜索请求失败');
-  } finally {
-    state.loading = false;
-    $('#loading').hidden = true;
-    if (state.hasMore) state.page++;
-  }
+  });
+
+  es.addEventListener('done', (ev) => {
+    let msg = {};
+    try { msg = JSON.parse(ev.data); } catch { /* ignore */ }
+    state.hasMore = !!msg.hasMore;
+    finish();
+  });
+
+  es.addEventListener('error', () => {
+    // EventSource fires `error` both on server-sent error events and on
+    // transport failure; either way we stop this page's stream.
+    if (state.all.length === 0 && Object.keys(state.status).length === 0) {
+      toast('搜索请求失败');
+    }
+    state.hasMore = false;
+    finish();
+  });
 }
 
 function renderStatus(providers) {
@@ -96,7 +125,8 @@ function renderStatus(providers) {
     const cls = s.status === 'ok' ? 'ok' : 'err';
     const mark = s.status === 'ok' ? '✓' : '✕';
     const label = PROVIDER_LABEL[id] || id;
-    const detail = s.error ? ` (${s.error})` : ` · ${s.count} 条`;
+    const ms = s.ms != null ? ` ${s.ms}ms` : '';
+    const detail = s.error ? ` (${s.error})` : ` · ${s.count} 条${ms}`;
     return `<span class="status-pill"><b>${label}</b> <span class="${cls}">${mark}${detail}</span></span>`;
   }).join('');
 }
@@ -132,7 +162,9 @@ function render() {
   const list = visibleResults();
   if (state.all.length === 0) {
     wrap.innerHTML = '';
-    $('#empty').hidden = false;
+    // While a stream is still in flight, let the "加载中…" indicator speak;
+    // only declare "no results" once every provider has reported.
+    $('#empty').hidden = state.loading;
     $('#empty').textContent = '没有结果。试试别的关键词，或检查引擎状态。';
     return;
   }
