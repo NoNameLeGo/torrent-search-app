@@ -111,7 +111,13 @@ app.get('/api/search/stream', async (req, res) => {
   }
 });
 
-// Lazily resolve a magnet link from a detail page (e.g. 1337x).
+// Lazily resolve a magnet link from a detail page.
+// Prefer the named provider's own resolver. If it has none, fall back to a
+// generic "grab the first magnet: link on the page" scrape (which happens to be
+// what 1337x's resolver does). The fallback is best-effort: sites whose detail
+// page doesn't expose a plain magnet anchor will return no_magnet_on_page rather
+// than failing silently, and the response carries `fallback: true` so the caller
+// can tell the magnet came from the generic path, not a provider-specific one.
 app.get('/api/magnet', async (req, res) => {
   const { provider, url } = req.query;
   if (!url) return res.status(400).json({ error: 'missing url' });
@@ -121,11 +127,11 @@ app.get('/api/magnet', async (req, res) => {
     const r = await p.resolveMagnet(url);
     return res.json(r);
   }
-  // Fallback: try 1337x resolver regardless of provider.
-  const x = providers.getProvider('1337x');
-  if (x && typeof x.resolveMagnet === 'function') {
-    const r = await x.resolveMagnet(url);
-    return res.json(r);
+  // Generic fallback: reuse 1337x's page scraper as a provider-agnostic resolver.
+  const generic = providers.getProvider('1337x');
+  if (generic && typeof generic.resolveMagnet === 'function') {
+    const r = await generic.resolveMagnet(url);
+    return res.json({ ...r, fallback: true });
   }
   res.status(404).json({ error: 'no resolver' });
 });

@@ -71,7 +71,9 @@ async function doSearch() {
 // incrementally (one `provider` event apiece), so the list and status bar light
 // up as engines return rather than waiting for the slowest one.
 function loadPage() {
-  if (state.loading || (!state.hasMore && state.page > 1)) return;
+  // 正在加载中，或已无更多结果且不是首页，直接跳过。
+  if (state.loading) return;
+  if (!state.hasMore && state.page > 1) return;
   state.loading = true;
   $('#loading').hidden = false;
 
@@ -210,7 +212,12 @@ function visibleResults() {
   });
 
   const dir = state.order === 'desc' ? -1 : 1;
-  if (state.sort !== 'relevance') {
+  if (state.sort === 'relevance') {
+    // 相关度：按标题与关键词的匹配度打分降序，同分用做种数兜底。
+    // 这是启发式打分（见 relevanceScore），不是严格检索模型，结果仅供参考。
+    list.forEach((it) => { it._score = relevanceScore(it.name, state.query); });
+    list.sort((a, b) => (b._score - a._score) || ((b.seeders ?? -1) - (a.seeders ?? -1)));
+  } else {
     list.sort((a, b) => {
       let av, bv;
       if (state.sort === 'seeders') { av = a.seeders ?? -1; bv = b.seeders ?? -1; }
@@ -220,6 +227,30 @@ function visibleResults() {
     });
   }
   return list;
+}
+
+// 轻量标题相关度打分：把关键词分词后按命中强度累加。
+// 常见启发式思路——完整短语 > 前缀 > 精确词 > 子串，再叠加词覆盖率；
+// 不是 BM25/TF-IDF 那类严格模型，中文无分词时主要靠子串命中，故结果仅供参考。
+function relevanceScore(name, query) {
+  const n = String(name || '').toLowerCase();
+  const q = String(query || '').toLowerCase().trim();
+  if (!q) return 0;
+  let score = 0;
+  if (n.includes(q)) score += 5;      // 完整短语命中，最强信号
+  if (n.startsWith(q)) score += 3;    // 出现在标题开头，额外加权
+  const split = (s) => s.split(/[^a-z0-9一-鿿]+/).filter(Boolean);
+  const nTokens = split(n);
+  const qTokens = split(q);
+  const nSet = new Set(nTokens);
+  let hit = 0;
+  for (const t of qTokens) {
+    if (nSet.has(t)) { score += 2; hit++; }                            // 精确词命中
+    else if (nTokens.some((w) => w.startsWith(t))) { score += 1; hit++; } // 前缀命中
+    else if (n.includes(t)) { score += 0.5; hit++; }                  // 子串命中
+  }
+  if (qTokens.length) score += (hit / qTokens.length) * 3;            // 词覆盖率加权
+  return score;
 }
 
 function render() {
