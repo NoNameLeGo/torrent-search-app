@@ -125,6 +125,18 @@ jobs:
           path: artifacts
           merge-multiple: true
 
+      # 若该 tag 已存在旧 Release，先删掉它（保留 tag），避免 softprops 追加产物
+      # 导致新旧文件名共存。正常按顺序递增版本时这步是 no-op；只有显式覆盖重发才生效。
+      - name: Delete existing release for this tag (keep tag)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          gh release delete "${{ github.ref_name }}" \
+            --repo "${{ github.repository }}" --yes \
+            2>/dev/null && echo "已删除同名旧 Release（tag 保留）" \
+            || echo "无同名旧 Release，跳过"
+
       - name: Build release body
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

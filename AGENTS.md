@@ -91,6 +91,12 @@ scripts/gen-icon.mjs       ← regenerates src-tauri/icons/* (run if icons chang
 
 `release.yml` 的 publish job 用 `softprops/action-gh-release@v2` 且 **`draft: false`** —— 打 `v*` tag 会**直接发布正式 Release**，无需手动去 GitHub 页面点 "Publish"。（历史上曾是 `draft: true` 需手动转正，已改。）
 
+### 版本号顺序递增，默认不要同名覆盖发布
+
+- **每次发布用一个更高的新版本号**（如 `v0.0.1-beta` → `v0.0.2-beta` → `v0.0.3` …），一个 tag 对应一个 Release，顺序往后走。
+- **不要为了「重发」而移动/复用已存在的 tag**（`git tag -d` + 重推同名 tag）——除非用户明确说「覆盖某某版本」。
+- **为什么**：softprops/action-gh-release 对同名 tag 是**追加** assets 而非替换。同名覆盖重发会导致同一个 Release 里新旧产物**并存**（例如改名后旧文件名残留），需要手动 `gh api ... releases/assets/<id> -X DELETE` 清理。publish job 现已加「Delete existing release for this tag」步在发布前删掉同名旧 Release（保留 tag）来兜底，但**正常流程仍应顺序递增版本号**，同名覆盖只用于用户明确要求的场景。
+
 ### Release 末尾自动附「Tauri vs Electron 区别」
 
 每次发布，`release.yml` 的 publish job 会把 `docs/RELEASE_ARTIFACTS.md` 的内容**自动追加到 Release 正文末尾**（GitHub 自动更新日志 + 分隔线 + 该模板），说明三种安装包的体积、运行方式、成熟度与选型建议。**要修改文案只改 `docs/RELEASE_ARTIFACTS.md` 一个文件即可，无需改动 workflow。**
