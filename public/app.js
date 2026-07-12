@@ -6,8 +6,9 @@ const state = {
   query: '',
   page: 1,
   selected: new Set(),     // provider ids (empty = all enabled)
-  all: [],                 // accumulated normalized results
-  seen: new Set(),         // dedupe ids
+  all: [],                 // accumulated normalized results (raw, pre-merge)
+  seen: new Set(),         // dedupe ids (同一 provider 同一结果跨页去重)
+  groups: new Map(),       // 跨站合并：dedupeKey → 合并后的持久化结果对象
   hasMore: false,
   loading: false,
   searchId: 0,             // 递增令牌：每次新搜索 +1，用于作废在途的旧请求
@@ -62,6 +63,7 @@ async function doSearch() {
   state.page = 1;
   state.all = [];
   state.seen = new Set();
+  state.groups = new Map();
   await loadPage();
 }
 
@@ -109,6 +111,7 @@ function loadPage() {
       if (state.seen.has(it.id)) return;
       state.seen.add(it.id);
       state.all.push(it);
+      mergeResult(it);
     });
     renderStatus(state.status);
     render();
@@ -134,6 +137,49 @@ function loadPage() {
   });
 }
 
+// 把一条归一化结果并入其所属分组：带 infoHash 的按 hash 合并成一张卡（同一资源
+// 多站命中只显示一次），无 hash 的（如 1337x 需懒解析磁力）以自身 id 独立成组。
+// 做种/下载取各来源最大值，磁力优先保留已就绪的，来源站去重累积。
+function mergeResult(it) {
+  const key = it.infoHash ? `hash:${String(it.infoHash).toLowerCase()}` : it.id;
+  let g = state.groups.get(key);
+  if (!g) {
+    g = {
+      key,
+      name: it.name,
+      size: it.size,
+      sizeText: it.sizeText,
+      seeders: it.seeders,
+      leechers: it.leechers,
+      date: it.date,
+      dateText: it.dateText,
+      category: it.category,
+      infoHash: it.infoHash || null,
+      magnet: it.magnet || null,
+      needsMagnet: !it.magnet && !!it.detailUrl,
+      providers: [],
+      sources: [],
+    };
+    state.groups.set(key, g);
+  }
+  g.sources.push({
+    provider: it.provider,
+    magnet: it.magnet || null,
+    detailUrl: it.detailUrl || null,
+    id: it.id,
+  });
+  if (!g.providers.includes(it.provider)) g.providers.push(it.provider);
+  // 聚合：取最强信号。
+  if (it.seeders != null && (g.seeders == null || it.seeders > g.seeders)) g.seeders = it.seeders;
+  if (it.leechers != null && (g.leechers == null || it.leechers > g.leechers)) g.leechers = it.leechers;
+  if (g.size == null && it.size != null) { g.size = it.size; g.sizeText = it.sizeText; }
+  if (g.date == null && it.date != null) { g.date = it.date; g.dateText = it.dateText; }
+  // 已就绪的磁力优先于无磁力。
+  if (!g.magnet && it.magnet) { g.magnet = it.magnet; g.needsMagnet = false; }
+  if (!g.magnet && it.detailUrl) g.needsMagnet = true;
+  return g;
+}
+
 function renderStatus(providers) {
   const bar = $('#status-bar');
   const entries = Object.entries(providers);
@@ -150,12 +196,13 @@ function renderStatus(providers) {
 }
 
 // ---------- client-side filter + sort ----------
+// 面向分组（去重后的资源），而非原始逐条结果。
 function visibleResults() {
   const minSeed = parseInt($('#min-seeders').value, 10) || 0;
   const minSize = parseInt($('#min-size').value, 10) || 0;
   const name = $('#name-contains').value.trim().toLowerCase();
 
-  let list = state.all.filter((it) => {
+  let list = [...state.groups.values()].filter((it) => {
     if (it.seeders != null && it.seeders < minSeed) return false;
     if (it.size != null && it.size < minSize) return false;
     if (name && !it.name.toLowerCase().includes(name)) return false;
@@ -178,7 +225,7 @@ function visibleResults() {
 function render() {
   const wrap = $('#results');
   const list = visibleResults();
-  if (state.all.length === 0) {
+  if (state.groups.size === 0) {
     wrap.innerHTML = '';
     // While a stream is still in flight, let the "加载中…" indicator speak;
     // only declare "no results" once every provider has reported.
@@ -193,6 +240,8 @@ function render() {
   wrap.innerHTML = list.map(cardHTML).join('');
 }
 
+// it 是一个分组对象（见 mergeResult）。data-id 用分组 key，来源徽章列出所有命中站，
+// 多站命中时额外标注“N 个来源”。
 function cardHTML(it) {
   const seed = it.seeders != null ? it.seeders : '—';
   const leech = it.leechers != null ? it.leechers : '—';
@@ -200,15 +249,21 @@ function cardHTML(it) {
   const date = it.dateText || '—';
   const cat = it.category ? `<span class="badge">${esc(it.category)}</span>` : '';
   const magnetBtn = it.needsMagnet
-    ? `<button class="btn" data-act="getmagnet" data-id="${it.id}">获取磁力</button>`
-    : `<button class="btn primary" data-act="open" data-id="${it.id}">打开磁力</button>
-       <button class="btn" data-act="copy" data-id="${it.id}">复制</button>`;
-  const qbBtn = state.qb ? `<button class="btn qb" data-act="qb" data-id="${it.id}">推送到 qB</button>` : '';
+    ? `<button class="btn" data-act="getmagnet" data-id="${esc(it.key)}">获取磁力</button>`
+    : `<button class="btn primary" data-act="open" data-id="${esc(it.key)}">打开磁力</button>
+       <button class="btn" data-act="copy" data-id="${esc(it.key)}">复制</button>`;
+  const qbBtn = state.qb ? `<button class="btn qb" data-act="qb" data-id="${esc(it.key)}">推送到 qB</button>` : '';
+  const provs = it.providers && it.providers.length ? it.providers : (it.sources || []).map((s) => s.provider);
+  const sourceBadges = provs
+    .map((pid) => `<span class="badge prov-${pid}">${esc(PROVIDER_LABEL[pid] || pid)}</span>`)
+    .join('');
+  const multi = provs.length > 1 ? `<span class="badge multi">${provs.length} 个来源</span>` : '';
   return `
-  <div class="card" data-id="${it.id}">
+  <div class="card" data-id="${esc(it.key)}">
     <div class="name">${esc(it.name)}</div>
     <div class="badges">
-      <span class="badge prov-${it.provider}">${PROVIDER_LABEL[it.provider] || it.provider}</span>
+      ${sourceBadges}
+      ${multi}
       ${cat}
     </div>
     <div class="stats">
@@ -229,16 +284,21 @@ function esc(s) {
 }
 
 // ---------- actions ----------
-async function getItem(id) { return state.all.find((x) => x.id === id); }
+// 卡片 data-id 用的是分组 key，因此按 key 从 groups 里取。
+async function getItem(key) { return state.groups.get(key); }
 
-async function ensureMagnet(it) {
-  if (!it.needsMagnet && it.magnet) return it.magnet;
-  if (!it.detailUrl) return null;
-  const r = await fetch(`/api/magnet?provider=${it.provider}&url=${encodeURIComponent(it.detailUrl)}`);
+// 确保分组拿到磁力：已有则直接返回；否则挑一个带 detailUrl 的来源做懒解析。
+async function ensureMagnet(g) {
+  if (!g.needsMagnet && g.magnet) return g.magnet;
+  const src = g.sources.find((s) => s.magnet) || g.sources.find((s) => s.detailUrl);
+  if (src && src.magnet) { g.magnet = src.magnet; g.needsMagnet = false; return src.magnet; }
+  if (!src || !src.detailUrl) return null;
+  const r = await fetch(`/api/magnet?provider=${src.provider}&url=${encodeURIComponent(src.detailUrl)}`);
   const data = await r.json();
   if (data.magnet) {
-    it.magnet = data.magnet;
-    it.needsMagnet = false;
+    g.magnet = data.magnet;
+    g.needsMagnet = false;
+    src.magnet = data.magnet;
     return data.magnet;
   }
   toast(data.error || '获取磁力失败');
