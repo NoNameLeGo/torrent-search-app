@@ -53,6 +53,49 @@ app.get('/api/search', async (req, res) => {
   }
 });
 
+// Streaming aggregate search over Server-Sent Events. Emits one `provider`
+// event per engine the moment it returns (results + status), so the frontend
+// can render incrementally instead of waiting for the slowest engine. A final
+// `done` event carries the overall hasMore flag; then the stream closes.
+app.get('/api/search/stream', async (req, res) => {
+  const q = String(req.query.q || '').trim();
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const prov = req.query.providers || null;
+  if (!q) return res.status(400).json({ error: 'missing query' });
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+  });
+  // Disable proxy buffering so events flush immediately.
+  res.flushHeaders && res.flushHeaders();
+
+  const send = (event, data) => {
+    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  };
+
+  // Stop work if the client disconnects mid-stream.
+  let closed = false;
+  req.on('close', () => { closed = true; });
+
+  try {
+    const summary = await providers.searchStream(
+      q,
+      { providers: prov, page },
+      ({ id, name, results, status }) => {
+        if (closed) return;
+        send('provider', { id, name, results, status });
+      }
+    );
+    if (!closed) send('done', { hasMore: summary.hasMore });
+  } catch (e) {
+    if (!closed) send('error', { error: e.message || 'search_failed' });
+  } finally {
+    if (!closed) res.end();
+  }
+});
+
 // Lazily resolve a magnet link from a detail page (e.g. 1337x).
 app.get('/api/magnet', async (req, res) => {
   const { provider, url } = req.query;
