@@ -41,22 +41,24 @@ npm run dist         # 打包成 Windows 安装包（输出到 dist/，形如 BT
 > 打包用的是 `electron-builder`（NSIS 安装包，可自选安装目录）。安装包约 70–90MB、解压后硬盘占用约 150–200MB——体积主要来自 Electron 自带的 Chromium 运行时，与项目代码量无关。
 > 后端在 Electron 主进程内以 `require('./server').start(port)` 方式启动（见 `electron/main.js`），因此无需单独的 node 进程，关闭即净退出。
 
-#### 方式 C：Tauri 桌面应用（实验性，开发中）
+#### 方式 C：Tauri 桌面应用（实验性）
 
-正在尝试用 **Tauri** 打包一个体积更小的版本，Node 后端以 sidecar 二进制随应用启动（见 `src-tauri/binaries/`）。目前仍在 `feat/tauri` 分支迭代，尚未随主线发布，稳定后会补充打包与使用说明。
+除了 Electron，本项目还提供一个用 **Tauri** 打包的版本：用系统自带的 WebView（Windows 上是 WebView2）替代 Electron 自带的 Chromium，因此安装包和内存占用都更小；Node 后端则以 sidecar 二进制随应用启动（见 `src-tauri/binaries/`）。
+
+Tauri 版**由 GitHub Actions 自动构建**——打 `v*` tag 时，CI 会在同一个 Release 里同时产出 Electron 与 Tauri 两套 Windows 安装包（见 `.github/workflows/release.yml`）。Tauri 包命名为 `BT-Search-Tauri-Setup-<版本>.exe`，去 [Releases](https://github.com/NoNameLeGo/torrent-search-app/releases) 下载即可，**本地无需安装 Rust 环境**。Tauri 的源码与构建配置在 `feat/tauri` 分支。
 
 **Electron 与 Tauri 的区别**
 
-| | Electron（当前发布） | Tauri（开发中） |
+| | Electron | Tauri |
 |---|---|---|
 | 前端渲染 | 自带 Chromium 运行时 | 复用系统 WebView（Windows 用 WebView2） |
 | 后端 | 主进程内 `require('./server')` | 独立 Node sidecar 二进制（`server-*.exe`，约 84MB） |
-| 便携版体积 | 约 360MB（Chromium 占大头） | 预计显著更小，待打出 bundle 后实测 |
+| 安装包体积 | 约 70–90MB（另有便携版约 360MB） | 显著更小（WebView 不打进包里） |
 | 运行时占用 | 每个应用一份 Chromium，内存开销较高 | 借用系统 WebView，内存更省 |
-| 一致性 | 各机渲染完全一致（自带引擎） | 依赖系统 WebView 版本，老系统可能需先装 WebView2 |
-| 成熟度 | 已发布、日常可用 | 实验性，仅 `feat/tauri` 分支 |
+| 一致性 | 各机渲染完全一致（自带引擎） | 依赖系统 WebView 版本，Win10/11 一般已内置 WebView2，老系统可能需先装 |
+| 成熟度 | 稳定、日常可用 | 实验性 |
 
-简单说：**要稳定、开箱即用选 Electron；追求体积小、内存省可以关注 Tauri 进展**，但它目前还没随主线发布。
+简单说：**要稳定、开箱即用选 Electron；追求体积小、内存省可以试 Tauri 版**。两者搜索功能与界面完全一致，同一个 Release 里都能下到。
 
 ### 浏览器方式（本地后端）
 
@@ -140,7 +142,7 @@ frontend (public/)  ──HTTP/SSE──▶  Express server (server.js)
 大部分用户侧功能已完成（画质筛选 / 高亮、搜索历史 / 收藏、引擎分组 / 预设、批量操作、详情预览、SSE 实时流、跨站 infoHash 去重合并均已上线）。剩余候选：
 
 - [ ] **更多下载客户端** — 现仅支持 qBittorrent WebUI，可加 Transmission RPC、Aria2 RPC、Deluge。
-- [ ] **Tauri 打包稳定发布** — 见上文方式 C，`feat/tauri` 分支迭代中。
+- [ ] **Tauri 版转正** — 打包流程已建好（CI 自动出包，见上文方式 C），待充分验证后从「实验性」升为并列推荐。
 
 ## 许可证
 
