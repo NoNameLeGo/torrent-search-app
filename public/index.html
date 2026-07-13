@@ -86,6 +86,27 @@
     </div>
   </main>
 
+  <!-- 批量操作工具条：勾选结果卡片后浮出 -->
+  <div id="batch-bar" class="batch-bar" hidden>
+    <span class="batch-info">已选 <b id="batch-count">0</b> 条</span>
+    <span class="spacer"></span>
+    <button id="batch-qb" class="btn qb" type="button">批量推送 qB</button>
+    <button id="batch-copy" class="btn" type="button">批量复制磁力</button>
+    <button id="batch-csv" class="btn" type="button">导出 CSV</button>
+    <button id="batch-clear" class="ghost-btn" type="button">清空选择</button>
+  </div>
+
+  <!-- 详情预览弹窗：聚合已有信息 + 各来源外链 -->
+  <div id="detail-modal" class="modal" hidden>
+    <div class="modal-card detail-card">
+      <button class="detail-close" data-close="1" title="关闭">✕</button>
+      <h2 id="detail-title" class="detail-title"></h2>
+      <div id="detail-body" class="detail-body"></div>
+      <p class="hint detail-hint">文件列表因站点各异未做统一抓取，点上方来源链接可跳转到站点查看完整文件清单。</p>
+      <div id="detail-actions" class="modal-actions"></div>
+    </div>
+  </div>
+
   <!-- Settings modal -->
   <div id="settings-modal" class="modal" hidden>
     <div class="modal-card">
