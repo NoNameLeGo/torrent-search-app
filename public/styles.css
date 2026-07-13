@@ -63,6 +63,68 @@ body {
 }
 .icon-btn:hover { background: var(--bg-card-hover); }
 
+/* View tabs (搜索 / 收藏) */
+.views { display: flex; gap: 4px; }
+.view-tab {
+  padding: 8px 14px; border-radius: 9px; cursor: pointer;
+  border: 1px solid transparent; background: transparent; color: var(--text-dim);
+  font-size: 14px; font-weight: 600;
+}
+.view-tab:hover { color: var(--text); }
+.view-tab.on { color: var(--text); background: var(--bg-elev); border-color: var(--border); }
+.fav-count {
+  font-size: 11px; color: var(--accent); font-weight: 700;
+}
+.fav-count:empty { display: none; }
+
+/* Search input + history dropdown */
+.search-input-wrap { position: relative; flex: 1; }
+.search-input-wrap #search-input { width: 100%; }
+.history-dropdown {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 30;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+  padding: 6px; box-shadow: 0 12px 34px rgba(0,0,0,.45); max-height: 320px; overflow-y: auto;
+}
+.history-dropdown[hidden] { display: none; }
+.history-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 8px 6px; font-size: 11px; color: var(--text-dim);
+}
+.history-clear { cursor: pointer; color: var(--text-dim); background: none; border: none; font-size: 11px; }
+.history-clear:hover { color: var(--red); }
+.history-item {
+  display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 7px; cursor: pointer;
+}
+.history-item:hover, .history-item.active { background: var(--bg-card-hover); }
+.history-item .h-term { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-item .h-icon { color: var(--text-dim); font-size: 13px; }
+.history-item .h-del {
+  color: var(--text-dim); background: none; border: none; cursor: pointer; font-size: 14px; padding: 0 4px;
+}
+.history-item .h-del:hover { color: var(--red); }
+
+/* Quality quick filters */
+.quality-filters { display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 12px; }
+.qbtn {
+  padding: 5px 12px; border-radius: 999px; cursor: pointer; font-size: 12.5px;
+  border: 1px solid var(--border); background: var(--bg-elev); color: var(--text-dim);
+}
+.qbtn:hover { color: var(--text); }
+.qbtn.on { color: #fff; background: var(--accent); border-color: var(--accent); }
+
+/* Search term highlight in result titles */
+.hl { color: var(--yellow); background: rgba(251,191,36,.14); border-radius: 3px; padding: 0 1px; }
+
+/* Favorite (star) button on cards */
+.fav-btn {
+  position: absolute; top: 12px; right: 12px; z-index: 2;
+  width: 30px; height: 30px; border-radius: 8px; cursor: pointer; line-height: 1;
+  border: 1px solid var(--border); background: var(--bg-elev); color: var(--text-dim); font-size: 16px;
+}
+.fav-btn:hover { color: var(--yellow); border-color: var(--yellow); }
+.fav-btn.on { color: var(--yellow); border-color: #5a4a1f; }
+.card .name { padding-right: 34px; }
+
 /* Controls */
 .controls { padding: 14px 20px 4px; border-bottom: 1px solid var(--border); }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
