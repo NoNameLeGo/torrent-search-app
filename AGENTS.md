@@ -48,3 +48,22 @@ Build caches are redirected to `.cache/` (project-local, gitignored) to avoid po
 ## Platform note
 
 This is a **Windows-first** project. `start.bat`/`stop.bat` are the primary dev launchers. `npm run electron` and `npm run dist` use `set` (not `export`) for env vars — they are Windows-only scripts.
+
+## Syncing features between `main` and `feat/tauri`
+
+The two branches are maintained in parallel: same commit messages, different hashes. Do **not** bulk cherry-pick the whole `feat/tauri..main` range — most of those commits are the parallel twins and would apply duplicate changes. Cherry-pick only the genuinely new commit(s).
+
+**Workflow that avoids losing commits:** do the cherry-pick in a temporary worktree, then **push to the remote *before* removing the worktree**. If you delete the worktree first, the cherry-picked commit is unreachable (the branch ref never pointed at it) and gets garbage-collected — the sync silently vanishes.
+
+```bash
+git worktree add <tmp> feat/tauri
+# cd into <tmp>, cherry-pick, resolve conflicts, commit
+git push origin feat/tauri     # push FIRST
+git worktree remove <tmp>      # clean up AFTER push confirmed
+```
+
+**Known recurring conflict — `PROVIDER_LABEL` / `loadProviders` in `public/app.js`:** the two branches diverge here.
+- On `main`, `PROVIDER_LABEL` is a static literal with only ~4 entries.
+- On `feat/tauri`, `PROVIDER_LABEL = {}` (empty) and `loadProviders` populates it dynamically with `providers.forEach((p) => { PROVIDER_LABEL[p.id] = p.name; });` — this is what gives every engine a real display name in badges/status bar.
+
+When a synced feature touches `loadProviders`, resolve the conflict by taking the incoming (`main`) logic **but keeping the dynamic-fill line**. Dropping it makes all badges on `feat/tauri` degrade to raw provider ids.
