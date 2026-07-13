@@ -8,75 +8,54 @@
 
 ## 安装与运行
 
-推荐直接用打包好的桌面应用（开=启动、关=净退出，行为像普通本地软件）；也可以用浏览器方式跑本地后端。
-
-### 桌面应用（Electron，推荐日常使用）
-
-#### 方式 A：免安装便携版（已生成，直接双击即可）
-
-仓库已附带打包好的便携版，位于：
-
-```
-dist/portable/BT聚合搜索/BT聚合搜索.exe
-```
-
-**直接双击 `BT聚合搜索.exe` 就能用**——无需安装、不写注册表、不落 C 盘：所有文件都集中在 `dist/portable/BT聚合搜索/` 一个文件夹里，整包约 **360MB**（体积主要是 Electron 自带的 Chromium 运行时）。
-需要转移或删除时，把整个文件夹剪切 / 删除即可，不留注册表项与残留进程。
-
-> 便携版 vs 安装包：便携版是**解压即用**的整包（约 360MB，含运行时），适合放 U 盘 / 移动硬盘或不想装东西的场景；下方方式 B 的**安装包**约 70–90MB（安装时才展开运行时，装完硬盘占用约 150–200MB），走系统安装流程、可选安装目录、开始菜单有快捷方式。两者运行时行为完全一致（开=起后端，关=净退出），按习惯二选一即可。
-
-- **开 = 启动**：双击应用，后端随主进程一起拉起，窗口直接打开搜索界面；
-- **关 = 全关**：关掉窗口，整个进程退出，后端被操作系统一并回收，**不留任何残留进程**。
-
-> 便携版是手动拼装的：`node_modules/electron/dist/` 改名为 `BT聚合搜索.exe`，应用代码放在 `resources/app/` 下，生产依赖（express/axios/cheerio）只装一份、已裁剪掉 electron/electron-builder 等开发依赖。行为与下方安装包完全一致：开=起后端，关=净退出。
-
-#### 方式 B：开发模式 / 自行打包安装包
-
-```bash
-npm install          # 已含 electron / electron-builder（开发依赖）
-npm run electron     # 开发模式：直接开桌面窗口运行（自动挑空闲端口，不与 npm start 冲突）
-npm run dist         # 打包成 Windows 安装包（输出到 dist/，形如 BT聚合搜索-Setup-<版本>.exe）
-```
-
-> 打包用的是 `electron-builder`（NSIS 安装包，可自选安装目录）。安装包约 70–90MB、解压后硬盘占用约 150–200MB——体积主要来自 Electron 自带的 Chromium 运行时，与项目代码量无关。
-> 后端在 Electron 主进程内以 `require('./server').start(port)` 方式启动（见 `electron/main.js`），因此无需单独的 node 进程，关闭即净退出。
-
-#### 方式 C：Tauri 桌面应用（实验性）
-
-除了 Electron，本项目还提供一个用 **Tauri** 打包的版本：用系统自带的 WebView（Windows 上是 WebView2）替代 Electron 自带的 Chromium，因此安装包和内存占用都更小；Node 后端则以 sidecar 二进制随应用启动（见 `src-tauri/binaries/`）。
-
-Tauri 版**由 GitHub Actions 自动构建**——打 `v*` tag 时，CI 会在同一个 Release 里同时产出 Electron 与 Tauri 两套 Windows 安装包（见 `.github/workflows/release.yml`）。Tauri 包命名为 `BT-Search-Tauri-Setup-<版本>.exe`，去 [Releases](https://github.com/NoNameLeGo/torrent-search-app/releases) 下载即可，**本地无需安装 Rust 环境**。Tauri 的源码与构建配置在 `feat/tauri` 分支。
-
-**Electron 与 Tauri 的区别**
+直接用打包好的桌面应用即可（开=启动、关=净退出，行为像普通本地软件）。桌面应用有 **两套构建**，搜索功能与界面完全一致，去 [Releases](https://github.com/NoNameLeGo/torrent-search-app/releases) 按喜好下其一：
 
 | | Electron | Tauri |
 |---|---|---|
+| 定位 | **稳定、开箱即用**（推荐日常使用） | **实验性**，体积 / 内存更省 |
 | 前端渲染 | 自带 Chromium 运行时 | 复用系统 WebView（Windows 用 WebView2） |
 | 后端 | 主进程内 `require('./server')` | 独立 Node sidecar 二进制（`server-*.exe`，约 84MB） |
 | 安装包体积 | 约 70–90MB（另有便携版约 360MB） | 显著更小（WebView 不打进包里） |
 | 运行时占用 | 每个应用一份 Chromium，内存开销较高 | 借用系统 WebView，内存更省 |
 | 一致性 | 各机渲染完全一致（自带引擎） | 依赖系统 WebView 版本，Win10/11 一般已内置 WebView2，老系统可能需先装 |
-| 成熟度 | 稳定、日常可用 | 实验性 |
 
-简单说：**要稳定、开箱即用选 Electron；追求体积小、内存省可以试 Tauri 版**。两者搜索功能与界面完全一致，同一个 Release 里都能下到。
+两套安装包都**由 GitHub Actions 自动构建**——打 `v*` tag 时 CI 在同一个 Release 里同时产出 `BT聚合搜索-Setup-<版本>.exe`（Electron）和 `BT-Search-Tauri-Setup-<版本>.exe`（Tauri），见 `.github/workflows/release.yml`，**本地无需装任何构建环境**。Tauri 的源码与构建配置在 `feat/tauri` 分支。
+
+装好后行为一致：**开 = 启动**（双击应用，后端随进程拉起，窗口直接打开搜索界面）；**关 = 全关**（关掉窗口整个进程退出，后端被系统一并回收，不留残留进程）。
+
+<details>
+<summary>其它运行方式（便携版 / 开发模式 / 浏览器）</summary>
+
+### 免安装便携版
+
+仓库已附带打包好的 Electron 便携版，位于 `dist/portable/BT聚合搜索/BT聚合搜索.exe`，**直接双击就能用**——无需安装、不写注册表、不落 C 盘，所有文件都在 `dist/portable/BT聚合搜索/` 一个文件夹里，整包约 **360MB**（体积主要是 Chromium 运行时）。转移或删除时把整个文件夹剪切 / 删除即可，不留残留。
+
+> 便携版是**解压即用**的整包，适合放 U 盘 / 移动硬盘或不想装东西的场景；安装包约 70–90MB（装完硬盘占用约 150–200MB），走系统安装流程、可选安装目录、开始菜单有快捷方式。二选一即可。
+
+### 开发模式 / 自行打包
+
+```bash
+npm install          # 已含 electron / electron-builder（开发依赖）
+npm run electron     # 开发模式：直接开桌面窗口运行（自动挑空闲端口，不与 npm start 冲突）
+npm run dist         # 打包 Windows 安装包（输出到 dist/，形如 BT聚合搜索-Setup-<版本>.exe）
+```
+
+> 打包用 `electron-builder`（NSIS 安装包）。后端在 Electron 主进程内以 `require('./server').start(port)` 启动（见 `electron/main.js`），无需单独 node 进程，关闭即净退出。
 
 ### 浏览器方式（本地后端）
 
-**方式一（推荐，双击即用）**
-直接双击项目里的 `start.bat` —— 它会自动启动后端、等端口就绪后打开浏览器。关服务双击 `stop.bat` 即可。
-
-**方式二（命令行）**
+双击 `start.bat` 会自动启动后端并打开浏览器，关服务双击 `stop.bat`。或命令行：
 
 ```bash
-cd torrent-search-app
-npm install          # 安装 express / axios / cheerio
-npm start            # 或 node server.js
-# 打开 http://localhost:3000
+npm install          # express / axios / cheerio
+npm start            # 或 node server.js → 打开 http://localhost:3000
 ```
 
 默认端口 3000，可用 `PORT=8080 node server.js` 覆盖。
 
-> **为什么需要后端、不能直接双击一个 HTML？** 真正的搜索请求发往 1337x / TPB / NYAA 等站点，浏览器有跨域（CORS）限制，网页无法直接抓取它们。所以必须由 Node 后端在服务端代为抓取，前端只跟本地 `localhost:3000` 通信。`public/index.html` 单独用 `file://` 打开是连不上后端的——这也是为什么提供了 `start.bat` 来一键把后端和浏览器都拉起来。
+> **为什么需要后端？** 搜索请求发往 1337x / TPB / NYAA 等站点，浏览器有跨域（CORS）限制，网页无法直接抓取，必须由 Node 后端代为抓取，前端只跟本地 `localhost:3000` 通信。`public/index.html` 单独用 `file://` 打开连不上后端。
+
+</details>
 
 ## 功能
 
