@@ -1,6 +1,7 @@
 'use strict';
 
 const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
 
 const state = {
   query: '',
@@ -18,11 +19,32 @@ const state = {
   status: {},              // provider id → { status, count, error, ms } (streamed)
   es: null,                // active EventSource, so a new search can cancel it
   qb: JSON.parse(localStorage.getItem('qb') || 'null'),
+  quality: 'all',          // 画质快捷筛选：all / 2160p / 1080p / 720p / hdr
+  view: 'search',          // 当前视图：search / favorites
+  history: JSON.parse(localStorage.getItem('history') || '[]'),   // 最近搜索词
+  favorites: JSON.parse(localStorage.getItem('favorites') || '[]'), // 收藏的种子
 };
 
 // Map of provider id → display name, populated from /api/providers.
 // Used by the status bar and result cards; falls back to the raw id.
 const PROVIDER_LABEL = {};
+
+const HISTORY_MAX = 12;
+
+// 画质匹配规则：把标题里常见的清晰度/HDR 写法归一到快捷标签。
+// 用正则而非简单 includes，兼顾 4k/2160p、带分隔符的 h.265 之类写法。
+const QUALITY_PATTERNS = {
+  '2160p': /\b(2160p|4k|uhd)\b/i,
+  '1080p': /\b1080p\b/i,
+  '720p': /\b720p\b/i,
+  hdr: /\b(hdr|hdr10|dolby\s*vision|dovi|dv)\b/i,
+};
+
+function matchesQuality(name, q) {
+  if (q === 'all') return true;
+  const pat = QUALITY_PATTERNS[q];
+  return pat ? pat.test(String(name || '')) : true;
+}
 
 // ---------- providers ----------
 async function loadProviders() {
@@ -55,6 +77,10 @@ async function loadProviders() {
 async function doSearch() {
   state.query = $('#search-input').value.trim();
   if (!state.query) return;
+  // 搜索时切回搜索视图并记录历史。
+  pushHistory(state.query);
+  if (state.view !== 'search') switchView('search');
+  hideHistory();
   // 开启一次全新搜索：作废所有在途请求（快速改词/连点引擎时，晚到的旧响应
   // 不能覆盖新结果），重置分页与累积状态。
   state.searchId++;
@@ -208,6 +234,7 @@ function visibleResults() {
     if (it.seeders != null && it.seeders < minSeed) return false;
     if (it.size != null && it.size < minSize) return false;
     if (name && !it.name.toLowerCase().includes(name)) return false;
+    if (!matchesQuality(it.name, state.quality)) return false;
     return true;
   });
 
@@ -289,9 +316,12 @@ function cardHTML(it) {
     .map((pid) => `<span class="badge prov-${pid}">${esc(PROVIDER_LABEL[pid] || pid)}</span>`)
     .join('');
   const multi = provs.length > 1 ? `<span class="badge multi">${provs.length} 个来源</span>` : '';
+  const faved = isFavorited(it.key);
+  const favBtn = `<button class="fav-btn${faved ? ' on' : ''}" data-act="fav" data-id="${esc(it.key)}" title="${faved ? '取消收藏' : '收藏'}">${faved ? '★' : '☆'}</button>`;
   return `
   <div class="card" data-id="${esc(it.key)}">
-    <div class="name">${esc(it.name)}</div>
+    ${favBtn}
+    <div class="name">${highlight(it.name, state.query)}</div>
     <div class="badges">
       ${sourceBadges}
       ${multi}
@@ -314,9 +344,29 @@ function esc(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+// 把标题里命中搜索词的片段包上 <mark> 高亮。先按空白拆词，逐词在（已转义的）
+// 标题上做不区分大小写的整体替换。先 esc 再高亮，避免 XSS；高亮标签本身可信。
+function highlight(name, query) {
+  const safe = esc(name);
+  const q = String(query || '').trim();
+  if (!q) return safe;
+  const tokens = [...new Set(q.split(/\s+/).filter((t) => t.length >= 1))]
+    .map(esc)
+    .filter(Boolean)
+    // 长词优先，避免短词先匹配把长词拆断。
+    .sort((a, b) => b.length - a.length)
+    .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')); // 转义正则元字符
+  if (!tokens.length) return safe;
+  const re = new RegExp(`(${tokens.join('|')})`, 'gi');
+  return safe.replace(re, '<span class="hl">$1</span>');
+}
+
 // ---------- actions ----------
-// 卡片 data-id 用的是分组 key，因此按 key 从 groups 里取。
-async function getItem(key) { return state.groups.get(key); }
+// 卡片 data-id 用的是分组 key。搜索视图从 groups 取；收藏视图的卡片不在 groups
+// 里（可能来自上次会话），故回退到收藏数据。收藏对象存的就是分组快照，形状一致。
+async function getItem(key) {
+  return state.groups.get(key) || state.favorites.find((f) => f.key === key) || null;
+}
 
 // 确保分组拿到磁力：已有则直接返回；否则挑一个带 detailUrl 的来源做懒解析。
 async function ensureMagnet(g) {
@@ -336,7 +386,8 @@ async function ensureMagnet(g) {
   return null;
 }
 
-$('#results').addEventListener('click', async (e) => {
+// 卡片动作处理：搜索视图与收藏视图共用同一套按钮逻辑。
+async function onCardClick(e) {
   const btn = e.target.closest('[data-act]');
   if (!btn) return;
   const id = btn.dataset.id;
@@ -344,10 +395,14 @@ $('#results').addEventListener('click', async (e) => {
   if (!it) return;
   const act = btn.dataset.act;
 
+  if (act === 'fav') {
+    toggleFavorite(it);
+    return;
+  }
   if (act === 'getmagnet') {
     btn.textContent = '获取中…'; btn.disabled = true;
     const m = await ensureMagnet(it);
-    if (m) { render(); toast('已获取磁力链接'); }
+    if (m) { renderCurrentView(); toast('已获取磁力链接'); }
     return;
   }
   if (act === 'copy') {
@@ -365,7 +420,10 @@ $('#results').addEventListener('click', async (e) => {
     if (m) sendToQB(m);
     return;
   }
-});
+}
+
+$('#results').addEventListener('click', onCardClick);
+$('#favorites').addEventListener('click', onCardClick);
 
 async function copyText(text) {
   try {
@@ -490,6 +548,126 @@ function toast(msg) {
   toastTimer = setTimeout(() => { t.hidden = true; }, 2200);
 }
 
+// ---------- favorites ----------
+// 收藏存的是分组快照（含 magnet / sources），这样即便跨会话、原搜索早已不在，
+// 收藏视图也能独立打开磁力/复制/推送。仅存必要字段，避免 localStorage 膨胀。
+function saveFavorites() {
+  localStorage.setItem('favorites', JSON.stringify(state.favorites));
+  renderFavCount();
+}
+
+function isFavorited(key) {
+  return state.favorites.some((f) => f.key === key);
+}
+
+function toggleFavorite(it) {
+  const i = state.favorites.findIndex((f) => f.key === it.key);
+  if (i >= 0) {
+    state.favorites.splice(i, 1);
+    saveFavorites();
+    toast('已取消收藏');
+  } else {
+    // 存一份精简快照：卡片渲染与磁力解析所需的字段。
+    state.favorites.unshift({
+      key: it.key,
+      name: it.name,
+      size: it.size, sizeText: it.sizeText,
+      seeders: it.seeders, leechers: it.leechers,
+      date: it.date, dateText: it.dateText,
+      category: it.category,
+      infoHash: it.infoHash || null,
+      magnet: it.magnet || null,
+      needsMagnet: !!it.needsMagnet,
+      providers: [...(it.providers || [])],
+      sources: (it.sources || []).map((s) => ({ ...s })),
+      savedAt: Date.now(),
+    });
+    saveFavorites();
+    toast('已加入收藏');
+  }
+  renderCurrentView();
+}
+
+function renderFavCount() {
+  const el = $('#fav-count');
+  if (!el) return;
+  const n = state.favorites.length;
+  el.textContent = n ? String(n) : '';
+  el.hidden = !n;
+}
+
+function renderFavorites() {
+  const wrap = $('#favorites');
+  const empty = $('#favorites-empty');
+  if (!state.favorites.length) {
+    wrap.innerHTML = '';
+    empty.hidden = false;
+    return;
+  }
+  empty.hidden = true;
+  // 收藏视图不套搜索筛选，但同样走关键词高亮（此时 query 可能为空，highlight 会原样返回）。
+  wrap.innerHTML = state.favorites.map(cardHTML).join('');
+}
+
+// ---------- view switch ----------
+function switchView(view) {
+  state.view = view;
+  $$('.view-tab').forEach((t) => t.classList.toggle('on', t.dataset.view === view));
+  $('#search-view').hidden = view !== 'search';
+  $('#favorites-view').hidden = view !== 'favorites';
+  // 收藏视图下，搜索相关的筛选/引擎控件无意义，隐藏以免误导。
+  $('.controls').hidden = view !== 'search';
+  $('#status-bar').hidden = view !== 'search' || !Object.keys(state.status).length;
+  renderCurrentView();
+}
+
+function renderCurrentView() {
+  if (state.view === 'favorites') renderFavorites();
+  else render();
+}
+
+// ---------- search history ----------
+function pushHistory(q) {
+  const v = q.trim();
+  if (!v) return;
+  // 去重（不区分大小写）后置顶，截断到上限。
+  state.history = [v, ...state.history.filter((h) => h.toLowerCase() !== v.toLowerCase())]
+    .slice(0, HISTORY_MAX);
+  localStorage.setItem('history', JSON.stringify(state.history));
+}
+
+function removeHistory(q) {
+  state.history = state.history.filter((h) => h !== q);
+  localStorage.setItem('history', JSON.stringify(state.history));
+  renderHistory();
+}
+
+function clearHistory() {
+  state.history = [];
+  localStorage.setItem('history', JSON.stringify(state.history));
+  hideHistory();
+}
+
+function renderHistory() {
+  const box = $('#history-dropdown');
+  if (!state.history.length) { box.hidden = true; box.innerHTML = ''; return; }
+  const head =
+    `<div class="history-head"><span>最近搜索</span>` +
+    `<button class="history-clear" data-clear="1">清空全部</button></div>`;
+  const items = state.history.map((h) =>
+    `<div class="history-item" data-q="${esc(h)}">` +
+    `<span class="h-icon">🕘</span>` +
+    `<span class="h-term">${esc(h)}</span>` +
+    `<button class="h-del" data-del="${esc(h)}" title="删除">✕</button>` +
+    `</div>`
+  ).join('');
+  box.innerHTML = head + items;
+  box.hidden = false;
+}
+
+function showHistory() { if (state.history.length) renderHistory(); }
+function hideHistory() { $('#history-dropdown').hidden = true; }
+
 // ---------- torznab indexers ----------
 async function loadTorznab() {
   const wrap = $('#torznab-list');
@@ -562,6 +740,51 @@ $('#tn-test').onclick = async () => {
   } catch (e) { toast('测试失败：网络错误'); }
 };
 
+// ---------- view / quality / history bindings ----------
+$('.views').addEventListener('click', (e) => {
+  const tab = e.target.closest('.view-tab');
+  if (!tab) return;
+  switchView(tab.dataset.view);
+});
+
+$('#quality-filters').addEventListener('click', (e) => {
+  const btn = e.target.closest('.qbtn');
+  if (!btn) return;
+  state.quality = btn.dataset.q;
+  $$('.qbtn').forEach((b) => b.classList.toggle('on', b === btn));
+  render();
+});
+
+// 历史下拉：聚焦展示，点选填入并搜索，✕ 删除单条。用 mousedown 抢在 blur 之前，
+// 否则输入框 blur 先隐藏下拉，点击落空。
+$('#search-input').addEventListener('focus', showHistory);
+$('#search-input').addEventListener('blur', () => setTimeout(hideHistory, 120));
+
+$('#history-dropdown').addEventListener('mousedown', (e) => {
+  const clear = e.target.closest('.history-clear');
+  if (clear) {
+    e.preventDefault();
+    state.history = [];
+    localStorage.setItem('history', JSON.stringify(state.history));
+    hideHistory();
+    return;
+  }
+  const del = e.target.closest('.h-del');
+  if (del) {
+    e.preventDefault();
+    removeHistory(del.dataset.del);
+    return;
+  }
+  const item = e.target.closest('.history-item');
+  if (!item) return;
+  e.preventDefault();
+  $('#search-input').value = item.dataset.q;
+  hideHistory();
+  if (state.view !== 'search') switchView('search');
+  doSearch();
+});
+
 // ---------- init ----------
 loadProviders();
 autoDetectQB();
+renderFavCount();

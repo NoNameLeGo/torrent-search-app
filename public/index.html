@@ -12,8 +12,15 @@
       <span class="logo">⬇</span>
       <h1>BT 聚合搜索</h1>
     </div>
+    <nav class="views">
+      <button type="button" class="view-tab on" data-view="search">搜索</button>
+      <button type="button" class="view-tab" data-view="favorites">收藏 <span id="fav-count" class="fav-count"></span></button>
+    </nav>
     <form id="search-form" class="search-form" autocomplete="off">
-      <input id="search-input" type="text" placeholder="输入关键词，如 Ubuntu, 4K Movie, Naruto…" />
+      <div class="search-input-wrap">
+        <input id="search-input" type="text" placeholder="输入关键词，如 Ubuntu, 4K Movie, Naruto…" />
+        <div id="history-dropdown" class="history-dropdown" hidden></div>
+      </div>
       <button type="submit" id="search-btn">搜索</button>
     </form>
     <button id="settings-btn" class="icon-btn" title="下载工具设置">⚙</button>
@@ -54,15 +61,29 @@
       </label>
       <button id="reset-filters" class="ghost-btn">重置</button>
     </div>
+
+    <div id="quality-filters" class="quality-filters">
+      <button type="button" class="qbtn on" data-q="all">全部</button>
+      <button type="button" class="qbtn" data-q="2160p">4K</button>
+      <button type="button" class="qbtn" data-q="1080p">1080p</button>
+      <button type="button" class="qbtn" data-q="720p">720p</button>
+      <button type="button" class="qbtn" data-q="hdr">HDR·Dolby</button>
+    </div>
   </section>
 
   <section id="status-bar" class="status-bar" hidden></section>
 
   <main>
-    <div id="results" class="results"></div>
-    <div id="sentinel" class="sentinel"></div>
-    <div id="loading" class="loading" hidden>加载中…</div>
-    <div id="empty" class="empty" hidden>没有结果。试试别的关键词，或检查引擎状态。</div>
+    <div id="search-view">
+      <div id="results" class="results"></div>
+      <div id="sentinel" class="sentinel"></div>
+      <div id="loading" class="loading" hidden>加载中…</div>
+      <div id="empty" class="empty" hidden>没有结果。试试别的关键词，或检查引擎状态。</div>
+    </div>
+    <div id="favorites-view" hidden>
+      <div id="favorites" class="results"></div>
+      <div id="favorites-empty" class="empty" hidden>收藏夹还是空的。在搜索结果里点 ☆ 收藏，就会出现在这里。</div>
+    </div>
   </main>
 
   <!-- Settings modal -->
