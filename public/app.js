@@ -23,6 +23,7 @@ const state = {
   view: 'search',          // 当前视图：search / favorites
   history: JSON.parse(localStorage.getItem('history') || '[]'),   // 最近搜索词
   favorites: JSON.parse(localStorage.getItem('favorites') || '[]'), // 收藏的种子
+  checked: new Set(),      // 批量操作：已勾选的卡片 key（跨重渲染按 key 保持）
 };
 
 const PROVIDER_LABEL = { '1337x': '1337x', tpb: 'The Pirate Bay', nyaa: 'NYAA', demo: 'Demo' };
@@ -44,30 +45,147 @@ function matchesQuality(name, q) {
   return pat ? pat.test(String(name || '')) : true;
 }
 
+// ---------- provider groups ----------
+// 引擎按站点性质预设分组，UI 里分区展示、支持整组一键全选/全不选。
+// 维护提醒：新增 provider 时在此登记其组归属；未登记的内置引擎回退到「综合」，
+// 动态 Torznab 引擎（id 以 torznab: 开头）归到「自定义」。
+const GROUP_ORDER = ['anime', 'video', 'general', 'adult', 'other'];
+const GROUP_LABELS = {
+  anime: '动漫',
+  video: '影视',
+  general: '综合',
+  adult: '成人',
+  other: '其他',
+  custom: '自定义',
+};
+const PROVIDER_GROUP = {
+  // 动漫 / 亚洲
+  nyaa: 'anime', anilibria: 'anime', animetosho: 'anime', anirena: 'anime',
+  bangumimoe: 'anime', dmhy: 'anime', mikan: 'anime', subsplease: 'anime',
+  tokyotoshokan: 'anime', nekobt: 'anime',
+  // 影视 / 剧集
+  eztv: 'video', yts: 'video', therarbg: 'video', torrent9: 'video',
+  oxtorrent: 'video', rutor: 'video', megapeer: 'video',
+  // 综合
+  '1337x': 'general', tpb: 'general', knaben: 'general', torrentscsv: 'general',
+  bt4g: 'general', btdigg: 'general', limetorrents: 'general',
+  torrentdownload: 'general', torrentdownloads: 'general', torrentdatabase: 'general',
+  torrentkitty: 'general', uindex: 'general', zeromagnet: 'general',
+  bitsearch: 'general', internetarchive: 'general', filemood: 'general', demo: 'general',
+  // 成人
+  sukebei: 'adult', mypornclub: 'adult', xxxclub: 'adult', xxxtracker: 'adult',
+  // 其他（有声书 / ROM / Linux 发行版）
+  audiobookbay: 'other', blueroms: 'other', linuxtracker: 'other',
+};
+
+function providerGroupOf(p) {
+  if (p.id && p.id.startsWith('torznab:')) return 'custom';
+  return PROVIDER_GROUP[p.id] || 'general';
+}
+
+// 引擎选择持久化：记住用户勾选的引擎，下次打开恢复。
+function saveSelectedProviders() {
+  localStorage.setItem('providers-selected', JSON.stringify([...state.selected]));
+}
+function loadSelectedProviders() {
+  try {
+    const arr = JSON.parse(localStorage.getItem('providers-selected') || 'null');
+    return Array.isArray(arr) ? arr : null;
+  } catch { return null; }
+}
+
 // ---------- providers ----------
+// 已知的全部 provider（loadProviders 填充），供分组渲染与全选/反选复用。
+let allProviders = [];
+
 async function loadProviders() {
   try {
     const r = await fetch('/api/providers');
     const { providers } = await r.json();
-    const chips = $('#provider-chips');
-    chips.innerHTML = '';
-    providers.forEach((p) => {
-      const el = document.createElement('div');
-      el.className = `chip${p.enabled ? ' on' : ''}${p.demo ? ' demo' : ''}`;
-      el.dataset.id = p.id;
-      el.innerHTML = `<span class="dot"></span>${p.name}`;
-      el.onclick = () => {
-        el.classList.toggle('on');
-        if (el.classList.contains('on')) state.selected.add(p.id);
-        else state.selected.delete(p.id);
-        if (state.query) doSearch();
-      };
-      if (p.enabled) state.selected.add(p.id);
-      chips.appendChild(el);
-    });
+    allProviders = providers;
+
+    // 恢复上次勾选：有持久化记录则用记录（与当前可用引擎取交集，避免残留已删除的
+    // Torznab id），否则回退到各引擎的默认 enabled。
+    const saved = loadSelectedProviders();
+    state.selected = new Set(
+      saved
+        ? providers.filter((p) => saved.includes(p.id)).map((p) => p.id)
+        : providers.filter((p) => p.enabled).map((p) => p.id)
+    );
+
+    renderProviderChips();
   } catch (e) {
     toast('无法加载引擎列表');
   }
+}
+
+// 按预设分组渲染引擎 chips：每组一个可折叠区块，组标题带「全选/全不选」，
+// 并显示该组已选/总数。空组不渲染。
+function renderProviderChips() {
+  const wrap = $('#provider-chips');
+  wrap.innerHTML = '';
+
+  // 按组归拢。custom（Torznab）单列在末尾。
+  const byGroup = new Map();
+  allProviders.forEach((p) => {
+    const g = providerGroupOf(p);
+    if (!byGroup.has(g)) byGroup.set(g, []);
+    byGroup.get(g).push(p);
+  });
+
+  const order = [...GROUP_ORDER, 'custom'].filter((g) => byGroup.has(g));
+  order.forEach((g) => {
+    const list = byGroup.get(g);
+    const selCount = list.filter((p) => state.selected.has(p.id)).length;
+
+    const section = document.createElement('div');
+    section.className = 'pgroup';
+    section.dataset.group = g;
+
+    const head = document.createElement('div');
+    head.className = 'pgroup-head';
+    head.innerHTML =
+      `<span class="pgroup-name">${esc(GROUP_LABELS[g] || g)}` +
+      `<span class="pgroup-count">${selCount}/${list.length}</span></span>` +
+      `<button type="button" class="pgroup-toggle" data-group="${esc(g)}">` +
+      `${selCount === list.length ? '全不选' : '全选'}</button>`;
+    section.appendChild(head);
+
+    const chips = document.createElement('div');
+    chips.className = 'chips';
+    list.forEach((p) => {
+      const on = state.selected.has(p.id);
+      const el = document.createElement('div');
+      el.className = `chip${on ? ' on' : ''}${p.demo ? ' demo' : ''}`;
+      el.dataset.id = p.id;
+      el.innerHTML = `<span class="dot"></span>${esc(p.name)}`;
+      el.onclick = () => toggleProvider(p.id);
+      chips.appendChild(el);
+    });
+    section.appendChild(chips);
+    wrap.appendChild(section);
+  });
+}
+
+function toggleProvider(id) {
+  if (state.selected.has(id)) state.selected.delete(id);
+  else state.selected.add(id);
+  saveSelectedProviders();
+  renderProviderChips();
+  if (state.query) doSearch();
+}
+
+// 整组全选 / 全不选：该组已全选则清空该组，否则补齐该组。
+function toggleGroup(g) {
+  const list = allProviders.filter((p) => providerGroupOf(p) === g);
+  const allOn = list.every((p) => state.selected.has(p.id));
+  list.forEach((p) => {
+    if (allOn) state.selected.delete(p.id);
+    else state.selected.add(p.id);
+  });
+  saveSelectedProviders();
+  renderProviderChips();
+  if (state.query) doSearch();
 }
 
 // ---------- search ----------
@@ -87,6 +205,9 @@ async function doSearch() {
   state.all = [];
   state.seen = new Set();
   state.groups = new Map();
+  // 新搜索会重建 groups，旧勾选的 key 全部失效，清空避免残留计数。
+  state.checked.clear();
+  renderBatchBar();
   await loadPage();
 }
 
@@ -179,6 +300,7 @@ function mergeResult(it) {
       date: it.date,
       dateText: it.dateText,
       category: it.category,
+      files: it.files != null ? it.files : null,
       infoHash: it.infoHash || null,
       magnet: it.magnet || null,
       needsMagnet: !it.magnet && !!it.detailUrl,
@@ -199,6 +321,7 @@ function mergeResult(it) {
   if (it.leechers != null && (g.leechers == null || it.leechers > g.leechers)) g.leechers = it.leechers;
   if (g.size == null && it.size != null) { g.size = it.size; g.sizeText = it.sizeText; }
   if (g.date == null && it.date != null) { g.date = it.date; g.dateText = it.dateText; }
+  if (g.files == null && it.files != null) g.files = it.files;
   // 已就绪的磁力优先于无磁力。
   if (!g.magnet && it.magnet) { g.magnet = it.magnet; g.needsMagnet = false; }
   if (!g.magnet && it.detailUrl) g.needsMagnet = true;
@@ -315,8 +438,11 @@ function cardHTML(it) {
   const multi = provs.length > 1 ? `<span class="badge multi">${provs.length} 个来源</span>` : '';
   const faved = isFavorited(it.key);
   const favBtn = `<button class="fav-btn${faved ? ' on' : ''}" data-act="fav" data-id="${esc(it.key)}" title="${faved ? '取消收藏' : '收藏'}">${faved ? '★' : '☆'}</button>`;
+  const checked = state.checked.has(it.key);
+  const checkBox = `<input type="checkbox" class="card-check" data-act="check" data-id="${esc(it.key)}"${checked ? ' checked' : ''} title="选择用于批量操作" />`;
   return `
-  <div class="card" data-id="${esc(it.key)}">
+  <div class="card${checked ? ' checked' : ''}" data-id="${esc(it.key)}">
+    ${checkBox}
     ${favBtn}
     <div class="name">${highlight(it.name, state.query)}</div>
     <div class="badges">
@@ -333,6 +459,7 @@ function cardHTML(it) {
     <div class="actions">
       ${magnetBtn}
       ${qbBtn}
+      <button class="btn ghost" data-act="detail" data-id="${esc(it.key)}">详情</button>
     </div>
   </div>`;
 }
@@ -392,6 +519,14 @@ async function onCardClick(e) {
   if (!it) return;
   const act = btn.dataset.act;
 
+  if (act === 'detail') {
+    openDetail(it);
+    return;
+  }
+  if (act === 'check') {
+    toggleChecked(it.key);
+    return;
+  }
   if (act === 'fav') {
     toggleFavorite(it);
     return;
@@ -421,6 +556,209 @@ async function onCardClick(e) {
 
 $('#results').addEventListener('click', onCardClick);
 $('#favorites').addEventListener('click', onCardClick);
+
+// ---------- detail preview ----------
+// 务实版详情：不为 40 个站逐个抓文件树，而是把已有的聚合信息集中展示——
+// 标题、统计、分类、infoHash、磁力（可现取），以及各来源的详情页外链，
+// 让用户跳到站点自行核对文件列表。所有值都经 esc 转义后注入弹窗。
+async function openDetail(it) {
+  const modal = $('#detail-modal');
+  const body = $('#detail-body');
+  if (!modal || !body) return;
+
+  const row = (label, value) =>
+    `<div class="detail-row"><span class="detail-k">${esc(label)}</span>` +
+    `<span class="detail-v">${value}</span></div>`;
+
+  const provs = it.providers && it.providers.length
+    ? it.providers
+    : (it.sources || []).map((s) => s.provider);
+  const sourceBadges = provs
+    .map((pid) => `<span class="badge prov-${pid}">${esc(PROVIDER_LABEL[pid] || pid)}</span>`)
+    .join(' ');
+
+  // 各来源的详情页外链：有 detailUrl 的列成可点链接，供用户去站点看文件列表。
+  const sources = (it.sources || []);
+  const sourceLinks = sources.length
+    ? sources.map((s) => {
+        const label = esc(PROVIDER_LABEL[s.provider] || s.provider);
+        if (s.detailUrl) {
+          return `<a class="detail-link" href="${esc(s.detailUrl)}" target="_blank" rel="noopener noreferrer">${label} ↗</a>`;
+        }
+        return `<span class="detail-link disabled">${label}</span>`;
+      }).join('')
+    : '<span class="detail-muted">无来源信息</span>';
+
+  const magnetLine = it.magnet
+    ? `<code class="detail-magnet">${esc(it.magnet)}</code>`
+    : (it.needsMagnet
+        ? '<span class="detail-muted">尚未解析，点下方「获取磁力」</span>'
+        : '<span class="detail-muted">无磁力</span>');
+
+  const filesLine = it.files != null ? String(it.files) : '—';
+
+  $('#detail-title').innerHTML = highlight(it.name, state.query);
+  body.innerHTML =
+    row('来源', sourceBadges || '—') +
+    row('做种', it.seeders != null ? it.seeders : '—') +
+    row('下载', it.leechers != null ? it.leechers : '—') +
+    row('大小', esc(it.sizeText || '—')) +
+    row('时间', esc(it.dateText || '—')) +
+    row('分类', it.category ? esc(it.category) : '—') +
+    row('文件数', filesLine) +
+    row('infoHash', it.infoHash ? `<code>${esc(it.infoHash)}</code>` : '—') +
+    row('磁力', magnetLine) +
+    row('去站点看文件列表', `<div class="detail-links">${sourceLinks}</div>`);
+
+  // 弹窗内的动作按钮：随磁力是否就绪切换「获取磁力」/「打开·复制」。
+  const actions = $('#detail-actions');
+  const key = esc(it.key);
+  const qbBtn = state.qb ? `<button class="btn qb" data-act="qb" data-id="${key}">推送到 qB</button>` : '';
+  actions.innerHTML = (it.needsMagnet && !it.magnet)
+    ? `<button class="btn" data-act="getmagnet" data-id="${key}">获取磁力</button>${qbBtn}`
+    : `<button class="btn primary" data-act="open" data-id="${key}">打开磁力</button>` +
+      `<button class="btn" data-act="copy" data-id="${key}">复制磁力</button>${qbBtn}`;
+
+  modal.hidden = false;
+}
+
+function closeDetail() { $('#detail-modal').hidden = true; }
+
+// 详情弹窗内的动作复用 onCardClick 那套（data-act/data-id），但需在动作后刷新
+// 弹窗内容（如获取磁力成功后，把「获取磁力」换成「打开/复制」）。
+$('#detail-modal').addEventListener('click', async (e) => {
+  if (e.target.closest('[data-close]')) { closeDetail(); return; }
+  const btn = e.target.closest('[data-act]');
+  if (!btn) return;
+  const it = await getItem(btn.dataset.id);
+  if (!it) return;
+  const act = btn.dataset.act;
+  if (act === 'getmagnet') {
+    btn.textContent = '获取中…'; btn.disabled = true;
+    const m = await ensureMagnet(it);
+    if (m) { openDetail(it); renderCurrentView(); toast('已获取磁力链接'); }
+    else { btn.textContent = '获取磁力'; btn.disabled = false; }
+    return;
+  }
+  if (act === 'copy') { const m = await ensureMagnet(it); if (m) copyText(m); return; }
+  if (act === 'open') { const m = await ensureMagnet(it); if (m) window.location.href = m; return; }
+  if (act === 'qb') { const m = await ensureMagnet(it); if (m) sendToQB(m); return; }
+});
+
+// ---------- batch operations ----------
+// 勾选集按 key 保持，跨重渲染稳定。勾/取消勾后刷新当前视图（复选框态、卡片高亮）
+// 与批量工具条（显隐、计数）。
+function toggleChecked(key) {
+  if (state.checked.has(key)) state.checked.delete(key);
+  else state.checked.add(key);
+  renderCurrentView();
+  renderBatchBar();
+}
+
+function clearChecked() {
+  state.checked.clear();
+  renderCurrentView();
+  renderBatchBar();
+}
+
+// 取当前视图内被勾选的条目对象（搜索视图从 groups，收藏视图从 favorites）。
+// 只保留仍存在的 key，顺带清理已消失的残留勾选。
+function checkedItems() {
+  const pool = state.view === 'favorites' ? state.favorites : [...state.groups.values()];
+  const byKey = new Map(pool.map((it) => [it.key, it]));
+  const items = [];
+  for (const key of state.checked) {
+    if (byKey.has(key)) items.push(byKey.get(key));
+    else state.checked.delete(key);
+  }
+  return items;
+}
+
+// 批量工具条：有勾选时浮出，显示选中数与三个批量动作。
+function renderBatchBar() {
+  const bar = $('#batch-bar');
+  if (!bar) return;
+  const n = checkedItems().length;
+  if (!n) { bar.hidden = true; return; }
+  bar.hidden = false;
+  $('#batch-count').textContent = n;
+  // qB 推送按钮仅在已配置 qBittorrent 时可用。
+  const qbBtn = $('#batch-qb');
+  if (qbBtn) qbBtn.hidden = !state.qb;
+}
+
+// 批量复制磁力：逐条 ensureMagnet（可能触发懒解析），拿到的磁力用换行拼接复制。
+// 单条失败不阻断其余；全失败给出提示。
+async function batchCopyMagnets() {
+  const items = checkedItems();
+  if (!items.length) return;
+  toast(`正在准备 ${items.length} 条磁力…`);
+  const magnets = [];
+  for (const it of items) {
+    const m = await ensureMagnet(it).catch(() => null);
+    if (m) magnets.push(m);
+  }
+  if (!magnets.length) { toast('没有可复制的磁力链接'); return; }
+  await copyText(magnets.join('\n'));
+  toast(`已复制 ${magnets.length}/${items.length} 条磁力`);
+}
+
+// 批量推送到 qBittorrent：串行推送，避免瞬时打爆 WebUI。逐条汇总成功数。
+async function batchSendToQB() {
+  if (!state.qb) { openSettings(); toast('请先配置 qBittorrent'); return; }
+  const items = checkedItems();
+  if (!items.length) return;
+  toast(`正在推送 ${items.length} 条到 qBittorrent…`);
+  let ok = 0;
+  for (const it of items) {
+    const m = await ensureMagnet(it).catch(() => null);
+    if (!m) continue;
+    try {
+      const r = await fetch('/api/download/qbittorrent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...state.qb, magnet: m }),
+      });
+      const data = await r.json();
+      if (data.ok) ok++;
+    } catch { /* 单条失败不阻断 */ }
+  }
+  toast(`已推送 ${ok}/${items.length} 条到 qBittorrent`);
+}
+
+// 导出 CSV：把勾选条目导出为 CSV 文件下载。字段按每个 CSV 单元格转义（含引号、
+// 逗号、换行）。磁力若尚未解析则留空（不为导出触发大量懒解析请求）。
+function batchExportCsv() {
+  const items = checkedItems();
+  if (!items.length) return;
+  const cols = ['name', 'seeders', 'leechers', 'sizeText', 'dateText', 'category', 'providers', 'infoHash', 'magnet'];
+  const head = ['名称', '做种', '下载', '大小', '时间', '分类', '来源', 'infoHash', '磁力'];
+  const cell = (v) => {
+    const s = v == null ? '' : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const rows = items.map((it) => cols.map((c) => {
+    if (c === 'providers') return cell((it.providers || []).join(' | '));
+    return cell(it[c]);
+  }).join(','));
+  // 前置 BOM，Excel 直接双击不乱码。
+  const csv = '﻿' + [head.join(','), ...rows].join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `torrents-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast(`已导出 ${items.length} 条为 CSV`);
+}
+
+$('#batch-copy').onclick = batchCopyMagnets;
+$('#batch-qb').onclick = batchSendToQB;
+$('#batch-csv').onclick = batchExportCsv;
+$('#batch-clear').onclick = clearChecked;
 
 async function copyText(text) {
   try {
@@ -530,6 +868,13 @@ $('#reset-filters').onclick = () => {
   render();
 };
 
+// 组标题「全选/全不选」按钮：chips 是重渲染的，用事件委托而非逐按钮绑定。
+$('#provider-chips').addEventListener('click', (e) => {
+  const btn = e.target.closest('.pgroup-toggle');
+  if (!btn) return;
+  toggleGroup(btn.dataset.group);
+});
+
 // ---------- infinite scroll ----------
 const io = new IntersectionObserver((entries) => {
   if (entries[0].isIntersecting && state.hasMore && !state.loading) loadPage();
@@ -572,6 +917,7 @@ function toggleFavorite(it) {
       seeders: it.seeders, leechers: it.leechers,
       date: it.date, dateText: it.dateText,
       category: it.category,
+      files: it.files != null ? it.files : null,
       infoHash: it.infoHash || null,
       magnet: it.magnet || null,
       needsMagnet: !!it.needsMagnet,
@@ -615,12 +961,16 @@ function switchView(view) {
   // 收藏视图下，搜索相关的筛选/引擎控件无意义，隐藏以免误导。
   $('.controls').hidden = view !== 'search';
   $('#status-bar').hidden = view !== 'search' || !Object.keys(state.status).length;
+  // 两个视图的可选池不同，切换时清空勾选，避免跨池计数与批量操作混淆。
+  state.checked.clear();
   renderCurrentView();
+  renderBatchBar();
 }
 
 function renderCurrentView() {
   if (state.view === 'favorites') renderFavorites();
   else render();
+  renderBatchBar();
 }
 
 // ---------- search history ----------
