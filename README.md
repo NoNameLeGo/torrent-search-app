@@ -67,8 +67,8 @@ npm start            # 或 node server.js → 打开 http://localhost:3000
 | 4 | 分页 / 无限滚动 | `IntersectionObserver` 触底自动加载下一页，去重后追加 |
 | 5 | 引擎分组 / 预设 | 引擎按 动漫 / 影视 / 综合 / 成人 / 其他 / 自定义 分组，每组一键全选 / 全不选；选中项存 localStorage，下次打开还在 |
 | 6 | 搜索历史 / 收藏 | 最近搜索词下拉（可单条删除 / 清空）；顶栏「收藏」视图，收藏的种子（含 magnet / 来源快照）存 localStorage，跨会话可直接打开磁力 / 推送 |
-| 7 | 下载 | 一键"复制磁力""打开磁力"（`magnet:` 交给系统默认客户端如 qBittorrent / 迅雷，**零配置**）；另支持 qBittorrent WebUI 一键推送，首次加载自动探测本机 `localhost:8080/8081/9090` 默认账号，命中即免配置启用 |
-| 8 | 批量操作 | 勾选多条卡片浮出工具条：批量推送 qBittorrent、批量复制磁力、导出 CSV（Excel 友好，带 BOM） |
+| 7 | 下载 | 一键“复制磁力”“打开磁力”（`magnet:` 交给系统默认客户端如 qBittorrent / BitComet / 迅雷 / µTorrent，**零配置**）；另支持 **qBittorrent / Transmission / aria2·Motrix / Gopeed** 四种下载器一键推送（WebUI / RPC），首次加载自动探测本机默认端口，命中即免配置启用 |
+| 8 | 批量操作 | 勾选多条卡片浮出工具条：批量推送到下载器、批量复制磁力、导出 CSV（Excel 友好，带 BOM） |
 | 9 | 详情预览 | 聚合信息弹窗（做种 / 大小 / 分类 / 文件数 / infoHash / 磁力），并列出各来源详情页外链 |
 | 10 | 自定义索引器 | 支持接入 **Torznab**（Jackett / Prowlarr / *arr）自建索引器，归入「自定义」分组 |
 
@@ -81,7 +81,7 @@ frontend (public/)  ──HTTP/SSE──▶  Express server (server.js)
                                       ├─ /api/search                  聚合搜索（并行调用各 provider）
                                       ├─ /api/search/stream (SSE)     结果实时流入
                                       ├─ /api/magnet                  惰性解析详情页磁力（如 1337x）
-                                      ├─ /api/download/qbittorrent    代理推送至 qBittorrent WebUI
+                                      ├─ /api/download                代理推送磁力至下载器（qB/TR/aria2/Gopeed）
                                       └─ /api/torznab/*               Torznab 索引器管理
                                       │
                             src/providers/*.js   （40+ 内置引擎 + demo + 动态 Torznab）

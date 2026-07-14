@@ -18,7 +18,7 @@ const state = {
   sort: 'relevance',
   status: {},              // provider id → { status, count, error, ms } (streamed)
   es: null,                // active EventSource, so a new search can cancel it
-  qb: JSON.parse(localStorage.getItem('qb') || 'null'),
+  dl: loadDownloader(),    // 下载客户端配置 { client, url, user, pass, token }（含旧 qb 迁移）
   quality: 'all',          // 画质快捷筛选：all / 2160p / 1080p / 720p / hdr
   view: 'search',          // 当前视图：search / favorites
   history: JSON.parse(localStorage.getItem('history') || '[]'),   // 最近搜索词
@@ -27,6 +27,37 @@ const state = {
 };
 
 const PROVIDER_LABEL = { '1337x': '1337x', tpb: 'The Pirate Bay', nyaa: 'NYAA', demo: 'Demo' };
+
+// ---------- 下载客户端 ----------
+// 支持把磁力推送到本机运行的下载器。auth 决定设置面板显示哪些字段：
+// userpass（用户名/密码）或 token（RPC 密钥 / API Token）。与后端 downloaders.META 对应。
+const DL_CLIENTS = {
+  qbittorrent: { label: 'qBittorrent', auth: 'userpass', defaultUrl: 'http://localhost:8080' },
+  transmission: { label: 'Transmission', auth: 'userpass', defaultUrl: 'http://localhost:9091' },
+  aria2: { label: 'aria2 / Motrix', auth: 'token', defaultUrl: 'http://localhost:16800/jsonrpc' },
+  gopeed: { label: 'Gopeed', auth: 'token', defaultUrl: 'http://localhost:9999' },
+};
+
+function dlLabel() {
+  const c = state.dl && state.dl.client;
+  return (c && DL_CLIENTS[c] && DL_CLIENTS[c].label) || '下载器';
+}
+
+// 读取下载器配置：优先新键 dl；若不存在但有旧 qb 配置，迁移为 { client:'qbittorrent', ... }，
+// 让老用户升级后 qBittorrent 设置无缝延续。迁移后写回 dl 键，旧 qb 键留着不动（无害）。
+function loadDownloader() {
+  try {
+    const dl = JSON.parse(localStorage.getItem('dl') || 'null');
+    if (dl && dl.client) return dl;
+    const qb = JSON.parse(localStorage.getItem('qb') || 'null');
+    if (qb && qb.url) {
+      const migrated = { client: 'qbittorrent', url: qb.url, user: qb.user || '', pass: qb.pass || '', token: '' };
+      localStorage.setItem('dl', JSON.stringify(migrated));
+      return migrated;
+    }
+  } catch { /* ignore */ }
+  return null;
+}
 
 const HISTORY_MAX = 12;
 
@@ -430,7 +461,7 @@ function cardHTML(it) {
     ? `<button class="btn" data-act="getmagnet" data-id="${esc(it.key)}">获取磁力</button>`
     : `<button class="btn primary" data-act="open" data-id="${esc(it.key)}">打开磁力</button>
        <button class="btn" data-act="copy" data-id="${esc(it.key)}">复制</button>`;
-  const qbBtn = state.qb ? `<button class="btn qb" data-act="qb" data-id="${esc(it.key)}">推送到 qB</button>` : '';
+  const dlBtn = state.dl ? `<button class="btn qb" data-act="dl" data-id="${esc(it.key)}">推送到 ${esc(dlShort())}</button>` : '';
   const provs = it.providers && it.providers.length ? it.providers : (it.sources || []).map((s) => s.provider);
   const sourceBadges = provs
     .map((pid) => `<span class="badge prov-${pid}">${esc(PROVIDER_LABEL[pid] || pid)}</span>`)
@@ -458,7 +489,7 @@ function cardHTML(it) {
     </div>
     <div class="actions">
       ${magnetBtn}
-      ${qbBtn}
+      ${dlBtn}
       <button class="btn ghost" data-act="detail" data-id="${esc(it.key)}">详情</button>
     </div>
   </div>`;
@@ -547,9 +578,9 @@ async function onCardClick(e) {
     if (m) window.location.href = m;
     return;
   }
-  if (act === 'qb') {
+  if (act === 'dl') {
     const m = await ensureMagnet(it);
-    if (m) sendToQB(m);
+    if (m) sendToClient(m);
     return;
   }
 }
@@ -613,11 +644,11 @@ async function openDetail(it) {
   // 弹窗内的动作按钮：随磁力是否就绪切换「获取磁力」/「打开·复制」。
   const actions = $('#detail-actions');
   const key = esc(it.key);
-  const qbBtn = state.qb ? `<button class="btn qb" data-act="qb" data-id="${key}">推送到 qB</button>` : '';
+  const dlBtn = state.dl ? `<button class="btn qb" data-act="dl" data-id="${key}">推送到 ${esc(dlShort())}</button>` : '';
   actions.innerHTML = (it.needsMagnet && !it.magnet)
-    ? `<button class="btn" data-act="getmagnet" data-id="${key}">获取磁力</button>${qbBtn}`
+    ? `<button class="btn" data-act="getmagnet" data-id="${key}">获取磁力</button>${dlBtn}`
     : `<button class="btn primary" data-act="open" data-id="${key}">打开磁力</button>` +
-      `<button class="btn" data-act="copy" data-id="${key}">复制磁力</button>${qbBtn}`;
+      `<button class="btn" data-act="copy" data-id="${key}">复制磁力</button>${dlBtn}`;
 
   modal.hidden = false;
 }
@@ -642,7 +673,7 @@ $('#detail-modal').addEventListener('click', async (e) => {
   }
   if (act === 'copy') { const m = await ensureMagnet(it); if (m) copyText(m); return; }
   if (act === 'open') { const m = await ensureMagnet(it); if (m) window.location.href = m; return; }
-  if (act === 'qb') { const m = await ensureMagnet(it); if (m) sendToQB(m); return; }
+  if (act === 'dl') { const m = await ensureMagnet(it); if (m) sendToClient(m); return; }
 });
 
 // ---------- batch operations ----------
@@ -791,65 +822,95 @@ async function sendToQB(magnet) {
 }
 
 // ---------- settings ----------
+// 按当前选中的客户端切换认证字段的显隐：userpass 显示用户名/密码，token 显示 token。
+function syncDlAuthFields() {
+  const kind = $('#dl-client').value;
+  const meta = DL_META[kind] || DL_META.qbittorrent;
+  $('#dl-userpass').hidden = meta.auth !== 'userpass';
+  $('#dl-tokenwrap').hidden = meta.auth !== 'token';
+  // aria2 的 token 是 rpc-secret，Gopeed 的是 API Token，提示文案略作区分。
+  $('#dl-token-label').textContent = kind === 'aria2'
+    ? 'RPC 密钥（rpc-secret，无则留空）'
+    : 'API Token（无则留空）';
+}
+
 function openSettings() {
-  $('#qb-url').value = state.qb?.url || '';
-  $('#qb-user').value = state.qb?.user || '';
-  $('#qb-pass').value = state.qb?.pass || '';
+  const dl = state.dl || {};
+  $('#dl-client').value = dl.client || 'qbittorrent';
+  $('#dl-url').value = dl.url || '';
+  $('#dl-user').value = dl.user || '';
+  $('#dl-pass').value = dl.pass || '';
+  $('#dl-token').value = dl.token || '';
+  syncDlAuthFields();
   $('#settings-modal').hidden = false;
 }
 function closeSettings() { $('#settings-modal').hidden = true; }
 
+// 从设置面板收集当前配置。
+function readDlForm() {
+  return {
+    client: $('#dl-client').value,
+    url: $('#dl-url').value.trim(),
+    user: $('#dl-user').value.trim(),
+    pass: $('#dl-pass').value,
+    token: $('#dl-token').value.trim(),
+  };
+}
+
+$('#dl-client').onchange = syncDlAuthFields;
 $('#settings-btn').onclick = () => { openSettings(); loadTorznab(); };
 $('#settings-cancel').onclick = closeSettings;
 $('#settings-save').onclick = () => {
-  state.qb = {
-    url: $('#qb-url').value.trim(),
-    user: $('#qb-user').value.trim(),
-    pass: $('#qb-pass').value,
-  };
-  localStorage.setItem('qb', JSON.stringify(state.qb));
+  state.dl = readDlForm();
+  localStorage.setItem('downloader', JSON.stringify(state.dl));
   closeSettings();
   render();
   toast('已保存下载工具设置');
 };
-$('#qb-test').onclick = async () => {
-  const cfg = { url: $('#qb-url').value.trim(), user: $('#qb-user').value.trim(), pass: $('#qb-pass').value };
+$('#dl-test').onclick = async () => {
+  const cfg = readDlForm();
   if (!cfg.url) return toast('请先填写地址');
-  const r = await fetch('/api/download/qbittorrent', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...cfg, magnet: 'magnet:?xt=urn:btih:1234567890abcdef1234567890abcdef12345678' }),
-  });
-  const data = await r.json();
-  toast(data.ok ? '连接成功' : ('连接失败：' + (data.error || '')));
+  toast('测试连接中…');
+  try {
+    const r = await fetch('/api/download/test', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cfg),
+    });
+    const data = await r.json();
+    toast(data.ok ? '连接成功' : ('连接失败：' + (data.error || '')));
+  } catch (e) { toast('测试失败：网络错误'); }
 };
 
-// Auto-detect a local qBittorrent WebUI (stock installs need no config).
-async function autoDetectQB() {
-  if (state.qb) return; // already configured manually
+// 应用一份探测到的配置：写入 state + localStorage，回填表单，刷新卡片按钮。
+function applyDetected(d) {
+  state.dl = { client: d.kind, url: d.url, user: d.user || '', pass: d.pass || '', token: d.token || '' };
+  localStorage.setItem('downloader', JSON.stringify(state.dl));
+}
+
+// 首屏静默探测本机下载器（已配置则跳过），零配置命中常见默认端口。
+async function autoDetectDownloader() {
+  if (state.dl) return; // already configured manually
   try {
-    const r = await fetch('/api/download/qbittorrent/detect');
+    const r = await fetch('/api/download/detect');
     const d = await r.json();
-    if (d.ok) {
-      state.qb = { url: d.url, user: d.user, pass: d.pass };
-      localStorage.setItem('qb', JSON.stringify(state.qb));
-      render();
-    }
+    if (d.ok) { applyDetected(d); render(); }
   } catch (e) { /* detection is best-effort */ }
 }
 
-$('#qb-detect').onclick = async () => {
-  toast('正在探测本机 qBittorrent…');
-  const r = await fetch('/api/download/qbittorrent/detect');
-  const d = await r.json();
-  if (d.ok) {
-    state.qb = { url: d.url, user: d.user, pass: d.pass };
-    localStorage.setItem('qb', JSON.stringify(state.qb));
-    $('#qb-url').value = d.url; $('#qb-user').value = d.user; $('#qb-pass').value = d.pass;
-    render();
-    toast('已自动发现并启用 qBittorrent');
-  } else {
-    toast('未在本机发现 qBittorrent WebUI（请手动填写）');
-  }
+$('#dl-detect').onclick = async () => {
+  toast('正在探测本机下载器…');
+  try {
+    const r = await fetch('/api/download/detect');
+    const d = await r.json();
+    if (d.ok) {
+      applyDetected(d);
+      openSettings();
+      render();
+      toast(`已自动发现并启用 ${DL_META[d.kind]?.label || d.kind}`);
+    } else {
+      toast('未在本机发现受支持的下载器（请手动填写）');
+    }
+  } catch (e) { toast('探测失败：网络错误'); }
 };
 
 // ---------- controls ----------

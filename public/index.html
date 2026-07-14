@@ -90,7 +90,7 @@
   <div id="batch-bar" class="batch-bar" hidden>
     <span class="batch-info">已选 <b id="batch-count">0</b> 条</span>
     <span class="spacer"></span>
-    <button id="batch-qb" class="btn qb" type="button">批量推送 qB</button>
+    <button id="batch-qb" class="btn qb" type="button">批量推送</button>
     <button id="batch-copy" class="btn" type="button">批量复制磁力</button>
     <button id="batch-csv" class="btn" type="button">导出 CSV</button>
     <button id="batch-clear" class="ghost-btn" type="button">清空选择</button>
@@ -111,22 +111,37 @@
   <div id="settings-modal" class="modal" hidden>
     <div class="modal-card">
       <h2>下载工具设置</h2>
-      <p class="hint">点击磁力链接会用系统默认客户端（如 qBittorrent / 迅雷）打开。也可配置 qBittorrent WebUI，直接把磁力推送到客户端。</p>
+      <p class="hint">点击磁力链接会用系统默认客户端（如 qBittorrent / BitComet / 迅雷）打开，无需任何配置。也可选一个带 WebUI / RPC 的下载器，把磁力一键推送过去。</p>
       <label class="field block">
-        qBittorrent WebUI 地址
-        <input id="qb-url" type="text" placeholder="http://localhost:8080" />
+        下载客户端
+        <select id="dl-client">
+          <option value="qbittorrent">qBittorrent</option>
+          <option value="transmission">Transmission</option>
+          <option value="aria2">aria2 / Motrix</option>
+          <option value="gopeed">Gopeed</option>
+        </select>
       </label>
       <label class="field block">
-        用户名
-        <input id="qb-user" type="text" placeholder="admin" />
+        WebUI / RPC 地址
+        <input id="dl-url" type="text" placeholder="http://localhost:8080" />
       </label>
-      <label class="field block">
-        密码
-        <input id="qb-pass" type="password" placeholder="password" />
+      <label id="dl-userpass" class="dl-auth">
+        <span class="field block">
+          用户名
+          <input id="dl-user" type="text" placeholder="admin" />
+        </span>
+        <span class="field block">
+          密码
+          <input id="dl-pass" type="password" placeholder="password" />
+        </span>
+      </label>
+      <label id="dl-tokenwrap" class="field block" hidden>
+        <span id="dl-token-label">RPC 密钥 / API Token（无则留空）</span>
+        <input id="dl-token" type="password" placeholder="token（可留空）" />
       </label>
       <div class="modal-actions">
-        <button id="qb-detect" class="ghost-btn">自动探测本机</button>
-        <button id="qb-test" class="ghost-btn">测试连接</button>
+        <button id="dl-detect" class="ghost-btn">自动探测本机</button>
+        <button id="dl-test" class="ghost-btn">测试连接</button>
         <span class="spacer"></span>
         <button id="settings-cancel" class="ghost-btn">取消</button>
         <button id="settings-save" class="primary-btn">保存</button>

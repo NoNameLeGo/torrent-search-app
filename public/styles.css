@@ -315,3 +315,7 @@ main { padding: 16px 20px 60px; }
 .tn-form { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
 .field.inline { flex-direction: row; align-items: center; gap: 6px; }
 .sep { border: none; border-top: 1px solid var(--border); margin: 18px 0; }
+
+/* 下载客户端设置：用户名/密码两栏横排；token 单栏由 .field.block 处理 */
+.dl-auth { display: flex; gap: 10px; }
+.dl-auth .field.block { flex: 1; }
