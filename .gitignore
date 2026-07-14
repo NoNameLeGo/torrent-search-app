@@ -39,3 +39,6 @@ data/
 
 # 打包产物（portable 版约 360MB，不入库）
 dist/
+
+# Tauri 本地构建缓存（Rust target 可达数 GB；正式包由 GitHub Actions 从 feat/tauri 打，本地无需保留）
+src-tauri/target/
