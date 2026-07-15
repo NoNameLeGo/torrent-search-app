@@ -20,6 +20,7 @@ const state = {
   es: null,                // active EventSource, so a new search can cancel it
   dl: loadDownloader(),    // 下载客户端配置 { client, url, user, pass, token }（含旧 qb 迁移）
   quality: 'all',          // 画质快捷筛选：all / 2160p / 1080p / 720p / hdr
+  category: 'all',         // 内容分类筛选：all 或某个标准桶 key（见 normalizeCategory）
   view: 'search',          // 当前视图：search / favorites
   history: JSON.parse(localStorage.getItem('history') || '[]'),   // 最近搜索词
   favorites: JSON.parse(localStorage.getItem('favorites') || '[]'), // 收藏的种子
@@ -74,6 +75,64 @@ function matchesQuality(name, q) {
   if (q === 'all') return true;
   const pat = QUALITY_PATTERNS[q];
   return pat ? pat.test(String(name || '')) : true;
+}
+
+// 内容分类归一化：各 provider 回填的 category 五花八门（'Anime'、'TV'、'Movies/HD'、
+// 站点原文分类名等），这里把它们收敛到少数标准桶，供「内容分类」筛选按统一口径过滤。
+// 两级判定：先看 provider 权威分类（categoryFromRaw），判不出再靠标题强特征词兜底
+// （categoryFromTitle），仍判不出落 'other'。CATEGORY_LABELS 决定 chip 文案与排列顺序。
+const CATEGORY_LABELS = {
+  movies: '电影',
+  series: '剧集',
+  anime: '动漫',
+  games: '游戏',
+  apps: '软件',
+  books: '书籍 / 有声书',
+  music: '音乐',
+  porn: '成人',
+  other: '其他',
+};
+const CATEGORY_ORDER = Object.keys(CATEGORY_LABELS);
+
+// 把 provider 回填的原始 category 文本归一到标准桶之一（返回桶 key），判不出返回 null。
+// 与下面的标题推断分开：raw 是站点权威分类，命中即用；判不出交给标题兜底。
+function categoryFromRaw(raw) {
+  const s = String(raw || '').toLowerCase();
+  if (!s) return null;
+  if (/\b(movie|film|hd\s*movie)/.test(s)) return 'movies';
+  if (/\b(tv|series|show|episode)/.test(s)) return 'series';
+  if (/\b(anime|cartoon)/.test(s)) return 'anime';
+  if (/\b(game|rom|nintendo|playstation|xbox|switch)/.test(s)) return 'games';
+  if (/\b(app|software|program|pc\b|application)/.test(s)) return 'apps';
+  if (/\b(book|audiobook|ebook|comic|magazine|manga|literature)/.test(s)) return 'books';
+  if (/\b(music|audio|album|flac|mp3|song)/.test(s)) return 'music';
+  if (/\b(porn|xxx|adult|hentai|sex)/.test(s)) return 'porn';
+  return null;
+}
+
+// 标题轻量推断兜底：综合站（1337x / TPB / OxTorrent 等）多不给逐行分类，全落到「其他」。
+// 这里只匹配高置信度的强特征词，判不出就返回 null，宁可漏判不误判（误判会把结果塞进错分类）。
+// 顺序有讲究：剧集的 SxxExx 特征最硬，先判；再判成人 / 游戏 / 软件 / 书籍 / 音乐 / 电影。
+function categoryFromTitle(name) {
+  const s = String(name || '').toLowerCase();
+  if (!s) return null;
+  // 剧集：S01E02 / S01 / 1x02 / "season 2" / "complete series"。
+  if (/\bs\d{1,2}(e\d{1,3}|\b)|\b\d{1,2}x\d{2}\b|\bseason\s?\d|\bcomplete series\b/.test(s)) return 'series';
+  if (/\b(xxx|porn|hentai|jav|onlyfans|brazzers)\b/.test(s)) return 'porn';
+  // 游戏：常见 scene 组名 / 打包工具，特征极强。
+  if (/\b(fitgirl|repack|codex|plaza|skidrow|reloaded|razor1911|empress|dodi|goldberg|nsw|\.nsp|\.xci)\b/.test(s)) return 'games';
+  if (/\b(x64|x86|win(?:32|64)?|keygen|cracked|activator|portable|multilingual)\b|\bv\d+\.\d+/.test(s)) return 'apps';
+  if (/\b(epub|mobi|azw3|pdf|retail|audiobook|m4b)\b/.test(s)) return 'books';
+  if (/\b(flac|mp3|320\s?kbps|discography|\bost\b|album)\b/.test(s)) return 'music';
+  // 电影信号相对弱（年份 + 常见片源标记），放最后，避免抢走上面更硬的判定。
+  if (/\b(19|20)\d{2}\b.*\b(1080p|2160p|720p|bluray|blu-ray|web-?dl|webrip|bdrip|hdrip|x264|x265|hevc)\b/.test(s)) return 'movies';
+  return 'other';
+}
+
+// 供筛选/统计的统一入口：raw 权威分类优先，判不出再用标题推断兜底。
+// 传参兼容旧调用：第一个参数是 raw category，第二个是标题（可选）。
+function normalizeCategory(raw, name) {
+  return categoryFromRaw(raw) || categoryFromTitle(name);
 }
 
 // ---------- provider groups ----------
@@ -144,10 +203,60 @@ async function loadProviders() {
         : providers.filter((p) => p.enabled).map((p) => p.id)
     );
 
+    renderGroupChips();
     renderProviderChips();
   } catch (e) {
     toast('无法加载引擎列表');
   }
+}
+
+// 主界面顶部的分组切换条：只列分组（外加「全部」），不列具体引擎。
+// 一个分组视为「选中」= 该组下所有引擎都在 state.selected 里。点击分组 = 整组
+// 全选/全不选（复用 toggleGroup 的语义）。「全部」= 一键全选/全不选所有引擎。
+// 逐引擎的细粒度开关在设置弹窗里（renderProviderChips），两处共享 state.selected。
+function renderGroupChips() {
+  const wrap = $('#group-chips');
+  if (!wrap) return;
+
+  // 归拢出本次实际存在的分组（空组不渲染），保持 GROUP_ORDER + custom 顺序。
+  const byGroup = new Map();
+  allProviders.forEach((p) => {
+    const g = providerGroupOf(p);
+    if (!byGroup.has(g)) byGroup.set(g, []);
+    byGroup.get(g).push(p);
+  });
+  const groups = [...GROUP_ORDER, 'custom'].filter((g) => byGroup.has(g));
+
+  const total = allProviders.length;
+  const selTotal = allProviders.filter((p) => state.selected.has(p.id)).length;
+  const allOn = total > 0 && selTotal === total;
+
+  const chip = (key, label, on, extra) =>
+    `<div class="chip group-chip${on ? ' on' : ''}" data-group="${esc(key)}"` +
+    `${extra ? ` title="${esc(extra)}"` : ''}>` +
+    `<span class="dot"></span>${esc(label)}</div>`;
+
+  // 「全部」：全选时高亮，点击切换全选/全不选。
+  let html = chip('__all__', '全部', allOn);
+  html += groups.map((g) => {
+    const list = byGroup.get(g);
+    const on = list.length > 0 && list.every((p) => state.selected.has(p.id));
+    const sel = list.filter((p) => state.selected.has(p.id)).length;
+    // 部分选中时给个提示（该组 N/M），高亮只在整组选中时点亮，语义清晰。
+    return chip(g, GROUP_LABELS[g] || g, on, `${sel}/${list.length} 已选`);
+  }).join('');
+  wrap.innerHTML = html;
+}
+
+// 「全部」切换：当前已全选则清空，否则补齐所有引擎。
+function toggleAllProviders() {
+  const allOn = allProviders.length > 0 && allProviders.every((p) => state.selected.has(p.id));
+  if (allOn) state.selected.clear();
+  else allProviders.forEach((p) => state.selected.add(p.id));
+  saveSelectedProviders();
+  renderGroupChips();
+  renderProviderChips();
+  if (state.query) doSearch();
 }
 
 // 按预设分组渲染引擎 chips：每组一个可折叠区块，组标题带「全选/全不选」，
@@ -202,6 +311,7 @@ function toggleProvider(id) {
   if (state.selected.has(id)) state.selected.delete(id);
   else state.selected.add(id);
   saveSelectedProviders();
+  renderGroupChips();
   renderProviderChips();
   if (state.query) doSearch();
 }
@@ -215,6 +325,7 @@ function toggleGroup(g) {
     else state.selected.add(p.id);
   });
   saveSelectedProviders();
+  renderGroupChips();
   renderProviderChips();
   if (state.query) doSearch();
 }
@@ -223,6 +334,21 @@ function toggleGroup(g) {
 async function doSearch() {
   state.query = $('#search-input').value.trim();
   if (!state.query) return;
+  // 全不选时不发请求：后端对空 providers 会 fallback 到「搜所有引擎」，与用户
+  // 「全不选」的意图相反。这里短路，清空结果并提示去勾选引擎。
+  if (allProviders.length && state.selected.size === 0) {
+    state.searchId++;
+    if (state.es) { state.es.close(); state.es = null; }
+    state.groups = new Map();
+    state.status = {};
+    state.hasMore = false;
+    state.loading = false;
+    renderStatus(state.status);
+    render();
+    $('#empty').hidden = false;
+    $('#empty').textContent = '没有启用任何搜索引擎。点顶部分组或到 ⚙ 设置里勾选引擎。';
+    return;
+  }
   // 搜索时切回搜索视图并记录历史。
   pushHistory(state.query);
   if (state.view !== 'search') switchView('search');
@@ -236,6 +362,8 @@ async function doSearch() {
   state.all = [];
   state.seen = new Set();
   state.groups = new Map();
+  // 换词后旧的内容分类可能不再出现，回到「全部」，避免新结果被上次选的分类筛空。
+  state.category = 'all';
   // 新搜索会重建 groups，旧勾选的 key 全部失效，清空避免残留计数。
   state.checked.clear();
   renderBatchBar();
@@ -374,6 +502,38 @@ function renderStatus(providers) {
   }).join('');
 }
 
+// 依据本次结果里实际出现的分类，动态渲染「内容分类」筛选 chips。
+// 只为真正出现的桶生成按钮（外加「全部」），避免展示一堆空分类。当前选中的分类若
+// 在新结果里消失了（如翻页/换词后不再命中），自动回落到「全部」，防止筛出空列表。
+function renderCategoryFilters() {
+  const wrap = $('#category-filters');
+  const counts = new Map();
+  for (const it of state.groups.values()) {
+    const c = normalizeCategory(it.category, it.name);
+    counts.set(c, (counts.get(c) || 0) + 1);
+  }
+
+  // 结果太少或只落在单一分类时，分类筛选没意义，直接隐藏。
+  const present = CATEGORY_ORDER.filter((c) => counts.has(c));
+  if (state.groups.size === 0 || present.length < 2) {
+    wrap.hidden = true;
+    if (state.category !== 'all') state.category = 'all';
+    return;
+  }
+
+  // 选中的分类在本次结果里消失了就回落到「全部」。
+  if (state.category !== 'all' && !counts.has(state.category)) state.category = 'all';
+
+  wrap.hidden = false;
+  const total = state.groups.size;
+  const btn = (q, label, n) =>
+    `<button type="button" class="qbtn${state.category === q ? ' on' : ''}" data-cat="${esc(q)}">` +
+    `${esc(label)} <span class="qbtn-count">${n}</span></button>`;
+  wrap.innerHTML =
+    btn('all', '全部', total) +
+    present.map((c) => btn(c, CATEGORY_LABELS[c], counts.get(c))).join('');
+}
+
 // ---------- client-side filter + sort ----------
 // 面向分组（去重后的资源），而非原始逐条结果。
 function visibleResults() {
@@ -386,6 +546,7 @@ function visibleResults() {
     if (it.size != null && it.size < minSize) return false;
     if (name && !it.name.toLowerCase().includes(name)) return false;
     if (!matchesQuality(it.name, state.quality)) return false;
+    if (state.category !== 'all' && normalizeCategory(it.category, it.name) !== state.category) return false;
     return true;
   });
 
@@ -433,6 +594,7 @@ function relevanceScore(name, query) {
 
 function render() {
   const wrap = $('#results');
+  renderCategoryFilters();
   const list = visibleResults();
   if (state.groups.size === 0) {
     wrap.innerHTML = '';
@@ -926,6 +1088,7 @@ $('#order-btn').onclick = () => {
 });
 $('#reset-filters').onclick = () => {
   $('#min-seeders').value = ''; $('#min-size').value = '0'; $('#name-contains').value = '';
+  state.category = 'all';
   render();
 };
 
@@ -934,6 +1097,16 @@ $('#provider-chips').addEventListener('click', (e) => {
   const btn = e.target.closest('.pgroup-toggle');
   if (!btn) return;
   toggleGroup(btn.dataset.group);
+});
+
+// 主界面分组切换条：点「全部」= 全选/全不选，点某分组 = 整组全选/全不选。
+// chips 是重渲染的，用事件委托。逐引擎开关在设置里，两处共享 state.selected。
+$('#group-chips').addEventListener('click', (e) => {
+  const chip = e.target.closest('.group-chip');
+  if (!chip) return;
+  const g = chip.dataset.group;
+  if (g === '__all__') toggleAllProviders();
+  else toggleGroup(g);
 });
 
 // ---------- infinite scroll ----------
@@ -1159,7 +1332,16 @@ $('#quality-filters').addEventListener('click', (e) => {
   const btn = e.target.closest('.qbtn');
   if (!btn) return;
   state.quality = btn.dataset.q;
-  $$('.qbtn').forEach((b) => b.classList.toggle('on', b === btn));
+  // 只在画质行内切换高亮，避免误伤内容分类行（两行共用 .qbtn 样式）。
+  $('#quality-filters').querySelectorAll('.qbtn').forEach((b) => b.classList.toggle('on', b === btn));
+  render();
+});
+
+// 内容分类筛选：chips 动态生成，用事件委托。选中后 render() 会重绘并同步高亮。
+$('#category-filters').addEventListener('click', (e) => {
+  const btn = e.target.closest('.qbtn');
+  if (!btn) return;
+  state.category = btn.dataset.cat;
   render();
 });
 

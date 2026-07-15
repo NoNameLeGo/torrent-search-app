@@ -27,7 +27,8 @@
   </header>
 
   <section class="controls">
-    <div id="provider-chips" class="chips"></div>
+    <div class="filter-label">搜索引擎<span class="filter-hint">按分组选择「查询哪些数据源」，逐个引擎的开关在 ⚙ 设置里</span></div>
+    <div id="group-chips" class="chips"></div>
 
     <div class="toolbar">
       <label class="field">
@@ -69,6 +70,11 @@
       <button type="button" class="qbtn" data-q="720p">720p</button>
       <button type="button" class="qbtn" data-q="hdr">HDR·Dolby</button>
     </div>
+
+    <!-- 内容分类筛选：对已返回结果按内容类型过滤（与「搜索引擎」正交，不影响查询哪些站）。
+         chips 由 renderCategoryFilters() 按本次结果里实际出现的分类动态生成。 -->
+    <div class="filter-label">内容分类<span class="filter-hint">按结果「内容类型」筛选，随本次搜索出现的分类动态显示</span></div>
+    <div id="category-filters" class="quality-filters" hidden></div>
   </section>
 
   <section id="status-bar" class="status-bar" hidden></section>
@@ -146,6 +152,11 @@
         <button id="settings-cancel" class="ghost-btn">取消</button>
         <button id="settings-save" class="primary-btn">保存</button>
       </div>
+
+      <hr class="sep" />
+      <h2>搜索引擎</h2>
+      <p class="hint">逐个开关内置引擎。主界面顶部的分组切换是这里选择结果的快捷入口——勾选状态两处共享。</p>
+      <div id="provider-chips" class="chips"></div>
 
       <hr class="sep" />
       <h2>Torznab 索引器</h2>

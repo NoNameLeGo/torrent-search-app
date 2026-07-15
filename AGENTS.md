@@ -49,6 +49,40 @@ Build caches are redirected to `.cache/` (project-local, gitignored) to avoid po
 
 This is a **Windows-first** project. `start.bat`/`stop.bat` are the primary dev launchers. `npm run electron` and `npm run dist` use `set` (not `export`) for env vars — they are Windows-only scripts.
 
+## Candidate features (borrowed from upstream `prajwalch/TorrentSearch`)
+
+Compared against the upstream Android app. Our search aggregation, multi-client
+download push (qB/TR/aria2/Gopeed), batch ops, and CSV export already exceed it.
+
+**Done:** Category system — every result is normalized into one of a few standard
+buckets (`movies`/`series`/`anime`/`games`/`apps`/`books`/`music`/`porn`/`other`) by
+`normalizeCategory()` in `public/app.js`: provider-supplied `category` (透传 via
+`normalize.js`) wins, else a high-confidence title-based inference (`categoryFromTitle`)
+fills the gap. The UI renders a category-filter chip row (`renderCategoryFilters`) built
+from the buckets actually present in the current results. This is *orthogonal* to engine
+grouping (source dimension) — category is the *content* dimension.
+
+The remaining gaps worth closing, ranked by ROI:
+
+1. **Safe Mode** — one toggle that auto-disables NSFW providers (we already have an
+   "adult" group: Sukebei/XXXClub/…) and hides NSFW results. Cheap: a localStorage
+   flag wired into engine selection + result filtering. High value for demo/家用.
+   The `porn` category bucket is already in place to feed the result-hiding half.
+2. **Viewed / dead-torrent filtering** — dead-torrent (seeders=0) filtering mostly
+   exists via the min-seeders filter. Missing: mark "already viewed" results (opened
+   details / copied magnet) as dimmed. Store viewed `infoHash` set in localStorage.
+3. **Browse (top/latest)** — browse trending/latest without a query. Needs providers
+   to support query-less top/latest fetching (not every site has this) — higher cost,
+   mid-term, start with the few engines that support it.
+4. **Bookmarks export/import** — we already persist favorites in localStorage; upstream
+   adds export-to-file / import. Natural for a desktop app; guards against cache clears.
+5. **Richer details (poster/screenshots/description)** — upstream detail screen has
+   media poster, screenshot previews, Markdown description. Depends on each site's
+   detail-page structure — lower ROI, nice-to-have.
+
+Suggested order: **Safe Mode + viewed filtering** next — both pure frontend, low risk,
+and Safe Mode is interrelated (the `porn` category feeds its result-hiding half).
+
 ## Syncing features between `main` and `feat/tauri`
 
 The two branches are maintained in parallel: same commit messages, different hashes. Do **not** bulk cherry-pick the whole `feat/tauri..main` range — most of those commits are the parallel twins and would apply duplicate changes. Cherry-pick only the genuinely new commit(s).

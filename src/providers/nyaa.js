@@ -28,6 +28,14 @@ async function search(query, { page = 1 } = {}) {
     const name = ($view.text() || nameCell.text()).trim();
     if (!name) return;
 
+    // 第一列是分类单元格：<a href="/?c=1_2" title="Anime - English-translated">。
+    // title 给出站点原文分类（Anime / Audio / Literature / Live Action / Software / Pictures 等），
+    // 交给前端 normalizeCategory 归一到标准桶。取不到就置 null（前端归为「其他」）。
+    const category =
+      tds.eq(0).find('a[href*="c="]').first().attr('title') ||
+      tds.eq(0).find('a').first().attr('title') ||
+      null;
+
     const $magnet = nameCell.find('a[href^="magnet:"]').first();
     const magnet = $magnet.attr('href') || null;
     const viewHref = $view.attr('href');
@@ -49,6 +57,7 @@ async function search(query, { page = 1 } = {}) {
       magnet,
       infoHash,
       detailUrl,
+      category,
       needsMagnet: !magnet,
     }));
   });

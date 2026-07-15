@@ -111,6 +111,14 @@ body {
 }
 .qbtn:hover { color: var(--text); }
 .qbtn.on { color: #fff; background: var(--accent); border-color: var(--accent); }
+.qbtn-count { opacity: .6; font-size: 11px; margin-left: 2px; }
+
+/* 筛选区小标题：区分「搜索引擎（数据源）」与「内容分类（结果筛选）」两个维度 */
+.filter-label {
+  font-size: 12.5px; font-weight: 600; color: var(--text);
+  padding: 2px 0 6px; display: flex; align-items: baseline; gap: 8px;
+}
+.filter-hint { font-weight: 400; font-size: 11.5px; color: var(--text-dim); }
 
 /* Search term highlight in result titles */
 .hl { color: var(--yellow); background: rgba(251,191,36,.14); border-radius: 3px; padding: 0 1px; }
@@ -169,6 +177,10 @@ body {
 .chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); }
 .chip.on .dot { background: var(--accent); }
 .chip.demo .dot { background: var(--yellow); }
+
+/* 主界面顶部的分组切换条：比设置里的逐引擎 chip 稍大，语义更像「导航」。 */
+.group-chip { padding: 7px 14px; font-weight: 600; }
+.group-chip[data-group="__all__"] { font-weight: 700; }
 
 .toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; padding-bottom: 12px; }
 .field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-dim); }
