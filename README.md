@@ -118,10 +118,10 @@ frontend (public/)  ──HTTP/SSE──▶  Express server (server.js)
 
 ## 路线图 / 计划中的功能
 
-大部分用户侧功能已完成（画质筛选 / 高亮、搜索历史 / 收藏、引擎分组 / 预设、批量操作、详情预览、SSE 实时流、跨站 infoHash 去重合并均已上线）。剩余候选：
+用户侧功能已基本齐备。已上线：画质筛选 / 高亮、搜索历史 / 收藏、引擎分组 / 预设、批量操作、详情预览、SSE 实时流、跨站 infoHash 去重合并，以及**多下载客户端一键推送**（qBittorrent / Transmission / aria2·Motrix / Gopeed，见功能表第 7 项）。剩余候选：
 
-- [ ] **更多下载客户端** — 现仅支持 qBittorrent WebUI，可加 Transmission RPC、Aria2 RPC、Deluge。
-- [ ] **Tauri 版转正** — 打包流程已建好（CI 自动出包，见上文方式 C），待充分验证后从「实验性」升为并列推荐。
+- [ ] **Tauri 版转正** — 打包流程已建好（CI 自动出包，见上文对比表），充分验证后把它从「实验性」升为与 Electron 并列的另一种客户端选择。
+- [ ] **更多下载客户端** — 在现有四种基础上继续扩展，如 Deluge。
 
 ## 许可证
 
