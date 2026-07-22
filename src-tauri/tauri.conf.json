@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "npm run build:sidecar && node server.js",
     "devUrl": "http://localhost:3000",
-    "beforeBuildCommand": "npm prune --omit=dev --ignore-scripts && npm run build:sidecar",
+    "beforeBuildCommand": "npm prune --omit=dev --ignore-scripts && npm run build:sidecar && node scripts/verify-tauri-resources.mjs",
     "frontendDist": "../public"
   },
   "app": {
