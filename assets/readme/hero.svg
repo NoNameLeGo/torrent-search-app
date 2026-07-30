@@ -1,0 +1,187 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="1200" height="380" viewBox="0 0 1200 380"
+     role="img" aria-labelledby="hero-title hero-desc">
+  <title id="hero-title">torrent-search-app — Desktop BT Torrent Meta-Search</title>
+  <desc id="hero-desc">One search across 40+ engines with real-time SSE streaming, result dedup, filtering, and downloader push. Electron desktop app with dark theme.</desc>
+
+  <defs>
+    <linearGradient id="bg-grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0a0c10"/>
+      <stop offset="100%" stop-color="#0f1115"/>
+    </linearGradient>
+    <linearGradient id="accent-grad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#4f8cff"/>
+      <stop offset="100%" stop-color="#2dd4bf"/>
+    </linearGradient>
+    <linearGradient id="beam-grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#4f8cff" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#2dd4bf" stop-opacity="0.05"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="soft-glow">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="380" rx="24" fill="url(#bg-grad)"/>
+
+  <!-- Subtle grid pattern -->
+  <g opacity="0.03" stroke="#4f8cff" stroke-width="0.5">
+    <line x1="0" y1="95" x2="1200" y2="95"/>
+    <line x1="0" y1="190" x2="1200" y2="190"/>
+    <line x1="0" y1="285" x2="1200" y2="285"/>
+    <line x1="200" y1="0" x2="200" y2="380"/>
+    <line x1="400" y1="0" x2="400" y2="380"/>
+    <line x1="600" y1="0" x2="600" y2="380"/>
+    <line x1="800" y1="0" x2="800" y2="380"/>
+    <line x1="1000" y1="0" x2="1000" y2="380"/>
+  </g>
+
+  <!-- ===== LEFT PANEL: Identity ===== -->
+  <g transform="translate(56, 0)">
+
+    <!-- Category label -->
+    <rect x="0" y="44" width="94" height="26" rx="13" fill="none" stroke="#4f8cff" stroke-width="1" stroke-opacity="0.5"/>
+    <text x="47" y="61" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="13" font-weight="600" fill="#4f8cff">DESKTOP APP</text>
+
+    <!-- Project name -->
+    <text x="0" y="110" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="42" font-weight="700" fill="#e2e8f0" letter-spacing="-0.5">torrent-search-app</text>
+
+    <!-- Tagline -->
+    <text x="0" y="148" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="20" font-weight="500" fill="#94a3b8" letter-spacing="-0.2">BT torrent meta-search · real-time streaming · 40+ engines</text>
+
+    <!-- Feature pills -->
+    <g transform="translate(0, 178)">
+      <rect x="0" y="0" width="100" height="26" rx="6" fill="#1a1d24" stroke="#2d3748" stroke-width="1"/>
+      <text x="50" y="17" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="12" fill="#64748b">🔍 Aggregated</text>
+
+      <rect x="110" y="0" width="112" height="26" rx="6" fill="#1a1d24" stroke="#2d3748" stroke-width="1"/>
+      <text x="166" y="17" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="12" fill="#64748b">⚡ Real-time SSE</text>
+
+      <rect x="232" y="0" width="104" height="26" rx="6" fill="#1a1d24" stroke="#2d3748" stroke-width="1"/>
+      <text x="284" y="17" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="12" fill="#64748b">🖥️ Electron</text>
+    </g>
+
+    <!-- Metadata row -->
+    <g transform="translate(0, 230)">
+      <rect x="0" y="0" width="64" height="20" rx="4" fill="#1e293b"/>
+      <text x="32" y="14" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="11" font-weight="600" fill="#4f8cff">v0.1.0</text>
+
+      <rect x="72" y="0" width="72" height="20" rx="4" fill="#1e293b"/>
+      <text x="108" y="14" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="11" font-weight="500" fill="#2dd4bf">GPL-3.0</text>
+
+      <text x="160" y="14" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="11" fill="#64748b">Node.js + Express · 40 providers</text>
+    </g>
+
+    <!-- Quick start hint -->
+    <g transform="translate(0, 278)">
+      <rect x="0" y="0" width="540" height="48" rx="10" fill="#13161c" stroke="#2d3748" stroke-width="1"/>
+      <text x="20" y="20" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="11" font-weight="600" fill="#64748b" letter-spacing="0.5">QUICK START</text>
+      <text x="20" y="40" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="14" fill="#e2e8f0">npm install &amp;&amp; npm start → localhost:3000</text>
+      <text x="480" y="40" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="14" fill="#2dd4bf">▸ browser</text>
+    </g>
+
+  </g>
+
+  <!-- ===== RIGHT PANEL: Visual proof ===== -->
+  <g transform="translate(640, 36)">
+
+    <!-- Search bar mockup -->
+    <rect x="0" y="8" width="440" height="40" rx="20" fill="#1a1d24" stroke="#2d3748" stroke-width="1"/>
+    <circle cx="22" cy="28" r="6" fill="none" stroke="#64748b" stroke-width="2"/>
+    <circle cx="26" cy="32" r="2" fill="none" stroke="#64748b" stroke-width="1.5" transform="rotate(45 26 32)"/>
+    <text x="40" y="32" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="14" fill="#64748b">Search torrents across 40+ engines...</text>
+
+    <!-- Engine status row: streaming in progress -->
+    <g transform="translate(0, 68)">
+      <text x="0" y="12" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="11" font-weight="600" fill="#4f8cff" letter-spacing="0.3">LIVE STREAMING</text>
+
+      <!-- Engine dots with active indicator -->
+      <g transform="translate(0, 24)">
+        <!-- 1337x - active -->
+        <rect x="0" y="0" width="62" height="24" rx="6" fill="#1a1d24" stroke="#d4a017" stroke-width="1"/>
+        <circle cx="16" cy="12" r="4" fill="#d4a017" filter="url(#glow)"/>
+        <text x="28" y="16" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="10" font-weight="500" fill="#e2e8f0">1337x</text>
+        <text x="55" y="16" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="8" fill="#22c55e">✓</text>
+
+        <!-- TPB - active -->
+        <rect x="70" y="0" width="56" height="24" rx="6" fill="#1a1d24" stroke="#e74c3c" stroke-width="1"/>
+        <circle cx="16" cy="12" r="4" fill="#e74c3c" filter="url(#glow)"/>
+        <text x="28" y="16" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="10" font-weight="500" fill="#e2e8f0">TPB</text>
+        <text x="55" y="16" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="8" fill="#22c55e">✓</text>
+
+        <!-- NYAA - active -->
+        <rect x="134" y="0" width="62" height="24" rx="6" fill="#1a1d24" stroke="#2ecc71" stroke-width="1"/>
+        <circle cx="16" cy="12" r="4" fill="#2ecc71" filter="url(#glow)"/>
+        <text x="28" y="16" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="10" font-weight="500" fill="#e2e8f0">NYAA</text>
+        <text x="55" y="16" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="8" fill="#22c55e">✓</text>
+
+        <!-- YTS - loading -->
+        <rect x="204" y="0" width="56" height="24" rx="6" fill="#1a1d24" stroke="#e67e22" stroke-width="1"/>
+        <circle cx="16" cy="12" r="4" fill="#e67e22" filter="url(#soft-glow)"/>
+        <text x="28" y="16" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="10" font-weight="500" fill="#e2e8f0">YTS</text>
+        <text x="52" y="14" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="7" fill="#94a3b8">⏳0.8s</text>
+
+        <!-- Knaben - active -->
+        <rect x="268" y="0" width="72" height="24" rx="6" fill="#1a1d24" stroke="#9b59b6" stroke-width="1"/>
+        <circle cx="16" cy="12" r="4" fill="#9b59b6" filter="url(#glow)"/>
+        <text x="28" y="16" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="10" font-weight="500" fill="#e2e8f0">Knaben</text>
+        <text x="65" y="16" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="8" fill="#22c55e">✓</text>
+      </g>
+    </g>
+
+    <!-- Data flowing lines -->
+    <g opacity="0.3">
+      <line x1="20" y1="120" x2="20" y2="168" stroke="#d4a017" stroke-width="1"/>
+      <line x1="90" y1="120" x2="90" y2="168" stroke="#e74c3c" stroke-width="1"/>
+      <line x1="154" y1="120" x2="154" y2="168" stroke="#2ecc71" stroke-width="1"/>
+      <line x1="226" y1="120" x2="226" y2="168" stroke="#e67e22" stroke-width="1" stroke-dasharray="3,3"/>
+      <line x1="290" y1="120" x2="290" y2="168" stroke="#9b59b6" stroke-width="1"/>
+    </g>
+
+    <!-- Aggregation area -->
+    <g transform="translate(0, 168)">
+      <rect x="0" y="0" width="440" height="6" rx="3" fill="url(#beam-grad)"/>
+    </g>
+
+    <!-- Result cards flowing in -->
+    <!-- Card 1 -->
+    <g transform="translate(0, 184)">
+      <rect x="0" y="0" width="440" height="52" rx="8" fill="#1a1d24" stroke="#2d3748" stroke-width="1"/>
+      <rect x="0" y="0" width="4" height="52" rx="2" fill="#d4a017"/>
+      <text x="18" y="22" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="13" font-weight="600" fill="#e2e8f0">Ubuntu 24.04 LTS Desktop</text>
+      <text x="18" y="42" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="11" fill="#64748b">4.8 GB ⋮ 2467 seeds ⋮ 1337x</text>
+      <rect x="340" y="16" width="44" height="20" rx="4" fill="#1e293b"/>
+      <text x="362" y="30" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="10" font-weight="600" fill="#2dd4bf">ISO</text>
+    </g>
+
+    <!-- Card 2 -->
+    <g transform="translate(0, 242)">
+      <rect x="0" y="0" width="440" height="52" rx="8" fill="#1a1d24" stroke="#2d3748" stroke-width="1"/>
+      <rect x="0" y="0" width="4" height="52" rx="2" fill="#e74c3c"/>
+      <text x="18" y="22" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="13" font-weight="600" fill="#e2e8f0">Ubuntu 22.04.5 LTS Jammy</text>
+      <text x="18" y="42" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="11" fill="#64748b">3.9 GB ⋮ 1892 seeds ⋮ TPB</text>
+      <rect x="340" y="16" width="44" height="20" rx="4" fill="#1e293b"/>
+      <text x="362" y="30" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="10" font-weight="600" fill="#2dd4bf">ISO</text>
+    </g>
+
+    <!-- Card 3 -->
+    <g transform="translate(0, 300)">
+      <rect x="0" y="0" width="440" height="52" rx="8" fill="#1a1d24" stroke="#2d3748" stroke-width="1"/>
+      <rect x="0" y="0" width="4" height="52" rx="2" fill="#2ecc71"/>
+      <text x="18" y="22" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="13" font-weight="600" fill="#e2e8f0">[Nyaa] Ubuntu 24.04 Desktop</text>
+      <text x="18" y="42" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="11" fill="#64748b">4.8 GB ⋮ 312 seeds ⋮ NYAA</text>
+      <rect x="340" y="16" width="44" height="20" rx="4" fill="#1e293b"/>
+      <text x="362" y="30" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="10" font-weight="600" fill="#2dd4bf">ISO</text>
+    </g>
+
+  </g>
+
+  <!-- Bottom accent bar -->
+  <rect x="0" y="378" width="1200" height="2" rx="1" fill="url(#accent-grad)"/>
+</svg>

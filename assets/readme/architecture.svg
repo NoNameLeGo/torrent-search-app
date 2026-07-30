@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="1200" height="420" viewBox="0 0 1200 420"
+     role="img" aria-labelledby="arch-title arch-desc">
+  <title id="arch-title">torrent-search-app architecture — Electron/Web frontend, Express backend, provider pool, and downloader integration</title>
+  <desc id="arch-desc">Layered architecture: User layer (Browser/Electron) → API layer (Express Server with SSE) → Provider pool (40+ engines + Torznab) → External websites + Downloader integration (qBittorrent, Transmission, aria2, Gopeed).</desc>
+
+  <defs>
+    <linearGradient id="arch-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0a0c10"/>
+      <stop offset="100%" stop-color="#0f1115"/>
+    </linearGradient>
+    <linearGradient id="fe-grad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1a1d24"/>
+      <stop offset="100%" stop-color="#15181f"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#4f8cff"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="420" rx="24" fill="url(#arch-bg)"/>
+
+  <!-- ===== LAYER 1: User Interface ===== -->
+  <g transform="translate(56, 32)">
+    <text x="0" y="0" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="11" font-weight="600" fill="#4f8cff">01</text>
+    <text x="28" y="0" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="13" font-weight="600" fill="#e2e8f0">User Interface</text>
+
+    <!-- Browser -->
+    <rect x="0" y="16" width="240" height="64" rx="10" fill="url(#fe-grad)" stroke="#2d3748" stroke-width="1"/>
+    <rect x="0" y="16" width="240" height="20" rx="10" fill="#1e293b"/>
+    <rect x="8" y="22" width="8" height="8" rx="4" fill="#4f8cff"/>
+    <circle cx="28" cy="26" r="4" fill="#2dd4bf"/>
+    <text x="120" y="27" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="11" fill="#64748b">Browser</text>
+    <text x="120" y="68" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="12" fill="#e2e8f0">localhost:3000</text>
+
+    <!-- Electron -->
+    <rect x="260" y="16" width="240" height="64" rx="10" fill="url(#fe-grad)" stroke="#2d3748" stroke-width="1"/>
+    <rect x="0" y="16" width="240" height="20" rx="10" fill="#1e293b" transform="translate(260,0)"/>
+    <rect x="268" y="22" width="8" height="8" rx="4" fill="#4f8cff"/>
+    <circle cx="288" cy="26" r="4" fill="#2dd4bf"/>
+    <text x="380" y="27" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="11" fill="#64748b">Electron Desktop</text>
+    <text x="380" y="68" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="12" fill="#e2e8f0">BrowserWindow 1280×800</text>
+
+    <!-- Arrow down -->
+    <line x1="250" y1="96" x2="250" y2="118" stroke="#4f8cff" stroke-width="1.5" marker-end="url(#arrow)"/>
+  </g>
+
+  <!-- ===== LAYER 2: Express Server ===== -->
+  <g transform="translate(56, 160)">
+    <text x="0" y="0" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="11" font-weight="600" fill="#4f8cff">02</text>
+    <text x="28" y="0" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="13" font-weight="600" fill="#e2e8f0">Express Server</text>
+
+    <rect x="0" y="16" width="500" height="68" rx="10" fill="url(#fe-grad)" stroke="#2d3748" stroke-width="1"/>
+
+    <!-- API endpoints -->
+    <g transform="translate(16, 28)">
+      <rect x="0" y="0" width="96" height="24" rx="6" fill="#4f8cff" fill-opacity="0.15" stroke="#4f8cff" stroke-width="0.5"/>
+      <text x="48" y="16" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="9" fill="#4f8cff">/api/search</text>
+
+      <rect x="104" y="0" width="100" height="24" rx="6" fill="#2dd4bf" fill-opacity="0.15" stroke="#2dd4bf" stroke-width="0.5"/>
+      <text x="154" y="16" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="9" fill="#2dd4bf">/search/stream</text>
+
+      <rect x="212" y="0" width="96" height="24" rx="6" fill="#4f8cff" fill-opacity="0.15" stroke="#4f8cff" stroke-width="0.5"/>
+      <text x="260" y="16" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="9" fill="#4f8cff">/api/magnet</text>
+
+      <rect x="316" y="0" width="96" height="24" rx="6" fill="#2dd4bf" fill-opacity="0.15" stroke="#2dd4bf" stroke-width="0.5"/>
+      <text x="364" y="16" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="9" fill="#2dd4bf">/api/providers</text>
+
+      <rect x="420" y="0" width="64" height="24" rx="6" fill="#64748b" fill-opacity="0.15" stroke="#64748b" stroke-width="0.5"/>
+      <text x="452" y="16" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="9" fill="#64748b">+ more</text>
+    </g>
+
+    <g transform="translate(16, 56)">
+      <text x="0" y="0" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="10" fill="#64748b">SSE real-time stream · parallel engine queries · cross-site dedup</text>
+    </g>
+
+    <!-- Arrow down -->
+    <line x1="250" y1="100" x2="250" y2="118" stroke="#4f8cff" stroke-width="1.5" marker-end="url(#arrow)"/>
+  </g>
+
+  <!-- ===== LAYER 3: Provider Pool ===== -->
+  <g transform="translate(56, 286)">
+    <text x="0" y="0" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="11" font-weight="600" fill="#4f8cff">03</text>
+    <text x="28" y="0" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="13" font-weight="600" fill="#e2e8f0">Provider Pool</text>
+
+    <rect x="0" y="16" width="500" height="88" rx="10" fill="url(#fe-grad)" stroke="#2d3748" stroke-width="1"/>
+
+    <!-- Provider badges -->
+    <g transform="translate(16, 26)">
+      <rect x="0" y="0" width="60" height="22" rx="5" fill="#d4a017" fill-opacity="0.15" stroke="#d4a017" stroke-width="0.5"/>
+      <text x="30" y="15" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="10" font-weight="500" fill="#d4a017">1337x</text>
+
+      <rect x="68" y="0" width="46" height="22" rx="5" fill="#e74c3c" fill-opacity="0.15" stroke="#e74c3c" stroke-width="0.5"/>
+      <text x="91" y="15" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="10" font-weight="500" fill="#e74c3c">TPB</text>
+
+      <rect x="122" y="0" width="52" height="22" rx="5" fill="#2ecc71" fill-opacity="0.15" stroke="#2ecc71" stroke-width="0.5"/>
+      <text x="148" y="15" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="10" font-weight="500" fill="#2ecc71">NYAA</text>
+
+      <rect x="182" y="0" width="42" height="22" rx="5" fill="#e67e22" fill-opacity="0.15" stroke="#e67e22" stroke-width="0.5"/>
+      <text x="203" y="15" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="10" font-weight="500" fill="#e67e22">YTS</text>
+
+      <rect x="232" y="0" width="66" height="22" rx="5" fill="#9b59b6" fill-opacity="0.15" stroke="#9b59b6" stroke-width="0.5"/>
+      <text x="265" y="15" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="10" font-weight="500" fill="#9b59b6">Knaben</text>
+
+      <rect x="306" y="0" width="96" height="22" rx="5" fill="#64748b" fill-opacity="0.15" stroke="#64748b" stroke-width="0.5"/>
+      <text x="354" y="15" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="10" font-weight="500" fill="#94a3b8">Torrents-CSV</text>
+
+      <rect x="410" y="0" width="74" height="22" rx="5" fill="#64748b" fill-opacity="0.15" stroke="#64748b" stroke-width="0.5"/>
+      <text x="447" y="15" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="10" font-weight="500" fill="#94a3b8">+ 35 more</text>
+
+      <rect x="0" y="30" width="84" height="22" rx="5" fill="#4f8cff" fill-opacity="0.15" stroke="#4f8cff" stroke-width="0.5"/>
+      <text x="42" y="45" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="10" font-weight="500" fill="#4f8cff">Torznab</text>
+
+      <rect x="92" y="30" width="50" height="22" rx="5" fill="#2dd4bf" fill-opacity="0.15" stroke="#2dd4bf" stroke-width="0.5"/>
+      <text x="117" y="45" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="10" font-weight="500" fill="#2dd4bf">Demo</text>
+    </g>
+
+    <!-- Downloader integration side panel -->
+    <rect x="568" y="0" width="120" height="42" rx="8" fill="url(#fe-grad)" stroke="#2d3748" stroke-width="1"/>
+    <text x="628" y="16" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="9" fill="#4f8cff">DOWNLOAD</text>
+    <text x="628" y="32" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="10" fill="#94a3b8">qB · TR · aria2 · Gopeed</text>
+
+    <line x1="516" y1="20" x2="564" y2="20" stroke="#64748b" stroke-width="0.8" stroke-dasharray="2,2"/>
+  </g>
+
+</svg>
