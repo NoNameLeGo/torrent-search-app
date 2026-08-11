@@ -33,7 +33,15 @@ function loadAll() {
 
 function saveAll(list) {
   ensureDir();
-  fs.writeFileSync(STORE_FILE, JSON.stringify(list, null, 2), 'utf8');
+  const tmp = STORE_FILE + '.tmp';
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(list, null, 2), 'utf8');
+    fs.renameSync(tmp, STORE_FILE);
+  } catch (e) {
+    // On failure (ENOSPC / EACCES), leave the existing file intact.
+    // The tmp file may remain as a side-effect — harmless and overwritten
+    // on the next successful save.
+  }
 }
 
 function slug(s) {

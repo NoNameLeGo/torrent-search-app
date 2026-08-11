@@ -5,6 +5,7 @@
 // from a separate endpoint and mapped to magnet-based results.
 const { getJSON } = require('../lib/http');
 const { normalize } = require('../lib/normalize');
+const { runMirrors } = require('../lib/mirrors');
 
 const DOMAINS = ['https://anilibria.top', 'https://www.anilibria.top'];
 const MAX_RELEASES = 15;
@@ -63,20 +64,10 @@ async function searchOn(base, query) {
 }
 
 async function search(query, { page = 1 } = {}) {
-  const attempts = DOMAINS.map((base) => searchOn(base, query));
-  const settled = await Promise.allSettled(attempts);
-  for (const s of settled) {
-    const v = s.status === 'fulfilled' ? s.value : null;
-    if (v && v.results && v.results.length) return { results: v.results, error: null };
-  }
-  const ok = settled.find(
-    (s) => s.status === 'fulfilled' && s.value && !s.value.error && s.value.results.length === 0
+  return runMirrors(
+    DOMAINS.map((base) => () => searchOn(base, query)),
+    'anilibria'
   );
-  if (ok) return { results: [], error: null };
-  const errs = settled
-    .map((s) => (s.status === 'fulfilled' ? s.value.error : 'crash'))
-    .filter(Boolean);
-  return { results: [], error: `anilibria unavailable (${errs.join('; ')})` };
 }
 
 module.exports = { id: 'anilibria', name: 'AniLibria', search };

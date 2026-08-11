@@ -5,6 +5,7 @@
 const cheerio = require('cheerio');
 const { getText } = require('../lib/http');
 const { normalize } = require('../lib/normalize');
+const { runMirrors } = require('../lib/mirrors');
 
 const DOMAINS = [
   'https://torrentdownload.info',
@@ -120,16 +121,10 @@ async function searchOn(base, query) {
 }
 
 async function search(query, { page = 1 } = {}) {
-  const attempts = DOMAINS.map((base) => searchOn(base, query));
-  const settled = await Promise.allSettled(attempts);
-  for (const s of settled) {
-    const v = s.status === 'fulfilled' ? s.value : null;
-    if (v && v.results && v.results.length) return { results: v.results, error: null };
-  }
-  const errs = settled
-    .map((s) => (s.status === 'fulfilled' ? s.value.error : 'crash'))
-    .filter(Boolean);
-  return { results: [], error: `TorrentDownload unreachable (${errs.join('; ')})` };
+  return runMirrors(
+    DOMAINS.map((base) => () => searchOn(base, query)),
+    'TorrentDownload'
+  );
 }
 
 module.exports = { id: 'torrentdownload', name: 'TorrentDownload', search };

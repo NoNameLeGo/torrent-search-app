@@ -1,12 +1,13 @@
 'use strict';
 
-// Torrent9 HTML scraper. The results list only links to a detail page; the
-// name, size, seeders, peers, date, category and magnet all live on the detail
-// page, so we fetch each detail page (in parallel) during search, mirroring the
-// Kotlin parser. Never throws.
+// Torrent9 HTML scraper. The search results page only links to torrent
+// detail pages where all metadata (name, size, seeders, date, category, magnet)
+// lives. The magnet is deferred to resolveMagnet() to avoid N+1 fetches during
+// search().
 const cheerio = require('cheerio');
 const { getText } = require('../lib/http');
-const { normalize } = require('../lib/normalize');
+const { normalize, extractInfoHash } = require('../lib/normalize');
+const { runMirrors } = require('../lib/mirrors');
 
 const DOMAINS = [
   'https://www6.torrent9.to',
@@ -34,9 +35,7 @@ function parseDetail($, base) {
   const magnet = $('a[href^="magnet:?"]').first().attr('href');
   if (!name || !magnet) return null;
 
-  let infoHash = null;
-  const im = magnet.match(/btih:([a-f0-9]+)/i);
-  if (im) infoHash = im[1];
+  const infoHash = extractInfoHash(magnet);
 
   // Size: near a <strong> containing "Poids du torrent" (French units).
   let size = null;
@@ -74,6 +73,20 @@ function parseDetail($, base) {
   return { name, size, seeders, leechers, date, infoHash, magnet, category };
 }
 
+// Fetch + parse a single detail page. Used lazily by resolveMagnet().
+async function fetchDetails(detailUrl) {
+  const { html, error } = await getText(detailUrl);
+  if (error || !html) return null;
+  return parseDetail(cheerio.load(html), '');
+}
+
+// Lazily fetch magnet + infoHash from a detail page when the user clicks.
+async function resolveMagnet(detailUrl) {
+  const det = await fetchDetails(detailUrl);
+  if (!det || !det.magnet) return { magnet: null, error: 'no_magnet' };
+  return { magnet: det.magnet, infoHash: det.infoHash, error: null };
+}
+
 async function searchOn(base, query) {
   const url = `${base}/search_torrent/${encodeURIComponent(query)}.html`;
   const { html, error } = await getText(url);
@@ -83,51 +96,31 @@ async function searchOn(base, query) {
   const rows = $('table > tbody > tr');
   if (rows.length === 0) return { base, results: [], error: 'no_results_parsed' };
 
-  const detailUrls = [];
+  const results = [];
   rows.each((_, row) => {
-    const href = $(row).find('td:nth-child(1) > a').first().attr('href');
-    if (href) detailUrls.push(href.startsWith('http') ? href : `${base}${href}`);
-  });
-  if (detailUrls.length === 0) return { base, results: [], error: 'no_detail_links' };
-
-  const parsed = await Promise.all(detailUrls.map(async (u) => {
-    try {
-      const r = await getText(u);
-      if (r.error || !r.html) return null;
-      return parseDetail(cheerio.load(r.html), base);
-    } catch {
-      return null;
-    }
-  }));
-
-  const results = parsed
-    .filter(Boolean)
-    .map((d) => normalize({
+    const $a = $(row).find('td:nth-child(1) > a').first();
+    const href = $a.attr('href');
+    if (!href) return;
+    const detailUrl = href.startsWith('http') ? href : `${base}${href}`;
+    const name = $a.text().trim() || '(untitled)';
+    // All metadata is on the detail page; magnet deferred to resolveMagnet().
+    // normalize() auto-sets needsMagnet when magnet=null and detailUrl is present.
+    results.push(normalize({
       provider: 'torrent9',
-      name: d.name,
-      size: d.size,
-      seeders: d.seeders,
-      leechers: d.leechers,
-      date: d.date,
-      infoHash: d.infoHash,
-      magnet: d.magnet,
-      category: d.category,
+      name,
+      magnet: null,
+      detailUrl,
     }));
+  });
 
-  return { base, results, error: null };
+  return { base, results, error: results.length === 0 ? 'no_results_parsed' : null };
 }
 
 async function search(query, { page = 1 } = {}) {
-  const attempts = DOMAINS.map((base) => searchOn(base, query));
-  const settled = await Promise.allSettled(attempts);
-  for (const s of settled) {
-    const v = s.status === 'fulfilled' ? s.value : null;
-    if (v && v.results && v.results.length) return { results: v.results, error: null };
-  }
-  const errs = settled
-    .map((s) => (s.status === 'fulfilled' ? s.value.error : 'crash'))
-    .filter(Boolean);
-  return { results: [], error: `Torrent9 unreachable (${errs.join('; ')})` };
+  return runMirrors(
+    DOMAINS.map((base) => () => searchOn(base, query)),
+    'Torrent9'
+  );
 }
 
-module.exports = { id: 'torrent9', name: 'Torrent9', search };
+module.exports = { id: 'torrent9', name: 'Torrent9', search, resolveMagnet };

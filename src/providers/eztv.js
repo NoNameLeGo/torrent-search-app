@@ -5,7 +5,8 @@
 // required, otherwise the rows come back without magnet links (per Kotlin src).
 const cheerio = require('cheerio');
 const { getText, pickUA } = require('../lib/http');
-const { normalize } = require('../lib/normalize');
+const { normalize, extractInfoHash } = require('../lib/normalize');
+const { runMirrors } = require('../lib/mirrors');
 
 const DOMAINS = [
   'https://eztvx.to',
@@ -40,9 +41,7 @@ async function searchOn(base, query) {
       ? (detailHref.startsWith('http') ? detailHref : `${base}${detailHref}`)
       : null;
 
-    let infoHash = null;
-    const m = magnet.match(/btih:([a-f0-9]+)/i);
-    if (m) infoHash = m[1];
+    const infoHash = extractInfoHash(magnet);
 
     results.push(normalize({
       provider: 'eztv',
@@ -61,16 +60,10 @@ async function searchOn(base, query) {
 }
 
 async function search(query, { page = 1 } = {}) {
-  const attempts = DOMAINS.map((base) => searchOn(base, query));
-  const settled = await Promise.allSettled(attempts);
-  for (const s of settled) {
-    const v = s.status === 'fulfilled' ? s.value : null;
-    if (v && v.results && v.results.length) return { results: v.results, error: null };
-  }
-  const errs = settled
-    .map((s) => (s.status === 'fulfilled' ? s.value.error : 'crash'))
-    .filter(Boolean);
-  return { results: [], error: `EZTV unreachable (${errs.join('; ')})` };
+  return runMirrors(
+    DOMAINS.map((base) => () => searchOn(base, query)),
+    'EZTV'
+  );
 }
 
 module.exports = { id: 'eztv', name: 'EZTV', search };

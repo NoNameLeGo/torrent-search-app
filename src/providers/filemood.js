@@ -6,6 +6,7 @@
 const cheerio = require('cheerio');
 const { getText } = require('../lib/http');
 const { normalize } = require('../lib/normalize');
+const { runMirrors } = require('../lib/mirrors');
 
 const DOMAINS = ['https://filemood.com'];
 
@@ -19,61 +20,54 @@ function parseInfoHash(detailUrl) {
   return /^[a-f0-9]{40}$/.test(h) ? h : null;
 }
 
-async function search(query, { page = 1 } = {}) {
-  const attempts = DOMAINS.map((base) =>
-    (async () => {
-      const url = `${base}/result?q=${encodeURIComponent(query)}+in%3Atitle`;
-      const { html, error } = await getText(url);
-      if (error || !html) return { results: [], error };
-      const $ = cheerio.load(html);
-      const rows = $('table > tbody > tr').toArray().filter((tr) => {
-        return $(tr).find('a.btn-success').length > 0;
-      });
-      if (rows.length === 0) return { results: [], error: 'no_results_parsed' };
+async function searchOne(base, query, page) {
+  const url = `${base}/result?q=${encodeURIComponent(query)}+in%3Atitle`;
+  const { html, error } = await getText(url);
+  if (error || !html) return { results: [], error };
+  const $ = cheerio.load(html);
+  const rows = $('table > tbody > tr').toArray().filter((tr) => {
+    return $(tr).find('a.btn-success').length > 0;
+  });
+  if (rows.length === 0) return { results: [], error: 'no_results_parsed' };
 
-      const results = [];
-      for (const tr of rows) {
-        const $tr = $(tr);
-        const name = $tr.find('td.dn-title').first().text().trim();
-        if (!name) continue;
+  const results = [];
+  for (const tr of rows) {
+    const $tr = $(tr);
+    const name = $tr.find('td.dn-title').first().text().trim();
+    if (!name) continue;
 
-        const detailHref = $tr.find('td.dn-btn > div > a').first().attr('href');
-        const detailUrl = detailHref
-          ? detailHref.startsWith('http') ? detailHref : `${base}${detailHref}`
-          : null;
-        const infoHash = parseInfoHash(detailUrl);
-        if (!infoHash) continue;
+    const detailHref = $tr.find('td.dn-btn > div > a').first().attr('href');
+    const detailUrl = detailHref
+      ? detailHref.startsWith('http') ? detailHref : `${base}${detailHref}`
+      : null;
+    const infoHash = parseInfoHash(detailUrl);
+    if (!infoHash) continue;
 
-        const size = $tr.find('td.dn-size').first().text().trim();
-        const statusText = $tr.find('td.dn-status').first().text().trim();
-        const parts = statusText.split('/').map((s) => s.trim());
-        const seeders = parts[0] || null;
-        const leechers = parts[1] || null;
+    const size = $tr.find('td.dn-size').first().text().trim();
+    const statusText = $tr.find('td.dn-status').first().text().trim();
+    const parts = statusText.split('/').map((s) => s.trim());
+    const seeders = parts[0] || null;
+    const leechers = parts[1] || null;
 
-        results.push(normalize({
-          provider: 'filemood',
-          name,
-          size,
-          seeders,
-          leechers,
-          infoHash,
-          category: 'Other',
-          detailUrl,
-        }));
-      }
-      return { results, error: null };
-    })()
-  );
-
-  const settled = await Promise.allSettled(attempts);
-  for (const s of settled) {
-    const v = s.status === 'fulfilled' ? s.value : null;
-    if (v && v.results && v.results.length) return { results: v.results, error: null };
+    results.push(normalize({
+      provider: 'filemood',
+      name,
+      size,
+      seeders,
+      leechers,
+      infoHash,
+      category: 'Other',
+      detailUrl,
+    }));
   }
-  const errs = settled
-    .map((s) => (s.status === 'fulfilled' ? s.value.error : 'crash'))
-    .filter(Boolean);
-  return { results: [], error: `filemood unreachable (${errs.join('; ')})` };
+  return { results, error: null };
+}
+
+async function search(query, { page = 1 } = {}) {
+  return runMirrors(
+    DOMAINS.map((base) => () => searchOne(base, query, page)),
+    'filemood'
+  );
 }
 
 module.exports = { id: 'filemood', name: 'FileMood', search };

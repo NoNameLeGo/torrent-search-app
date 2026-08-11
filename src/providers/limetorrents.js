@@ -5,6 +5,7 @@
 const cheerio = require('cheerio');
 const { getText } = require('../lib/http');
 const { normalize } = require('../lib/normalize');
+const { runMirrors } = require('../lib/mirrors');
 
 const DOMAINS = [
   'https://limetorrents.fun',
@@ -85,16 +86,10 @@ async function searchOn(base, query, page) {
 
 async function search(query, { page = 1 } = {}) {
   const p = Math.max(1, page | 0);
-  const attempts = DOMAINS.map((base) => searchOn(base, query, p));
-  const settled = await Promise.allSettled(attempts);
-  for (const s of settled) {
-    const v = s.status === 'fulfilled' ? s.value : null;
-    if (v && v.results && v.results.length) return { results: v.results, error: null };
-  }
-  const errs = settled
-    .map((s) => (s.status === 'fulfilled' ? s.value.error : 'crash'))
-    .filter(Boolean);
-  return { results: [], error: `LimeTorrents unreachable (${errs.join('; ')})` };
+  return runMirrors(
+    DOMAINS.map((base) => () => searchOn(base, query, p)),
+    'LimeTorrents'
+  );
 }
 
 module.exports = { id: 'limetorrents', name: 'LimeTorrents', search };

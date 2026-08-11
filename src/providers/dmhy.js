@@ -4,16 +4,11 @@
 // directly in each row, so no second request is needed in the common case.
 const cheerio = require('cheerio');
 const { getText } = require('../lib/http');
-const { normalize } = require('../lib/normalize');
+const { normalize, extractInfoHash } = require('../lib/normalize');
+const { runMirrors } = require('../lib/mirrors');
 
 const BASE = 'https://share.dmhy.org';
 const DOMAINS = [BASE];
-
-function getInfoHashFromMagnet(magnet) {
-  if (!magnet) return null;
-  const m = magnet.match(/btih:([a-f0-9]{32,40})/i);
-  return m ? m[1].toLowerCase() : null;
-}
 
 const CATEGORY_MAP = {
   '2': 'Anime', '7': 'Anime', '31': 'Anime',
@@ -54,7 +49,7 @@ function parseListItem($, row, base) {
   );
   const href = $nameLink.attr('href');
   const detailUrl = href ? (href.startsWith('http') ? href : `${base}${href}`) : null;
-  const infoHash = getInfoHashFromMagnet(magnet);
+  const infoHash = extractInfoHash(magnet);
 
   return {
     provider: 'dmhy',
@@ -88,20 +83,10 @@ async function searchOn(base, query, page) {
 }
 
 async function search(query, { page = 1 } = {}) {
-  const attempts = DOMAINS.map((base) => searchOn(base, query, page));
-  const settled = await Promise.allSettled(attempts);
-  for (const s of settled) {
-    const v = s.status === 'fulfilled' ? s.value : null;
-    if (v && v.results && v.results.length) return { results: v.results, error: null };
-  }
-  const ok = settled.find(
-    (s) => s.status === 'fulfilled' && s.value && !s.value.error && s.value.results.length === 0
+  return runMirrors(
+    DOMAINS.map((base) => () => searchOn(base, query, page)),
+    'dmhy'
   );
-  if (ok) return { results: [], error: null };
-  const errs = settled
-    .map((s) => (s.status === 'fulfilled' ? s.value.error : 'crash'))
-    .filter(Boolean);
-  return { results: [], error: `dmhy unavailable (${errs.join('; ')})` };
 }
 
 module.exports = { id: 'dmhy', name: 'DMHY', search };

@@ -34,8 +34,11 @@ jobs:
       # ---- 1) NSIS 安装包（不签名，仅打 tag 时发布到 Release）----
       # 本地沙箱会卡死在代码签名子进程，但 GitHub 托管的真 Windows 不会。
       # 关闭证书自动发现即可跳过签名，产出未签名安装包（Windows 会弹 SmartScreen 警告）。
+      # --publish=onTag 显式传在这里，不写死在 package.json 的 dist 脚本里：
+      # 脚本里硬编码过一次，导致 release 流程传 --publish=never 时拼成两个
+      # --publish 参数、后者没能覆盖前者，缺 GH_TOKEN 直接失败。
       - name: 构建 NSIS 安装包
-        run: npm run dist
+        run: npm run dist -- --publish=onTag
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -51,13 +54,13 @@ jobs:
       - name: 上传安装包（Artifact 备份）
         uses: actions/upload-artifact@v4
         with:
-          name: BT聚合搜索-安装包
+          name: BT-Search-Electron-Setup
           path: dist/*Setup*.exe
           if-no-files-found: error
 
       - name: 上传便携版（Artifact 备份）
         uses: actions/upload-artifact@v4
         with:
-          name: BT聚合搜索-便携版
+          name: BT-Search-Electron-Portable
           path: dist/portable/BT聚合搜索
           if-no-files-found: error
