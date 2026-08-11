@@ -211,3 +211,26 @@ git worktree remove <tmp>      # clean up AFTER push confirmed
 
 若日后再在此处分叉：解冲突时取 incoming（`main`）逻辑，**但务必保留那行动态填充**，
 丢了它会让所有徽章/状态栏显示名退化成 provider 原始 id。
+
+## Next steps（下一步）
+
+### 多客户端下载器同步到 `feat/tauri`
+
+`main` 的 `public/app.js` 支持 qBittorrent / Transmission / aria2 / Gopeed 四种下载器，
+通过 `state.dl`（单键 `'dl'`，body 形状 `{kind,url,user,pass,token,magnet}`）与后端
+`src/lib/downloaders.js` 通信。`feat/tauri` 仍是改造前的 qB-only 版本（`state.qb` /
+`#qb-url` 系列 DOM、无 `downloaders.js`）。
+
+从 `main` 同步多客户端到 `feat/tauri` 时需连带移植：
+- `public/app.js`：`DL_CLIENTS`、`dlLabel()`、`sendToClient()`、`dlPushBody()`、
+  `autoDetectDownloader()`、`state.dl`、`batchSendToClient()`、settings modal 的 `#dl-client`
+  select 及联动字段
+- `public/index.html`：下载器设置面板的对应 DOM id
+- `server.js`：`/api/download/push` 路由 + `downloaders` 模块引用
+- `src/lib/downloaders.js`：**从 main 拷贝整个文件**（上次 cherry-pick 时 ta 被删了）
+- conflict 处理：`package.json` 取 tauri 的（不含 electron 打包依赖）
+
+### 新功能（候选）
+1. **Safe Mode**（纯前端，低风险）— 开关禁用成人引擎 + 隐藏 NSFW 结果
+2. **已浏览置灰**（纯前端）— 查看/复制过的卡片 dimmed，localStorage 持久化
+3. 收藏导出/导入、Browse 浏览、详情海报等（ROI 递减）
