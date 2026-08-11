@@ -1,11 +1,12 @@
 'use strict';
 
-// BlueRoms HTML scraper. The results page links to a per-torrent download
-// page whose `button#magnet-button` carries a base64-encoded magnet URI.
-// We decode it to obtain the magnet + info hash for each result.
+// BlueRoms HTML scraper. The results page links to download pages where the
+// magnet URI is base64-encoded. The magnet fetch is deferred to resolveMagnet()
+// to avoid N+1 fetches during search().
 const cheerio = require('cheerio');
 const { getText } = require('../lib/http');
-const { normalize } = require('../lib/normalize');
+const { normalize, extractInfoHash } = require('../lib/normalize');
+const { runMirrors } = require('../lib/mirrors');
 
 const DOMAINS = ['https://www.blueroms.ws'];
 
@@ -23,15 +24,20 @@ async function getMagnetUri(downloadPageUrl) {
   }
 }
 
-async function parseListItem($, listItem, base) {
+// Lazily decode the base64 magnet from a download page when the user clicks.
+async function resolveMagnet(downloadPageUrl) {
+  const magnetUri = await getMagnetUri(downloadPageUrl);
+  if (!magnetUri) return { magnet: null, error: 'no_magnet' };
+  const infoHash = extractInfoHash(magnetUri);
+  return { magnet: magnetUri, infoHash, error: null };
+}
+
+function parseListItem($, listItem, base) {
   const $li = $(listItem);
   const $dl = $li.find('div.card-footer > a').first();
   const dlHref = $dl.attr('href');
   if (!dlHref) return null;
   const downloadPageUrl = dlHref.startsWith('http') ? dlHref : `${base}${dlHref}`;
-
-  const magnetUri = await getMagnetUri(downloadPageUrl);
-  if (!magnetUri) return null;
 
   const $name = $li.find('h4.card-title > a').first();
   const gameName = $name.text().trim();
@@ -54,53 +60,35 @@ async function parseListItem($, listItem, base) {
     }
   });
 
-  const detailsHref = $name.attr('href');
-  const detailUrl = detailsHref
-    ? detailsHref.startsWith('http') ? detailsHref : `${base}${detailsHref}`
-    : null;
-
-  let infoHash = null;
-  const m = magnetUri.match(/btih:([a-f0-9]+)/i);
-  if (m) infoHash = m[1];
-
+  // Magnet deferred to resolveMagnet() — normalize() sets needsMagnet automatically.
   return normalize({
     provider: 'blueroms',
     name,
     size,
-    magnet: magnetUri,
-    infoHash,
+    magnet: null,
     category: 'Games',
-    detailUrl,
+    detailUrl: downloadPageUrl,
   });
 }
 
-async function search(query, { page = 1 } = {}) {
-  const attempts = DOMAINS.map((base) =>
-    (async () => {
-      const url = `${base}/search?g=0&p=0&q=${encodeURIComponent(query)}`;
-      const { html, error } = await getText(url);
-      if (error || !html) return { results: [], error };
-      const $ = cheerio.load(html);
-      const items = $('div.row > div.col-xs-12 > div.card').toArray();
-      if (items.length === 0) return { results: [], error: 'no_results_parsed' };
+async function searchOne(base, query, page) {
+  const url = `${base}/search?g=0&p=0&q=${encodeURIComponent(query)}`;
+  const { html, error } = await getText(url);
+  if (error || !html) return { results: [], error };
+  const $ = cheerio.load(html);
+  const items = $('div.row > div.col-xs-12 > div.card').toArray();
+  if (items.length === 0) return { results: [], error: 'no_results_parsed' };
 
-      const parsed = await Promise.all(
-        items.map((li) => parseListItem($, li, base).catch(() => null))
-      );
-      const results = parsed.filter(Boolean);
-      return { results, error: null };
-    })()
-  );
-
-  const settled = await Promise.allSettled(attempts);
-  for (const s of settled) {
-    const v = s.status === 'fulfilled' ? s.value : null;
-    if (v && v.results && v.results.length) return { results: v.results, error: null };
-  }
-  const errs = settled
-    .map((s) => (s.status === 'fulfilled' ? s.value.error : 'crash'))
-    .filter(Boolean);
-  return { results: [], error: `blueroms unreachable (${errs.join('; ')})` };
+  // parseListItem is synchronous — no per-item HTTP round-trips.
+  const results = items.map((li) => parseListItem($, li, base)).filter(Boolean);
+  return { results, error: results.length === 0 ? 'no_results_parsed' : null };
 }
 
-module.exports = { id: 'blueroms', name: 'BlueRoms', search };
+async function search(query, { page = 1 } = {}) {
+  return runMirrors(
+    DOMAINS.map((base) => () => searchOne(base, query, page)),
+    'blueroms'
+  );
+}
+
+module.exports = { id: 'blueroms', name: 'BlueRoms', search, resolveMagnet };

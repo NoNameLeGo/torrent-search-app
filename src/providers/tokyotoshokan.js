@@ -6,7 +6,8 @@
 // Kotlin's search uses no pagination, so the `page` arg is ignored.
 const cheerio = require('cheerio');
 const { getText } = require('../lib/http');
-const { normalize } = require('../lib/normalize');
+const { normalize, extractInfoHash } = require('../lib/normalize');
+const { runMirrors } = require('../lib/mirrors');
 
 const BASE = 'https://tokyotosho.info';
 const DOMAINS = [BASE];
@@ -41,8 +42,7 @@ function parseRows($, base) {
     const magnet = $tr1.find('td.desc-top > a:nth-child(1)').first().attr('href');
     if (!magnet) continue;
 
-    const infoHashMatch = magnet.match(/xt=urn:btih:([a-f0-9]+)/i);
-    const infoHash = infoHashMatch ? infoHashMatch[1] : null;
+    const infoHash = extractInfoHash(magnet);
 
     const detailHref = $tr1.find('td.web > a:last-child').first().attr('href');
     const detailUrl = detailHref ? (detailHref.startsWith('http') ? detailHref : `${base}${detailHref}`) : null;
@@ -68,28 +68,20 @@ function parseRows($, base) {
   return results;
 }
 
-async function search(query, { page = 1 } = {}) {
-  const attempts = DOMAINS.map((base) =>
-    (async () => {
-      // type=0 -> All categories (Kotlin default; search context category unused here)
-      const url = `${base}/search.php?terms=${encodeURIComponent(query)}&type=0&searchName=true`;
-      const { html, error } = await getText(url);
-      if (error || !html) return { base, results: [], error };
-      const $ = cheerio.load(html);
-      const results = parseRows($, base);
-      return { base, results, error: null };
-    })()
-  );
+async function searchOne(base, query, page) {
+  const url = `${base}/search.php?terms=${encodeURIComponent(query)}&type=0&searchName=true`;
+  const { html, error } = await getText(url);
+  if (error || !html) return { base, results: [], error };
+  const $ = cheerio.load(html);
+  const results = parseRows($, base);
+  return { base, results, error: null };
+}
 
-  const settled = await Promise.allSettled(attempts);
-  for (const s of settled) {
-    const v = s.status === 'fulfilled' ? s.value : null;
-    if (v && v.results && v.results.length) return { results: v.results, error: null };
-  }
-  const errs = settled
-    .map((s) => (s.status === 'fulfilled' ? s.value.error : 'crash'))
-    .filter(Boolean);
-  return { results: [], error: `TokyoToshokan unreachable (${errs.join('; ')})` };
+async function search(query, { page = 1 } = {}) {
+  return runMirrors(
+    DOMAINS.map((base) => () => searchOne(base, query, page)),
+    'TokyoToshokan'
+  );
 }
 
 module.exports = { id: 'tokyotoshokan', name: 'TokyoToshokan', search };

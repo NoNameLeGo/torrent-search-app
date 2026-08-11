@@ -5,15 +5,9 @@
 // The full magnet URI (with btih + xl size) is present in each download
 // object, so no detail-page fetch is needed for the common case.
 const { getJSON, pickUA } = require('../lib/http');
-const { normalize } = require('../lib/normalize');
+const { normalize, extractInfoHash } = require('../lib/normalize');
 
 const BASE = 'https://subsplease.org';
-
-// Extract 40-char btih hex from a magnet URI.
-function infoHashFromMagnet(magnet) {
-  const m = String(magnet).match(/xt=urn:btih:([a-f0-9]+)/i);
-  return m ? m[1] : null;
-}
 
 // Extract the byte size from the magnet's xl= param (Kotlin formatBytes).
 function sizeFromMagnet(magnet) {
@@ -49,7 +43,7 @@ async function search(query, { page = 1 } = {}) {
       if (!magnet) continue;
       const res = d.res;
       const name = `${showName} [${res}p]`;
-      const infoHash = infoHashFromMagnet(magnet);
+      const infoHash = extractInfoHash(magnet);
       const size = sizeFromMagnet(magnet);
       const detailUrl = detailsBase
         ? `${detailsBase}?ep=${encodeURIComponent(episode)}&res=${encodeURIComponent(res)}`

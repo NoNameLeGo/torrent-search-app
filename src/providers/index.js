@@ -180,13 +180,16 @@ async function runProvider(p, query, page) {
 }
 
 // Honest aggregate hasMore: a paginated provider that returned results this page
-// may have a next page; demo reports its own hasMore; single-shot providers are
-// exhausted after page 1 and never claim more. Empty result set ⇒ no next page.
+// may have a next page. If a provider explicitly reports hasMore (demo.js does),
+// respect that; otherwise assume paginated providers have more pages as long as
+// they returned results. The frontend will additionally stop if a page produces
+// no new unique results (deduplication guard).
 function aggregateHasMore(targets, perProvider) {
   return targets.some((p) => {
     const s = perProvider[p.id];
     if (!s || s.status !== 'ok' || s.count === 0) return false;
-    if (p.demo) return !!s.hasMore;
+    // Respect explicit hasMore (demo) vs fallback for plain paginated engines.
+    if (typeof s.hasMore === 'boolean') return s.hasMore;
     return !!p.paginated;
   });
 }

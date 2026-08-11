@@ -77,6 +77,29 @@ function buildMagnet(infoHash, name) {
   return `magnet:?xt=urn:btih:${infoHash}${dn}`;
 }
 
+/** Extract the hex infoHash from a magnet URI (or any string containing btih:). */
+function extractInfoHash(str) {
+  if (!str) return null;
+  const m = String(str).match(/btih:([a-f0-9]{32,40})/i);
+  return m ? m[1].toLowerCase() : null;
+}
+
+// ---- Russian date helpers ------------------------------------------------
+// Shared Russian month abbreviation → English map (used by rutor, megapeer).
+const RU_MONTHS = {
+  'янв': 'Jan', 'фев': 'Feb', 'мар': 'Mar', 'апр': 'Apr',
+  'май': 'May', 'мая': 'May', 'июн': 'Jun', 'июл': 'Jul',
+  'авг': 'Aug', 'сен': 'Sep', 'окт': 'Oct', 'ноя': 'Nov', 'дек': 'Dec',
+};
+
+/** Best-effort Russian date → English so Date.parse can handle it. */
+function ruDate(s) {
+  if (!s) return s;
+  s = s.replace(/Сегодня/i, 'Today').replace(/Вчера/i, 'Yesterday')
+       .replace(/Мая/gi, 'Май'); // genitive → nominative
+  return s.replace(/[а-яё]+/gi, (m) => RU_MONTHS[m.toLowerCase()] || m);
+}
+
 function toInt(v) {
   if (v == null) return null;
   const n = parseInt(String(v).replace(/,/g, ''), 10);
@@ -109,5 +132,6 @@ function normalize(raw) {
 
 module.exports = {
   parseSize, formatSize, parseDate, formatDate,
-  buildMagnet, toInt, normalize,
+  buildMagnet, extractInfoHash, ruDate,
+  toInt, normalize,
 };

@@ -30,14 +30,25 @@ function withPath(base, path) {
 // 先 /auth/login 拿 session cookie，再带 cookie 调 /torrents/add。
 // ---------------------------------------------------------------------------
 async function qbLogin(base, user, pass) {
-  const login = await axios.post(
-    `${base}/api/v2/auth/login`,
-    `username=${encodeURIComponent(user || '')}&password=${encodeURIComponent(pass || '')}`,
-    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 6000 }
-  );
-  const cookie = login.headers['set-cookie'] && login.headers['set-cookie'][0];
-  if (!cookie || /fails|failed/i.test(String(login.data))) throw new Error('登录失败（用户名或密码错误）');
-  return cookie;
+  let login;
+  try {
+    login = await axios.post(
+      `${base}/api/v2/auth/login`,
+      `username=${encodeURIComponent(user || '')}&password=${encodeURIComponent(pass || '')}`,
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 6000 }
+    );
+  } catch (e) {
+    // Newer qB versions return 403 on bad credentials.
+    if (e.response && e.response.status === 403) throw new Error('登录失败（用户名或密码错误）');
+    throw e;
+  }
+  // qB v4+ returns SID cookie on success; older versions used /auth/login?username=&password=.
+  // Collect ALL set-cookie entries (axios may split multiple cookies as an array).
+  const cookies = login.headers['set-cookie'];
+  const allCookies = Array.isArray(cookies) ? cookies : (cookies ? [cookies] : []);
+  const sessionCookie = allCookies.find((c) => /SID=/i.test(c));
+  if (!sessionCookie) throw new Error('登录失败（用户名或密码错误）');
+  return sessionCookie;
 }
 
 const qbittorrent = {

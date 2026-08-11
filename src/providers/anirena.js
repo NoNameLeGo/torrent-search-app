@@ -7,6 +7,7 @@
 const cheerio = require('cheerio');
 const { getText, pickUA, http } = require('../lib/http');
 const { normalize } = require('../lib/normalize');
+const { runMirrors } = require('../lib/mirrors');
 
 const BASE = 'https://anirena.com';
 const DOMAINS = [BASE];
@@ -100,20 +101,10 @@ async function searchOn(base, query) {
 }
 
 async function search(query, { page = 1 } = {}) {
-  const attempts = DOMAINS.map((base) => searchOn(base, query));
-  const settled = await Promise.allSettled(attempts);
-  for (const s of settled) {
-    const v = s.status === 'fulfilled' ? s.value : null;
-    if (v && v.results && v.results.length) return { results: v.results, error: null };
-  }
-  const ok = settled.find(
-    (s) => s.status === 'fulfilled' && s.value && !s.value.error && s.value.results.length === 0
+  return runMirrors(
+    DOMAINS.map((base) => () => searchOn(base, query)),
+    'anirena'
   );
-  if (ok) return { results: [], error: null };
-  const errs = settled
-    .map((s) => (s.status === 'fulfilled' ? s.value.error : 'crash'))
-    .filter(Boolean);
-  return { results: [], error: `anirena unavailable (${errs.join('; ')})` };
 }
 
 // Lazily resolve the magnet from the torrent's detail page (the magnet anchor

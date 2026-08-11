@@ -6,7 +6,8 @@
 // abbreviations, normalized to English before parsing (as the Kotlin does).
 const cheerio = require('cheerio');
 const { getText } = require('../lib/http');
-const { normalize } = require('../lib/normalize');
+const { normalize, extractInfoHash } = require('../lib/normalize');
+const { runMirrors } = require('../lib/mirrors');
 
 const DOMAINS = ['https://xxxtor.com'];
 
@@ -27,80 +28,69 @@ function normalizeUploadDate(s) {
   return s;
 }
 
+async function searchOne(base, query, page) {
+  const url = `${base}/b.php?search=${encodeURIComponent(query)}`;
+  const { html, error } = await getText(url);
+  if (error || !html) return { base, results: [], error };
+
+  const $ = cheerio.load(html);
+  const rows = $('table > tbody > tr');
+  if (rows.length <= 1) return { base, results: [], error: 'no_results_parsed' };
+
+  const results = [];
+  rows.each((i, el) => {
+    if (i === 0) return;
+    const $el = $(el);
+    const name = $el.find('td:nth-child(2) > a:nth-child(3)').text().trim();
+    if (!name) return;
+    const magnet = $el.find('td:nth-child(2) > a:nth-child(1)').attr('href') || null;
+    if (!magnet || !magnet.startsWith('magnet:')) return;
+
+    const infoHash = extractInfoHash(magnet);
+
+    const size = $el.find('td:nth-child(3)').text().trim();
+    const seeders = $el
+      .find('td:nth-child(4) > span:nth-child(1)')
+      .text()
+      .trim();
+    const leechers = $el
+      .find('td:nth-child(4) > span:nth-child(2)')
+      .text()
+      .trim();
+    const date = normalizeUploadDate(
+      $el.find('td:nth-child(1)').text().trim()
+    );
+
+    const detailHref = $el.find('td:nth-child(2) > a:nth-child(3)').attr('href');
+    const detailUrl = detailHref
+      ? detailHref.startsWith('http')
+        ? detailHref
+        : `${base}${detailHref}`
+      : null;
+
+    results.push(
+      normalize({
+        provider: 'xxxtracker',
+        name,
+        size,
+        seeders,
+        leechers,
+        date,
+        infoHash,
+        magnet,
+        detailUrl,
+        category: 'Porn',
+      })
+    );
+  });
+  return { base, results, error: null };
+}
+
 async function search(query, { page = 1 } = {}) {
-  // Try all mirror domains in parallel; take the first that yields results.
-  const attempts = DOMAINS.map((base) =>
-    (async () => {
-      const url = `${base}/b.php?search=${encodeURIComponent(query)}`;
-      const { html, error } = await getText(url);
-      if (error || !html) return { base, results: [], error };
-
-      const $ = cheerio.load(html);
-      const rows = $('table > tbody > tr');
-      // First row is a header; require at least one data row.
-      if (rows.length <= 1) return { base, results: [], error: 'no_results_parsed' };
-
-      const results = [];
-      rows.each((i, el) => {
-        if (i === 0) return; // skip header row
-        const $el = $(el);
-        const name = $el.find('td:nth-child(2) > a:nth-child(3)').text().trim();
-        if (!name) return;
-        const magnet = $el.find('td:nth-child(2) > a:nth-child(1)').attr('href') || null;
-        if (!magnet || !magnet.startsWith('magnet:')) return;
-
-        let infoHash = null;
-        const m = magnet.match(/xt=urn:btih:([a-f0-9]+)/i);
-        if (m) infoHash = m[1].toLowerCase();
-
-        const size = $el.find('td:nth-child(3)').text().trim();
-        const seeders = $el
-          .find('td:nth-child(4) > span:nth-child(1)')
-          .text()
-          .trim();
-        const leechers = $el
-          .find('td:nth-child(4) > span:nth-child(2)')
-          .text()
-          .trim();
-        const date = normalizeUploadDate(
-          $el.find('td:nth-child(1)').text().trim()
-        );
-
-        const detailHref = $el.find('td:nth-child(2) > a:nth-child(3)').attr('href');
-        const detailUrl = detailHref
-          ? detailHref.startsWith('http')
-            ? detailHref
-            : `${base}${detailHref}`
-          : null;
-
-        results.push(
-          normalize({
-            provider: 'xxxtracker',
-            name,
-            size,
-            seeders,
-            leechers,
-            date,
-            infoHash,
-            magnet,
-            detailUrl,
-            category: 'Porn',
-          })
-        );
-      });
-      return { base, results, error: null };
-    })()
+  return runMirrors(
+    DOMAINS.map((base) => () => searchOne(base, query, page)),
+    'xxxtracker'
   );
-
-  const settled = await Promise.allSettled(attempts);
-  for (const s of settled) {
-    const v = s.status === 'fulfilled' ? s.value : null;
-    if (v && v.results && v.results.length) return { results: v.results, error: null };
-  }
-  const errs = settled
-    .map((s) => (s.status === 'fulfilled' ? s.value.error : 'crash'))
-    .filter(Boolean);
-  return { results: [], error: `xxxtracker unreachable (${errs.join('; ')})` };
 }
 
 module.exports = { id: 'xxxtracker', name: 'XXXTracker', search };

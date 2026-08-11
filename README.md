@@ -38,7 +38,7 @@
 
 前往 [Releases](https://github.com/NoNameLeGo/torrent-search-app/releases) 下载安装包：
 
-- **Electron 版**（`BT聚合搜索-Setup-*.exe`）— 稳定，开箱即用，推荐日常使用
+- **Electron 版**（`BT-Search-Electron-Setup-*.exe`）— 稳定，开箱即用，推荐日常使用
 - **Tauri 版**（`BT-Search-Tauri-Setup-*.exe`）— 实验性，体积更小、内存更省
 
 两款搜索功能与界面完全一致，**开 = 启动，关 = 净退出**，不留残留进程。

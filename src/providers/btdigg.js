@@ -4,7 +4,8 @@
 // so no detail-page fetch is needed for search.
 const cheerio = require('cheerio');
 const { getText } = require('../lib/http');
-const { normalize } = require('../lib/normalize');
+const { normalize, extractInfoHash } = require('../lib/normalize');
+const { runMirrors } = require('../lib/mirrors');
 
 const BASE = 'https://btdig.com';
 const DOMAINS = [BASE];
@@ -24,8 +25,7 @@ function parseRows($, base) {
     const magnet = $item.find('div.torrent_magnet > div.fa-magnet > a').first().attr('href');
     if (!magnet) return;
 
-    const infoHashMatch = magnet.match(/xt=urn:btih:([a-f0-9]+)/i);
-    const infoHash = infoHashMatch ? infoHashMatch[1] : null;
+    const infoHash = extractInfoHash(magnet);
 
     const href = $name.attr('href') || '';
     const detailUrl = href.startsWith('http') ? href : `${base}${href}`;
@@ -47,27 +47,20 @@ function parseRows($, base) {
   return results;
 }
 
-async function search(query, { page = 1 } = {}) {
-  const attempts = DOMAINS.map((base) =>
-    (async () => {
-      const url = `${base}/search?q=${encodeURIComponent(query)}`;
-      const { html, error } = await getText(url);
-      if (error || !html) return { base, results: [], error };
-      const $ = cheerio.load(html);
-      const results = parseRows($, base);
-      return { base, results, error: null };
-    })()
-  );
+async function searchOne(base, query, page) {
+  const url = `${base}/search?q=${encodeURIComponent(query)}`;
+  const { html, error } = await getText(url);
+  if (error || !html) return { base, results: [], error };
+  const $ = cheerio.load(html);
+  const results = parseRows($, base);
+  return { base, results, error: null };
+}
 
-  const settled = await Promise.allSettled(attempts);
-  for (const s of settled) {
-    const v = s.status === 'fulfilled' ? s.value : null;
-    if (v && v.results && v.results.length) return { results: v.results, error: null };
-  }
-  const errs = settled
-    .map((s) => (s.status === 'fulfilled' ? s.value.error : 'crash'))
-    .filter(Boolean);
-  return { results: [], error: `BTDigg unreachable (${errs.join('; ')})` };
+async function search(query, { page = 1 } = {}) {
+  return runMirrors(
+    DOMAINS.map((base) => () => searchOne(base, query, page)),
+    'BTDigg'
+  );
 }
 
 module.exports = { id: 'btdigg', name: 'BTDigg', search };

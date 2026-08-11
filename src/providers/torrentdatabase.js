@@ -6,6 +6,7 @@
 const cheerio = require('cheerio');
 const { getText } = require('../lib/http');
 const { normalize } = require('../lib/normalize');
+const { runMirrors } = require('../lib/mirrors');
 
 const DOMAINS = ['https://developify.ca'];
 
@@ -26,73 +27,65 @@ function categoryFromRaw(raw) {
   return map[raw.trim()] || 'Other';
 }
 
+async function searchOne(base, query, page) {
+  const url = `${base}/newest?q=${encodeURIComponent(query)}`;
+  const { html, error } = await getText(url);
+  if (error || !html) return { base, results: [], error };
+
+  const $ = cheerio.load(html);
+  const rows = $('table.torrent-table > tbody > tr');
+  if (!rows.length) return { base, results: [], error: 'no_results' };
+
+  const results = [];
+  rows.each((_, row) => {
+    const $row = $(row);
+    const $nameEl = $row.find('td:nth-child(1) > a:nth-child(2)').first();
+    const name = $nameEl.text().trim();
+    const magnetHref = $nameEl.attr('href') || '';
+    if (!name) return;
+
+    const infoHash = magnetHref
+      .replace(/^\/track\/magnet\//, '')
+      .split('?')[0]
+      .trim();
+    if (!infoHash) return;
+    const magnet = `magnet:?xt=urn:btih:${infoHash}&tr=${TRACKER}`;
+
+    const $detail = $row.find('td:nth-child(1) > a:nth-child(1)').first();
+    const detailHref = $detail.attr('href');
+    const detailUrl = detailHref
+      ? detailHref.startsWith('http') ? detailHref : `${base}${detailHref}`
+      : null;
+
+    const category = categoryFromRaw(
+      $row.find('td:nth-child(2) > span.category-bubble').first().text()
+    );
+    const size = $row.find('td.size-cell').first().text().trim();
+    const date = $row.find('td.date-cell').first().text().trim();
+    const seeders = $row.find('td:nth-child(5) > div > span:nth-child(1)').first().text().trim();
+    const leechers = $row.find('td:nth-child(5) > div > span:nth-child(2)').first().text().trim();
+
+    results.push(normalize({
+      provider: 'torrentdatabase',
+      name,
+      size,
+      seeders,
+      leechers,
+      date,
+      category,
+      infoHash,
+      magnet,
+      detailUrl,
+    }));
+  });
+  return { base, results, error: null };
+}
+
 async function search(query, { page = 1 } = {}) {
-  const attempts = DOMAINS.map((base) =>
-    (async () => {
-      const url = `${base}/newest?q=${encodeURIComponent(query)}`;
-      const { html, error } = await getText(url);
-      if (error || !html) return { base, results: [], error };
-
-      const $ = cheerio.load(html);
-      const rows = $('table.torrent-table > tbody > tr');
-      if (!rows.length) return { base, results: [], error: 'no_results' };
-
-      const results = [];
-      rows.each((_, row) => {
-        const $row = $(row);
-        const $nameEl = $row.find('td:nth-child(1) > a:nth-child(2)').first();
-        const name = $nameEl.text().trim();
-        const magnetHref = $nameEl.attr('href') || '';
-        if (!name) return;
-
-        // infoHash is the part of the path after "/track/magnet/" up to '?'.
-        const infoHash = magnetHref
-          .replace(/^\/track\/magnet\//, '')
-          .split('?')[0]
-          .trim();
-        if (!infoHash) return;
-        const magnet = `magnet:?xt=urn:btih:${infoHash}&tr=${TRACKER}`;
-
-        const $detail = $row.find('td:nth-child(1) > a:nth-child(1)').first();
-        const detailHref = $detail.attr('href');
-        const detailUrl = detailHref
-          ? detailHref.startsWith('http') ? detailHref : `${base}${detailHref}`
-          : null;
-
-        const category = categoryFromRaw(
-          $row.find('td:nth-child(2) > span.category-bubble').first().text()
-        );
-        const size = $row.find('td.size-cell').first().text().trim();
-        const date = $row.find('td.date-cell').first().text().trim();
-        const seeders = $row.find('td:nth-child(5) > div > span:nth-child(1)').first().text().trim();
-        const leechers = $row.find('td:nth-child(5) > div > span:nth-child(2)').first().text().trim();
-
-        results.push(normalize({
-          provider: 'torrentdatabase',
-          name,
-          size,
-          seeders,
-          leechers,
-          date,
-          category,
-          infoHash,
-          magnet,
-          detailUrl,
-        }));
-      });
-      return { base, results, error: null };
-    })()
+  return runMirrors(
+    DOMAINS.map((base) => () => searchOne(base, query, page)),
+    'TorrentDatabase'
   );
-
-  const settled = await Promise.allSettled(attempts);
-  for (const s of settled) {
-    const v = s.status === 'fulfilled' ? s.value : null;
-    if (v && v.results && v.results.length) return { results: v.results, error: null };
-  }
-  const errs = settled
-    .map((s) => (s.status === 'fulfilled' ? s.value.error : 'crash'))
-    .filter(Boolean);
-  return { results: [], error: `TorrentDatabase unreachable (${errs.join('; ')})` };
 }
 
 module.exports = { id: 'torrentdatabase', name: 'TorrentDatabase', search };

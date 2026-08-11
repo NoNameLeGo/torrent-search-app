@@ -4,25 +4,14 @@
 // metadata. The site is served as UTF-8, so plain getText decoding is correct.
 const cheerio = require('cheerio');
 const { getText } = require('../lib/http');
-const { normalize } = require('../lib/normalize');
+const { normalize, ruDate, extractInfoHash } = require('../lib/normalize');
+const { runMirrors } = require('../lib/mirrors');
 
 const DOMAINS = [
   'https://rutor.info',
   'https://rutor.is',
   'https://rutor.ru',
 ];
-
-// Russian genitive month abbreviations -> English, for date parsing.
-const RU_MONTHS = {
-  янв: 'Jan', фев: 'Feb', мар: 'Mar', апр: 'Apr', мая: 'May', июн: 'Jun',
-  июл: 'Jul', авг: 'Aug', сен: 'Sep', окт: 'Oct', ноя: 'Nov', дек: 'Dec',
-};
-
-function ruDate(s) {
-  if (!s) return s;
-  s = s.replace(/Сегодня/i, 'Today').replace(/Вчера/i, 'Yesterday');
-  return s.replace(/[а-яё]+/gi, (m) => RU_MONTHS[m.toLowerCase()] || m);
-}
 
 // Site is served as UTF-8; getText decodes it correctly. Never throws.
 async function getWin1251(url) {
@@ -53,9 +42,7 @@ async function searchOn(base, query, page) {
       ? (detailHref.startsWith('http') ? detailHref : `${base}${detailHref}`)
       : null;
 
-    let infoHash = null;
-    const m = magnet.match(/btih:([a-f0-9]+)/i);
-    if (m) infoHash = m[1];
+    const infoHash = extractInfoHash(magnet);
 
     // rutor's column layout has drifted from the reference Kotlin source (an
     // extra "comments" column was inserted), so match cells by content instead
@@ -102,16 +89,10 @@ async function searchOn(base, query, page) {
 
 async function search(query, { page = 1 } = {}) {
   const p = Math.max(0, (page | 0) - 1); // rutor page is 0-based
-  const attempts = DOMAINS.map((base) => searchOn(base, query, p));
-  const settled = await Promise.allSettled(attempts);
-  for (const s of settled) {
-    const v = s.status === 'fulfilled' ? s.value : null;
-    if (v && v.results && v.results.length) return { results: v.results, error: null };
-  }
-  const errs = settled
-    .map((s) => (s.status === 'fulfilled' ? s.value.error : 'crash'))
-    .filter(Boolean);
-  return { results: [], error: `Rutor unreachable (${errs.join('; ')})` };
+  return runMirrors(
+    DOMAINS.map((base) => () => searchOn(base, query, p)),
+    'Rutor'
+  );
 }
 
 module.exports = { id: 'rutor', name: 'Rutor', search };

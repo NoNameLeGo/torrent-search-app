@@ -3,7 +3,7 @@
 // Knaben multi-category torrents via the official JSON API (POST).
 // Mirrors upstream Knaben.kt: https://api.knaben.org/v1
 const { postJSON } = require('../lib/http');
-const { normalize } = require('../lib/normalize');
+const { normalize, extractInfoHash } = require('../lib/normalize');
 
 const API = 'https://api.knaben.org/v1';
 
@@ -42,11 +42,7 @@ async function search(query, { page = 1 } = {}) {
 
   const results = hits.map((it) => {
     const magnet = it.magnetUrl || null;
-    let infoHash = it.hash || null;
-    if (!infoHash && magnet) {
-      const m = magnet.match(/btih:([a-f0-9]+)/i);
-      if (m) infoHash = m[1];
-    }
+    const infoHash = it.hash || extractInfoHash(magnet);
 
     let catId = null;
     if (Array.isArray(it.categoryId) && it.categoryId.length) {

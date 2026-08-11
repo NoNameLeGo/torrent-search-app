@@ -9,7 +9,7 @@
     "start": "node server.js",
     "dev": "node server.js",
     "electron": "set ELECTRON_CACHE=.cache\\electron&& electron .",
-    "dist": "set ELECTRON_CACHE=.cache\\electron&& set ELECTRON_BUILDER_CACHE=.cache\\builder&& electron-builder --publish=onTag",
+    "dist": "set ELECTRON_CACHE=.cache\\electron&& set ELECTRON_BUILDER_CACHE=.cache\\builder&& electron-builder",
     "build:portable": "node scripts/build-portable.js"
   },
   "dependencies": {
@@ -32,7 +32,7 @@
     },
     "win": {
       "target": "nsis",
-      "artifactName": "BT聚合搜索-Setup-${version}.${ext}"
+      "artifactName": "BT-Search-Electron-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,

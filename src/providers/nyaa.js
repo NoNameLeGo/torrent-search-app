@@ -4,7 +4,7 @@
 // link directly in each row, so no second request is needed in the common case.
 const cheerio = require('cheerio');
 const { getText } = require('../lib/http');
-const { normalize } = require('../lib/normalize');
+const { normalize, extractInfoHash } = require('../lib/normalize');
 
 const BASE = 'https://nyaa.si';
 
@@ -41,11 +41,7 @@ async function search(query, { page = 1 } = {}) {
     const viewHref = $view.attr('href');
     const detailUrl = viewHref ? `${BASE}${viewHref}` : null;
 
-    let infoHash = null;
-    if (magnet) {
-      const m = magnet.match(/btih:([a-f0-9]+)/i);
-      if (m) infoHash = m[1];
-    }
+    const infoHash = extractInfoHash(magnet);
 
     results.push(normalize({
       provider: 'nyaa',

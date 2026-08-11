@@ -1,11 +1,12 @@
 'use strict';
 
-// AudioBookBay HTML scraper. The results page lists torrents but the info
-// hash lives on each torrent's detail page, so we fetch the detail page per
-// item (mirroring the Kotlin implementation) to obtain the btih hash.
+// AudioBookBay HTML scraper. The results page lists torrents with name, size,
+// and date. The info hash lives on each torrent's detail page and is deferred
+// to resolveMagnet() to avoid N+1 fetches during search().
 const cheerio = require('cheerio');
 const { getText } = require('../lib/http');
 const { normalize } = require('../lib/normalize');
+const { runMirrors } = require('../lib/mirrors');
 
 const DOMAINS = ['https://audiobookbay.lu'];
 
@@ -25,14 +26,20 @@ async function getInfoHash(detailUrl) {
   return hash && /^[a-f0-9]{40}$/i.test(hash) ? hash : null;
 }
 
-async function parseListItem($, listItem, base) {
+// Lazily build a magnet link from the infoHash on a torrent's detail page.
+async function resolveMagnet(detailUrl) {
+  const infoHash = await getInfoHash(detailUrl);
+  if (!infoHash) return { magnet: null, error: 'no_info_hash' };
+  const magnet = `magnet:?xt=urn:btih:${infoHash}`;
+  return { magnet, infoHash, error: null };
+}
+
+function parseListItem($, listItem, base) {
   const $li = $(listItem);
   const $link = $li.find('div.postTitle > h2 > a').first();
   const href = $link.attr('href');
   if (!href) return null;
   const detailUrl = href.startsWith('http') ? href : `${base}${href}`;
-  const infoHash = await getInfoHash(detailUrl);
-  if (!infoHash) return null;
 
   const name = $link.text().trim();
   if (!name) return null;
@@ -50,45 +57,36 @@ async function parseListItem($, listItem, base) {
     }
   }
 
+  // InfoHash deferred to resolveMagnet() — normalize() sets needsMagnet automatically.
   return normalize({
     provider: 'audiobookbay',
     name,
     size,
     date,
-    infoHash,
+    magnet: null,
     category: 'Books',
     detailUrl,
   });
 }
 
-async function search(query, { page = 1 } = {}) {
-  // Try all mirror domains in parallel; take the first that returns results.
-  const attempts = DOMAINS.map((base) =>
-    (async () => {
-      const url = `${base}/?s=${encodeURIComponent(query)}`;
-      const { html, error } = await getText(url);
-      if (error || !html) return { results: [], error };
-      const $ = cheerio.load(html);
-      const items = $('div.post').toArray();
-      if (items.length === 0) return { results: [], error: 'no_results_parsed' };
+async function searchOne(base, query, page) {
+  const url = `${base}/?s=${encodeURIComponent(query)}`;
+  const { html, error } = await getText(url);
+  if (error || !html) return { results: [], error };
+  const $ = cheerio.load(html);
+  const items = $('div.post').toArray();
+  if (items.length === 0) return { results: [], error: 'no_results_parsed' };
 
-      const parsed = await Promise.all(
-        items.map((li) => parseListItem($, li, base).catch(() => null))
-      );
-      const results = parsed.filter(Boolean);
-      return { results, error: null };
-    })()
-  );
-
-  const settled = await Promise.allSettled(attempts);
-  for (const s of settled) {
-    const v = s.status === 'fulfilled' ? s.value : null;
-    if (v && v.results && v.results.length) return { results: v.results, error: null };
-  }
-  const errs = settled
-    .map((s) => (s.status === 'fulfilled' ? s.value.error : 'crash'))
-    .filter(Boolean);
-  return { results: [], error: `audiobookbay unreachable (${errs.join('; ')})` };
+  // parseListItem is synchronous — no per-item HTTP round-trips.
+  const results = items.map((li) => parseListItem($, li, base)).filter(Boolean);
+  return { results, error: results.length === 0 ? 'no_results_parsed' : null };
 }
 
-module.exports = { id: 'audiobookbay', name: 'AudioBookBay', search };
+async function search(query, { page = 1 } = {}) {
+  return runMirrors(
+    DOMAINS.map((base) => () => searchOne(base, query, page)),
+    'audiobookbay'
+  );
+}
+
+module.exports = { id: 'audiobookbay', name: 'AudioBookBay', search, resolveMagnet };

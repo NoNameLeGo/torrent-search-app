@@ -380,6 +380,9 @@ function loadPage() {
   state.loading = true;
   $('#loading').hidden = false;
 
+  // 记录本页开始前的已有结果数，用于判断本页是否有新增（防重复数据虚报翻页）。
+  const prevCount = state.all.length;
+
   // Reset the per-provider status map at the start of a fresh search (page 1).
   if (state.page === 1) state.status = {};
 
@@ -404,7 +407,10 @@ function loadPage() {
     if (myId !== state.searchId) return; // 已被新搜索取代，别动新搜索的加载态
     state.loading = false;
     $('#loading').hidden = true;
-    if (state.hasMore) state.page++;
+    // 只有本页确实产出了新结果才翻页，否则即便服务端说 hasMore 也停住
+    // （某些分页引擎每页返回相同结果，去重后无新卡片，应停止翻页）。
+    if (state.hasMore && state.all.length > prevCount) state.page++;
+    else if (state.page > 1) state.hasMore = false;
   };
 
   es.addEventListener('provider', (ev) => {

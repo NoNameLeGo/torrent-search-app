@@ -8,6 +8,7 @@
 const cheerio = require('cheerio');
 const { getText, pickUA } = require('../lib/http');
 const { normalize } = require('../lib/normalize');
+const { runMirrors } = require('../lib/mirrors');
 
 const BASE = 'https://bt4gprx.com';
 const DOMAINS = [BASE];
@@ -61,27 +62,20 @@ function parseRows($, base) {
   return results;
 }
 
-async function search(query, { page = 1 } = {}) {
-  const attempts = DOMAINS.map((base) =>
-    (async () => {
-      const url = `${base}/search?q=${encodeURIComponent(query)}&category=all&orderby=seeders&p=${page}`;
-      const { html, error } = await getText(url);
-      if (error || !html) return { base, results: [], error };
-      const $ = cheerio.load(html);
-      const results = parseRows($, base);
-      return { base, results, error: null };
-    })()
-  );
+async function searchOne(base, query, page) {
+  const url = `${base}/search?q=${encodeURIComponent(query)}&category=all&orderby=seeders&p=${page}`;
+  const { html, error } = await getText(url);
+  if (error || !html) return { base, results: [], error };
+  const $ = cheerio.load(html);
+  const results = parseRows($, base);
+  return { base, results, error: null };
+}
 
-  const settled = await Promise.allSettled(attempts);
-  for (const s of settled) {
-    const v = s.status === 'fulfilled' ? s.value : null;
-    if (v && v.results && v.results.length) return { results: v.results, error: null };
-  }
-  const errs = settled
-    .map((s) => (s.status === 'fulfilled' ? s.value.error : 'crash'))
-    .filter(Boolean);
-  return { results: [], error: `Bt4g unreachable (${errs.join('; ')})` };
+async function search(query, { page = 1 } = {}) {
+  return runMirrors(
+    DOMAINS.map((base) => () => searchOne(base, query, page)),
+    'Bt4g'
+  );
 }
 
 // Fetch the detail page and pull the 40-char btih out of the
