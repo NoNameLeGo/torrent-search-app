@@ -27,7 +27,8 @@
   </header>
 
   <section class="controls">
-    <div id="provider-chips" class="chips"></div>
+    <div class="filter-label">搜索引擎<span class="filter-hint">按分组选择「查询哪些数据源」，逐个引擎的开关在 ⚙ 设置里</span></div>
+    <div id="group-chips" class="chips"></div>
 
     <div class="toolbar">
       <label class="field">
@@ -69,6 +70,11 @@
       <button type="button" class="qbtn" data-q="720p">720p</button>
       <button type="button" class="qbtn" data-q="hdr">HDR·Dolby</button>
     </div>
+
+    <!-- 内容分类筛选：对已返回结果按内容类型过滤（与「搜索引擎」正交，不影响查询哪些站）。
+         chips 由 renderCategoryFilters() 按本次结果里实际出现的分类动态生成。 -->
+    <div class="filter-label">内容分类<span class="filter-hint">按结果「内容类型」筛选，随本次搜索出现的分类动态显示</span></div>
+    <div id="category-filters" class="quality-filters" hidden></div>
   </section>
 
   <section id="status-bar" class="status-bar" hidden></section>
@@ -90,7 +96,7 @@
   <div id="batch-bar" class="batch-bar" hidden>
     <span class="batch-info">已选 <b id="batch-count">0</b> 条</span>
     <span class="spacer"></span>
-    <button id="batch-qb" class="btn qb" type="button">批量推送 qB</button>
+    <button id="batch-qb" class="btn qb" type="button">批量推送</button>
     <button id="batch-copy" class="btn" type="button">批量复制磁力</button>
     <button id="batch-csv" class="btn" type="button">导出 CSV</button>
     <button id="batch-clear" class="ghost-btn" type="button">清空选择</button>
@@ -111,26 +117,46 @@
   <div id="settings-modal" class="modal" hidden>
     <div class="modal-card">
       <h2>下载工具设置</h2>
-      <p class="hint">点击磁力链接会用系统默认客户端（如 qBittorrent / 迅雷）打开。也可配置 qBittorrent WebUI，直接把磁力推送到客户端。</p>
+      <p class="hint">点击磁力链接会用系统默认客户端（如 qBittorrent / BitComet / 迅雷）打开，无需任何配置。也可选一个带 WebUI / RPC 的下载器，把磁力一键推送过去。</p>
       <label class="field block">
-        qBittorrent WebUI 地址
-        <input id="qb-url" type="text" placeholder="http://localhost:8080" />
+        下载客户端
+        <select id="dl-client">
+          <option value="qbittorrent">qBittorrent</option>
+          <option value="transmission">Transmission</option>
+          <option value="aria2">aria2 / Motrix</option>
+          <option value="gopeed">Gopeed</option>
+        </select>
       </label>
       <label class="field block">
-        用户名
-        <input id="qb-user" type="text" placeholder="admin" />
+        WebUI / RPC 地址
+        <input id="dl-url" type="text" placeholder="http://localhost:8080" />
       </label>
-      <label class="field block">
-        密码
-        <input id="qb-pass" type="password" placeholder="password" />
+      <label id="dl-userpass" class="dl-auth">
+        <span class="field block">
+          用户名
+          <input id="dl-user" type="text" placeholder="admin" />
+        </span>
+        <span class="field block">
+          密码
+          <input id="dl-pass" type="password" placeholder="password" />
+        </span>
+      </label>
+      <label id="dl-tokenwrap" class="field block" hidden>
+        <span id="dl-token-label">RPC 密钥 / API Token（无则留空）</span>
+        <input id="dl-token" type="password" placeholder="token（可留空）" />
       </label>
       <div class="modal-actions">
-        <button id="qb-detect" class="ghost-btn">自动探测本机</button>
-        <button id="qb-test" class="ghost-btn">测试连接</button>
+        <button id="dl-detect" class="ghost-btn">自动探测本机</button>
+        <button id="dl-test" class="ghost-btn">测试连接</button>
         <span class="spacer"></span>
         <button id="settings-cancel" class="ghost-btn">取消</button>
         <button id="settings-save" class="primary-btn">保存</button>
       </div>
+
+      <hr class="sep" />
+      <h2>搜索引擎</h2>
+      <p class="hint">逐个开关内置引擎。主界面顶部的分组切换是这里选择结果的快捷入口——勾选状态两处共享。</p>
+      <div id="provider-chips" class="chips"></div>
 
       <hr class="sep" />
       <h2>Torznab 索引器</h2>

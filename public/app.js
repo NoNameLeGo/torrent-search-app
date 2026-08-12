@@ -18,17 +18,47 @@ const state = {
   sort: 'relevance',
   status: {},              // provider id → { status, count, error, ms } (streamed)
   es: null,                // active EventSource, so a new search can cancel it
-  qb: JSON.parse(localStorage.getItem('qb') || 'null'),
+  dl: loadDownloader(),    // 下载客户端配置 { client, url, user, pass, token }（含旧 qb 迁移）
   quality: 'all',          // 画质快捷筛选：all / 2160p / 1080p / 720p / hdr
+  category: 'all',         // 内容分类筛选：all 或某个标准桶 key（见 normalizeCategory）
   view: 'search',          // 当前视图：search / favorites
   history: JSON.parse(localStorage.getItem('history') || '[]'),   // 最近搜索词
   favorites: JSON.parse(localStorage.getItem('favorites') || '[]'), // 收藏的种子
   checked: new Set(),      // 批量操作：已勾选的卡片 key（跨重渲染按 key 保持）
 };
 
-// Map of provider id → display name, populated from /api/providers.
-// Used by the status bar and result cards; falls back to the raw id.
-const PROVIDER_LABEL = {};
+const PROVIDER_LABEL = { '1337x': '1337x', tpb: 'The Pirate Bay', nyaa: 'NYAA', demo: 'Demo' };
+
+// ---------- 下载客户端 ----------
+// 支持把磁力推送到本机运行的下载器。auth 决定设置面板显示哪些字段：
+// userpass（用户名/密码）或 token（RPC 密钥 / API Token）。与后端 downloaders.META 对应。
+const DL_CLIENTS = {
+  qbittorrent: { label: 'qBittorrent', auth: 'userpass', defaultUrl: 'http://localhost:8080' },
+  transmission: { label: 'Transmission', auth: 'userpass', defaultUrl: 'http://localhost:9091' },
+  aria2: { label: 'aria2 / Motrix', auth: 'token', defaultUrl: 'http://localhost:16800/jsonrpc' },
+  gopeed: { label: 'Gopeed', auth: 'token', defaultUrl: 'http://localhost:9999' },
+};
+
+function dlLabel() {
+  const c = state.dl && state.dl.client;
+  return (c && DL_CLIENTS[c] && DL_CLIENTS[c].label) || '下载器';
+}
+
+// 读取下载器配置：优先新键 dl；若不存在但有旧 qb 配置，迁移为 { client:'qbittorrent', ... }，
+// 让老用户升级后 qBittorrent 设置无缝延续。迁移后写回 dl 键，旧 qb 键留着不动（无害）。
+function loadDownloader() {
+  try {
+    const dl = JSON.parse(localStorage.getItem('dl') || 'null');
+    if (dl && dl.client) return dl;
+    const qb = JSON.parse(localStorage.getItem('qb') || 'null');
+    if (qb && qb.url) {
+      const migrated = { client: 'qbittorrent', url: qb.url, user: qb.user || '', pass: qb.pass || '', token: '' };
+      localStorage.setItem('dl', JSON.stringify(migrated));
+      return migrated;
+    }
+  } catch { /* ignore */ }
+  return null;
+}
 
 const HISTORY_MAX = 12;
 
@@ -45,6 +75,64 @@ function matchesQuality(name, q) {
   if (q === 'all') return true;
   const pat = QUALITY_PATTERNS[q];
   return pat ? pat.test(String(name || '')) : true;
+}
+
+// 内容分类归一化：各 provider 回填的 category 五花八门（'Anime'、'TV'、'Movies/HD'、
+// 站点原文分类名等），这里把它们收敛到少数标准桶，供「内容分类」筛选按统一口径过滤。
+// 两级判定：先看 provider 权威分类（categoryFromRaw），判不出再靠标题强特征词兜底
+// （categoryFromTitle），仍判不出落 'other'。CATEGORY_LABELS 决定 chip 文案与排列顺序。
+const CATEGORY_LABELS = {
+  movies: '电影',
+  series: '剧集',
+  anime: '动漫',
+  games: '游戏',
+  apps: '软件',
+  books: '书籍 / 有声书',
+  music: '音乐',
+  porn: '成人',
+  other: '其他',
+};
+const CATEGORY_ORDER = Object.keys(CATEGORY_LABELS);
+
+// 把 provider 回填的原始 category 文本归一到标准桶之一（返回桶 key），判不出返回 null。
+// 与下面的标题推断分开：raw 是站点权威分类，命中即用；判不出交给标题兜底。
+function categoryFromRaw(raw) {
+  const s = String(raw || '').toLowerCase();
+  if (!s) return null;
+  if (/\b(movie|film|hd\s*movie)/.test(s)) return 'movies';
+  if (/\b(tv|series|show|episode)/.test(s)) return 'series';
+  if (/\b(anime|cartoon)/.test(s)) return 'anime';
+  if (/\b(game|rom|nintendo|playstation|xbox|switch)/.test(s)) return 'games';
+  if (/\b(app|software|program|pc\b|application)/.test(s)) return 'apps';
+  if (/\b(book|audiobook|ebook|comic|magazine|manga|literature)/.test(s)) return 'books';
+  if (/\b(music|audio|album|flac|mp3|song)/.test(s)) return 'music';
+  if (/\b(porn|xxx|adult|hentai|sex)/.test(s)) return 'porn';
+  return null;
+}
+
+// 标题轻量推断兜底：综合站（1337x / TPB / OxTorrent 等）多不给逐行分类，全落到「其他」。
+// 这里只匹配高置信度的强特征词，判不出就返回 null，宁可漏判不误判（误判会把结果塞进错分类）。
+// 顺序有讲究：剧集的 SxxExx 特征最硬，先判；再判成人 / 游戏 / 软件 / 书籍 / 音乐 / 电影。
+function categoryFromTitle(name) {
+  const s = String(name || '').toLowerCase();
+  if (!s) return null;
+  // 剧集：S01E02 / S01 / 1x02 / "season 2" / "complete series"。
+  if (/\bs\d{1,2}(e\d{1,3}|\b)|\b\d{1,2}x\d{2}\b|\bseason\s?\d|\bcomplete series\b/.test(s)) return 'series';
+  if (/\b(xxx|porn|hentai|jav|onlyfans|brazzers)\b/.test(s)) return 'porn';
+  // 游戏：常见 scene 组名 / 打包工具，特征极强。
+  if (/\b(fitgirl|repack|codex|plaza|skidrow|reloaded|razor1911|empress|dodi|goldberg|nsw|\.nsp|\.xci)\b/.test(s)) return 'games';
+  if (/\b(x64|x86|win(?:32|64)?|keygen|cracked|activator|portable|multilingual)\b|\bv\d+\.\d+/.test(s)) return 'apps';
+  if (/\b(epub|mobi|azw3|pdf|retail|audiobook|m4b)\b/.test(s)) return 'books';
+  if (/\b(flac|mp3|320\s?kbps|discography|\bost\b|album)\b/.test(s)) return 'music';
+  // 电影信号相对弱（年份 + 常见片源标记），放最后，避免抢走上面更硬的判定。
+  if (/\b(19|20)\d{2}\b.*\b(1080p|2160p|720p|bluray|blu-ray|web-?dl|webrip|bdrip|hdrip|x264|x265|hevc)\b/.test(s)) return 'movies';
+  return 'other';
+}
+
+// 供筛选/统计的统一入口：raw 权威分类优先，判不出再用标题推断兜底。
+// 传参兼容旧调用：第一个参数是 raw category，第二个是标题（可选）。
+function normalizeCategory(raw, name) {
+  return categoryFromRaw(raw) || categoryFromTitle(name);
 }
 
 // ---------- provider groups ----------
@@ -105,9 +193,6 @@ async function loadProviders() {
     const r = await fetch('/api/providers');
     const { providers } = await r.json();
     allProviders = providers;
-    // 动态补全引擎显示名：本分支 PROVIDER_LABEL 初始为空对象，靠这里按 id 填充
-    // 全部引擎的名称（徽章/状态栏等处的显示名来源）。
-    providers.forEach((p) => { PROVIDER_LABEL[p.id] = p.name; });
 
     // 恢复上次勾选：有持久化记录则用记录（与当前可用引擎取交集，避免残留已删除的
     // Torznab id），否则回退到各引擎的默认 enabled。
@@ -118,10 +203,60 @@ async function loadProviders() {
         : providers.filter((p) => p.enabled).map((p) => p.id)
     );
 
+    renderGroupChips();
     renderProviderChips();
   } catch (e) {
     toast('无法加载引擎列表');
   }
+}
+
+// 主界面顶部的分组切换条：只列分组（外加「全部」），不列具体引擎。
+// 一个分组视为「选中」= 该组下所有引擎都在 state.selected 里。点击分组 = 整组
+// 全选/全不选（复用 toggleGroup 的语义）。「全部」= 一键全选/全不选所有引擎。
+// 逐引擎的细粒度开关在设置弹窗里（renderProviderChips），两处共享 state.selected。
+function renderGroupChips() {
+  const wrap = $('#group-chips');
+  if (!wrap) return;
+
+  // 归拢出本次实际存在的分组（空组不渲染），保持 GROUP_ORDER + custom 顺序。
+  const byGroup = new Map();
+  allProviders.forEach((p) => {
+    const g = providerGroupOf(p);
+    if (!byGroup.has(g)) byGroup.set(g, []);
+    byGroup.get(g).push(p);
+  });
+  const groups = [...GROUP_ORDER, 'custom'].filter((g) => byGroup.has(g));
+
+  const total = allProviders.length;
+  const selTotal = allProviders.filter((p) => state.selected.has(p.id)).length;
+  const allOn = total > 0 && selTotal === total;
+
+  const chip = (key, label, on, extra) =>
+    `<div class="chip group-chip${on ? ' on' : ''}" data-group="${esc(key)}"` +
+    `${extra ? ` title="${esc(extra)}"` : ''}>` +
+    `<span class="dot"></span>${esc(label)}</div>`;
+
+  // 「全部」：全选时高亮，点击切换全选/全不选。
+  let html = chip('__all__', '全部', allOn);
+  html += groups.map((g) => {
+    const list = byGroup.get(g);
+    const on = list.length > 0 && list.every((p) => state.selected.has(p.id));
+    const sel = list.filter((p) => state.selected.has(p.id)).length;
+    // 部分选中时给个提示（该组 N/M），高亮只在整组选中时点亮，语义清晰。
+    return chip(g, GROUP_LABELS[g] || g, on, `${sel}/${list.length} 已选`);
+  }).join('');
+  wrap.innerHTML = html;
+}
+
+// 「全部」切换：当前已全选则清空，否则补齐所有引擎。
+function toggleAllProviders() {
+  const allOn = allProviders.length > 0 && allProviders.every((p) => state.selected.has(p.id));
+  if (allOn) state.selected.clear();
+  else allProviders.forEach((p) => state.selected.add(p.id));
+  saveSelectedProviders();
+  renderGroupChips();
+  renderProviderChips();
+  if (state.query) doSearch();
 }
 
 // 按预设分组渲染引擎 chips：每组一个可折叠区块，组标题带「全选/全不选」，
@@ -176,6 +311,7 @@ function toggleProvider(id) {
   if (state.selected.has(id)) state.selected.delete(id);
   else state.selected.add(id);
   saveSelectedProviders();
+  renderGroupChips();
   renderProviderChips();
   if (state.query) doSearch();
 }
@@ -189,6 +325,7 @@ function toggleGroup(g) {
     else state.selected.add(p.id);
   });
   saveSelectedProviders();
+  renderGroupChips();
   renderProviderChips();
   if (state.query) doSearch();
 }
@@ -197,6 +334,21 @@ function toggleGroup(g) {
 async function doSearch() {
   state.query = $('#search-input').value.trim();
   if (!state.query) return;
+  // 全不选时不发请求：后端对空 providers 会 fallback 到「搜所有引擎」，与用户
+  // 「全不选」的意图相反。这里短路，清空结果并提示去勾选引擎。
+  if (allProviders.length && state.selected.size === 0) {
+    state.searchId++;
+    if (state.es) { state.es.close(); state.es = null; }
+    state.groups = new Map();
+    state.status = {};
+    state.hasMore = false;
+    state.loading = false;
+    renderStatus(state.status);
+    render();
+    $('#empty').hidden = false;
+    $('#empty').textContent = '没有启用任何搜索引擎。点顶部分组或到 ⚙ 设置里勾选引擎。';
+    return;
+  }
   // 搜索时切回搜索视图并记录历史。
   pushHistory(state.query);
   if (state.view !== 'search') switchView('search');
@@ -210,6 +362,8 @@ async function doSearch() {
   state.all = [];
   state.seen = new Set();
   state.groups = new Map();
+  // 换词后旧的内容分类可能不再出现，回到「全部」，避免新结果被上次选的分类筛空。
+  state.category = 'all';
   // 新搜索会重建 groups，旧勾选的 key 全部失效，清空避免残留计数。
   state.checked.clear();
   renderBatchBar();
@@ -354,6 +508,38 @@ function renderStatus(providers) {
   }).join('');
 }
 
+// 依据本次结果里实际出现的分类，动态渲染「内容分类」筛选 chips。
+// 只为真正出现的桶生成按钮（外加「全部」），避免展示一堆空分类。当前选中的分类若
+// 在新结果里消失了（如翻页/换词后不再命中），自动回落到「全部」，防止筛出空列表。
+function renderCategoryFilters() {
+  const wrap = $('#category-filters');
+  const counts = new Map();
+  for (const it of state.groups.values()) {
+    const c = normalizeCategory(it.category, it.name);
+    counts.set(c, (counts.get(c) || 0) + 1);
+  }
+
+  // 结果太少或只落在单一分类时，分类筛选没意义，直接隐藏。
+  const present = CATEGORY_ORDER.filter((c) => counts.has(c));
+  if (state.groups.size === 0 || present.length < 2) {
+    wrap.hidden = true;
+    if (state.category !== 'all') state.category = 'all';
+    return;
+  }
+
+  // 选中的分类在本次结果里消失了就回落到「全部」。
+  if (state.category !== 'all' && !counts.has(state.category)) state.category = 'all';
+
+  wrap.hidden = false;
+  const total = state.groups.size;
+  const btn = (q, label, n) =>
+    `<button type="button" class="qbtn${state.category === q ? ' on' : ''}" data-cat="${esc(q)}">` +
+    `${esc(label)} <span class="qbtn-count">${n}</span></button>`;
+  wrap.innerHTML =
+    btn('all', '全部', total) +
+    present.map((c) => btn(c, CATEGORY_LABELS[c], counts.get(c))).join('');
+}
+
 // ---------- client-side filter + sort ----------
 // 面向分组（去重后的资源），而非原始逐条结果。
 function visibleResults() {
@@ -366,6 +552,7 @@ function visibleResults() {
     if (it.size != null && it.size < minSize) return false;
     if (name && !it.name.toLowerCase().includes(name)) return false;
     if (!matchesQuality(it.name, state.quality)) return false;
+    if (state.category !== 'all' && normalizeCategory(it.category, it.name) !== state.category) return false;
     return true;
   });
 
@@ -413,6 +600,7 @@ function relevanceScore(name, query) {
 
 function render() {
   const wrap = $('#results');
+  renderCategoryFilters();
   const list = visibleResults();
   if (state.groups.size === 0) {
     wrap.innerHTML = '';
@@ -441,7 +629,7 @@ function cardHTML(it) {
     ? `<button class="btn" data-act="getmagnet" data-id="${esc(it.key)}">获取磁力</button>`
     : `<button class="btn primary" data-act="open" data-id="${esc(it.key)}">打开磁力</button>
        <button class="btn" data-act="copy" data-id="${esc(it.key)}">复制</button>`;
-  const qbBtn = state.qb ? `<button class="btn qb" data-act="qb" data-id="${esc(it.key)}">推送到 qB</button>` : '';
+  const dlBtn = state.dl ? `<button class="btn qb" data-act="dl" data-id="${esc(it.key)}">推送到 ${esc(dlShort())}</button>` : '';
   const provs = it.providers && it.providers.length ? it.providers : (it.sources || []).map((s) => s.provider);
   const sourceBadges = provs
     .map((pid) => `<span class="badge prov-${pid}">${esc(PROVIDER_LABEL[pid] || pid)}</span>`)
@@ -469,7 +657,7 @@ function cardHTML(it) {
     </div>
     <div class="actions">
       ${magnetBtn}
-      ${qbBtn}
+      ${dlBtn}
       <button class="btn ghost" data-act="detail" data-id="${esc(it.key)}">详情</button>
     </div>
   </div>`;
@@ -558,9 +746,9 @@ async function onCardClick(e) {
     if (m) window.location.href = m;
     return;
   }
-  if (act === 'qb') {
+  if (act === 'dl') {
     const m = await ensureMagnet(it);
-    if (m) sendToQB(m);
+    if (m) sendToClient(m);
     return;
   }
 }
@@ -624,11 +812,11 @@ async function openDetail(it) {
   // 弹窗内的动作按钮：随磁力是否就绪切换「获取磁力」/「打开·复制」。
   const actions = $('#detail-actions');
   const key = esc(it.key);
-  const qbBtn = state.qb ? `<button class="btn qb" data-act="qb" data-id="${key}">推送到 qB</button>` : '';
+  const dlBtn = state.dl ? `<button class="btn qb" data-act="dl" data-id="${key}">推送到 ${esc(dlShort())}</button>` : '';
   actions.innerHTML = (it.needsMagnet && !it.magnet)
-    ? `<button class="btn" data-act="getmagnet" data-id="${key}">获取磁力</button>${qbBtn}`
+    ? `<button class="btn" data-act="getmagnet" data-id="${key}">获取磁力</button>${dlBtn}`
     : `<button class="btn primary" data-act="open" data-id="${key}">打开磁力</button>` +
-      `<button class="btn" data-act="copy" data-id="${key}">复制磁力</button>${qbBtn}`;
+      `<button class="btn" data-act="copy" data-id="${key}">复制磁力</button>${dlBtn}`;
 
   modal.hidden = false;
 }
@@ -653,7 +841,7 @@ $('#detail-modal').addEventListener('click', async (e) => {
   }
   if (act === 'copy') { const m = await ensureMagnet(it); if (m) copyText(m); return; }
   if (act === 'open') { const m = await ensureMagnet(it); if (m) window.location.href = m; return; }
-  if (act === 'qb') { const m = await ensureMagnet(it); if (m) sendToQB(m); return; }
+  if (act === 'dl') { const m = await ensureMagnet(it); if (m) sendToClient(m); return; }
 });
 
 // ---------- batch operations ----------
@@ -802,65 +990,95 @@ async function sendToQB(magnet) {
 }
 
 // ---------- settings ----------
+// 按当前选中的客户端切换认证字段的显隐：userpass 显示用户名/密码，token 显示 token。
+function syncDlAuthFields() {
+  const kind = $('#dl-client').value;
+  const meta = DL_META[kind] || DL_META.qbittorrent;
+  $('#dl-userpass').hidden = meta.auth !== 'userpass';
+  $('#dl-tokenwrap').hidden = meta.auth !== 'token';
+  // aria2 的 token 是 rpc-secret，Gopeed 的是 API Token，提示文案略作区分。
+  $('#dl-token-label').textContent = kind === 'aria2'
+    ? 'RPC 密钥（rpc-secret，无则留空）'
+    : 'API Token（无则留空）';
+}
+
 function openSettings() {
-  $('#qb-url').value = state.qb?.url || '';
-  $('#qb-user').value = state.qb?.user || '';
-  $('#qb-pass').value = state.qb?.pass || '';
+  const dl = state.dl || {};
+  $('#dl-client').value = dl.client || 'qbittorrent';
+  $('#dl-url').value = dl.url || '';
+  $('#dl-user').value = dl.user || '';
+  $('#dl-pass').value = dl.pass || '';
+  $('#dl-token').value = dl.token || '';
+  syncDlAuthFields();
   $('#settings-modal').hidden = false;
 }
 function closeSettings() { $('#settings-modal').hidden = true; }
 
+// 从设置面板收集当前配置。
+function readDlForm() {
+  return {
+    client: $('#dl-client').value,
+    url: $('#dl-url').value.trim(),
+    user: $('#dl-user').value.trim(),
+    pass: $('#dl-pass').value,
+    token: $('#dl-token').value.trim(),
+  };
+}
+
+$('#dl-client').onchange = syncDlAuthFields;
 $('#settings-btn').onclick = () => { openSettings(); loadTorznab(); };
 $('#settings-cancel').onclick = closeSettings;
 $('#settings-save').onclick = () => {
-  state.qb = {
-    url: $('#qb-url').value.trim(),
-    user: $('#qb-user').value.trim(),
-    pass: $('#qb-pass').value,
-  };
-  localStorage.setItem('qb', JSON.stringify(state.qb));
+  state.dl = readDlForm();
+  localStorage.setItem('downloader', JSON.stringify(state.dl));
   closeSettings();
   render();
   toast('已保存下载工具设置');
 };
-$('#qb-test').onclick = async () => {
-  const cfg = { url: $('#qb-url').value.trim(), user: $('#qb-user').value.trim(), pass: $('#qb-pass').value };
+$('#dl-test').onclick = async () => {
+  const cfg = readDlForm();
   if (!cfg.url) return toast('请先填写地址');
-  const r = await fetch('/api/download/qbittorrent', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...cfg, magnet: 'magnet:?xt=urn:btih:1234567890abcdef1234567890abcdef12345678' }),
-  });
-  const data = await r.json();
-  toast(data.ok ? '连接成功' : ('连接失败：' + (data.error || '')));
+  toast('测试连接中…');
+  try {
+    const r = await fetch('/api/download/test', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cfg),
+    });
+    const data = await r.json();
+    toast(data.ok ? '连接成功' : ('连接失败：' + (data.error || '')));
+  } catch (e) { toast('测试失败：网络错误'); }
 };
 
-// Auto-detect a local qBittorrent WebUI (stock installs need no config).
-async function autoDetectQB() {
-  if (state.qb) return; // already configured manually
+// 应用一份探测到的配置：写入 state + localStorage，回填表单，刷新卡片按钮。
+function applyDetected(d) {
+  state.dl = { client: d.kind, url: d.url, user: d.user || '', pass: d.pass || '', token: d.token || '' };
+  localStorage.setItem('downloader', JSON.stringify(state.dl));
+}
+
+// 首屏静默探测本机下载器（已配置则跳过），零配置命中常见默认端口。
+async function autoDetectDownloader() {
+  if (state.dl) return; // already configured manually
   try {
-    const r = await fetch('/api/download/qbittorrent/detect');
+    const r = await fetch('/api/download/detect');
     const d = await r.json();
-    if (d.ok) {
-      state.qb = { url: d.url, user: d.user, pass: d.pass };
-      localStorage.setItem('qb', JSON.stringify(state.qb));
-      render();
-    }
+    if (d.ok) { applyDetected(d); render(); }
   } catch (e) { /* detection is best-effort */ }
 }
 
-$('#qb-detect').onclick = async () => {
-  toast('正在探测本机 qBittorrent…');
-  const r = await fetch('/api/download/qbittorrent/detect');
-  const d = await r.json();
-  if (d.ok) {
-    state.qb = { url: d.url, user: d.user, pass: d.pass };
-    localStorage.setItem('qb', JSON.stringify(state.qb));
-    $('#qb-url').value = d.url; $('#qb-user').value = d.user; $('#qb-pass').value = d.pass;
-    render();
-    toast('已自动发现并启用 qBittorrent');
-  } else {
-    toast('未在本机发现 qBittorrent WebUI（请手动填写）');
-  }
+$('#dl-detect').onclick = async () => {
+  toast('正在探测本机下载器…');
+  try {
+    const r = await fetch('/api/download/detect');
+    const d = await r.json();
+    if (d.ok) {
+      applyDetected(d);
+      openSettings();
+      render();
+      toast(`已自动发现并启用 ${DL_META[d.kind]?.label || d.kind}`);
+    } else {
+      toast('未在本机发现受支持的下载器（请手动填写）');
+    }
+  } catch (e) { toast('探测失败：网络错误'); }
 };
 
 // ---------- controls ----------
@@ -876,6 +1094,7 @@ $('#order-btn').onclick = () => {
 });
 $('#reset-filters').onclick = () => {
   $('#min-seeders').value = ''; $('#min-size').value = '0'; $('#name-contains').value = '';
+  state.category = 'all';
   render();
 };
 
@@ -884,6 +1103,16 @@ $('#provider-chips').addEventListener('click', (e) => {
   const btn = e.target.closest('.pgroup-toggle');
   if (!btn) return;
   toggleGroup(btn.dataset.group);
+});
+
+// 主界面分组切换条：点「全部」= 全选/全不选，点某分组 = 整组全选/全不选。
+// chips 是重渲染的，用事件委托。逐引擎开关在设置里，两处共享 state.selected。
+$('#group-chips').addEventListener('click', (e) => {
+  const chip = e.target.closest('.group-chip');
+  if (!chip) return;
+  const g = chip.dataset.group;
+  if (g === '__all__') toggleAllProviders();
+  else toggleGroup(g);
 });
 
 // ---------- infinite scroll ----------
@@ -1109,7 +1338,16 @@ $('#quality-filters').addEventListener('click', (e) => {
   const btn = e.target.closest('.qbtn');
   if (!btn) return;
   state.quality = btn.dataset.q;
-  $$('.qbtn').forEach((b) => b.classList.toggle('on', b === btn));
+  // 只在画质行内切换高亮，避免误伤内容分类行（两行共用 .qbtn 样式）。
+  $('#quality-filters').querySelectorAll('.qbtn').forEach((b) => b.classList.toggle('on', b === btn));
+  render();
+});
+
+// 内容分类筛选：chips 动态生成，用事件委托。选中后 render() 会重绘并同步高亮。
+$('#category-filters').addEventListener('click', (e) => {
+  const btn = e.target.closest('.qbtn');
+  if (!btn) return;
+  state.category = btn.dataset.cat;
   render();
 });
 

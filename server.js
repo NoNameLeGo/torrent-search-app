@@ -2,9 +2,9 @@
 
 const path = require('path');
 const express = require('express');
-const axios = require('axios');
 const providers = require('./src/providers');
 const torznabStore = require('./src/lib/torznabStore');
+const downloaders = require('./src/lib/downloaders');
 const { normalizeApiUrl } = require('./src/providers/torznab');
 const { getText } = require('./src/lib/http');
 
@@ -152,58 +152,64 @@ function safeHttpUrl(url) {
   }
 }
 
-// Login to a qBittorrent WebUI; returns the session cookie or throws.
-async function qbLogin(base, user, pass) {
-  const login = await axios.post(
-    `${base}/api/v2/auth/login`,
-    `username=${encodeURIComponent(user || '')}&password=${encodeURIComponent(pass || '')}`,
-    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 6000 }
-  );
-  const cookie = login.headers['set-cookie'] && login.headers['set-cookie'][0];
-  if (!cookie || /failed/i.test(String(login.data))) throw new Error('login_failed');
-  return cookie;
+// ---- Download clients (qBittorrent / Transmission / aria2·Motrix / Gopeed) ----
+// 统一推送端点：body 里带 kind（客户端类型）+ 该客户端的连接配置 + magnet。
+// 各客户端的协议差异封装在 src/lib/downloaders.js，这里只做入参校验与错误转译。
+// 兼容旧路径 /api/download/qbittorrent（老前端 / 老 localStorage 配置）：等价于 kind=qbittorrent。
+async function handlePush(kind, req, res) {
+  const { url, user, pass, token, magnet } = req.body || {};
+  if (!url || !magnet) return res.status(400).json({ error: 'missing url or magnet' });
+  if (!safeHttpUrl(url)) return res.status(400).json({ error: 'invalid_url_scheme' });
+  if (!downloaders.CLIENTS[kind]) return res.status(400).json({ error: 'unknown_client' });
+  try {
+    const out = await downloaders.push(kind, { url, user, pass, token }, magnet);
+    res.json({ ok: true, ...out });
+  } catch (e) {
+    res.status(502).json({ error: e.message || 'download_error' });
+  }
 }
 
-// Proxy: add a magnet to a qBittorrent WebUI instance (server-side, avoids CORS).
-app.post('/api/download/qbittorrent', async (req, res) => {
-  const { url, user, pass, magnet } = req.body || {};
-  if (!url || !magnet) return res.status(400).json({ error: 'missing url or magnet' });
-  const safeUrl = safeHttpUrl(url);
-  if (!safeUrl) return res.status(400).json({ error: 'invalid_url_scheme' });
+app.post('/api/download/push', (req, res) => {
+  handlePush(String((req.body && req.body.kind) || ''), req, res);
+});
+
+// Back-compat: the original qBittorrent-only endpoint. Old clients POST here
+// without a `kind`, so pin it to qbittorrent.
+app.post('/api/download/qbittorrent', (req, res) => handlePush('qbittorrent', req, res));
+
+// Test a client's connection without creating any download.
+app.post('/api/download/test', async (req, res) => {
+  const { kind, url, user, pass, token } = req.body || {};
+  if (!url) return res.status(400).json({ ok: false, error: 'missing url' });
+  if (!safeHttpUrl(url)) return res.json({ ok: false, error: 'invalid_url_scheme' });
+  if (!downloaders.CLIENTS[kind]) return res.json({ ok: false, error: 'unknown_client' });
   try {
-    const base = safeUrl.replace(/\/+$/, '');
-    const cookie = await qbLogin(base, user, pass);
-    const add = await axios.post(
-      `${base}/api/v2/torrents/add`,
-      `urls=${encodeURIComponent(magnet)}`,
-      { headers: { 'Content-Type': 'application/x-www-form-urlencoded', Cookie: cookie }, timeout: 10000 }
-    );
-    res.json({ ok: true, status: add.status });
+    await downloaders.test(kind, { url, user, pass, token });
+    res.json({ ok: true });
   } catch (e) {
-    res.status(502).json({ error: e.code || e.message || 'qbittorrent_error' });
+    res.json({ ok: false, error: e.message || 'test_failed' });
   }
 });
 
-// Auto-detect a local qBittorrent WebUI using common ports + default credentials,
-// so the user doesn't have to configure anything for a stock install.
-const QB_CANDIDATES = [
-  { url: 'http://localhost:8080', user: 'admin', pass: 'adminadmin' },
-  { url: 'http://localhost:8080', user: 'admin', pass: '' },
-  { url: 'http://127.0.0.1:8080', user: 'admin', pass: 'adminadmin' },
-  { url: 'http://localhost:8081', user: 'admin', pass: 'adminadmin' },
-  { url: 'http://localhost:9090', user: 'admin', pass: 'adminadmin' },
-  { url: 'http://localhost:8080', user: '', pass: '' },
-];
+// Auto-detect a local download client (stock ports + default/no credentials),
+// so a typical install needs no configuration. Returns the first that answers.
+app.get('/api/download/detect', async (req, res) => {
+  const hit = await downloaders.detect();
+  if (hit) return res.json({ ok: true, ...hit });
+  res.json({ ok: false, error: 'no_client_found' });
+});
 
+// Back-compat alias for the old qBittorrent-only detect route.
 app.get('/api/download/qbittorrent/detect', async (req, res) => {
-  for (const c of QB_CANDIDATES) {
-    try {
-      const base = c.url.replace(/\/+$/, '');
-      await qbLogin(base, c.user, c.pass);
-      return res.json({ ok: true, url: c.url, user: c.user, pass: c.pass });
-    } catch (e) { /* try next candidate */ }
-  }
+  const hit = await downloaders.detect();
+  if (hit && hit.kind === 'qbittorrent') return res.json({ ok: true, url: hit.url, user: hit.user, pass: hit.pass });
   res.json({ ok: false, error: 'no_qbittorrent_found' });
+});
+
+// Expose the client catalog (labels + which auth fields each needs) to the UI.
+app.get('/api/download/clients', (req, res) => {
+  const clients = Object.keys(downloaders.META).map((kind) => ({ kind, ...downloaders.META[kind] }));
+  res.json({ clients });
 });
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
@@ -244,7 +250,7 @@ app.post('/api/torznab/test', async (req, res) => {
 
 function start(port = PORT) {
   // 绑定回环地址：桌面单机应用无需对局域网暴露服务。这可避免同网段其他机器
-  // 访问搜索接口，尤其是 /api/download/qbittorrent 与 /api/torznab/test
+  // 访问搜索接口，尤其是 /api/download/push 与 /api/torznab/test
   // 这类会代为向外发起请求的端点被当作开放代理探测内网。
   return app.listen(port, '127.0.0.1', () => {
     console.log(`Torrent search app listening on http://localhost:${port}`);
