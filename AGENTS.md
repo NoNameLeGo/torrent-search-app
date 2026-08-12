@@ -189,6 +189,8 @@ percent-encode，个别老旧下载工具会拿到编码串或问号名，这是
 
 ## Syncing features between `main` and `feat/tauri`
 
+**铁律：所有修复和功能必须同时在 `main` 和 `feat/tauri` 两个分支上完成。** 不允许先修一个再同步另一个。每轮工作结束后，两个分支的代码（除分支固有限外）必须一致。
+
 The two branches are maintained in parallel: same commit messages, different hashes. Do **not** bulk cherry-pick the whole `feat/tauri..main` range — most of those commits are the parallel twins and would apply duplicate changes. Cherry-pick only the genuinely new commit(s).
 
 **Workflow that avoids losing commits:** do the cherry-pick in a temporary worktree, then **push to the remote *before* removing the worktree**. If you delete the worktree first, the cherry-picked commit is unreachable (the branch ref never pointed at it) and gets garbage-collected — the sync silently vanishes.
