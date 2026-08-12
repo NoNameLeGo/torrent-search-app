@@ -25,11 +25,12 @@ const http = axios.create({
 
 // Perform a GET returning { html, status, error }. Never throws.
 async function getText(url, opts = {}) {
+  const { headers: extraHeaders, ...rest } = opts;
   try {
     const res = await http.get(url, {
       responseType: 'text',
-      headers: { 'User-Agent': pickUA(), ...(opts.headers || {}) },
-      ...opts,
+      headers: { 'User-Agent': pickUA(), ...(extraHeaders || {}) },
+      ...rest,
     });
     return { html: res.data, status: res.status, error: null };
   } catch (e) {
@@ -39,11 +40,12 @@ async function getText(url, opts = {}) {
 
 // Perform a GET returning parsed JSON. Never throws.
 async function getJSON(url, opts = {}) {
+  const { headers: extraHeaders, ...rest } = opts;
   try {
     const res = await http.get(url, {
       responseType: 'json',
-      headers: { 'User-Agent': pickUA(), ...(opts.headers || {}) },
-      ...opts,
+      headers: { 'User-Agent': pickUA(), ...(extraHeaders || {}) },
+      ...rest,
     });
     return { data: res.data, status: res.status, error: null };
   } catch (e) {
@@ -53,11 +55,12 @@ async function getJSON(url, opts = {}) {
 
 // Perform a POST with a JSON body returning parsed JSON. Never throws.
 async function postJSON(url, payload, opts = {}) {
+  const { headers: extraHeaders, ...rest } = opts;
   try {
     const res = await http.post(url, payload, {
       responseType: 'json',
-      headers: { 'User-Agent': pickUA(), ...(opts.headers || {}) },
-      ...opts,
+      headers: { 'User-Agent': pickUA(), ...(extraHeaders || {}) },
+      ...rest,
     });
     return { data: res.data, status: res.status, error: null };
   } catch (e) {

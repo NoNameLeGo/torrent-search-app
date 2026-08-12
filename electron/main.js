@@ -88,6 +88,7 @@ app.on('activate', () => {
 
 app.on('before-quit', () => {
   if (server) {
+    server.closeAllConnections(); // 销毁所有 keep-alive socket，避免进程延迟退出
     server.close();
     server = null;
   }
