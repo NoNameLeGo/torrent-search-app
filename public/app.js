@@ -44,6 +44,13 @@ function dlLabel() {
   return (c && DL_CLIENTS[c] && DL_CLIENTS[c].label) || '下载器';
 }
 
+function dlShort() {
+  const c = state.dl && state.dl.client;
+  if (!c) return '下载器';
+  const s = { qbittorrent: 'qB', transmission: 'TR', aria2: 'Aria2', gopeed: 'Gopeed' };
+  return s[c] || c;
+}
+
 // 读取下载器配置：优先新键 dl；若不存在但有旧 qb 配置，迁移为 { client:'qbittorrent', ... }，
 // 让老用户升级后 qBittorrent 设置无缝延续。迁移后写回 dl 键，旧 qb 键留着不动（无害）。
 function loadDownloader() {
@@ -881,9 +888,8 @@ function renderBatchBar() {
   if (!n) { bar.hidden = true; return; }
   bar.hidden = false;
   $('#batch-count').textContent = n;
-  // qB 推送按钮仅在已配置 qBittorrent 时可用。
   const qbBtn = $('#batch-qb');
-  if (qbBtn) qbBtn.hidden = !state.qb;
+  if (qbBtn) qbBtn.hidden = !(state.dl && state.dl.client);
 }
 
 // 批量复制磁力：逐条 ensureMagnet（可能触发懒解析），拿到的磁力用换行拼接复制。
@@ -902,28 +908,31 @@ async function batchCopyMagnets() {
   toast(`已复制 ${magnets.length}/${items.length} 条磁力`);
 }
 
-// 批量推送到 qBittorrent：串行推送，避免瞬时打爆 WebUI。逐条汇总成功数。
-async function batchSendToQB() {
-  if (!state.qb) { openSettings(); toast('请先配置 qBittorrent'); return; }
+// 批量推送到下载客户端：串行推送，避免瞬时打爆。逐条汇总成功数。
+async function batchSendToClient() {
+  if (!state.dl || !state.dl.client) { openSettings(); toast('请先配置下载客户端'); return; }
   const items = checkedItems();
   if (!items.length) return;
-  toast(`正在推送 ${items.length} 条到 qBittorrent…`);
+  const label = dlLabel();
+  toast(`正在推送 ${items.length} 条到 ${label}…`);
   let ok = 0;
   for (const it of items) {
     const m = await ensureMagnet(it).catch(() => null);
     if (!m) continue;
     try {
-      const r = await fetch('/api/download/qbittorrent', {
+      const r = await fetch('/api/download/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...state.qb, magnet: m }),
+        body: JSON.stringify({ kind: state.dl.client, url: state.dl.url, user: state.dl.user || '', pass: state.dl.pass || '', token: state.dl.token || '', magnet: m }),
       });
       const data = await r.json();
       if (data.ok) ok++;
     } catch { /* 单条失败不阻断 */ }
   }
-  toast(`已推送 ${ok}/${items.length} 条到 qBittorrent`);
+  toast(`已推送 ${ok}/${items.length} 条到 ${label}`);
 }
+
+async function batchSendToQB() { return batchSendToClient(); }
 
 // 导出 CSV：把勾选条目导出为 CSV 文件下载。字段按每个 CSV 单元格转义（含引号、
 // 逗号、换行）。磁力若尚未解析则留空（不为导出触发大量懒解析请求）。
@@ -972,22 +981,23 @@ async function copyText(text) {
   }
 }
 
-async function sendToQB(magnet) {
-  if (!state.qb) { openSettings(); toast('请先配置 qBittorrent'); return; }
-  toast('正在推送到 qBittorrent…');
+async function sendToClient(magnet) {
+  if (!state.dl || !state.dl.client) { openSettings(); toast('请先配置下载客户端'); return; }
+  const dl = state.dl, label = dlLabel();
+  toast(`正在推送到 ${label}…`);
   try {
-    const r = await fetch('/api/download/qbittorrent', {
+    const r = await fetch('/api/download/push', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...state.qb, magnet }),
+      body: JSON.stringify({ kind: dl.client, url: dl.url, user: dl.user || '', pass: dl.pass || '', token: dl.token || '', magnet }),
     });
     const data = await r.json();
-    if (data.ok) toast('已添加到 qBittorrent');
+    if (data.ok) toast(`已添加到 ${label}`);
     else toast('推送失败：' + (data.error || '未知错误'));
-  } catch (e) {
-    toast('推送失败：网络错误');
-  }
+  } catch (e) { toast('推送失败：网络错误'); }
 }
+
+async function sendToQB(magnet) { return sendToClient(magnet); }
 
 // ---------- settings ----------
 // 按当前选中的客户端切换认证字段的显隐：userpass 显示用户名/密码，token 显示 token。
@@ -1382,5 +1392,5 @@ $('#history-dropdown').addEventListener('mousedown', (e) => {
 
 // ---------- init ----------
 loadProviders();
-autoDetectQB();
+autoDetectDownloader();
 renderFavCount();
