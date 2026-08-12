@@ -15,11 +15,11 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: 设置 Node.js
         # electron@43 要求 node >= 22.12.0，低于此版本会导致 electron 二进制下载失败
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -53,14 +53,14 @@ jobs:
         run: npm install --omit=dev
 
       - name: 上传安装包（Artifact 备份）
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: BT-Search-Electron-Setup
           path: dist/*Setup*.exe
           if-no-files-found: error
 
       - name: 上传便携版（Artifact 备份）
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: BT-Search-Electron-Portable
           path: dist/portable/BT聚合搜索

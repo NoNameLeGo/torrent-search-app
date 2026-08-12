@@ -5,6 +5,9 @@
   "description": "Desktop BT torrent meta-search web app aggregating multiple engines (1337x, TPB, NYAA).",
   "type": "commonjs",
   "main": "electron/main.js",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
