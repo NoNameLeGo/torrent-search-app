@@ -4,7 +4,7 @@
 // metadata. The site is served as UTF-8, so plain getText decoding is correct.
 const cheerio = require('cheerio');
 const { getText } = require('../lib/http');
-const { normalize, ruDate, extractInfoHash } = require('../lib/normalize');
+const { normalize, ruDate, extractInfoHash, coercePage } = require('../lib/normalize');
 const { runMirrors } = require('../lib/mirrors');
 
 const DOMAINS = [
@@ -88,7 +88,7 @@ async function searchOn(base, query, page) {
 }
 
 async function search(query, { page = 1 } = {}) {
-  const p = Math.max(0, (page | 0) - 1); // rutor page is 0-based
+  const p = coercePage(page) - 1; // rutor page is 0-based
   return runMirrors(
     DOMAINS.map((base) => () => searchOn(base, query, p)),
     'Rutor'

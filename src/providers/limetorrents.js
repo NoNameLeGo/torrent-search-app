@@ -4,7 +4,7 @@
 // page; the infoHash is extracted from the itorrents.net .torrent link.
 const cheerio = require('cheerio');
 const { getText } = require('../lib/http');
-const { normalize } = require('../lib/normalize');
+const { normalize, coercePage } = require('../lib/normalize');
 const { runMirrors } = require('../lib/mirrors');
 
 const DOMAINS = [
@@ -85,7 +85,7 @@ async function searchOn(base, query, page) {
 }
 
 async function search(query, { page = 1 } = {}) {
-  const p = Math.max(1, page | 0);
+  const p = coercePage(page);
   return runMirrors(
     DOMAINS.map((base) => () => searchOn(base, query, p)),
     'LimeTorrents'

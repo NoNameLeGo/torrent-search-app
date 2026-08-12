@@ -22,8 +22,9 @@ async function fetchDetails(detailUrl) {
 }
 
 async function searchOne(base, query, page) {
-  let q = encodeURIComponent(query.trim());
-  q = q.replace(/%20/g, '-');
+  // Replace spaces with hyphens BEFORE encoding, matching the upstream order.
+  let q = query.trim().replace(/\s+/g, '-');
+  q = encodeURIComponent(q);
   const url = `${base}/s/${q}/seeders`;
   const { html, error } = await getText(url);
   if (error || !html) return { base, results: [], error };

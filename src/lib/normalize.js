@@ -45,6 +45,12 @@ function parseDate(input) {
   const s = String(input).trim();
   if (!s) return null;
 
+  // "a minute ago" / "an hour ago" / "a day ago"
+  if (/^an?\s+(min|minute|hour)s?\s+ago$/i.test(s)) {
+    const m = s.match(/(min|minute|hour)/i);
+    return Date.now() - (m[1][0] === 'm' ? 60e3 : 3600e3);
+  }
+
   // Relative: "X minutes/hours/days/weeks/months/years ago"
   const rel = s.match(/^(\d+)\s*(min|minute|hour|day|week|month|year)s?\s*ago$/i);
   if (rel) {
@@ -53,11 +59,23 @@ function parseDate(input) {
     const mult = {
       min: 60e3, minute: 60e3,
       hour: 3600e3, day: 86400e3,
-      week: 604800e3, month: 2592000e3, year: 31536000e3,
+      week: 604800e3, month: 2629800e3, year: 31536000e3,
     }[unit];
+    if (!mult) return null;
     return Date.now() - n * mult;
   }
   if (/^yesterday$/i.test(s)) return Date.now() - 86400e3;
+
+  // "last month" / "last year" → roughly 30 / 365 days ago.
+  if (/^last\s+month$/i.test(s)) return Date.now() - 2629800e3;
+  if (/^last\s+year$/i.test(s))  return Date.now() - 31536000e3;
+
+  // "today" → start of today (midnight).
+  if (/^today$/i.test(s)) {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  }
 
   const t = Date.parse(s);
   return isNaN(t) ? null : t;
@@ -106,6 +124,12 @@ function toInt(v) {
   return isNaN(n) ? null : n;
 }
 
+/** Coerce a page number to a safe integer ≥ 1. */
+function coercePage(p) {
+  const n = parseInt(p, 10);
+  return (Number.isFinite(n) && n > 0) ? n : 1;
+}
+
 // Normalize a raw provider result into the canonical shape used everywhere.
 function normalize(raw) {
   const size = parseSize(raw.size);
@@ -133,5 +157,5 @@ function normalize(raw) {
 module.exports = {
   parseSize, formatSize, parseDate, formatDate,
   buildMagnet, extractInfoHash, ruDate,
-  toInt, normalize,
+  toInt, coercePage, normalize,
 };
