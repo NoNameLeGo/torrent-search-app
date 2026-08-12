@@ -180,10 +180,11 @@ percent-encode，个别老旧下载工具会拿到编码串或问号名，这是
 
 ### 低 — polish
 
-- `normalize.js` `parseDate` treats "1 month ago" as fixed 30 d and misses "a minute ago"/"last month" phrasings; `parseSize` silently returns `null` for unknown units (e.g. "Гб" — currently pre-translated by providers, keep it that way).
-- Page param coercion inconsistent across paginated providers: only rutor/limetorrents apply `|0`; harmless today (index.js passes ints) but normalize in a shared helper.
-- `mypornclub.js` ~L28-30 encodes-then-replaces `%20` → `-`, inverting the upstream Kotlin order; special chars still end up percent-encoded in path (occasional misses).
-- `electron/main.js` `before-quit` (~L89) closes the HTTP server but doesn't destroy keep-alive sockets — fine for desktop exit, but if graceful restart is ever added use `server.closeAllConnections()`.
+- ~~`normalize.js` `parseDate` treats "1 month ago" as fixed 30 d and misses "a minute ago"/"last month" phrasings~~ ✅ 已修复（2026-08-11）：新增 5 种短语支持，month 改为 30.44 天
+- ~~Page param coercion inconsistent across paginated providers~~ ✅ 已修复（2026-08-11）：新增 `coercePage()` 共享 helper
+- ~~`mypornclub.js` ~L28-30 encodes-then-replaces `%20` → `-`~~ ✅ 已修复（2026-08-11）：先 replace 空格再 encodeURIComponent
+- ~~`electron/main.js` `before-quit` (~L89) closes server without destroying keep-alive sockets~~ ✅ 已修复（2026-08-12）：新增 `closeAllConnections()`
+- ~~`src/lib/http.js` `getText/getJSON/postJSON` 展开顺序 bug — `...opts` 在 headers 合并之后展开，若调用方传 headers 会整体覆盖合并结果~~ ✅ 已修复（2026-08-12）：先解构 headers，再展开 rest
 - No tests at all (see top of this file). Highest-value first target: golden-file tests for each provider's parser against saved HTML fixtures — they double as change detectors when sites redesign.
 
 ## Syncing features between `main` and `feat/tauri`
