@@ -1,17 +1,33 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::io::{Read, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpStream;
+use std::process::{Command, Stdio};
 use std::sync::Mutex;
 use std::time::Duration;
 
-use tauri::{Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
-use tauri_plugin_shell::ShellExt;
-use tauri_plugin_shell::process::{CommandChild, CommandEvent};
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 
-const SIDECAR: &str = "server";
+use tauri::{Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
-struct SidecarProc(Mutex<Option<CommandChild>>);
+// CREATE_NO_WINDOW：避免给 server.exe（node）弹出控制台黑窗口。
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+struct SidecarProc(Mutex<Option<std::process::Child>>);
+
+// app 退出时杀掉 server 子进程（std::process::Child 的 drop 不 kill，
+// 与原来 tauri-plugin-shell CommandChild 的行为对齐，避免残留孤儿进程）。
+impl Drop for SidecarProc {
+    fn drop(&mut self) {
+        if let Ok(mut guard) = self.0.lock() {
+            if let Some(mut child) = guard.take() {
+                let _ = child.kill();
+                let _ = child.wait();
+            }
+        }
+    }
+}
 
 fn free_port() -> u16 {
     let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("failed to bind a free port");
@@ -21,6 +37,9 @@ fn free_port() -> u16 {
 fn wait_for_health(port: u16) -> bool {
     for _ in 0..120 {
         if let Ok(mut s) = TcpStream::connect(("127.0.0.1", port)) {
+            // 加读写超时，避免后端无响应时 read 永久阻塞主线程。
+            let _ = s.set_read_timeout(Some(Duration::from_secs(3)));
+            let _ = s.set_write_timeout(Some(Duration::from_secs(3)));
             let _ = s.write_all(
                 b"GET /api/health HTTP/1.0\r\nHost: localhost\r\nConnection: close\r\n\r\n",
             );
@@ -113,7 +132,6 @@ fn create_main_window(app: &tauri::AppHandle, url: WebviewUrl) -> WebviewWindow 
 
 fn main() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             // 第二实例启动 → 聚焦已存在的窗口（避免重复开后端）
@@ -171,42 +189,57 @@ fn main() {
                     .expect("server.js path is not valid UTF-8")
                     .to_string();
 
-                let (mut rx, child) = app
-                    .shell()
-                    .sidecar(SIDECAR)
-                    .expect("sidecar 'server' is not configured in tauri.conf.json (bundle.externalBin)")
-                    .args([
-                        server_arg,
-                        "--port".to_string(),
-                        port.to_string(),
-                        "--public-dir".to_string(),
-                        public_arg,
-                    ])
-                    .spawn()
-                    .expect("failed to spawn sidecar server process");
+                let server_exe = resource_dir.join("server.exe");
+                let mut cmd = Command::new(&server_exe);
+                cmd.arg(&server_arg)
+                    .arg("--port")
+                    .arg(port.to_string())
+                    .arg("--public-dir")
+                    .arg(&public_arg)
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::piped())
+                    .stdin(Stdio::null());
+
+                #[cfg(windows)]
+                cmd.creation_flags(CREATE_NO_WINDOW);
+
+                // 用 std::process::Command 直接 spawn，而不是 tauri-plugin-shell 的
+                // sidecar（后者在 setup 阶段走 tokio async_runtime 读管道，会导致
+                // server 进程起不来、主线程卡死）。
+                let mut child = cmd.spawn().expect("failed to spawn server process");
+
+                // 收集 server 的 stdout/stderr，健康检查失败时直接展示给用户，
+                // 而不是弹出一个裸的 127.0.0.1 连接错误。
+                let log = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
+                if let Some(stdout) = child.stdout.take() {
+                    let log2 = log.clone();
+                    std::thread::spawn(move || {
+                        for line in BufReader::new(stdout).lines() {
+                            if let Ok(l) = line {
+                                let mut g = log2.lock().unwrap();
+                                g.push_str(&l);
+                                g.push('\n');
+                            }
+                        }
+                    });
+                }
+                if let Some(stderr) = child.stderr.take() {
+                    let log2 = log.clone();
+                    std::thread::spawn(move || {
+                        for line in BufReader::new(stderr).lines() {
+                            if let Ok(l) = line {
+                                let mut g = log2.lock().unwrap();
+                                g.push_str(&l);
+                                g.push('\n');
+                            }
+                        }
+                    });
+                }
 
                 // Keep the child alive for the app lifetime (dropping would kill it).
                 if let Some(state) = app.try_state::<SidecarProc>() {
                     *state.0.lock().unwrap() = Some(child);
                 }
-
-                // 收集 sidecar 的 stdout/stderr，健康检查失败时直接展示给用户，
-                // 而不是弹出一个裸的 127.0.0.1 连接错误。
-                let log = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
-                let log_for_task = log.clone();
-                let handle = app.handle().clone();
-                tauri::async_runtime::spawn(async move {
-                    while let Some(event) = rx.recv().await {
-                        match event {
-                            CommandEvent::Stdout(bytes) | CommandEvent::Stderr(bytes) => {
-                                let line = String::from_utf8_lossy(&bytes).to_string();
-                                let _ = handle.emit("server-log", line.clone());
-                                log_for_task.lock().unwrap().push_str(&line);
-                            }
-                            _ => {}
-                        }
-                    }
-                });
 
                 if !wait_for_health(port) {
                     let captured = log.lock().unwrap().clone();
