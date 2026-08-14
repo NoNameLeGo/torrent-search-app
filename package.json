@@ -19,7 +19,8 @@
     "build:tauri": "tauri build",
     "build:sidecar": "node scripts/prepare-sidecar.mjs",
     "test": "node test/run.js && node test/normalize.test.js",
-    "test:watch": "nodemon test/run.js test/normalize.test.js"
+    "test:watch": "nodemon test/run.js test/normalize.test.js",
+    "release:check": "node scripts/release-check.js"
   },
   "dependencies": {
     "axios": "^1.7.7",

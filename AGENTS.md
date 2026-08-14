@@ -195,7 +195,8 @@ percent-encode，个别老旧下载工具会拿到编码串或问号名，这是
 `working-directory` 与 `path` 仍指向 `dist/portable/BT聚合搜索`，与之保持一致。
 
 另注：`feat/tauri` 有 3 个 workflow（`build.yml` / `release.yml` / `tauri-build.yml`），
-`main` 只有 `build.yml`；正式发布（含 Tauri 产物）走 `feat/tauri` 的 `release.yml`。
+`main` 原有 `build.yml`，2026-08-14 已同步补齐 `release.yml` / `tauri-build.yml`（两边现一致）；
+正式发布（含 Tauri 产物）走 `release.yml`（建议从 `feat/tauri` 打 tag，已包含 Tauri 源码）。
 
 ### 高 — provider layer
 
@@ -383,3 +384,59 @@ D:\Vibe-Coding\          ← 父目录 Git 仓库（本地，无 remote）
 **相关文件：**
 - 父目录 `.gitignore`: `D:\Vibe-Coding\.gitignore`
 - 本项目 `.gitignore`: `D:\Vibe-Coding\torrent-search-app\.gitignore`
+
+---
+
+## 仓库纪律与事故复盘（2026-08-14 恢复，务必阅读）
+
+### 事故简述
+
+2026-08-14 本地项目仓库的 `.git` 被重建（`git init` + 整个工作区打成 1 个
+`commit (initial)` + 重建 tag），**全部历史与 `feat/tauri` 分支从本地消失**，
+本地看起来「release 构建流程丢了」（release.yml/tauri-build.yml 本来只在
+feat/tauri）。实际流程从未丢失：GitHub 远程与父仓库 `D:\Vibe-Coding` 都完整
+保留了历史（远程 main=bd289f5c 系、feat/tauri=dc05e1c；父仓库 main=7e9c774、
+feat/tauri=dc05e1c，90 条提交 + 4 个真 tag）。
+
+### 恢复方法（存档，供再次发生同类事故时参考）
+
+`git fetch` 在受限环境下可能失败（git 本地传输要起子进程建管道被沙箱拦截），
+此时可用**纯文件级恢复**，全程不碰子进程管道：
+
+```bash
+# 1) 把父仓库的 pack 复制进项目 .git（对象全部来自父仓库）
+Copy-Item D:\Vibe-Coding\.git\objects\pack\pack-*.pack  .git\objects\pack\
+Copy-Item D:\Vibe-Coding\.git\objects\pack\pack-*.idx   .git\objects\pack\
+# 2) 删除过期的 multi-pack-index（否则新 pack 可能查不到）
+Remove-Item .git\objects\pack\multi-pack-index -Force
+# 3) 用 update-ref 直接写引用（单进程，无子进程）
+git update-ref refs/remotes/local/main      7e9c774b52079e2741db022bc73406603b6aefd1
+git update-ref refs/remotes/local/feat/tauri dc05e1c9518233a09990ce1a8c70110777143417
+git update-ref refs/tags/v0.3.0-beta        c8eb5dd5dd44e52e83d96c05b7730267efe66b25
+# 4) 对齐分支
+git checkout -B main refs/remotes/local/main
+git branch feat/tauri refs/remotes/local/feat/tauri
+# 5) 找回未提交工作（若曾 stash）：git stash pop
+```
+
+`refs/remotes/local/*` 是恢复时留下的线索 ref，可随时删除。
+恢复后记得 `git fetch origin` 与远程对齐，**不要 force-push**。
+
+### 纪律（每条都是一次事故换来的）
+
+1. **仓库边界**：任何 git 操作前先 `git rev-parse --show-toplevel` 确认当前仓库。
+   父目录 `D:\Vibe-Coding` 是独立仓库（保留本项目完整历史，无 remote）；
+   在 `torrent-search-app/` 目录里工作时只操作本项目仓库。
+2. **禁止 `git init` + 单提交来「迁移/重建」仓库**：会丢失全部历史。
+   拆分/迁移必须用 `git clone` / `git worktree` / `git filter-repo`。
+3. **未提交工作当日提交并推送**：远程是唯一异地备份。这次 bitsearch/rutor/sukebei
+   等修复「做了没入库」，全靠恢复才找回来。
+4. **tag 纪律**：用 `git tag -a` 打注释 tag，`git push origin <tag>` 并确认远程
+   后再算完成；打 tag 前先跑 `npm run release:check`（检查 feat/tauri 分支、
+   release.yml/tauri-build.yml 是否存在、工作区是否干净）。
+5. **依赖安装用 `npm ci`**（严格按 lockfile + tarball 完整性校验）；在残缺的
+   node_modules 上 `npm install` 会打地鼠（本仓库曾出现 axios/express 缺失、
+   asynckit/debug/iconv-lite 文件级损坏）。`npm install <pkg>` 会把传递依赖
+   误写进 package.json 的 dependencies，改完要检查。
+6. **main 与 feat/tauri 的修复必须同步**（见上文铁律），发布入口是
+   `feat/tauri` 的 `release.yml`（Electron+Tauri 双构建）。
