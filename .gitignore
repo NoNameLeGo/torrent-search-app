@@ -51,5 +51,6 @@ src-tauri/gen/
 # agent 本地工具配置（非项目文件）
 .agents/
 .claude/
+.reasonix/
 skills-lock.json
 
