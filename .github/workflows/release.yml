@@ -44,11 +44,11 @@ jobs:
         run: npm run build:portable
 
       - name: Install portable prod deps
-        working-directory: dist/portable/BT聚合搜索/resources/app
+        working-directory: dist/portable/torrent-search-app/resources/app
         run: npm install --omit=dev
 
       - name: Zip portable
-        run: Compress-Archive -Path "dist/portable/BT聚合搜索" -DestinationPath "dist/portable/BT-Search-Electron-Portable.zip"
+        run: Compress-Archive -Path "dist/portable/torrent-search-app" -DestinationPath "dist/portable/BT-Search-Electron-Portable.zip"
 
       - name: Upload Electron artifacts
         uses: actions/upload-artifact@v6

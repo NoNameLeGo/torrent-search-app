@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "BT 聚合搜索",
+  "productName": "torrent-search-app",
   "version": "0.3.0-beta",
   "identifier": "com.torrentsearch.app",
   "build": {

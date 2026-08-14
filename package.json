@@ -26,7 +26,7 @@
   },
   "build": {
     "appId": "com.torrentsearch.app",
-    "productName": "BT 聚合搜索",
+    "productName": "torrent-search-app",
     "files": [
       "server.js",
       "electron/**/*",

@@ -48,7 +48,7 @@ jobs:
         run: npm run build:portable
 
       - name: 便携版安装生产依赖
-        working-directory: dist/portable/BT聚合搜索/resources/app
+        working-directory: dist/portable/torrent-search-app/resources/app
         run: npm install --omit=dev
 
       - name: 上传安装包（Artifact 备份）
@@ -62,5 +62,5 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: BT-Search-Electron-Portable
-          path: dist/portable/BT聚合搜索
+          path: dist/portable/torrent-search-app
           if-no-files-found: error

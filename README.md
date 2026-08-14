@@ -48,7 +48,7 @@
 
 ### 免安装便携版
 
-位于 `dist/portable/BT聚合搜索/BT聚合搜索.exe`，**直接双击**即用——不写注册表、不落 C 盘、整包剪切即可迁移。体积约 **360MB**（主要含 Chromium 运行时）。
+位于 `dist/portable/torrent-search-app/torrent-search-app.exe`，**直接双击**即用——不写注册表、不落 C 盘、整包剪切即可迁移。体积约 **360MB**（主要含 Chromium 运行时）。
 
 ### 开发模式
 

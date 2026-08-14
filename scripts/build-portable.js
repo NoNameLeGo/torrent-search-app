@@ -2,20 +2,20 @@
 
 // 手动拼装「免安装便携版」——纯文件拷贝，不依赖 electron-builder，
 // 因此不会触发代码签名（winCodeSign/signtool）导致的卡死。
-// 产物：dist/portable/BT聚合搜索/（双击 BT聚合搜索.exe 即用）。
+// 产物：dist/portable/torrent-search-app/（双击 torrent-search-app.exe 即用）。
 //
 // 顺序：
 //   1. 拷贝 node_modules/electron/dist 作为运行时（含 electron.exe）
 //   2. 删除默认的 default_app.asar，放入我们的代码到 resources/app/
 //   3. 生产依赖（express/axios/cheerio）由 CI/本地后续 `npm install --omit=dev` 安装
-//   4. 把 electron.exe 改名为 BT聚合搜索.exe
+//   4. 把 electron.exe 改名为 torrent-search-app.exe
 
 const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const ELECTRON_DIST = path.join(ROOT, 'node_modules', 'electron', 'dist');
-const PORTABLE = path.join(ROOT, 'dist', 'portable', 'BT聚合搜索');
+const PORTABLE = path.join(ROOT, 'dist', 'portable', 'torrent-search-app');
 const APP = path.join(PORTABLE, 'resources', 'app');
 
 function rmrf(p) {
@@ -55,7 +55,7 @@ function main() {
 
   // 3. 改名 exe
   const exeFrom = path.join(PORTABLE, 'electron.exe');
-  const exeTo = path.join(PORTABLE, 'BT聚合搜索.exe');
+  const exeTo = path.join(PORTABLE, 'torrent-search-app.exe');
   if (fs.existsSync(exeFrom)) fs.renameSync(exeFrom, exeTo);
 
   console.log('[build-portable] 已生成：', PORTABLE);

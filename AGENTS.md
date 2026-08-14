@@ -149,9 +149,7 @@ percent-encode，个别老旧下载工具会拿到编码串或问号名，这是
   `BT-Search-Electron-Portable`；构建步显式传 `-- --publish=onTag` 保住打 tag 发布的原行为
 - `README.md`：安装包示例名跟着更新
 
-**`scripts/build-portable.js` 故意不改**：便携版目录名与其内部的 `BT聚合搜索.exe` 是
-解压后给用户看的名字，不参与下载 URL，`feat/tauri` 上同样保留中文。build.yml 里
-`working-directory` 与 `path` 仍指向 `dist/portable/BT聚合搜索`，与之保持一致。
+**`scripts/build-portable.js` 统一改为 ASCII 名**：便携版目录 `torrent-search-app/` 及其内部可执行文件 `torrent-search-app.exe` 均为纯 ASCII，下载 URL 不会被 percent-encode，与主分支约定一致。
 
 另注：`feat/tauri` 有 3 个 workflow（`build.yml` / `release.yml` / `tauri-build.yml`），
 `main` 只有 `build.yml`；正式发布（含 Tauri 产物）走 `feat/tauri` 的 `release.yml`。
