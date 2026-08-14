@@ -3,8 +3,8 @@ name: Release (Electron + Tauri)
 # 打 `v*` tag（或手动触发）时，构建 Electron 与 Tauri 两个 Windows 安装包，
 # 并统一上传到【同一个】GitHub Release。
 #
-# - Electron job 用当前触发分支的代码（建议从 feat/tauri 打 tag，已包含全部移植引擎 + Tauri 源码）
-# - Tauri job 显式 checkout feat/tauri 取 Tauri 代码
+# - Electron job 显式 checkout main（Electron 稳定版代码），Tauri job 显式
+#   checkout feat/tauri（实验性分支代码）——一次发布携带两个分支的构建产物
 # - 两个 job 都【只构建不发布】，最后由 publish job 用 softprops 统一发布，避免竞态
 on:
   push:
@@ -21,6 +21,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: main
 
       - name: Setup Node
         uses: actions/setup-node@v5
