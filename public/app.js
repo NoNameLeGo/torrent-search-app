@@ -21,6 +21,8 @@ const state = {
   dl: loadDownloader(),    // 下载客户端配置 { client, url, user, pass, token }（含旧 qb 迁移）
   quality: 'all',          // 画质快捷筛选：all / 2160p / 1080p / 720p / hdr
   category: 'all',         // 内容分类筛选：all 或某个标准桶 key（见 normalizeCategory）
+  safeMode: loadSafeMode(), // 安全模式：禁用成人引擎 + 隐藏 NSFW 结果
+  viewed: loadViewed(),    // 已浏览的 infoHash 集合（用于置灰）
   view: 'search',          // 当前视图：search / favorites
   history: JSON.parse(localStorage.getItem('history') || '[]'),   // 最近搜索词
   favorites: JSON.parse(localStorage.getItem('favorites') || '[]'), // 收藏的种子
@@ -65,6 +67,38 @@ function loadDownloader() {
     }
   } catch { /* ignore */ }
   return null;
+}
+
+// 读取安全模式状态：localStorage['safeMode'] = 'true' | 'false'
+function loadSafeMode() {
+  try {
+    return localStorage.getItem('safeMode') === 'true';
+  } catch { return false; }
+}
+function saveSafeMode(val) {
+  localStorage.setItem('safeMode', val ? 'true' : 'false');
+}
+
+// 读取已浏览集合：localStorage['viewed'] = JSON.stringify(Set)
+function loadViewed() {
+  try {
+    const arr = JSON.parse(localStorage.getItem('viewed') || '[]');
+    return Array.isArray(arr) ? new Set(arr) : new Set();
+  } catch { return new Set(); }
+}
+function saveViewed() {
+  localStorage.setItem('viewed', JSON.stringify([...state.viewed]));
+}
+
+// 读取已浏览集合：localStorage['viewed'] = JSON.stringify(Set)
+function loadViewed() {
+  try {
+    const arr = JSON.parse(localStorage.getItem('viewed') || '[]');
+    return Array.isArray(arr) ? new Set(arr) : new Set();
+  } catch { return new Set(); }
+}
+function saveViewed() {
+  localStorage.setItem('viewed', JSON.stringify([...state.viewed]));
 }
 
 const HISTORY_MAX = 12;
@@ -238,10 +272,13 @@ function renderGroupChips() {
   const selTotal = allProviders.filter((p) => state.selected.has(p.id)).length;
   const allOn = total > 0 && selTotal === total;
 
-  const chip = (key, label, on, extra) =>
-    `<div class="chip group-chip${on ? ' on' : ''}" data-group="${esc(key)}"` +
-    `${extra ? ` title="${esc(extra)}"` : ''}>` +
-    `<span class="dot"></span>${esc(label)}</div>`;
+  const chip = (key, label, on, extra) => {
+    // Safe Mode 下成人分组不渲染，或显示为已禁用状态
+    if (key === 'adult' && state.safeMode) return '';
+    return `<div class="chip group-chip${on ? ' on' : ''}" data-group="${esc(key)}"` +
+      `${extra ? ` title="${esc(extra)}"` : ''}>` +
+      `<span class="dot"></span>${esc(label)}</div>`;
+  };
 
   // 「全部」：全选时高亮，点击切换全选/全不选。
   let html = chip('__all__', '全部', allOn);
@@ -325,6 +362,11 @@ function toggleProvider(id) {
 
 // 整组全选 / 全不选：该组已全选则清空该组，否则补齐该组。
 function toggleGroup(g) {
+  // Safe Mode 下禁止启用成人分组
+  if (g === 'adult' && state.safeMode) {
+    toast('安全模式已启用，成人引擎已被禁用');
+    return;
+  }
   const list = allProviders.filter((p) => providerGroupOf(p) === g);
   const allOn = list.every((p) => state.selected.has(p.id));
   list.forEach((p) => {
@@ -560,6 +602,7 @@ function visibleResults() {
     if (name && !it.name.toLowerCase().includes(name)) return false;
     if (!matchesQuality(it.name, state.quality)) return false;
     if (state.category !== 'all' && normalizeCategory(it.category, it.name) !== state.category) return false;
+    if (state.safeMode && it.category === 'porn') return false;
     return true;
   });
 
@@ -645,9 +688,10 @@ function cardHTML(it) {
   const faved = isFavorited(it.key);
   const favBtn = `<button class="fav-btn${faved ? ' on' : ''}" data-act="fav" data-id="${esc(it.key)}" title="${faved ? '取消收藏' : '收藏'}">${faved ? '★' : '☆'}</button>`;
   const checked = state.checked.has(it.key);
+  const viewed = state.viewed.has(it.infoHash);
   const checkBox = `<input type="checkbox" class="card-check" data-act="check" data-id="${esc(it.key)}"${checked ? ' checked' : ''} title="选择用于批量操作" />`;
   return `
-  <div class="card${checked ? ' checked' : ''}" data-id="${esc(it.key)}">
+  <div class="card${checked ? ' checked' : ''}${viewed ? ' viewed' : ''}" data-id="${esc(it.key)}">
     ${checkBox}
     ${favBtn}
     <div class="name">${highlight(it.name, state.query)}</div>
@@ -716,6 +760,13 @@ async function ensureMagnet(g) {
   return null;
 }
 
+// 标记结果已浏览：打开详情、复制磁力、推送下载器、打开磁力链接都会触发。
+function markViewed(it) {
+  if (!it || !it.infoHash) return;
+  state.viewed.add(it.infoHash);
+  saveViewed();
+}
+
 // 卡片动作处理：搜索视图与收藏视图共用同一套按钮逻辑。
 async function onCardClick(e) {
   const btn = e.target.closest('[data-act]');
@@ -726,6 +777,7 @@ async function onCardClick(e) {
   const act = btn.dataset.act;
 
   if (act === 'detail') {
+    markViewed(it);
     openDetail(it);
     return;
   }
@@ -744,16 +796,19 @@ async function onCardClick(e) {
     return;
   }
   if (act === 'copy') {
+    markViewed(it);
     const m = await ensureMagnet(it);
     if (m) copyText(m);
     return;
   }
   if (act === 'open') {
+    markViewed(it);
     const m = await ensureMagnet(it);
     if (m) window.location.href = m;
     return;
   }
   if (act === 'dl') {
+    markViewed(it);
     const m = await ensureMagnet(it);
     if (m) sendToClient(m);
     return;
@@ -846,9 +901,9 @@ $('#detail-modal').addEventListener('click', async (e) => {
     else { btn.textContent = '获取磁力'; btn.disabled = false; }
     return;
   }
-  if (act === 'copy') { const m = await ensureMagnet(it); if (m) copyText(m); return; }
-  if (act === 'open') { const m = await ensureMagnet(it); if (m) window.location.href = m; return; }
-  if (act === 'dl') { const m = await ensureMagnet(it); if (m) sendToClient(m); return; }
+  if (act === 'copy') { markViewed(it); const m = await ensureMagnet(it); if (m) copyText(m); return; }
+  if (act === 'open') { markViewed(it); const m = await ensureMagnet(it); if (m) window.location.href = m; return; }
+  if (act === 'dl') { markViewed(it); const m = await ensureMagnet(it); if (m) sendToClient(m); return; }
 });
 
 // ---------- batch operations ----------
@@ -1124,6 +1179,16 @@ $('#group-chips').addEventListener('click', (e) => {
   if (g === '__all__') toggleAllProviders();
   else toggleGroup(g);
 });
+
+// 安全模式开关：切换后刷新分组 chips（成人组消失）和结果。
+$('#safe-mode-toggle').onchange = (e) => {
+  state.safeMode = e.target.checked;
+  saveSafeMode(state.safeMode);
+  renderGroupChips();
+  renderProviderChips();
+  render();
+  toast(state.safeMode ? '安全模式已启用（成人引擎禁用）' : '安全模式已关闭');
+};
 
 // ---------- infinite scroll ----------
 const io = new IntersectionObserver((entries) => {
