@@ -90,17 +90,6 @@ function saveViewed() {
   localStorage.setItem('viewed', JSON.stringify([...state.viewed]));
 }
 
-// 读取已浏览集合：localStorage['viewed'] = JSON.stringify(Set)
-function loadViewed() {
-  try {
-    const arr = JSON.parse(localStorage.getItem('viewed') || '[]');
-    return Array.isArray(arr) ? new Set(arr) : new Set();
-  } catch { return new Set(); }
-}
-function saveViewed() {
-  localStorage.setItem('viewed', JSON.stringify([...state.viewed]));
-}
-
 const HISTORY_MAX = 12;
 
 // 画质匹配规则：把标题里常见的清晰度/HDR 写法归一到快捷标签。
@@ -669,7 +658,15 @@ function render() {
 
 // it 是一个分组对象（见 mergeResult）。data-id 用分组 key，来源徽章列出所有命中站，
 // 多站命中时额外标注“N 个来源”。
+// 多来源（sources.length > 1）时渲染「堆叠分组容器」：顶部主信息 + 可展开的来源列表，
+// 让用户直观看到同一种子来自哪些站（见 AGENTS.md「种子结果堆叠分组显示」）。
 function cardHTML(it) {
+  if (it.sources && it.sources.length > 1) return stackedCardHTML(it);
+  return singleCardHTML(it);
+}
+
+// 单来源卡：与历史渲染完全一致（堆叠功能对单来源结果零影响，保持兼容）。
+function singleCardHTML(it) {
   const seed = it.seeders != null ? it.seeders : '—';
   const leech = it.leechers != null ? it.leechers : '—';
   const size = it.sizeText || '—';
@@ -712,6 +709,81 @@ function cardHTML(it) {
       <button class="btn ghost" data-act="detail" data-id="${esc(it.key)}">详情</button>
     </div>
   </div>`;
+}
+
+// 多来源堆叠卡：边框容器包裹同一种子的全部来源。顶部主信息与单卡一致；
+// 「来源详情」区默认折叠，点击展开后逐行列出各来源的磁力（可复制）与详情页入口。
+function stackedCardHTML(it) {
+  const seed = it.seeders != null ? it.seeders : '—';
+  const leech = it.leechers != null ? it.leechers : '—';
+  const size = it.sizeText || '—';
+  const date = it.dateText || '—';
+  const cat = it.category ? `<span class="badge">${esc(it.category)}</span>` : '';
+  const magnetBtn = it.needsMagnet
+    ? `<button class="btn" data-act="getmagnet" data-id="${esc(it.key)}">获取磁力</button>`
+    : `<button class="btn primary" data-act="open" data-id="${esc(it.key)}">打开磁力</button>
+       <button class="btn" data-act="copy" data-id="${esc(it.key)}">复制</button>`;
+  const dlBtn = state.dl ? `<button class="btn qb" data-act="dl" data-id="${esc(it.key)}">推送到 ${esc(dlShort())}</button>` : '';
+  const provs = it.providers && it.providers.length ? it.providers : (it.sources || []).map((s) => s.provider);
+  const sourceBadges = provs
+    .map((pid) => `<span class="badge prov-${pid}">${esc(PROVIDER_LABEL[pid] || pid)}</span>`)
+    .join('');
+  const faved = isFavorited(it.key);
+  const favBtn = `<button class="fav-btn${faved ? ' on' : ''}" data-act="fav" data-id="${esc(it.key)}" title="${faved ? '取消收藏' : '收藏'}">${faved ? '★' : '☆'}</button>`;
+  const checked = state.checked.has(it.key);
+  const viewed = state.viewed.has(it.infoHash);
+  const checkBox = `<input type="checkbox" class="card-check" data-act="check" data-id="${esc(it.key)}"${checked ? ' checked' : ''} title="选择用于批量操作" />`;
+
+  // 来源行：站名徽章 + 磁力（截断显示，title 给全文）+ 复制/详情。
+  // 磁力未就绪的来源显示占位文案，走整卡的「获取磁力」统一解析后即出现。
+  const rows = (it.sources || []).map((s, i) => {
+    const label = esc(PROVIDER_LABEL[s.provider] || s.provider);
+    const mag = s.magnet
+      ? `<code class="src-magnet" title="${esc(s.magnet)}">${esc(shortMagnet(s.magnet))}</code>`
+      : '<span class="src-muted">磁力未解析（点上方「获取磁力」）</span>';
+    return `<div class="stacked-source" data-src="${i}">
+      <span class="badge prov-${esc(s.provider)}">${label}</span>
+      ${mag}
+      <span class="src-actions">
+        <button class="btn" data-act="copysrc" data-id="${esc(it.key)}" data-src="${i}">复制</button>
+        <button class="btn ghost" data-act="detailsrc" data-id="${esc(it.key)}" data-src="${i}">详情</button>
+      </span>
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="card stacked-card${checked ? ' checked' : ''}${viewed ? ' viewed' : ''}" data-id="${esc(it.key)}">
+    ${checkBox}
+    ${favBtn}
+    <div class="name">${highlight(it.name, state.query)}</div>
+    <div class="badges">
+      ${sourceBadges}
+      <span class="badge multi">${provs.length} 个来源</span>
+      ${cat}
+    </div>
+    <div class="stats">
+      <span class="seed">▲ 做种 <b>${seed}</b></span>
+      <span class="leech">▼ 下载 <b>${leech}</b></span>
+      <span>大小 <b>${size}</b></span>
+      <span>时间 <b>${date}</b></span>
+    </div>
+    <div class="stacked-sources" hidden>
+      <div class="stacked-sources-title">来源详情（同一种子，多站命中）</div>
+      ${rows}
+    </div>
+    <div class="actions">
+      ${magnetBtn}
+      ${dlBtn}
+      <button class="btn ghost" data-act="detail" data-id="${esc(it.key)}">详情</button>
+      <button class="btn ghost" data-act="toggle-sources" data-id="${esc(it.key)}">来源详情 ▾</button>
+    </div>
+  </div>`;
+}
+
+// 磁力截断显示：长链接只显示头部，全文放 title。
+function shortMagnet(m, n = 56) {
+  const s = String(m || '');
+  return s.length > n ? `${s.slice(0, n)}…` : s;
 }
 
 function esc(s) {
@@ -775,6 +847,40 @@ async function onCardClick(e) {
   const it = await getItem(id);
   if (!it) return;
   const act = btn.dataset.act;
+
+  // 堆叠卡：展开/折叠来源详情（不需要整卡数据）。
+  if (act === 'toggle-sources') {
+    const card = btn.closest('.stacked-card');
+    const body = card && card.querySelector('.stacked-sources');
+    if (body) {
+      body.hidden = !body.hidden;
+      btn.textContent = body.hidden ? '来源详情 ▾' : '来源详情 ▴';
+    }
+    return;
+  }
+
+  // 堆叠卡：复制某个来源的磁力。该来源磁力未就绪时回退到整卡磁力（可能触发懒解析）。
+  if (act === 'copysrc') {
+    markViewed(it);
+    const src = (it.sources || [])[Number(btn.dataset.src)];
+    let m = src && src.magnet;
+    if (!m) m = await ensureMagnet(it);
+    if (m) copyText(m);
+    return;
+  }
+
+  // 堆叠卡：查看某个来源的详情。有详情页外链则新标签打开，否则回退到聚合详情弹窗。
+  if (act === 'detailsrc') {
+    const src = (it.sources || [])[Number(btn.dataset.src)];
+    if (src && src.detailUrl) {
+      markViewed(it);
+      window.open(src.detailUrl, '_blank', 'noopener noreferrer');
+    } else {
+      markViewed(it);
+      openDetail(it);
+    }
+    return;
+  }
 
   if (act === 'detail') {
     markViewed(it);
@@ -1058,7 +1164,7 @@ async function sendToQB(magnet) { return sendToClient(magnet); }
 // 按当前选中的客户端切换认证字段的显隐：userpass 显示用户名/密码，token 显示 token。
 function syncDlAuthFields() {
   const kind = $('#dl-client').value;
-  const meta = DL_META[kind] || DL_META.qbittorrent;
+  const meta = DL_CLIENTS[kind] || DL_CLIENTS.qbittorrent;
   $('#dl-userpass').hidden = meta.auth !== 'userpass';
   $('#dl-tokenwrap').hidden = meta.auth !== 'token';
   // aria2 的 token 是 rpc-secret，Gopeed 的是 API Token，提示文案略作区分。
@@ -1095,7 +1201,7 @@ $('#settings-btn').onclick = () => { openSettings(); loadTorznab(); };
 $('#settings-cancel').onclick = closeSettings;
 $('#settings-save').onclick = () => {
   state.dl = readDlForm();
-  localStorage.setItem('downloader', JSON.stringify(state.dl));
+  localStorage.setItem('dl', JSON.stringify(state.dl));
   closeSettings();
   render();
   toast('已保存下载工具设置');
@@ -1117,7 +1223,7 @@ $('#dl-test').onclick = async () => {
 // 应用一份探测到的配置：写入 state + localStorage，回填表单，刷新卡片按钮。
 function applyDetected(d) {
   state.dl = { client: d.kind, url: d.url, user: d.user || '', pass: d.pass || '', token: d.token || '' };
-  localStorage.setItem('downloader', JSON.stringify(state.dl));
+  localStorage.setItem('dl', JSON.stringify(state.dl));
 }
 
 // 首屏静默探测本机下载器（已配置则跳过），零配置命中常见默认端口。
@@ -1139,7 +1245,7 @@ $('#dl-detect').onclick = async () => {
       applyDetected(d);
       openSettings();
       render();
-      toast(`已自动发现并启用 ${DL_META[d.kind]?.label || d.kind}`);
+      toast(`已自动发现并启用 ${DL_CLIENTS[d.kind]?.label || d.kind}`);
     } else {
       toast('未在本机发现受支持的下载器（请手动填写）');
     }

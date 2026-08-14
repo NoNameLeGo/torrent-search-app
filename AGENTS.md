@@ -9,9 +9,50 @@ npm start     # node server.js → http://localhost:3000
 
 Electron mode: `npm run electron` (picks a free port automatically, no collision with a running `npm start`).
 
-## No test / lint / typecheck
+## Testing
 
-This repo has **no tests, linter, or formatter** configured. There is nothing to run before shipping. If you add tooling, document it here.
+This repo uses **Node.js built-in `assert` module** for golden-file tests. No external test framework required.
+
+```bash
+npm test          # run all tests
+npm run test:watch  # watch mode (requires nodemon)
+```
+
+### Test structure
+
+```
+test/
+  run.js              ← main test runner (uses node:test or just assert)
+  fixtures/           ← saved HTML/JSON from real provider responses
+    tpb-ubuntu.json   ← TPB API response for "ubuntu" query
+```
+
+### How to add a new provider test
+
+1. Save a real response to `test/fixtures/<provider>-<query>.json` or `.html`
+2. Add a test block in `test/run.js` using `createMockHTTP()` to intercept requests
+3. Run `npm test` to verify
+
+**No network calls during tests** — all fixtures are local files.
+
+### Current coverage
+
+- ✅ `tpb.js` — search parsing, category mapping, empty results, HTTP errors
+- ✅ `linuxtracker.js` — HTML parsing, infoHash extraction from URL, date/size/seeds parsing
+- ✅ `normalize.js` — size/date parsing, magnet building, infoHash extraction, ruDate, edge cases
+
+### Platform note
+
+Tests use `node:test` (built into Node.js v16+) — **zero dependencies**. No jest/mocha required.
+
+### Agent Call Instructions
+
+See [test/README.md](test/README.md) for detailed guide on when and how to run tests, plus instructions for adding new provider tests.
+
+**Quick reference for agents:**
+- Modify provider → run `npm test`
+- Modify normalize.js → run `node test/normalize.test.js`
+- Add new provider → save fixture to `test/fixtures/`, add test block to `test/run.js`, run `npm test`
 
 ## Architecture (one screen)
 
@@ -149,7 +190,9 @@ percent-encode，个别老旧下载工具会拿到编码串或问号名，这是
   `BT-Search-Electron-Portable`；构建步显式传 `-- --publish=onTag` 保住打 tag 发布的原行为
 - `README.md`：安装包示例名跟着更新
 
-**`scripts/build-portable.js` 统一改为 ASCII 名**：便携版目录 `torrent-search-app/` 及其内部可执行文件 `torrent-search-app.exe` 均为纯 ASCII，下载 URL 不会被 percent-encode，与主分支约定一致。
+**`scripts/build-portable.js` 故意不改**：便携版目录名与其内部的 `BT聚合搜索.exe` 是
+解压后给用户看的名字，不参与下载 URL，`feat/tauri` 上同样保留中文。build.yml 里
+`working-directory` 与 `path` 仍指向 `dist/portable/BT聚合搜索`，与之保持一致。
 
 另注：`feat/tauri` 有 3 个 workflow（`build.yml` / `release.yml` / `tauri-build.yml`），
 `main` 只有 `build.yml`；正式发布（含 Tauri 产物）走 `feat/tauri` 的 `release.yml`。
@@ -157,7 +200,7 @@ percent-encode，个别老旧下载工具会拿到编码串或问号名，这是
 ### 高 — provider layer
 
 - ~~`src/providers/linuxtracker.js` ~L52-54: passes Russian dates straight to `normalize.parseDate` → date is always `null`.~~ **✅ 已修复（2026-08-10）：** 完整重写了解析器以匹配实际 HTML 结构（扁平表格，每列独立 `<td>`，日期为 `DD/MM/YYYY` 格式）。原代码找的是 `table.lista[width="100%"] > tbody > tr` 但实际表格的 `td` 才有 `class="lista"`；且列表页根本没有磁力链接（每个结果都因 `!magnetUri` 被 `continue` 跳过）。修复后从 `td.lista a[href*="torrent-details"]` 识别行，通过 `td` 索引提取各列，从 URL 的 `id` 参数直接提取 infoHash 构造磁力。
-- `src/providers/bitsearch.js` ~L55-70: extremely deep `div:nth-child(1) > div:nth-last-child(2) > span:nth-child(2)` selector chain — any layout tweak kills it. Rewrite content-based, following the documented pattern in `rutor.js` ~L67-80. ⚠️ bitsearch.to/.am/.eu 当前全部不可达，无法获取实际 HTML 验证。
+- ~~`src/providers/bitsearch.js` ~L55-70: extremely deep `div:nth-child(1) > div:nth-last-child(2) > span:nth-child(2)` selector chain — any layout tweak kills it.~~ **✅ 已修复（2026-08-14）：** 改用内容启发式匹配（按文本模式识别 size/seeders/leechers/date，按 class 识别 category），不再依赖深层位置选择器。⚠️ bitsearch.to/.am/.eu 仍不可达，无法实测。
 
 ### 中 — architecture / correctness
 
@@ -165,14 +208,42 @@ percent-encode，个别老旧下载工具会拿到编码串或问号名，这是
 - ~~**Duplicate mirror-retry skeleton**: **33 个** provider 逐字重复同一个 `Promise.allSettled → first non-empty` 块。~~ **✅ 已修复（2026-08-10）：** 创建 `src/lib/mirrors.js` 导出 `runMirrors(attempts, name)`，全部 34 个使用 allSettled 的 provider 已迁移。
 - ~~**Duplicate RU_MONTHS maps** in `rutor.js`, `megapeer.js`; `btih:` 提取正则散在 26 个文件里。~~ **✅ 已修复（2026-08-11）：** `extractInfoHash(str)` + `ruDate(s)` + `RU_MONTHS` 归入 `src/lib/normalize.js`；26 个 provider 的内联 btih 提取全部替换为 `extractInfoHash()`；rutor/megapeer 的本地 RU_MONTHS 已移除。
 - ~~**N+1 detail fetches inside `search()`**: `mypornclub.js`, `xxxclub.js`, `torrent9.js`, `audiobookbay.js`, `blueroms.js`, `megapeer.js` fetch every result's detail page during search — rate-limit/ban risk and latency.~~ **✅ 已修复（2026-08-11）：** 6 个 provider 全部转为 lazy `resolveMagnet`；`mypornclub`/`xxxclub` 已有 resolver 只需移除 N+1；`torrent9`/`audiobookbay`/`blueroms`/`megapeer` 新增 `resolveMagnet` 导出。项目 resolveMagnet 从 9 个增至 13 个。
-- ~~**Category data quality**: `sukebei.js` hardcodes `'Porn'` (site also hosts non-adult), `rutor.js` hardcodes `'Other'` though the site exposes categories, `tpb.js` passes raw numeric category strings ("200") unmapped.~~ **部分修复（2026-08-11）：** `tpb.js` 新增 `tpbCategory()` 将 3 位数字码映射为标准分类（1xx→Music/Books, 2xx→Movies/Series, 3xx→Apps, 4xx→Games, 5xx→Porn）；sukebei/rutor 需访问站点提取分类，当前不可达暂缓。
-- **Single-domain providers with no mirror fallback**: bt4g, knaben, torrentdatabase, blueroms, filemood, linuxtracker, megapeer, xxxclub, xxxtracker, zeromagnet. `torrentdatabase.js` points at `developify.ca` — name/domain mismatch, likely stale.
+- ~~**Category data quality**: `sukebei.js` hardcodes `'Porn'` (site also hosts non-adult), `rutor.js` hardcodes `'Other'` though the site exposes categories, `tpb.js` passes raw numeric category strings ("200") unmapped.~~ **部分修复（2026-08-14）：** `tpb.js` 新增 `tpbCategory()` 将 3 位数字码映射为标准分类；`sukebei.js` 新增 `mapSukebeiCategory()` 解析 Nyaa/Sukebei 分类 title 属性（如 `"Hentai - English Translated"` → `'Porn'`，`"Anime - English translated"` → `'Anime'`）；`rutor.js` 改为返回 `null`（搜索结果列表不含分类信息，交由前端启发式归类）。
+- **Single-domain providers with no mirror fallback**: bt4g, knaben, torrentdatabase, blueroms, filemood, linuxtracker, megapeer, xxxclub, xxxtracker, zeromagnet. `torrentdatabase.js` points at `developify.ca` — name/domain mismatch, likely stale. ⚠️ 这些 provider 已使用 `runMirrors()` 基础设施，只需补充备用域名数组即可启用回退；目前因无已知可用镜像暂维持单域名。
+
+  **母项目参照**：`prajwalch/TorrentSearch`（Android 版）同样存在此问题，未实现多域名回退。
+  
+  **建议方案**：参考 SearXNG 和 Jackett 的做法，为每个单域名 provider 添加备用域名数组，利用已有 `runMirrors()` 基础设施自动重试。
+  
+  **域名状态参考**（2025-08 调研，⚠️ 表中「主域名」与代码实际不一致——以代码为准）：
+  | Provider | 代码实际主域名 | 备用域名（待验证） | 状态 |
+  |----------|--------------|------------------|------|
+  | bt4g | bt4gprx.com（代码） | bt4g.org, bt4gapp.com | ⚠️ 需验证 |
+  | knaben | api.knaben.org/v1（JSON API，无 DOMAINS/runMirrors） | vicetemple.io 等 | ⚠️ 需验证 |
+  | torrentdatabase | developify.ca | — | 🔴 可能已失效 |
+  | blueroms | www.blueroms.ws | — | 需查证 |
+  | filemood | filemood.com（代码） | — | ⚠️ 有可疑网站警告 |
+  | linuxtracker | linuxtracker.org | — | ✅ 活跃 |
+  | megapeer | megapeer.vip | — | 需查证 |
+  | xxxclub | xxxclub.to | xxxclub.club | ⚠️ 需验证 |
+  | xxxtracker | xxxtor.com（代码） | — | 需查证 |
+  | zeromagnet | 9mag.net（代码） | — | 需查证 |
+  
+  **待办**：逐个验证备用域名可用性，更新对应 provider 文件的 `DOMAINS` 数组。
+  
+  ⚠️ **验证前勿盲目添加**：`runMirrors()` 用 `Promise.allSettled` 等全部镜像返回，
+  一个失联域名会让每次搜索白白多等最多 10s（`http.js` timeout）。必须先确认域名可达
+  再加入 `DOMAINS` 数组，否则是在给用户添堵。
 - ~~**`PROVIDER_LABEL` on `main`** has only 4 entries — badges/status show raw ids.~~ ✅ 已修复（2026-08-10）
 
 ### 中 — server / security hygiene
 
 - `server.js` `/api/magnet` (~L102) + `/api/torznab/test` (~L205) are SSRF-ish proxies: `safeHttpUrl` only checks scheme, deliberately no host allowlist. Binding to 127.0.0.1 (L220) is the real mitigation — **keep it**; if remote access is ever added, add host checks first. Consider also capping `/api/magnet` to domains known to providers.
-- `data/torznab.json` stores API keys in plaintext (`src/lib/torznabStore.js`); `listPublic()` masks correctly, but confirm `data/` stays gitignored and consider warning in README.
+  
+  **母项目参照**：`prajwalch/TorrentSearch`（Android 应用）无此问题，因为直接在设备上进行网络请求，不涉及服务端代理。
+  
+  **性质**：设计决策，非 bug。当前 127.0.0.1 绑定已提供足够保护。
+- `data/torznab.json` stores API keys in plaintext (`src/lib/torznabStore.js`); `listPublic()` masks correctly. **✅ 已修复（2026-08-14）：** `.gitignore` 已忽略 `data/`，并在 README「说明与边界」段新增安全警告。
 - ~~`torznabStore.saveAll()` does a bare `fs.writeFileSync` — no try/catch (crashes the request on EACCES/ENOSPC) and read-modify-write is racy.~~ **✅ 已修复（2026-08-11）：** 改为 write-to-temp-then-rename，失败时保持原文件不变。
 - ~~qBittorrent login failure detection in `src/lib/downloaders.js` string-matches `/fails|failed/i` on the response body — fragile across qB versions; also only the first `set-cookie` entry is used.~~ **✅ 已修复（2026-08-11）：** 改为检查 HTTP 403（新版 qB 返回） + 遍历所有 set-cookie entries 找 SID=，不再依赖响应体字符串匹配。
 
@@ -183,7 +254,7 @@ percent-encode，个别老旧下载工具会拿到编码串或问号名，这是
 - ~~`mypornclub.js` ~L28-30 encodes-then-replaces `%20` → `-`~~ ✅ 已修复（2026-08-11）：先 replace 空格再 encodeURIComponent
 - ~~`electron/main.js` `before-quit` (~L89) closes server without destroying keep-alive sockets~~ ✅ 已修复（2026-08-12）：新增 `closeAllConnections()`
 - ~~`src/lib/http.js` `getText/getJSON/postJSON` 展开顺序 bug — `...opts` 在 headers 合并之后展开，若调用方传 headers 会整体覆盖合并结果~~ ✅ 已修复（2026-08-12）：先解构 headers，再展开 rest
-- No tests at all (see top of this file). Highest-value first target: golden-file tests for each provider's parser against saved HTML fixtures — they double as change detectors when sites redesign.
+- ~~No tests at all~~ **✅ 已修复（2026-08-14）：** 新增 golden-file 测试框架，使用 Node.js 内置 `assert` 模块，零依赖。当前覆盖 `tpb.js` 和 `normalize.js`，后续可扩展到其他 provider。
 
 ## Syncing features between `main` and `feat/tauri`
 
@@ -215,23 +286,100 @@ git worktree remove <tmp>      # clean up AFTER push confirmed
 
 ## Next steps（下一步）
 
-### 多客户端下载器同步到 `feat/tauri`
+### ✅ 已完成：多客户端下载器同步到 `feat/tauri`
 
-`main` 的 `public/app.js` 支持 qBittorrent / Transmission / aria2 / Gopeed 四种下载器，
-通过 `state.dl`（单键 `'dl'`，body 形状 `{kind,url,user,pass,token,magnet}`）与后端
-`src/lib/downloaders.js` 通信。`feat/tauri` 仍是改造前的 qB-only 版本（`state.qb` /
-`#qb-url` 系列 DOM、无 `downloaders.js`）。
+`main` 和 `feat/tauri` 两分支的 `public/app.js` 现已完全一致，均支持：
+- **四种下载器**：qBittorrent / Transmission / aria2·Motrix / Gopeed
+- **统一状态**：`state.dl`（单键 `'dl'`，body 形状 `{kind,url,user,pass,token,magnet}`）
+- **核心函数**：`DL_CLIENTS`、`dlLabel()`、`sendToClient()`、`autoDetectDownloader()`、`batchSendToClient()`
+- **后端路由**：`/api/download/push`、`/api/download/test`、`/api/download/detect`、`/api/download/clients`
+- **共享模块**：`src/lib/downloaders.js`（196 行，两分支一致）
 
-从 `main` 同步多客户端到 `feat/tauri` 时需连带移植：
-- `public/app.js`：`DL_CLIENTS`、`dlLabel()`、`sendToClient()`、`dlPushBody()`、
-  `autoDetectDownloader()`、`state.dl`、`batchSendToClient()`、settings modal 的 `#dl-client`
-  select 及联动字段
-- `public/index.html`：下载器设置面板的对应 DOM id
-- `server.js`：`/api/download/push` 路由 + `downloaders` 模块引用
-- `src/lib/downloaders.js`：**从 main 拷贝整个文件**（上次 cherry-pick 时 ta 被删了）
-- conflict 处理：`package.json` 取 tauri 的（不含 electron 打包依赖）
+**Tauri 专属适配**（`feat/tauri` 独有）：
+- `server.js` 新增 `resolvePort()` 和 `resolvePublicDir()` 函数，支持 `--port` 和 `--public-dir` 参数
+- `src-tauri/` 目录：Rust 主进程、sidecar 启动逻辑、构建配置
+- `scripts/prepare-sidecar.mjs`：复制当前 Node.js 可执行文件作为 sidecar
+- `.github/workflows/release.yml`：双版本构建（Electron + Tauri）
+
+**已知小差异**（不影响功能）：
+- `src/providers/nyaa.js`：`main` 多了 `category` 字段提取（9 行），`feat/tauri` 暂无
+- `server.js`：`feat/tauri` 比 `main` 多 17 行（Tauri CLI 参数支持）
+
+### ✅ 已完成：Safe Mode + 已浏览置灰（2026-08-15）
+
+**Safe Mode**（纯前端，localStorage 持久化）：
+- 新增 `state.safeMode` + `loadSafeMode()`/`saveSafeMode()` 工具函数
+- 开关位于主界面分组切换条右侧（`#safe-mode-toggle`）
+- 启用后：成人分组（`adult`）从顶部 chip 隐藏；`toggleGroup('adult')` 被拦截并提示
+- 结果过滤：`visibleResults()` 中 `state.safeMode && it.category === 'porn'` 的条目被过滤
+- localStorage 键：`safeMode`（`'true'`/`'false'`）
+
+**已浏览置灰**（纯前端，localStorage 持久化）：
+- 新增 `state.viewed`（Set of infoHash）+ `loadViewed()`/`saveViewed()` 工具函数
+- `markViewed(it)` 在用户打开详情、复制磁力、推送下载器时调用
+- 卡片渲染：`cardHTML()` 添加 `viewed` class（`opacity: .55; filter: grayscale(.4)`）
+- hover 恢复透明度（`.card.viewed:hover { opacity: .8 }`）
+- localStorage 键：`viewed`（JSON array of strings）
+
+**受影响文件**：`public/app.js`（+81 行）、`public/index.html`（+6 行）、`public/styles.css`（+33 行）
 
 ### 新功能（候选）
-1. **Safe Mode**（纯前端，低风险）— 开关禁用成人引擎 + 隐藏 NSFW 结果
-2. **已浏览置灰**（纯前端）— 查看/复制过的卡片 dimmed，localStorage 持久化
+1. ~~Safe Mode~~ ✅ 已完成
+2. ~~已浏览置灰~~ ✅ 已完成
 3. 收藏导出/导入、Browse 浏览、详情海报等（ROI 递减）
+
+---
+
+## ✅ 已完成：种子结果堆叠分组显示（2026-08-17）
+
+**来源**：[prajwalch/TorrentSearch#99](https://github.com/prajwalch/TorrentSearch/issues/99)
+
+### 实现总结
+
+同一种子（相同 infoHash）多站命中时，卡片渲染为带边框的「堆叠分组容器」：
+- **单来源结果**：走 `singleCardHTML()`，渲染与历史完全一致（兼容性零影响）
+- **多来源结果**：走新增的 `stackedCardHTML()`，顶部主信息（名称/做种/大小/时间/分类）+「N 个来源」徽章；「来源详情」区默认折叠，可展开/收起
+- **来源行**：每行 = 站名徽章 + 截断显示的磁力（title 存全文）+ [复制] [详情] 按钮；磁力未就绪的来源显示占位文案，走整卡的「获取磁力」统一解析
+- **交互**：复用 `onCardClick` 事件委托，新增 `toggle-sources`（展开/折叠）、`copysrc`（复制指定来源磁力，未就绪回退整卡磁力）、`detailsrc`（有详情页外链新标签打开，否则打开聚合详情弹窗）
+- **样式**：`.stacked-card` / `.stacked-sources` / `.stacked-source` / `.src-magnet` 等；`[hidden]` 显式压过 `display:flex` 保证折叠生效
+
+**受影响文件**：`public/app.js`（新增 `stackedCardHTML()`/`shortMagnet()`，`cardHTML()` 改为分派）、`public/styles.css`（+33 行）
+
+### 验收核对（2026-08-17 完成）
+
+- ✅ 单来源结果：渲染方式不变（`singleCardHTML` 即原 `cardHTML` 本体）
+- ✅ 多来源结果：带边框分组容器 + 顶部主信息 + 可展开来源列表（probe 全绿）
+- ✅ 展开/折叠交互：`toggle-sources` 事件委托，流畅无重渲染
+- ✅ 批量操作/收藏/CSV 导出不受影响（`data-id` 仍是分组 key，`onCardClick` 分派前置）
+- ✅ 顺带修复 3 处「已修复」声明与实际不符的残留 bug：`DL_META` 未定义（2 处 → `DL_CLIENTS`）、设置保存写 `localStorage['downloader']` 而读取 `'dl'`（2 处，设置永不持久化）、重复的 `loadViewed`/`saveViewed` 定义（已删冗余副本）
+
+---
+
+## 仓库结构说明（2026-08-15 修复）
+
+### 嵌套 Git 仓库结构
+
+```
+D:\Vibe-Coding\          ← 父目录 Git 仓库（本地，无 remote）
+├── .gitignore           ← 已忽略所有子项目和工具链配置
+├── torrent-search-app\  ← 本项目的独立 Git 仓库
+│   └── .git             ← 指向 https://github.com/NoNameLeGo/torrent-search-app.git
+├── ai-berkshire\        ← 其他子项目（各自有独立 .git）
+├── my-novel\
+└── ...
+```
+
+**关键约束：**
+1. 父目录 `D:\Vibe-Coding` 是个人 AI Agent 工作区根目录，**不应推送到任何 remote**
+2. 本项目的 remote 是 `origin: https://github.com/NoNameLeGo/torrent-search-app.git`
+3. 父仓库的 remote 已于 2026-08-15 移除（之前错误指向本项目）
+4. 子项目目录（`torrent-search-app/` 等）在父仓库中被 `.gitignore` 忽略，避免 git status 混乱
+
+**对 AI Agent 的影响：**
+- 当 Agent 在 `torrent-search-app` 目录工作时，应只操作本项目文件
+- 读到父目录的 git status 时，应理解这是"工作区根目录"而非项目本身
+- 不要尝试在父目录执行 `git push` 或修改 remote
+
+**相关文件：**
+- 父目录 `.gitignore`: `D:\Vibe-Coding\.gitignore`
+- 本项目 `.gitignore`: `D:\Vibe-Coding\torrent-search-app\.gitignore`
