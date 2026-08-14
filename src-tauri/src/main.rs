@@ -89,6 +89,22 @@ fn error_html(title: &str, body: &str) -> String {
     )
 }
 
+// Windows 上 Tauri 的 resource_dir() 返回带 \\?\ 前缀的 verbatim 路径。
+// node 的 CJS 加载器无法处理这种路径（path.resolve 会把 \\?\D:\… 解析成
+// 裸盘符 D:，lstat 时抛 EISDIR 直接崩溃），传给 server 前必须剥掉前缀。
+#[cfg(windows)]
+fn plain_path(p: &std::path::Path) -> std::path::PathBuf {
+    p.to_string_lossy()
+        .strip_prefix(r"\\?\")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| p.to_path_buf())
+}
+
+#[cfg(not(windows))]
+fn plain_path(p: &std::path::Path) -> std::path::PathBuf {
+    p.to_path_buf()
+}
+
 // 检查随安装包发布的资源是否齐全；返回缺失项（空 = 齐全）。
 fn missing_resources(resource_dir: &std::path::Path) -> Vec<String> {
     let mut missing = Vec::new();
@@ -147,10 +163,12 @@ fn main() {
             // （窗口建立失败或被静默吞掉时用户什么都看不到，只剩进程占着）。
             #[cfg(not(debug_assertions))]
             {
-                let resource_dir = app
-                    .path()
-                    .resource_dir()
-                    .expect("failed to resolve resource dir");
+                let resource_dir = plain_path(
+                    &app
+                        .path()
+                        .resource_dir()
+                        .expect("failed to resolve resource dir"),
+                );
 
                 let main_window = create_main_window(
                     app.handle(),
