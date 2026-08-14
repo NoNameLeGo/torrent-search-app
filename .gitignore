@@ -43,5 +43,13 @@ data/
 # 打包产物（portable 版约 360MB，不入库）
 dist/
 
-# Tauri 本地构建缓存（Rust target 可达数 GB；正式包由 GitHub Actions 从 feat/tauri 打，本地无需保留）
+# Tauri（Rust 构建产物 + 生成的 sidecar 二进制与生成文件）
 src-tauri/target/
+src-tauri/binaries/
+src-tauri/gen/
+
+# agent 本地工具配置（非项目文件）
+.agents/
+.claude/
+skills-lock.json
+
