@@ -96,8 +96,7 @@ fn error_html(title: &str, body: &str) -> String {
 fn plain_path(p: &std::path::Path) -> std::path::PathBuf {
     p.to_string_lossy()
         .strip_prefix(r"\\?\")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|_| p.to_path_buf())
+        .map_or_else(|| p.to_path_buf(), std::path::PathBuf::from)
 }
 
 #[cfg(not(windows))]
