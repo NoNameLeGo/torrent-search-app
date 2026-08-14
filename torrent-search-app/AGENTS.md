@@ -277,7 +277,25 @@ git worktree remove <tmp>      # clean up AFTER push confirmed
 - `src/providers/nyaa.js`：`main` 多了 `category` 字段提取（9 行），`feat/tauri` 暂无
 - `server.js`：`feat/tauri` 比 `main` 多 17 行（Tauri CLI 参数支持）
 
+### ✅ 已完成：Safe Mode + 已浏览置灰（2026-08-15）
+
+**Safe Mode**（纯前端，localStorage 持久化）：
+- 新增 `state.safeMode` + `loadSafeMode()`/`saveSafeMode()` 工具函数
+- 开关位于主界面分组切换条右侧（`#safe-mode-toggle`）
+- 启用后：成人分组（`adult`）从顶部 chip 隐藏；`toggleGroup('adult')` 被拦截并提示
+- 结果过滤：`visibleResults()` 中 `state.safeMode && it.category === 'porn'` 的条目被过滤
+- localStorage 键：`safeMode`（`'true'`/`'false'`）
+
+**已浏览置灰**（纯前端，localStorage 持久化）：
+- 新增 `state.viewed`（Set of infoHash）+ `loadViewed()`/`saveViewed()` 工具函数
+- `markViewed(it)` 在用户打开详情、复制磁力、推送下载器时调用
+- 卡片渲染：`cardHTML()` 添加 `viewed` class（`opacity: .55; filter: grayscale(.4)`）
+- hover 恢复透明度（`.card.viewed:hover { opacity: .8 }`）
+- localStorage 键：`viewed`（JSON array of strings）
+
+**受影响文件**：`public/app.js`（+81 行）、`public/index.html`（+6 行）、`public/styles.css`（+33 行）
+
 ### 新功能（候选）
-1. **Safe Mode**（纯前端，低风险）— 开关禁用成人引擎 + 隐藏 NSFW 结果
-2. **已浏览置灰**（纯前端）— 查看/复制过的卡片 dimmed，localStorage 持久化
+1. ~~Safe Mode~~ ✅ 已完成
+2. ~~已浏览置灰~~ ✅ 已完成
 3. 收藏导出/导入、Browse 浏览、详情海报等（ROI 递减）
