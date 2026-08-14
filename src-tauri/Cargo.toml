@@ -1,6 +1,6 @@
 [package]
 name = "bt-aggregate-search"
-version = "0.3.1-beta"
+version = "0.3.2-beta"
 description = "BT 聚合搜索 — Tauri experiment (Node sidecar)"
 edition = "2021"
 rust-version = "1.77.2"
@@ -9,7 +9,7 @@ rust-version = "1.77.2"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["webview-data-url"] }
 tauri-plugin-shell = "2"
 tauri-plugin-single-instance = "2"
 tauri-plugin-opener = "2"
