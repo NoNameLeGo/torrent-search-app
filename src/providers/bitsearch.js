@@ -43,26 +43,35 @@ async function searchOne(base, query, page) {
     const name = $item.find('h3').first().text().trim();
     if (!name) return;
 
-    const magnetEl = $item.find('div:nth-child(2) > a:nth-child(2)').first();
+    const magnetEl = $item.find('a[href^="magnet:"]').first();
     const magnet = magnetEl.attr('href') || null;
     const infoHash = extractInfoHash(magnet);
 
-    const size = $item
-      .find('div:nth-child(1) > div:nth-last-child(2) > span:nth-child(2) > span')
-      .first().text().trim();
-    const seeders = $item
-      .find('div:nth-child(1) > div:nth-last-child(1) > span:nth-child(1) > span:nth-child(2)')
-      .first().text().replace(/,/g, '').trim();
-    const leechers = $item
-      .find('div:nth-child(1) > div:nth-last-child(1) > span:nth-child(2) > span:nth-child(2)')
-      .first().text().replace(/,/g, '').trim();
-    const date = $item
-      .find('div:nth-child(1) > div:nth-last-child(2) > span:nth-child(3) > span')
-      .first().text().trim();
-    const category = categoryFromRaw(
-      $item.find('div:nth-child(1) > div:nth-last-child(2) > span:nth-child(1) > span')
-        .first().text()
-    );
+    // Extract metadata by scanning children for labeled spans.
+    // Layout: text label + value span (pair); we look for known labels.
+    let size = '';
+    let seeders = '';
+    let leechers = '';
+    let date = '';
+    let rawCategory = '';
+    $item.find('div').each((_, el) => {
+      const $el = $(el);
+      const text = $el.text().trim();
+      if (!text || text === 'magnet:') return;
+      // Heuristics: match by content pattern rather than deep position.
+      if (!size && /\d[\d,.]+\s*(TB|GB|MB|KB)/i.test(text)) size = text;
+      else if (!seeders && /^[\d,]+$/.test(text)) seeders = text.replace(/,/g, '');
+      else if (!leechers && /^[\d,]+$/.test(text)) leechers = text.replace(/,/g, '');
+      else if (!date && /Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec/.test(text)) date = text;
+    });
+    // Category: find the icon/label element near the top of the card.
+    const catEl = $item.find('[class*="category"], [class*="tag"], [class*="badge"]')
+      .addBack().filter((_, el) => {
+        const c = $(el).attr('class') || '';
+        return /category|tag|badge|icon/i.test(c);
+      }).first();
+    rawCategory = catEl.text().trim() || '';
+    const category = rawCategory ? categoryFromRaw(rawCategory) : null;
     const detailHref = $item.find('h3 > a').first().attr('href');
     const detailUrl = detailHref
       ? detailHref.startsWith('http') ? detailHref : `${base}${detailHref}`

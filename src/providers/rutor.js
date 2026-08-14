@@ -80,7 +80,7 @@ async function searchOn(base, query, page) {
       infoHash,
       magnet,
       detailUrl,
-      category: 'Other',
+      category: null, // rutor search-list has no per-result category; let frontend infer
     }));
   });
 

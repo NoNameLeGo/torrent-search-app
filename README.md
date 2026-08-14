@@ -129,6 +129,7 @@ npm start           # 或 node server.js → http://localhost:3000
 - 抓取依赖公开页面结构，若目标站点改版需同步更新对应 provider
 - 本工具仅做搜索聚合，不托管、不分发任何版权内容
 - 生产部署建议补充：请求速率限制、结果缓存、遵守站点 `robots.txt` 与当地法规
+- **安全提示**：Torznab 配置（含 API Key）存储于本地 `data/torznab.json`，该文件已被 `.gitignore` 忽略，不会入库。若将应用部署为公开服务，请务必限制绑定地址至 `127.0.0.1`，避免暴露后端代理端点。
 
 <br>
 
