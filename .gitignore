@@ -47,3 +47,9 @@ dist/
 src-tauri/target/
 src-tauri/binaries/
 src-tauri/gen/
+
+# agent 本地工具配置（非项目文件）
+.agents/
+.claude/
+skills-lock.json
+
