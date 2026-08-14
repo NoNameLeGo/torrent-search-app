@@ -57,7 +57,7 @@ fn wait_for_health(port: u16) -> bool {
 }
 
 // 把诊断 HTML 渲染成 data: URL，避免在无后端时弹出裸 127.0.0.1 连接错误。
-fn data_url_of_html(html: &str) -> WebviewUrl {
+fn data_url_of_html(html: &str) -> tauri::Url {
     let mut out = String::with_capacity(html.len() * 3);
     for b in html.bytes() {
         match b {
@@ -68,34 +68,25 @@ fn data_url_of_html(html: &str) -> WebviewUrl {
         }
     }
     let raw = format!("data:text/html;charset=utf-8,{}", out);
-    match raw.parse() {
-        Ok(u) => WebviewUrl::External(u),
-        Err(_) => WebviewUrl::External(
-            "data:text/html,%E5%90%8E%E7%AB%AF%E5%90%AF%E5%8A%A8%E5%A4%B1%E8%B4%A5"
-                .parse()
-                .unwrap(),
-        ),
-    }
+    raw.parse().unwrap_or_else(|_| {
+        "data:text/html,%E5%90%8E%E7%AB%AF%E5%90%AF%E5%8A%A8%E5%A4%B1%E8%B4%A5"
+            .parse()
+            .unwrap()
+    })
 }
 
-// 展示一个本地错误页（不依赖后端），把诊断文本直接呈现给用户。
-fn show_error_window(app: &tauri::AppHandle, title: &str, body: &str) {
+// 渲染错误页 HTML（不依赖后端），主窗口直接导航过去呈现给用户。
+fn error_html(title: &str, body: &str) -> String {
     let safe_title = title.replace('<', "&lt;").replace('>', "&gt;");
     let safe_body = body.replace('<', "&lt;").replace('>', "&gt;");
-    let html = format!(
+    format!(
         "<!doctype html><html><head><meta charset='utf-8'><title>{safe_title}</title></head>\
          <body style='margin:0;background:#0f1115;color:#e6e6e6;font-family:system-ui,Segoe UI,sans-serif;padding:28px'>\
          <h2 style='color:#ff6b6b;margin-top:0'>{safe_title}</h2>\
          <p style='color:#9aa0a6'>BT 聚合搜索 · 后端未能正常启动，应用无法加载。</p>\
          <pre style='white-space:pre-wrap;word-break:break-word;background:#161a20;border:1px solid #2a2f37;border-radius:8px;padding:16px;font-size:13px;line-height:1.5'>{safe_body}</pre>\
          </body></html>"
-    );
-    let _ = WebviewWindowBuilder::new(app, "error", data_url_of_html(&html))
-        .title("BT 聚合搜索 — 错误")
-        .inner_size(900.0, 640.0)
-        .min_inner_size(600.0, 400.0)
-        .background_color(tauri::webview::Color(15, 17, 21, 255))
-        .build();
+    )
 }
 
 // 检查随安装包发布的资源是否齐全；返回缺失项（空 = 齐全）。
@@ -151,7 +142,9 @@ fn main() {
                 );
             }
 
-            // 发布模式：在 setup 里拉起 sidecar（随机端口），就绪后创建窗口
+            // 发布模式：立即建主窗口显示加载页，拉起 sidecar（随机端口）后就绪，
+            // 成功则导航到真实地址，失败则导航到错误页——避免「无窗口常驻进程」
+            // （窗口建立失败或被静默吞掉时用户什么都看不到，只剩进程占着）。
             #[cfg(not(debug_assertions))]
             {
                 let resource_dir = app
@@ -159,13 +152,21 @@ fn main() {
                     .resource_dir()
                     .expect("failed to resolve resource dir");
 
+                let main_window = create_main_window(
+                    app.handle(),
+                    WebviewUrl::External(data_url_of_html(
+                        "<!doctype html><html><head><meta charset='utf-8'></head>\
+                         <body style='margin:0;background:#0f1115;color:#e6e6e6;font-family:system-ui,Segoe UI,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh'>\
+                         <p style='color:#9aa0a6'>BT 聚合搜索 · 正在启动后端…</p></body></html>",
+                    )),
+                );
+
                 // 资源自查：node_modules 等若没打进安装包，sidecar 一启动就会
                 // MODULE_NOT_FOUND 退出，而窗口却仍指向一个没人监听的 127.0.0.1
                 // 端口，表现为「127.0.0.1 错误」。先拦下来，把缺失项直接告诉用户。
                 let missing = missing_resources(&resource_dir);
                 if !missing.is_empty() {
-                    show_error_window(
-                        app.handle(),
+                    let _ = main_window.navigate(data_url_of_html(&error_html(
                         "安装包资源缺失",
                         &format!(
                             "以下资源未随安装包提供，后端无法启动：\n\n{}\n\n\
@@ -173,7 +174,7 @@ fn main() {
                              请重新构建（beforeBuildCommand 现已包含资源校验）。",
                             missing.join("\n")
                         ),
-                    );
+                    )));
                     return Ok(());
                 }
 
@@ -254,15 +255,12 @@ fn main() {
                             captured
                         )
                     };
-                    show_error_window(app.handle(), "后端启动失败", &body);
+                    let _ = main_window.navigate(data_url_of_html(&error_html("后端启动失败", &body)));
                     return Ok(());
                 }
 
-                let _main = create_main_window(
-                    app.handle(),
-                    WebviewUrl::External(
-                        format!("http://127.0.0.1:{port}/").parse().expect("invalid sidecar url"),
-                    ),
+                let _ = main_window.navigate(
+                    format!("http://127.0.0.1:{port}/").parse().expect("invalid sidecar url"),
                 );
             }
             Ok(())
