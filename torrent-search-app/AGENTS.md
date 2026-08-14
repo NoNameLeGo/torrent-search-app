@@ -200,7 +200,7 @@ percent-encode，个别老旧下载工具会拿到编码串或问号名，这是
 ### 高 — provider layer
 
 - ~~`src/providers/linuxtracker.js` ~L52-54: passes Russian dates straight to `normalize.parseDate` → date is always `null`.~~ **✅ 已修复（2026-08-10）：** 完整重写了解析器以匹配实际 HTML 结构（扁平表格，每列独立 `<td>`，日期为 `DD/MM/YYYY` 格式）。原代码找的是 `table.lista[width="100%"] > tbody > tr` 但实际表格的 `td` 才有 `class="lista"`；且列表页根本没有磁力链接（每个结果都因 `!magnetUri` 被 `continue` 跳过）。修复后从 `td.lista a[href*="torrent-details"]` 识别行，通过 `td` 索引提取各列，从 URL 的 `id` 参数直接提取 infoHash 构造磁力。
-- `src/providers/bitsearch.js` ~L55-70: extremely deep `div:nth-child(1) > div:nth-last-child(2) > span:nth-child(2)` selector chain — any layout tweak kills it. Rewrite content-based, following the documented pattern in `rutor.js` ~L67-80. ⚠️ bitsearch.to/.am/.eu 当前全部不可达，无法获取实际 HTML 验证。
+- ~~`src/providers/bitsearch.js` ~L55-70: extremely deep `div:nth-child(1) > div:nth-last-child(2) > span:nth-child(2)` selector chain — any layout tweak kills it.~~ **✅ 已修复（2026-08-14）：** 改用内容启发式匹配（按文本模式识别 size/seeders/leechers/date，按 class 识别 category），不再依赖深层位置选择器。⚠️ bitsearch.to/.am/.eu 仍不可达，无法实测。
 
 ### 中 — architecture / correctness
 
@@ -208,14 +208,42 @@ percent-encode，个别老旧下载工具会拿到编码串或问号名，这是
 - ~~**Duplicate mirror-retry skeleton**: **33 个** provider 逐字重复同一个 `Promise.allSettled → first non-empty` 块。~~ **✅ 已修复（2026-08-10）：** 创建 `src/lib/mirrors.js` 导出 `runMirrors(attempts, name)`，全部 34 个使用 allSettled 的 provider 已迁移。
 - ~~**Duplicate RU_MONTHS maps** in `rutor.js`, `megapeer.js`; `btih:` 提取正则散在 26 个文件里。~~ **✅ 已修复（2026-08-11）：** `extractInfoHash(str)` + `ruDate(s)` + `RU_MONTHS` 归入 `src/lib/normalize.js`；26 个 provider 的内联 btih 提取全部替换为 `extractInfoHash()`；rutor/megapeer 的本地 RU_MONTHS 已移除。
 - ~~**N+1 detail fetches inside `search()`**: `mypornclub.js`, `xxxclub.js`, `torrent9.js`, `audiobookbay.js`, `blueroms.js`, `megapeer.js` fetch every result's detail page during search — rate-limit/ban risk and latency.~~ **✅ 已修复（2026-08-11）：** 6 个 provider 全部转为 lazy `resolveMagnet`；`mypornclub`/`xxxclub` 已有 resolver 只需移除 N+1；`torrent9`/`audiobookbay`/`blueroms`/`megapeer` 新增 `resolveMagnet` 导出。项目 resolveMagnet 从 9 个增至 13 个。
-- ~~**Category data quality**: `sukebei.js` hardcodes `'Porn'` (site also hosts non-adult), `rutor.js` hardcodes `'Other'` though the site exposes categories, `tpb.js` passes raw numeric category strings ("200") unmapped.~~ **部分修复（2026-08-11）：** `tpb.js` 新增 `tpbCategory()` 将 3 位数字码映射为标准分类（1xx→Music/Books, 2xx→Movies/Series, 3xx→Apps, 4xx→Games, 5xx→Porn）；sukebei/rutor 需访问站点提取分类，当前不可达暂缓。
-- **Single-domain providers with no mirror fallback**: bt4g, knaben, torrentdatabase, blueroms, filemood, linuxtracker, megapeer, xxxclub, xxxtracker, zeromagnet. `torrentdatabase.js` points at `developify.ca` — name/domain mismatch, likely stale.
+- ~~**Category data quality**: `sukebei.js` hardcodes `'Porn'` (site also hosts non-adult), `rutor.js` hardcodes `'Other'` though the site exposes categories, `tpb.js` passes raw numeric category strings ("200") unmapped.~~ **部分修复（2026-08-14）：** `tpb.js` 新增 `tpbCategory()` 将 3 位数字码映射为标准分类；`sukebei.js` 新增 `mapSukebeiCategory()` 解析 Nyaa/Sukebei 分类 title 属性（如 `"Hentai - English Translated"` → `'Porn'`，`"Anime - English translated"` → `'Anime'`）；`rutor.js` 改为返回 `null`（搜索结果列表不含分类信息，交由前端启发式归类）。
+- **Single-domain providers with no mirror fallback**: bt4g, knaben, torrentdatabase, blueroms, filemood, linuxtracker, megapeer, xxxclub, xxxtracker, zeromagnet. `torrentdatabase.js` points at `developify.ca` — name/domain mismatch, likely stale. ⚠️ 这些 provider 已使用 `runMirrors()` 基础设施，只需补充备用域名数组即可启用回退；目前因无已知可用镜像暂维持单域名。
+
+  **母项目参照**：`prajwalch/TorrentSearch`（Android 版）同样存在此问题，未实现多域名回退。
+  
+  **建议方案**：参考 SearXNG 和 Jackett 的做法，为每个单域名 provider 添加备用域名数组，利用已有 `runMirrors()` 基础设施自动重试。
+  
+  **域名状态参考**（2025-08 调研，⚠️ 表中「主域名」与代码实际不一致——以代码为准）：
+  | Provider | 代码实际主域名 | 备用域名（待验证） | 状态 |
+  |----------|--------------|------------------|------|
+  | bt4g | bt4gprx.com（代码） | bt4g.org, bt4gapp.com | ⚠️ 需验证 |
+  | knaben | api.knaben.org/v1（JSON API，无 DOMAINS/runMirrors） | vicetemple.io 等 | ⚠️ 需验证 |
+  | torrentdatabase | developify.ca | — | 🔴 可能已失效 |
+  | blueroms | www.blueroms.ws | — | 需查证 |
+  | filemood | filemood.com（代码） | — | ⚠️ 有可疑网站警告 |
+  | linuxtracker | linuxtracker.org | — | ✅ 活跃 |
+  | megapeer | megapeer.vip | — | 需查证 |
+  | xxxclub | xxxclub.to | xxxclub.club | ⚠️ 需验证 |
+  | xxxtracker | xxxtor.com（代码） | — | 需查证 |
+  | zeromagnet | 9mag.net（代码） | — | 需查证 |
+  
+  **待办**：逐个验证备用域名可用性，更新对应 provider 文件的 `DOMAINS` 数组。
+  
+  ⚠️ **验证前勿盲目添加**：`runMirrors()` 用 `Promise.allSettled` 等全部镜像返回，
+  一个失联域名会让每次搜索白白多等最多 10s（`http.js` timeout）。必须先确认域名可达
+  再加入 `DOMAINS` 数组，否则是在给用户添堵。
 - ~~**`PROVIDER_LABEL` on `main`** has only 4 entries — badges/status show raw ids.~~ ✅ 已修复（2026-08-10）
 
 ### 中 — server / security hygiene
 
 - `server.js` `/api/magnet` (~L102) + `/api/torznab/test` (~L205) are SSRF-ish proxies: `safeHttpUrl` only checks scheme, deliberately no host allowlist. Binding to 127.0.0.1 (L220) is the real mitigation — **keep it**; if remote access is ever added, add host checks first. Consider also capping `/api/magnet` to domains known to providers.
-- `data/torznab.json` stores API keys in plaintext (`src/lib/torznabStore.js`); `listPublic()` masks correctly, but confirm `data/` stays gitignored and consider warning in README.
+  
+  **母项目参照**：`prajwalch/TorrentSearch`（Android 应用）无此问题，因为直接在设备上进行网络请求，不涉及服务端代理。
+  
+  **性质**：设计决策，非 bug。当前 127.0.0.1 绑定已提供足够保护。
+- `data/torznab.json` stores API keys in plaintext (`src/lib/torznabStore.js`); `listPublic()` masks correctly. **✅ 已修复（2026-08-14）：** `.gitignore` 已忽略 `data/`，并在 README「说明与边界」段新增安全警告。
 - ~~`torznabStore.saveAll()` does a bare `fs.writeFileSync` — no try/catch (crashes the request on EACCES/ENOSPC) and read-modify-write is racy.~~ **✅ 已修复（2026-08-11）：** 改为 write-to-temp-then-rename，失败时保持原文件不变。
 - ~~qBittorrent login failure detection in `src/lib/downloaders.js` string-matches `/fails|failed/i` on the response body — fragile across qB versions; also only the first `set-cookie` entry is used.~~ **✅ 已修复（2026-08-11）：** 改为检查 HTTP 403（新版 qB 返回） + 遍历所有 set-cookie entries 找 SID=，不再依赖响应体字符串匹配。
 
@@ -299,3 +327,59 @@ git worktree remove <tmp>      # clean up AFTER push confirmed
 1. ~~Safe Mode~~ ✅ 已完成
 2. ~~已浏览置灰~~ ✅ 已完成
 3. 收藏导出/导入、Browse 浏览、详情海报等（ROI 递减）
+
+---
+
+## ✅ 已完成：种子结果堆叠分组显示（2026-08-17）
+
+**来源**：[prajwalch/TorrentSearch#99](https://github.com/prajwalch/TorrentSearch/issues/99)
+
+### 实现总结
+
+同一种子（相同 infoHash）多站命中时，卡片渲染为带边框的「堆叠分组容器」：
+- **单来源结果**：走 `singleCardHTML()`，渲染与历史完全一致（兼容性零影响）
+- **多来源结果**：走新增的 `stackedCardHTML()`，顶部主信息（名称/做种/大小/时间/分类）+「N 个来源」徽章；「来源详情」区默认折叠，可展开/收起
+- **来源行**：每行 = 站名徽章 + 截断显示的磁力（title 存全文）+ [复制] [详情] 按钮；磁力未就绪的来源显示占位文案，走整卡的「获取磁力」统一解析
+- **交互**：复用 `onCardClick` 事件委托，新增 `toggle-sources`（展开/折叠）、`copysrc`（复制指定来源磁力，未就绪回退整卡磁力）、`detailsrc`（有详情页外链新标签打开，否则打开聚合详情弹窗）
+- **样式**：`.stacked-card` / `.stacked-sources` / `.stacked-source` / `.src-magnet` 等；`[hidden]` 显式压过 `display:flex` 保证折叠生效
+
+**受影响文件**：`public/app.js`（新增 `stackedCardHTML()`/`shortMagnet()`，`cardHTML()` 改为分派）、`public/styles.css`（+33 行）
+
+### 验收核对（2026-08-17 完成）
+
+- ✅ 单来源结果：渲染方式不变（`singleCardHTML` 即原 `cardHTML` 本体）
+- ✅ 多来源结果：带边框分组容器 + 顶部主信息 + 可展开来源列表（probe 全绿）
+- ✅ 展开/折叠交互：`toggle-sources` 事件委托，流畅无重渲染
+- ✅ 批量操作/收藏/CSV 导出不受影响（`data-id` 仍是分组 key，`onCardClick` 分派前置）
+- ✅ 顺带修复 3 处「已修复」声明与实际不符的残留 bug：`DL_META` 未定义（2 处 → `DL_CLIENTS`）、设置保存写 `localStorage['downloader']` 而读取 `'dl'`（2 处，设置永不持久化）、重复的 `loadViewed`/`saveViewed` 定义（已删冗余副本）
+
+---
+
+## 仓库结构说明（2026-08-15 修复）
+
+### 嵌套 Git 仓库结构
+
+```
+D:\Vibe-Coding\          ← 父目录 Git 仓库（本地，无 remote）
+├── .gitignore           ← 已忽略所有子项目和工具链配置
+├── torrent-search-app\  ← 本项目的独立 Git 仓库
+│   └── .git             ← 指向 https://github.com/NoNameLeGo/torrent-search-app.git
+├── ai-berkshire\        ← 其他子项目（各自有独立 .git）
+├── my-novel\
+└── ...
+```
+
+**关键约束：**
+1. 父目录 `D:\Vibe-Coding` 是个人 AI Agent 工作区根目录，**不应推送到任何 remote**
+2. 本项目的 remote 是 `origin: https://github.com/NoNameLeGo/torrent-search-app.git`
+3. 父仓库的 remote 已于 2026-08-15 移除（之前错误指向本项目）
+4. 子项目目录（`torrent-search-app/` 等）在父仓库中被 `.gitignore` 忽略，避免 git status 混乱
+
+**对 AI Agent 的影响：**
+- 当 Agent 在 `torrent-search-app` 目录工作时，应只操作本项目文件
+- 读到父目录的 git status 时，应理解这是"工作区根目录"而非项目本身
+- 不要尝试在父目录执行 `git push` 或修改 remote
+
+**相关文件：**
+- 父目录 `.gitignore`: `D:\Vibe-Coding\.gitignore`
+- 本项目 `.gitignore`: `D:\Vibe-Coding\torrent-search-app\.gitignore`
