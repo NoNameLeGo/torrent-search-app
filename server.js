@@ -136,22 +136,6 @@ app.get('/api/magnet', async (req, res) => {
   res.status(404).json({ error: 'no resolver' });
 });
 
-// Validate that a user-supplied URL uses http/https only, rejecting other
-// schemes (file:, ftp:, etc.). Returns the trimmed URL or null if invalid.
-// The backend fetches these URLs server-side, so an unvalidated scheme would
-// let the client point us at arbitrary local resources.
-function safeHttpUrl(url) {
-  const s = String(url || '').trim();
-  if (!s) return null;
-  try {
-    const u = new URL(s);
-    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
-    return s;
-  } catch (e) {
-    return null;
-  }
-}
-
 // ---- Download clients (qBittorrent / Transmission / aria2·Motrix / Gopeed) ----
 // 统一推送端点：body 里带 kind（客户端类型）+ 该客户端的连接配置 + magnet。
 // 各客户端的协议差异封装在 src/lib/downloaders.js，这里只做入参校验与错误转译。
