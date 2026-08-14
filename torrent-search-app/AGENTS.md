@@ -9,9 +9,50 @@ npm start     # node server.js → http://localhost:3000
 
 Electron mode: `npm run electron` (picks a free port automatically, no collision with a running `npm start`).
 
-## No test / lint / typecheck
+## Testing
 
-This repo has **no tests, linter, or formatter** configured. There is nothing to run before shipping. If you add tooling, document it here.
+This repo uses **Node.js built-in `assert` module** for golden-file tests. No external test framework required.
+
+```bash
+npm test          # run all tests
+npm run test:watch  # watch mode (requires nodemon)
+```
+
+### Test structure
+
+```
+test/
+  run.js              ← main test runner (uses node:test or just assert)
+  fixtures/           ← saved HTML/JSON from real provider responses
+    tpb-ubuntu.json   ← TPB API response for "ubuntu" query
+```
+
+### How to add a new provider test
+
+1. Save a real response to `test/fixtures/<provider>-<query>.json` or `.html`
+2. Add a test block in `test/run.js` using `createMockHTTP()` to intercept requests
+3. Run `npm test` to verify
+
+**No network calls during tests** — all fixtures are local files.
+
+### Current coverage
+
+- ✅ `tpb.js` — search parsing, category mapping, empty results, HTTP errors
+- ✅ `linuxtracker.js` — HTML parsing, infoHash extraction from URL, date/size/seeds parsing
+- ✅ `normalize.js` — size/date parsing, magnet building, infoHash extraction, ruDate, edge cases
+
+### Platform note
+
+Tests use `node:test` (built into Node.js v16+) — **zero dependencies**. No jest/mocha required.
+
+### Agent Call Instructions
+
+See [test/README.md](test/README.md) for detailed guide on when and how to run tests, plus instructions for adding new provider tests.
+
+**Quick reference for agents:**
+- Modify provider → run `npm test`
+- Modify normalize.js → run `node test/normalize.test.js`
+- Add new provider → save fixture to `test/fixtures/`, add test block to `test/run.js`, run `npm test`
 
 ## Architecture (one screen)
 
@@ -185,7 +226,7 @@ percent-encode，个别老旧下载工具会拿到编码串或问号名，这是
 - ~~`mypornclub.js` ~L28-30 encodes-then-replaces `%20` → `-`~~ ✅ 已修复（2026-08-11）：先 replace 空格再 encodeURIComponent
 - ~~`electron/main.js` `before-quit` (~L89) closes server without destroying keep-alive sockets~~ ✅ 已修复（2026-08-12）：新增 `closeAllConnections()`
 - ~~`src/lib/http.js` `getText/getJSON/postJSON` 展开顺序 bug — `...opts` 在 headers 合并之后展开，若调用方传 headers 会整体覆盖合并结果~~ ✅ 已修复（2026-08-12）：先解构 headers，再展开 rest
-- No tests at all (see top of this file). Highest-value first target: golden-file tests for each provider's parser against saved HTML fixtures — they double as change detectors when sites redesign.
+- ~~No tests at all~~ **✅ 已修复（2026-08-14）：** 新增 golden-file 测试框架，使用 Node.js 内置 `assert` 模块，零依赖。当前覆盖 `tpb.js` 和 `normalize.js`，后续可扩展到其他 provider。
 
 ## Syncing features between `main` and `feat/tauri`
 
