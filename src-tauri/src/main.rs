@@ -115,6 +115,39 @@ fn missing_resources(resource_dir: &std::path::Path) -> Vec<String> {
     missing
 }
 
+// 粗粒度 UTC 时间戳（无第三方依赖），用于落地日志与错误页定位问题发生的时刻。
+fn now_utc() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let since = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let days = since / 86400;
+    let secs = since % 86400;
+    let (y, m, d) = civil_from_days(days);
+    format!(
+        "{y:04}-{m:02}-{d:02} {:02}:{:02}:{:02}Z",
+        secs / 3600,
+        (secs % 3600) / 60,
+        secs % 60
+    )
+}
+
+// Howard Hinnant 的 civil_from_days：自纪元天数 → (年, 月, 日)。纯整数运算，UTC。
+fn civil_from_days(days: u64) -> (i64, u64, u64) {
+    let z = days as i64 + 719468;
+    let era = if z >= 0 { z } else { z - 146096 } / 146097;
+    let doe = (z - era * 146097) as u64; // [0, 146096]
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365; // [0, 399]
+    let y = yoe as i64 + era * 400; // civil year
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100); // day of year [0, 365]
+    let mp = (5 * doy + 2) / 153; // month prime [0, 11]
+    let d = doy - (153 * mp + 2) / 5 + 1; // day of month [1, 31]
+    let m = if mp < 10 { mp + 3 } else { mp - 9 } as u64; // month [1, 12]
+    let yy = if m <= 2 { y + 1 } else { y };
+    (yy, m, d)
+}
+
 // 创建主窗口，并拦截 Magnet 链接交给系统默认下载工具处理
 // （WebView2 不会自动调起 magnet:，等价于 Electron 的 shell.openExternal）
 fn create_main_window(app: &tauri::AppHandle, url: WebviewUrl) -> WebviewWindow {
@@ -221,34 +254,98 @@ fn main() {
                 #[cfg(windows)]
                 cmd.creation_flags(CREATE_NO_WINDOW);
 
+                // 落地日志：无论后端启动成败，都把它的 stdout/stderr 逐行追加到
+                // 用户日志目录（Windows 下默认
+                // %LOCALAPPDATA%\com.torrentsearch.app\logs\backend.log），
+                // 方便应用打不开时直接翻文件排查，而不用截错误页。
+                let log_dir = app
+                    .path()
+                    .app_log_dir()
+                    .or_else(|_| app.path().app_data_dir())
+                    .unwrap_or_else(|_| resource_dir.clone());
+                let _ = std::fs::create_dir_all(&log_dir);
+                let log_file_path = log_dir.join("backend.log");
+                let sink = std::sync::Arc::new(std::sync::Mutex::new(
+                    std::fs::OpenOptions::new()
+                        .create(true)
+                        .append(true)
+                        .open(&log_file_path)
+                        .ok(),
+                ));
+                {
+                    let mut g = sink.lock().unwrap();
+                    if let Some(f) = g.as_mut() {
+                        let _ = writeln!(
+                            f,
+                            "== {} port={} exe={} ==",
+                            now_utc(),
+                            port,
+                            server_exe.display()
+                        );
+                    }
+                }
+
                 // 用 std::process::Command 直接 spawn，而不是 tauri-plugin-shell 的
                 // sidecar（后者在 setup 阶段走 tokio async_runtime 读管道，会导致
                 // server 进程起不来、主线程卡死）。
-                let mut child = cmd.spawn().expect("failed to spawn server process");
+                let mut child = match cmd.spawn() {
+                    Ok(c) => c,
+                    Err(e) => {
+                        // 不 panic：无头进程被静默吞掉时用户什么都看不到。
+                        // 落一条日志 + 导航到诊断页，把错误直接呈给用户。
+                        if let Some(f) = sink.lock().unwrap().as_mut() {
+                            let _ = writeln!(f, "[spawn] FAILED to start server.exe: {}", e);
+                        }
+                        let bit = error_html(
+                            "后端启动失败（无法启动 server.exe）",
+                            &format!(
+                                "无法启动后端进程 server.exe：\n\n{}\n\n\
+                                 常见原因：杀毒软件 / Windows Defender 拦截或删除了该文件，\
+                                 或该文件在安装目录中被锁定。\n\n详细日志已写入：{}",
+                                e,
+                                log_file_path.display()
+                            ),
+                        );
+                        let _ = main_window.navigate(data_url_of_html(&bit));
+                        return Ok(());
+                    }
+                };
 
-                // 收集 server 的 stdout/stderr，健康检查失败时直接展示给用户，
-                // 而不是弹出一个裸的 127.0.0.1 连接错误。
+                // 收集 server 的 stdout/stderr：既进内存（健康检查失败时上屏给用户），
+                // 也逐行落盘（backend.log），二者独立互不影响。
                 let log = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
                 if let Some(stdout) = child.stdout.take() {
                     let log2 = log.clone();
+                    let sink2 = sink.clone();
                     std::thread::spawn(move || {
                         for line in BufReader::new(stdout).lines() {
                             if let Ok(l) = line {
-                                let mut g = log2.lock().unwrap();
-                                g.push_str(&l);
-                                g.push('\n');
+                                {
+                                    let mut g = log2.lock().unwrap();
+                                    g.push_str(&l);
+                                    g.push('\n');
+                                }
+                                if let Some(f) = sink2.lock().unwrap().as_mut() {
+                                    let _ = writeln!(f, "[out] {}", l);
+                                }
                             }
                         }
                     });
                 }
                 if let Some(stderr) = child.stderr.take() {
                     let log2 = log.clone();
+                    let sink2 = sink.clone();
                     std::thread::spawn(move || {
                         for line in BufReader::new(stderr).lines() {
                             if let Ok(l) = line {
-                                let mut g = log2.lock().unwrap();
-                                g.push_str(&l);
-                                g.push('\n');
+                                {
+                                    let mut g = log2.lock().unwrap();
+                                    g.push_str(&l);
+                                    g.push('\n');
+                                }
+                                if let Some(f) = sink2.lock().unwrap().as_mut() {
+                                    let _ = writeln!(f, "[err] {}", l);
+                                }
                             }
                         }
                     });
@@ -261,7 +358,14 @@ fn main() {
 
                 if !wait_for_health(port) {
                     let captured = log.lock().unwrap().clone();
-                    let body = if captured.trim().is_empty() {
+                    if let Some(f) = sink.lock().unwrap().as_mut() {
+                        let _ = writeln!(
+                            f,
+                            "[health] FAILED after ~18s (has_output={})",
+                            !captured.trim().is_empty()
+                        );
+                    }
+                    let mut body = if captured.trim().is_empty() {
                         "后端进程在没有任何输出的情况下退出（可能是 sidecar 二进制缺失，\
                          或 node 运行时启动失败）。"
                             .to_string()
@@ -272,8 +376,13 @@ fn main() {
                             captured
                         )
                     };
+                    body.push_str(&format!("\n\n详细日志已写入：{}", log_file_path.display()));
                     let _ = main_window.navigate(data_url_of_html(&error_html("后端启动失败", &body)));
                     return Ok(());
+                }
+
+                if let Some(f) = sink.lock().unwrap().as_mut() {
+                    let _ = writeln!(f, "[health] OK at http://127.0.0.1:{}/", port);
                 }
 
                 let _ = main_window.navigate(
