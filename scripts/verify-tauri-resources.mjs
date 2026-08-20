@@ -39,10 +39,9 @@ if (!sidecarOk) {
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 const devNames = Object.keys(pkg.devDependencies || {});
 // 兜底名单：即使未来某依赖被误移出 devDependencies，也绝不允许被打进安装包。
-// 注：@tauri-apps 不在本名单中——它是构建工具自身，tauri build 进程运行时
-// 其原生二进制被锁定，prepare-tauri-resources.mjs 无法删除，属预期残留。
+// 注：@tauri-apps / @electron 不在本名单中——它们是构建工具链自身，
+// tauri build 运行时其文件被锁定，prepare-tauri-resources.mjs 可能无法完全删除，属预期残留。
 const extraDeny = [
-  '@electron',
   'electron',
   'electron-builder',
   'app-builder-lib',

@@ -55,4 +55,18 @@ rmNodeModules();
 
 console.log('[prepare-tauri-resources] npm install --omit=dev --ignore-scripts …');
 execSync('npm install --omit=dev --ignore-scripts', { cwd: root, stdio: 'inherit' });
+
+// 二次清理：npm install --omit=dev 不会删除旧 node_modules 中未被覆盖的残余目录
+// （如 @electron —— 首次 rmNodeModules 的 force:true 在 Windows 上可能静默跳过
+// 部分文件，导致目录残留）。安装后再次尝试删除已知的 dev 残留。
+const devLeftovers = ['@electron', 'electron', 'electron-builder', 'app-builder-lib',
+  'builder-util', 'builder-util-runtime', 'dmg-builder', 'electron-publish',
+  'electron-winstaller', 'electron-builder-squirrel-windows'];
+for (const name of devLeftovers) {
+  const full = path.join(nm, name);
+  if (fs.existsSync(full)) {
+    try { fs.rmSync(full, { recursive: true, force: true }); } catch (_) { /* ignore */ }
+  }
+}
+
 console.log('[prepare-tauri-resources] node_modules 已收敛为仅生产依赖。');
