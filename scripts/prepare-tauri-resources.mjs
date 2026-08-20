@@ -19,10 +19,39 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
 
 const nm = path.join(root, 'node_modules');
-if (fs.existsSync(nm)) {
-  console.log('[prepare-tauri-resources] 删除现有 node_modules（含 dev 依赖），准备全新生产安装…');
-  fs.rmSync(nm, { recursive: true, force: true });
+
+// 逐项删除 node_modules 顶层条目，跳过正在被 tauri build 进程锁定的文件。
+// 直接用 fs.rmSync(nm, { recursive: true }) 在 Windows 上会因 @tauri-apps/cli
+// 的原生二进制被占用而整个失败（EPERM）。逐项删除 + 跳过 @tauri-apps 即可避让。
+function rmNodeModules() {
+  if (!fs.existsSync(nm)) return;
+  const entries = fs.readdirSync(nm);
+  // @tauri-apps 需要保留：tauri build 进程本身正在使用其原生二进制，
+  // Windows 不允许删除已加载的 .node 文件。
+  const skip = new Set(['@tauri-apps', '.package-lock.json']);
+  let failed = 0;
+  for (const name of entries) {
+    if (skip.has(name)) {
+      console.log(`[prepare-tauri-resources]   跳过 ${name}（被构建进程占用，保留）`);
+      continue;
+    }
+    const full = path.join(nm, name);
+    try {
+      fs.rmSync(full, { recursive: true, force: true });
+    } catch (e) {
+      console.warn(`[prepare-tauri-resources]   无法删除 ${name}: ${e.code ?? e.message}`);
+      failed++;
+    }
+  }
+  if (failed > 0) {
+    console.warn(
+      `[prepare-tauri-resources] ⚠ ${failed} 个条目删除失败（可能被占用），继续安装…`,
+    );
+  }
 }
+
+console.log('[prepare-tauri-resources] 删除现有 node_modules（含 dev 依赖），准备全新生产安装…');
+rmNodeModules();
 
 console.log('[prepare-tauri-resources] npm install --omit=dev --ignore-scripts …');
 execSync('npm install --omit=dev --ignore-scripts', { cwd: root, stdio: 'inherit' });

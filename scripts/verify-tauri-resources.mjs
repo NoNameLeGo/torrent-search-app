@@ -39,8 +39,9 @@ if (!sidecarOk) {
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 const devNames = Object.keys(pkg.devDependencies || {});
 // 兜底名单：即使未来某依赖被误移出 devDependencies，也绝不允许被打进安装包。
+// 注：@tauri-apps 不在本名单中——它是构建工具自身，tauri build 进程运行时
+// 其原生二进制被锁定，prepare-tauri-resources.mjs 无法删除，属预期残留。
 const extraDeny = [
-  '@tauri-apps',
   '@electron',
   'electron',
   'electron-builder',
@@ -58,9 +59,10 @@ const leftovers = new Set();
 const existsName = (name) => fs.existsSync(path.join(nmRoot, ...name.split('/')));
 for (const n of devNames) if (existsName(n)) leftovers.add(n);
 for (const n of extraDeny) if (existsName(n)) leftovers.add(n);
-// dev 作用域整体检查：@tauri-apps 下残留的孤儿（如 cli-win32-x64-msvc）不在 devNames 里
+// dev 作用域整体检查：@tauri-apps 下残留的孤儿（如 cli-win32-x64-msvc）不在 devNames 里。
+// 但 @tauri-apps 是构建工具自身，tauri build 运行时其二进制被锁定无法删除，跳过。
 const devScopes = new Set(
-  devNames.filter((n) => n.startsWith('@')).map((n) => n.split('/')[0]),
+  devNames.filter((n) => n.startsWith('@') && !n.startsWith('@tauri-apps')).map((n) => n.split('/')[0]),
 );
 for (const scope of devScopes) {
   const dir = path.join(nmRoot, scope);
