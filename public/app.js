@@ -24,8 +24,8 @@ const state = {
   safeMode: loadSafeMode(), // 安全模式：禁用成人引擎 + 隐藏 NSFW 结果
   viewed: loadViewed(),    // 已浏览的 infoHash 集合（用于置灰）
   view: 'search',          // 当前视图：search / favorites
-  history: JSON.parse(localStorage.getItem('history') || '[]'),   // 最近搜索词
-  favorites: JSON.parse(localStorage.getItem('favorites') || '[]'), // 收藏的种子
+  history: loadJSON('history', []),   // 最近搜索词
+  favorites: loadJSON('favorites', []), // 收藏的种子
   checked: new Set(),      // 批量操作：已勾选的卡片 key（跨重渲染按 key 保持）
 };
 
@@ -91,6 +91,19 @@ function saveViewed() {
 }
 
 const HISTORY_MAX = 12;
+
+// 安全读取 localStorage JSON 键：损坏/格式不兼容时返回 fallback 不抛异常。
+// 避免 SyntaxError 导致整个脚本中断白屏（与 2026-08-10 的 dlShort 白屏事故同类）。
+function loadJSON(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw == null) return fallback;
+    return JSON.parse(raw);
+  } catch { return fallback; }
+}
+function saveJSON(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
 
 // 画质匹配规则：把标题里常见的清晰度/HDR 写法归一到快捷标签。
 // 用正则而非简单 includes，兼顾 4k/2160p、带分隔符的 h.265 之类写法。
@@ -1103,7 +1116,10 @@ function batchExportCsv() {
   const cols = ['name', 'seeders', 'leechers', 'sizeText', 'dateText', 'category', 'providers', 'infoHash', 'magnet'];
   const head = ['名称', '做种', '下载', '大小', '时间', '分类', '来源', 'infoHash', '磁力'];
   const cell = (v) => {
-    const s = v == null ? '' : String(v);
+    let s = v == null ? '' : String(v);
+    // 防御 Excel/WPS 公式注入：以 = + - @ \t \r 开头的单元格
+    // 会被表格软件当作公式执行，前缀单引号强制按纯文本解析。
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const rows = items.map((it) => cols.map((c) => {

@@ -48,6 +48,19 @@ function safeHttpUrl(raw) {
 app.use(express.json());
 app.use(express.static(PUBLIC_DIR));
 
+// DNS rebinding 防御：所有 API 端点只接受来自本机回环地址的请求。
+// 恶意网页可通过 DNS rebinding 让 evil.com 解析到 127.0.0.1，浏览器
+// 视作同源从而绕过 CORS 读取 /api/torznab (含明文 API key) 或调用
+// /api/download/push、/api/magnet 等写端点。校验 Host 头即可阻断。
+// 注意：只校验 hostname（不含端口），因为 Electron 模式端口是动态分配的。
+app.use('/api', (req, res, next) => {
+  const host = (req.hostname || '').toLowerCase();
+  if (host !== '127.0.0.1' && host !== 'localhost') {
+    return res.status(403).json({ error: 'forbidden' });
+  }
+  next();
+});
+
 // List available search engines.
 app.get('/api/providers', (req, res) => {
   res.json({ providers: providers.list() });
