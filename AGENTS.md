@@ -257,6 +257,14 @@ percent-encode，个别老旧下载工具会拿到编码串或问号名，这是
 - ~~`src/lib/http.js` `getText/getJSON/postJSON` 展开顺序 bug — `...opts` 在 headers 合并之后展开，若调用方传 headers 会整体覆盖合并结果~~ ✅ 已修复（2026-08-12）：先解构 headers，再展开 rest
 - ~~No tests at all~~ **✅ 已修复（2026-08-14）：** 新增 golden-file 测试框架，使用 Node.js 内置 `assert` 模块，零依赖。当前覆盖 `tpb.js` 和 `normalize.js`，后续可扩展到其他 provider。
 
+### 待修复（2026-08-20 审查新发现）
+
+修复 Tauri sidecar 后顺带复查 `server.js` / `public/app.js` / `src/lib/*`，新发现以下未记录问题（按优先级）：
+
+1. **中 — CSV 公式注入**（`public/app.js` `batchExportCsv`）：`cell()` 只转义 `",\n`，未处理以 `=` `+` `-` `@` `\t` 开头的单元格。第三方站点的种子标题可注入 Excel/WPS 公式（如 `=HYPERLINK("http://…")`、`=cmd|…`），用户导出后用 Excel 打开即触发。修复：单元格匹配 `/^[=+\-@\t\r]/` 时前缀单引号 `'`。
+2. **中 — localStorage 解析无容错 → 白屏**（`public/app.js` ~L27-28）：`state.history` / `state.favorites` 直接 `JSON.parse` 无 try/catch。localStorage 损坏（手动编辑 / 浏览器扩展写入 / 旧版本格式）会让 state 初始化抛 SyntaxError，整个脚本中断白屏——与 2026-08-10 的 `dlShort` 白屏事故同类。对比：`loadDownloader` / `loadSafeMode` / `loadViewed` 都有 try/catch，唯独这两处裸奔。修复：抽一个 `loadJSON(key, fallback)` 统一容错并覆盖 history/favorites。
+3. **中 — Host header 未校验 → DNS rebinding**（`server.js`）：所有 `/api/*` 绑定 127.0.0.1 但未校验请求 Host。恶意网页借 DNS rebinding 让 evil.com 解析到 127.0.0.1，浏览器视作同源绕过 CORS，可读响应并调用写端点（`/api/download/push`、`/api/torznab` 含明文 API key、`/api/magnet`、`/api/torznab/test`）。修复：全局中间件校验 `req.hostname` ∈ {127.0.0.1, localhost}，否则 403。这是上方「SSRF-ish」记录之外的补充维度。
+
 ## Syncing features between `main` and `feat/tauri`
 
 **铁律：所有修复和功能必须同时在 `main` 和 `feat/tauri` 两个分支上完成。** 不允许先修一个再同步另一个。每轮工作结束后，两个分支的代码（除分支固有限外）必须一致。
