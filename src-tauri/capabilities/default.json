@@ -4,16 +4,6 @@
   "description": "Capability for the main window",
   "windows": ["main"],
   "permissions": [
-    "core:default",
-    {
-      "identifier": "shell:allow-spawn",
-      "allow": [
-        {
-          "name": "binaries/server",
-          "sidecar": true,
-          "args": true
-        }
-      ]
-    }
+    "core:default"
   ]
 }

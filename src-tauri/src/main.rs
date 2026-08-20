@@ -240,7 +240,21 @@ fn main() {
                     .expect("server.js path is not valid UTF-8")
                     .to_string();
 
-                let server_exe = resource_dir.join("server.exe");
+                // externalBin 打包的 sidecar 名为 server-<target-triple>.exe
+                // （如 server-x86_64-pc-windows-msvc.exe），triple 随 toolchain/架构
+                // 变化，按前缀查找即可，硬编码 server.exe 会找不到文件。
+                let server_exe = std::fs::read_dir(&resource_dir)
+                    .ok()
+                    .and_then(|rd| {
+                        rd.filter_map(|e| e.ok())
+                            .map(|e| e.path())
+                            .find(|p| {
+                                p.file_name()
+                                    .and_then(|n| n.to_str())
+                                    .map_or(false, |n| n.starts_with("server-"))
+                            })
+                    })
+                    .unwrap_or_else(|| resource_dir.join("server.exe"));
                 let mut cmd = Command::new(&server_exe);
                 cmd.arg(&server_arg)
                     .arg("--port")
@@ -294,14 +308,15 @@ fn main() {
                         // 不 panic：无头进程被静默吞掉时用户什么都看不到。
                         // 落一条日志 + 导航到诊断页，把错误直接呈给用户。
                         if let Some(f) = sink.lock().unwrap().as_mut() {
-                            let _ = writeln!(f, "[spawn] FAILED to start server.exe: {}", e);
+                            let _ = writeln!(f, "[spawn] FAILED to start {}: {}", server_exe.display(), e);
                         }
                         let bit = error_html(
-                            "后端启动失败（无法启动 server.exe）",
+                            "后端启动失败（无法启动后端进程）",
                             &format!(
-                                "无法启动后端进程 server.exe：\n\n{}\n\n\
+                                "无法启动后端进程 {}：\n\n{}\n\n\
                                  常见原因：杀毒软件 / Windows Defender 拦截或删除了该文件，\
                                  或该文件在安装目录中被锁定。\n\n详细日志已写入：{}",
+                                server_exe.display(),
                                 e,
                                 log_file_path.display()
                             ),
