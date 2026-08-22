@@ -33,6 +33,7 @@ Thumbs.db
 
 # 本地工具数据（本机/每用户，不入库）
 .workbuddy/
+.dsh-vision-toolkit/
 
 # Nezha agent 个人配置（第三方工具，与项目无关）
 .nezha/
