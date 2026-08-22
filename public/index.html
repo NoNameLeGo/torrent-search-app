@@ -5,22 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BT 聚合搜索 · Torrent Meta-Search</title>
   <meta name="theme-color" content="#1e1e2e" />
-  <!-- 字体：Chakra Petch（品牌/展示）+ Fira Sans（正文）+ Fira Code（数据）。
+  <meta name="description" content="一个关键词，扫遍 40+ 种子站：聚合搜索、跨站去重合并、磁力一键推送。" />
+  <!-- 字体：Bricolage Grotesque（展示）+ Instrument Sans（正文）+ IBM Plex Mono（数据）。
        离线时自动回退系统字体，功能不受影响。 -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Fira+Code:wght@400;500;600&family=Fira+Sans:wght@400;500;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600&display=swap"
     rel="stylesheet"
   />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- 内联图标库：全站图标统一走 <use>，不再使用 emoji（可缩放、跟主题色、对读屏友好） -->
+  <!-- 环境粒子画布：最底层背景，由 ambient.js 驱动；减少动效偏好下完全不启动 -->
+  <canvas id="ambient" aria-hidden="true"></canvas>
+
+  <!-- 内联图标库：全站图标统一走 <use>，不使用 emoji（可缩放、跟主题色、对读屏友好） -->
   <svg xmlns="http://www.w3.org/2000/svg" style="display: none" aria-hidden="true">
-    <symbol id="i-logo" viewBox="0 0 24 24">
-      <path d="M12 1.8 20.8 6.9v10.2L12 22.2 3.2 17.1V6.9Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
-      <path d="M12 6.6v7.2m0 0 3.1-3.1M12 13.8 8.9 10.7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+    <symbol id="i-search" viewBox="0 0 24 24">
+      <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="1.8" />
+      <path d="m20 20-4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
     </symbol>
     <symbol id="i-gear" viewBox="0 0 24 24">
       <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 0 0-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 0 0-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 0 0-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 0 0-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 0 0 1.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
@@ -29,125 +33,146 @@
     <symbol id="i-shield" viewBox="0 0 24 24">
       <path d="M12 2.8 19.2 5.6v5.3c0 4.7-3.1 7.7-7.2 9.3-4.1-1.6-7.2-4.6-7.2-9.3V5.6Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
     </symbol>
-    <symbol id="i-search" viewBox="0 0 24 24">
-      <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="1.8" />
-      <path d="m20 20-4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+    <symbol id="i-list" viewBox="0 0 24 24">
+      <path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
     </symbol>
-    <symbol id="i-radar" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.4" />
-      <circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".55" />
-      <path d="M12 12 17.5 7.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
-      <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
-      <circle cx="15.6" cy="14.8" r="1" fill="currentColor" stroke="none" opacity=".8" />
+    <symbol id="i-grid" viewBox="0 0 24 24">
+      <rect x="4" y="4" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7" />
+      <rect x="13" y="4" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7" />
+      <rect x="4" y="13" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7" />
+      <rect x="13" y="13" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7" />
     </symbol>
   </svg>
 
   <a class="skip-link" href="#main">跳到主要内容</a>
 
-  <header class="topbar">
-    <div class="brand">
-      <span class="logo" aria-hidden="true"><svg><use href="#i-logo" /></svg></span>
-      <span class="brand-text">
-        <h1>BT 聚合搜索</h1>
-        <span class="brand-sub" translate="no">torrent meta-search</span>
-      </span>
-    </div>
-
-    <form id="search-form" class="search-form" autocomplete="off">
-      <div class="search-input-wrap">
-        <svg class="search-icon" aria-hidden="true"><use href="#i-search" /></svg>
-        <input id="search-input" type="text" name="q" aria-label="搜索关键词" spellcheck="false" placeholder="输入关键词，如 Ubuntu, 4K Movie, Naruto…" />
-        <div id="history-dropdown" class="history-dropdown" hidden></div>
+  <!-- 报头：落款印章 + 刊名 · 视图切换 · 设置 -->
+  <header class="masthead">
+    <div class="shell masthead-inner">
+      <div class="brand">
+        <span class="seal seal-s" aria-hidden="true">种</span>
+        <span class="brand-text">
+          <h1>BT 聚合搜索</h1>
+          <span class="brand-sub" translate="no">Torrent Meta-Search</span>
+        </span>
       </div>
-      <button type="submit" id="search-btn">搜索</button>
-    </form>
 
-    <nav class="views" aria-label="视图切换">
-      <button type="button" class="view-tab on" data-view="search">搜索</button>
-      <button type="button" class="view-tab" data-view="favorites">收藏 <span id="fav-count" class="fav-count"></span></button>
-    </nav>
+      <div class="masthead-side">
+        <nav class="views" aria-label="视图切换">
+          <button type="button" class="view-tab on" data-view="search">搜索</button>
+          <button type="button" class="view-tab" data-view="favorites">收藏 <span id="fav-count" class="fav-count"></span></button>
+        </nav>
 
-    <button id="settings-btn" class="icon-btn" title="设置" aria-label="设置">
-      <svg aria-hidden="true"><use href="#i-gear" /></svg>
-    </button>
+        <button id="settings-btn" class="icon-btn" title="设置" aria-label="设置">
+          <svg aria-hidden="true"><use href="#i-gear" /></svg>
+        </button>
+      </div>
+    </div>
   </header>
 
-  <section class="controls" aria-label="搜索引擎与筛选">
-    <div class="deck-row">
-      <div class="filter-label">搜索引擎<span class="filter-hint">按分组选择「查询哪些数据源」，逐个引擎的开关在 ⚙ 设置里</span></div>
-      <div id="group-chips" class="chips"></div>
-      <label class="safe-mode-label" title="禁用成人引擎 + 隐藏 NSFW 结果">
-        <input type="checkbox" id="safe-mode-toggle" />
-        <svg class="safe-mode-icon" aria-hidden="true"><use href="#i-shield" /></svg>
-        <span>安全模式</span>
-      </label>
-    </div>
-
-    <div class="deck-row">
-      <span class="filter-label">画质</span>
-      <div id="quality-filters" class="quality-filters">
-        <button type="button" class="qbtn on" data-q="all">全部</button>
-        <button type="button" class="qbtn" data-q="2160p">4K</button>
-        <button type="button" class="qbtn" data-q="1080p">1080p</button>
-        <button type="button" class="qbtn" data-q="720p">720p</button>
-        <button type="button" class="qbtn" data-q="hdr">HDR·Dolby</button>
-      </div>
-      <!-- 内容分类筛选：对已返回结果按内容类型过滤（与「搜索引擎」正交，不影响查询哪些站）。
-           chips 由 renderCategoryFilters() 按本次结果里实际出现的分类动态生成。 -->
-      <span class="filter-label">分类<span class="filter-hint">随本次结果动态出现</span></span>
-      <div id="category-filters" class="quality-filters" hidden></div>
-    </div>
-
-    <div class="toolbar">
-      <label class="field">
-        排序
-        <select id="sort-select">
-          <option value="relevance">相关度（启发式·仅供参考）</option>
-          <option value="seeders">做种数</option>
-          <option value="size">文件大小</option>
-          <option value="date">上传时间</option>
-        </select>
-      </label>
-      <button id="order-btn" class="icon-btn small" title="切换升/降序" aria-label="切换升序或降序">↓</button>
-
-      <label class="field">
-        最小做种
-        <input id="min-seeders" type="number" min="0" placeholder="0" />
-      </label>
-      <label class="field">
-        最小大小
-        <select id="min-size">
-          <option value="0">不限</option>
-          <option value="104857600">≥ 100 MB</option>
-          <option value="1073741824">≥ 1 GB</option>
-          <option value="5368709120">≥ 5 GB</option>
-          <option value="10737418240">≥ 10 GB</option>
-        </select>
-      </label>
-      <label class="field">
-        名称含
-        <input id="name-contains" type="text" placeholder="筛选关键词…" />
-      </label>
-      <button id="reset-filters" class="ghost-btn">重置</button>
+  <!-- 搜索带：页面的主角，常驻可见 -->
+  <section class="hero" aria-label="搜索">
+    <div class="shell">
+      <form id="search-form" class="search-form" autocomplete="off">
+        <div class="search-input-wrap">
+          <svg class="search-icon" aria-hidden="true"><use href="#i-search" /></svg>
+          <input id="search-input" type="text" name="q" aria-label="搜索关键词" spellcheck="false" placeholder="输入关键词，如 Ubuntu, 4K Movie, Naruto…" />
+          <div id="history-dropdown" class="history-dropdown" hidden></div>
+        </div>
+        <button type="submit" id="search-btn">搜索</button>
+      </form>
     </div>
   </section>
 
+  <!-- 引擎分组与筛选 -->
+  <section class="controls" aria-label="搜索引擎与筛选">
+    <div class="shell">
+      <div class="control-row">
+        <span class="control-label">引擎<span class="control-hint">选择查询哪些数据源 · 逐引擎开关在设置里</span></span>
+        <div id="group-chips" class="chips"></div>
+        <label class="safe-toggle" title="禁用成人引擎 + 隐藏 NSFW 结果">
+          <input type="checkbox" id="safe-mode-toggle" />
+          <span class="safe-track" aria-hidden="true"></span>
+          <svg class="safe-icon" aria-hidden="true"><use href="#i-shield" /></svg>
+          <span class="safe-text">安全模式</span>
+        </label>
+      </div>
+
+      <div class="control-row">
+        <span class="control-label">画质</span>
+        <div id="quality-filters" class="quality-filters">
+          <button type="button" class="qbtn on" data-q="all">全部</button>
+          <button type="button" class="qbtn" data-q="2160p">4K</button>
+          <button type="button" class="qbtn" data-q="1080p">1080p</button>
+          <button type="button" class="qbtn" data-q="720p">720p</button>
+          <button type="button" class="qbtn" data-q="hdr">HDR·Dolby</button>
+        </div>
+        <!-- 内容分类筛选：对已返回结果按内容类型过滤（与「引擎」正交，不影响查询哪些站）。
+             chips 由 renderCategoryFilters() 按本次结果里实际出现的分类动态生成。 -->
+        <span class="control-label">分类<span class="control-hint">随本次结果动态出现</span></span>
+        <div id="category-filters" class="quality-filters" hidden></div>
+      </div>
+
+      <div class="toolbar">
+        <label class="field">
+          排序
+          <select id="sort-select">
+            <option value="relevance">相关度（启发式）</option>
+            <option value="seeders">做种数</option>
+            <option value="size">文件大小</option>
+            <option value="date">上传时间</option>
+          </select>
+        </label>
+        <button id="order-btn" class="icon-btn small" title="切换升/降序" aria-label="切换升序或降序">↓</button>
+
+        <label class="field">
+          最小做种
+          <input id="min-seeders" type="number" min="0" placeholder="0" />
+        </label>
+        <label class="field">
+          最小大小
+          <select id="min-size">
+            <option value="0">不限</option>
+            <option value="104857600">≥ 100 MB</option>
+            <option value="1073741824">≥ 1 GB</option>
+            <option value="5368709120">≥ 5 GB</option>
+            <option value="10737418240">≥ 10 GB</option>
+          </select>
+        </label>
+        <label class="field">
+          名称含
+          <input id="name-contains" type="text" placeholder="筛选关键词…" />
+        </label>
+        <button id="reset-filters" class="ghost-btn">重置</button>
+        <div class="layout-toggle" role="group" aria-label="结果布局切换">
+          <button type="button" class="layout-btn on" data-layout="list" title="列表视图" aria-label="列表视图">
+            <svg aria-hidden="true"><use href="#i-list" /></svg>
+          </button>
+          <button type="button" class="layout-btn" data-layout="cards" title="卡片视图" aria-label="卡片视图">
+            <svg aria-hidden="true"><use href="#i-grid" /></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 引擎响应台账：sticky，逐引擎点亮 -->
   <section id="status-bar" class="status-bar" aria-label="引擎响应状态" hidden></section>
 
-  <main id="main">
+  <main id="main" class="shell">
     <div id="search-view">
       <!-- 首屏欢迎区：第一次搜索后由 JS 隐藏 -->
       <div id="welcome" class="welcome">
-        <div class="welcome-glyph" aria-hidden="true"><svg><use href="#i-logo" /></svg></div>
-        <h2 class="welcome-title">一个关键词，扫遍 40+ 种子站</h2>
+        <span class="seal seal-l welcome-seal" aria-hidden="true">种</span>
+        <h2 class="welcome-title">一个关键词，扫遍 <span class="welcome-num">40+</span> 种子站</h2>
         <p class="welcome-sub">聚合搜索 · 跨站去重合并 · 磁力一键推送到 qBittorrent / Transmission / aria2 / Gopeed</p>
         <div class="welcome-samples">
           <button type="button" data-sample="Ubuntu" translate="no">Ubuntu</button>
           <button type="button" data-sample="Big Buck Bunny" translate="no">Big Buck Bunny</button>
           <button type="button" data-sample="Blender" translate="no">Blender</button>
-          <button type="button" data-sample="Fedora">Fedora</button>
+          <button type="button" data-sample="Fedora" translate="no">Fedora</button>
         </div>
-        <p class="welcome-hint">先试试这些开源内容；需要推送下载时，在右上 ⚙ 里配置你的下载器。</p>
+        <p class="welcome-hint">先试试这些开源经典 · 需要推送下载时，到右上角设置里连上你的下载器</p>
       </div>
 
       <div id="results" class="results"></div>
@@ -182,7 +207,7 @@
     </div>
   </div>
 
-  <!-- Settings modal -->
+  <!-- 设置弹窗：下载器 / 引擎开关 / Torznab 索引器 -->
   <div id="settings-modal" class="modal" role="dialog" aria-modal="true" aria-label="设置" hidden>
     <div class="modal-card settings-card">
       <h2>下载工具设置</h2>
@@ -255,6 +280,26 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
+  <script src="ambient.js"></script>
   <script src="app.js"></script>
+  <script>
+    // 结果布局切换：列表 / 卡片，偏好持久化到 localStorage（纯前端，不经过 app.js）
+    (() => {
+      const KEY = 'results-layout';
+      const btns = document.querySelectorAll('.layout-btn');
+      let mode = 'list';
+      try { if (localStorage.getItem(KEY) === 'cards') mode = 'cards'; } catch { /* ignore */ }
+      const apply = () => {
+        document.body.classList.toggle('layout-cards', mode === 'cards');
+        btns.forEach((b) => b.classList.toggle('on', b.dataset.layout === mode));
+      };
+      btns.forEach((b) => b.addEventListener('click', () => {
+        mode = b.dataset.layout;
+        try { localStorage.setItem(KEY, mode); } catch { /* ignore */ }
+        apply();
+      }));
+      apply();
+    })();
+  </script>
 </body>
 </html>
