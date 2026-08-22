@@ -277,9 +277,10 @@ function renderGroupChips() {
   const chip = (key, label, on, extra) => {
     // Safe Mode 下成人分组不渲染，或显示为已禁用状态
     if (key === 'adult' && state.safeMode) return '';
-    return `<div class="chip group-chip${on ? ' on' : ''}" data-group="${esc(key)}"` +
+    return `<button type="button" class="chip group-chip${on ? ' on' : ''}" data-group="${esc(key)}"` +
+      ` aria-pressed="${on ? 'true' : 'false'}"` +
       `${extra ? ` title="${esc(extra)}"` : ''}>` +
-      `<span class="dot"></span>${esc(label)}</div>`;
+      `<span class="dot" aria-hidden="true"></span>${esc(label)}</button>`;
   };
 
   // 「全部」：全选时高亮，点击切换全选/全不选。
@@ -341,10 +342,12 @@ function renderProviderChips() {
     chips.className = 'chips';
     list.forEach((p) => {
       const on = state.selected.has(p.id);
-      const el = document.createElement('div');
+      const el = document.createElement('button');
+      el.type = 'button';
       el.className = `chip${on ? ' on' : ''}${p.demo ? ' demo' : ''}`;
       el.dataset.id = p.id;
-      el.innerHTML = `<span class="dot"></span>${esc(p.name)}`;
+      el.setAttribute('aria-pressed', on ? 'true' : 'false');
+      el.innerHTML = `<span class="dot" aria-hidden="true"></span>${esc(p.name)}`;
       el.onclick = () => toggleProvider(p.id);
       chips.appendChild(el);
     });
@@ -385,6 +388,9 @@ function toggleGroup(g) {
 async function doSearch() {
   state.query = $('#search-input').value.trim();
   if (!state.query) return;
+  // 首屏欢迎区在第一次搜索后隐藏。
+  const welcome = $('#welcome');
+  if (welcome) welcome.hidden = true;
   // 全不选时不发请求：后端对空 providers 会 fallback 到「搜所有引擎」，与用户
   // 「全不选」的意图相反。这里短路，清空结果并提示去勾选引擎。
   if (allProviders.length && state.selected.size === 0) {
@@ -394,6 +400,7 @@ async function doSearch() {
     state.status = {};
     state.hasMore = false;
     state.loading = false;
+    document.body.classList.remove('searching');
     renderStatus(state.status);
     render();
     $('#empty').hidden = false;
@@ -430,6 +437,8 @@ function loadPage() {
   if (!state.hasMore && state.page > 1) return;
   state.loading = true;
   $('#loading').hidden = false;
+  // 搜索进行中：状态条出现扫描线动画（见 styles.css 的 body.searching）。
+  document.body.classList.add('searching');
 
   // 记录本页开始前的已有结果数，用于判断本页是否有新增（防重复数据虚报翻页）。
   const prevCount = state.all.length;
@@ -458,6 +467,7 @@ function loadPage() {
     if (myId !== state.searchId) return; // 已被新搜索取代，别动新搜索的加载态
     state.loading = false;
     $('#loading').hidden = true;
+    document.body.classList.remove('searching');
     // 只有本页确实产出了新结果才翻页，否则即便服务端说 hasMore 也停住
     // （某些分页引擎每页返回相同结果，去重后无新卡片，应停止翻页）。
     if (state.hasMore && state.all.length > prevCount) state.page++;
@@ -549,13 +559,20 @@ function renderStatus(providers) {
   const entries = Object.entries(providers);
   if (!entries.length) { bar.hidden = true; return; }
   bar.hidden = false;
-  bar.innerHTML = entries.map(([id, s]) => {
+  const okCount = entries.filter(([, s]) => s.status === 'ok').length;
+  const sum = `<span class="status-pill status-sum"><b>${okCount}/${entries.length}</b> 已响应</span>`;
+  bar.innerHTML = sum + entries.map(([id, s]) => {
     const cls = s.status === 'ok' ? 'ok' : 'err';
     const mark = s.status === 'ok' ? '✓' : '✕';
     const label = PROVIDER_LABEL[id] || id;
-    const ms = s.ms != null ? ` ${s.ms}ms` : '';
-    const detail = s.error ? ` (${s.error})` : ` · ${s.count} 条${ms}`;
-    return `<span class="status-pill"><b>${label}</b> <span class="${cls}">${mark}${detail}</span></span>`;
+    const ms = s.ms != null ? ` · ${s.ms}ms` : '';
+    // 错误只保留短显示（悬停 title 看全文）：41 个引擎全失败时长错误串会把结果区挤出屏幕。
+    const errFull = s.error ? String(s.error) : '';
+    const errShort = errFull.length > 22 ? `${errFull.slice(0, 22)}…` : errFull;
+    const detail = s.error ? `${mark} ${errShort}` : `${mark} ${s.count} 条${ms}`;
+    return `<span class="status-pill"${s.error ? ` title="${esc(label)}: ${esc(errFull)}"` : ''}>` +
+      `<span class="status-dot ${cls}" aria-hidden="true"></span>` +
+      `<b>${esc(label)}</b><span class="status-meta">${esc(detail)}</span></span>`;
   }).join('');
 }
 
@@ -696,26 +713,27 @@ function singleCardHTML(it) {
     .join('');
   const multi = provs.length > 1 ? `<span class="badge multi">${provs.length} 个来源</span>` : '';
   const faved = isFavorited(it.key);
-  const favBtn = `<button class="fav-btn${faved ? ' on' : ''}" data-act="fav" data-id="${esc(it.key)}" title="${faved ? '取消收藏' : '收藏'}">${faved ? '★' : '☆'}</button>`;
+  const favBtn = `<button class="fav-btn${faved ? ' on' : ''}" data-act="fav" data-id="${esc(it.key)}" title="${faved ? '取消收藏' : '收藏'}" aria-label="${faved ? '取消收藏' : '收藏'}">${faved ? '★' : '☆'}</button>`;
   const checked = state.checked.has(it.key);
   const viewed = state.viewed.has(it.infoHash);
-  const checkBox = `<input type="checkbox" class="card-check" data-act="check" data-id="${esc(it.key)}"${checked ? ' checked' : ''} title="选择用于批量操作" />`;
+  const checkBox = `<input type="checkbox" class="card-check" data-act="check" data-id="${esc(it.key)}"${checked ? ' checked' : ''} title="选择用于批量操作" aria-label="选择用于批量操作" />`;
   return `
   <div class="card${checked ? ' checked' : ''}${viewed ? ' viewed' : ''}" data-id="${esc(it.key)}">
     ${checkBox}
     ${favBtn}
-    <div class="name">${highlight(it.name, state.query)}</div>
+    <div class="name" title="${esc(it.name)}">${highlight(it.name, state.query)}</div>
     <div class="badges">
       ${sourceBadges}
       ${multi}
       ${cat}
     </div>
     <div class="stats">
-      <span class="seed">▲ 做种 <b>${seed}</b></span>
-      <span class="leech">▼ 下载 <b>${leech}</b></span>
-      <span>大小 <b>${size}</b></span>
-      <span>时间 <b>${date}</b></span>
+      <span class="stat"><span class="stat-k">做种</span><span class="stat-v seed">▲ ${seed}</span></span>
+      <span class="stat"><span class="stat-k">下载</span><span class="stat-v leech">▼ ${leech}</span></span>
+      <span class="stat"><span class="stat-k">大小</span><span class="stat-v">${size}</span></span>
+      <span class="stat"><span class="stat-k">时间</span><span class="stat-v">${date}</span></span>
     </div>
+    ${seedBarHTML(it)}
     <div class="actions">
       ${magnetBtn}
       ${dlBtn}
@@ -742,10 +760,10 @@ function stackedCardHTML(it) {
     .map((pid) => `<span class="badge prov-${pid}">${esc(PROVIDER_LABEL[pid] || pid)}</span>`)
     .join('');
   const faved = isFavorited(it.key);
-  const favBtn = `<button class="fav-btn${faved ? ' on' : ''}" data-act="fav" data-id="${esc(it.key)}" title="${faved ? '取消收藏' : '收藏'}">${faved ? '★' : '☆'}</button>`;
+  const favBtn = `<button class="fav-btn${faved ? ' on' : ''}" data-act="fav" data-id="${esc(it.key)}" title="${faved ? '取消收藏' : '收藏'}" aria-label="${faved ? '取消收藏' : '收藏'}">${faved ? '★' : '☆'}</button>`;
   const checked = state.checked.has(it.key);
   const viewed = state.viewed.has(it.infoHash);
-  const checkBox = `<input type="checkbox" class="card-check" data-act="check" data-id="${esc(it.key)}"${checked ? ' checked' : ''} title="选择用于批量操作" />`;
+  const checkBox = `<input type="checkbox" class="card-check" data-act="check" data-id="${esc(it.key)}"${checked ? ' checked' : ''} title="选择用于批量操作" aria-label="选择用于批量操作" />`;
 
   // 来源行：站名徽章 + 磁力（截断显示，title 给全文）+ 复制/详情。
   // 磁力未就绪的来源显示占位文案，走整卡的「获取磁力」统一解析后即出现。
@@ -768,18 +786,19 @@ function stackedCardHTML(it) {
   <div class="card stacked-card${checked ? ' checked' : ''}${viewed ? ' viewed' : ''}" data-id="${esc(it.key)}">
     ${checkBox}
     ${favBtn}
-    <div class="name">${highlight(it.name, state.query)}</div>
+    <div class="name" title="${esc(it.name)}">${highlight(it.name, state.query)}</div>
     <div class="badges">
       ${sourceBadges}
       <span class="badge multi">${provs.length} 个来源</span>
       ${cat}
     </div>
     <div class="stats">
-      <span class="seed">▲ 做种 <b>${seed}</b></span>
-      <span class="leech">▼ 下载 <b>${leech}</b></span>
-      <span>大小 <b>${size}</b></span>
-      <span>时间 <b>${date}</b></span>
+      <span class="stat"><span class="stat-k">做种</span><span class="stat-v seed">▲ ${seed}</span></span>
+      <span class="stat"><span class="stat-k">下载</span><span class="stat-v leech">▼ ${leech}</span></span>
+      <span class="stat"><span class="stat-k">大小</span><span class="stat-v">${size}</span></span>
+      <span class="stat"><span class="stat-k">时间</span><span class="stat-v">${date}</span></span>
     </div>
+    ${seedBarHTML(it)}
     <div class="stacked-sources" hidden>
       <div class="stacked-sources-title">来源详情（同一种子，多站命中）</div>
       ${rows}
@@ -797,6 +816,18 @@ function stackedCardHTML(it) {
 function shortMagnet(m, n = 56) {
   const s = String(m || '');
   return s.length > n ? `${s.slice(0, n)}…` : s;
+}
+
+// 做种健康条：用做种/(做种+下载) 比例直观展示 swarm 健康度，绿→黄→红三色。
+// 这是 frontend-design 的 signature 元素 — 编码真信息而非装饰。
+function seedBarHTML(it) {
+  const s = it.seeders, l = it.leechers;
+  if ((s == null || s === 0) && (l == null || l === 0)) return '';
+  const total = (s || 0) + (l || 0);
+  if (total === 0) return '';
+  const pct = Math.round((s || 0) / total * 100);
+  const color = pct > 66 ? 'var(--green)' : pct > 33 ? 'var(--yellow)' : 'var(--red)';
+  return `<div class="seed-bar"><div class="seed-fill" style="width:${pct}%;background:${color}"></div></div>`;
 }
 
 function esc(s) {
@@ -1439,10 +1470,11 @@ function renderHistory() {
     `<div class="history-head"><span>最近搜索</span>` +
     `<button class="history-clear" data-clear="1">清空全部</button></div>`;
   const items = state.history.map((h) =>
-    `<div class="history-item" data-q="${esc(h)}">` +
-    `<span class="h-icon">🕘</span>` +
-    `<span class="h-term">${esc(h)}</span>` +
-    `<button class="h-del" data-del="${esc(h)}" title="删除">✕</button>` +
+    `<div class="history-item">` +
+    `<button type="button" class="history-term" data-q="${esc(h)}">` +
+    `<svg class="h-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>` +
+    `<span class="h-term">${esc(h)}</span></button>` +
+    `<button type="button" class="h-del" data-del="${esc(h)}" title="删除" aria-label="删除 ${esc(h)}">✕</button>` +
     `</div>`
   ).join('');
   box.innerHTML = head + items;
@@ -1550,6 +1582,15 @@ $('#category-filters').addEventListener('click', (e) => {
 
 // 历史下拉：聚焦展示，点选填入并搜索，✕ 删除单条。用 mousedown 抢在 blur 之前，
 // 否则输入框 blur 先隐藏下拉，点击落空。
+// 欢迎页示例关键词：点击直接填入并搜索。
+const welcomeEl = $('#welcome');
+if (welcomeEl) welcomeEl.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-sample]');
+  if (!b) return;
+  $('#search-input').value = b.dataset.sample;
+  doSearch();
+});
+
 $('#search-input').addEventListener('focus', showHistory);
 $('#search-input').addEventListener('blur', () => setTimeout(hideHistory, 120));
 
@@ -1568,16 +1609,30 @@ $('#history-dropdown').addEventListener('mousedown', (e) => {
     removeHistory(del.dataset.del);
     return;
   }
-  const item = e.target.closest('.history-item');
-  if (!item) return;
+  const term = e.target.closest('.history-term');
+  if (!term) return;
   e.preventDefault();
-  $('#search-input').value = item.dataset.q;
+  $('#search-input').value = term.dataset.q;
   hideHistory();
   if (state.view !== 'search') switchView('search');
   doSearch();
+});
+
+// ESC 关闭弹窗
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (!$('#detail-modal').hidden) closeDetail();
+  if (!$('#settings-modal').hidden) closeSettings();
 });
 
 // ---------- init ----------
 loadProviders();
 autoDetectDownloader();
 renderFavCount();
+
+// 深链：?q=<关键词> 打开即自动搜索，搜索可分享为 URL。
+const initQ = new URLSearchParams(location.search).get('q');
+if (initQ) {
+  $('#search-input').value = initQ;
+  doSearch();
+}
