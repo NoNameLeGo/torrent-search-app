@@ -308,10 +308,10 @@ body {
 }
 .primary-btn:hover { filter: brightness(1.1); }
 
-/* ---- 引擎状态条（signature：搜索时扫描线掠过，逐站点亮） ---- */
+/* ---- 引擎状态条（逐站点亮） ---- */
 
 .status-bar {
-  position: relative; overflow-x: hidden; overflow-y: auto;
+  overflow-y: auto;
   max-height: 92px; /* 大量引擎失败时不无限长高，超出滚动 */
   display: flex; flex-wrap: wrap; align-items: center; gap: 5px 14px;
   padding: 7px 20px;
@@ -331,16 +331,6 @@ body {
   color: var(--accent); font-weight: 500;
 }
 .status-sum b { color: var(--accent); font-weight: 600; }
-
-body.searching .status-bar::after {
-  content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 140px;
-  background: linear-gradient(90deg, transparent, rgba(203, 166, 247, .12), transparent);
-  animation: scan 1.5s linear infinite;
-}
-@keyframes scan {
-  from { transform: translateX(-160px); }
-  to { transform: translateX(105vw); }
-}
 
 /* ---- 结果区 ---- */
 

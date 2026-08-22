@@ -400,7 +400,6 @@ async function doSearch() {
     state.status = {};
     state.hasMore = false;
     state.loading = false;
-    document.body.classList.remove('searching');
     renderStatus(state.status);
     render();
     $('#empty').hidden = false;
@@ -437,8 +436,6 @@ function loadPage() {
   if (!state.hasMore && state.page > 1) return;
   state.loading = true;
   $('#loading').hidden = false;
-  // 搜索进行中：状态条出现扫描线动画（见 styles.css 的 body.searching）。
-  document.body.classList.add('searching');
 
   // 记录本页开始前的已有结果数，用于判断本页是否有新增（防重复数据虚报翻页）。
   const prevCount = state.all.length;
@@ -467,7 +464,6 @@ function loadPage() {
     if (myId !== state.searchId) return; // 已被新搜索取代，别动新搜索的加载态
     state.loading = false;
     $('#loading').hidden = true;
-    document.body.classList.remove('searching');
     // 只有本页确实产出了新结果才翻页，否则即便服务端说 hasMore 也停住
     // （某些分页引擎每页返回相同结果，去重后无新卡片，应停止翻页）。
     if (state.hasMore && state.all.length > prevCount) state.page++;
