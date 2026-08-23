@@ -257,13 +257,48 @@ percent-encode，个别老旧下载工具会拿到编码串或问号名，这是
 - ~~`src/lib/http.js` `getText/getJSON/postJSON` 展开顺序 bug — `...opts` 在 headers 合并之后展开，若调用方传 headers 会整体覆盖合并结果~~ ✅ 已修复（2026-08-12）：先解构 headers，再展开 rest
 - ~~No tests at all~~ **✅ 已修复（2026-08-14）：** 新增 golden-file 测试框架，使用 Node.js 内置 `assert` 模块，零依赖。当前覆盖 `tpb.js` 和 `normalize.js`，后续可扩展到其他 provider。
 
-### 待修复（2026-08-20 审查新发现）
+### ✅ 已修复（2026-08-20 审查新发现）
 
-修复 Tauri sidecar 后顺带复查 `server.js` / `public/app.js` / `src/lib/*`，新发现以下未记录问题（按优先级）：
+修复 Tauri sidecar 后顺带复查 `server.js` / `public/app.js` / `src/lib/*`。
 
-1. **中 — CSV 公式注入**（`public/app.js` `batchExportCsv`）：`cell()` 只转义 `",\n`，未处理以 `=` `+` `-` `@` `\t` 开头的单元格。第三方站点的种子标题可注入 Excel/WPS 公式（如 `=HYPERLINK("http://…")`、`=cmd|…`），用户导出后用 Excel 打开即触发。修复：单元格匹配 `/^[=+\-@\t\r]/` 时前缀单引号 `'`。
-2. **中 — localStorage 解析无容错 → 白屏**（`public/app.js` ~L27-28）：`state.history` / `state.favorites` 直接 `JSON.parse` 无 try/catch。localStorage 损坏（手动编辑 / 浏览器扩展写入 / 旧版本格式）会让 state 初始化抛 SyntaxError，整个脚本中断白屏——与 2026-08-10 的 `dlShort` 白屏事故同类。对比：`loadDownloader` / `loadSafeMode` / `loadViewed` 都有 try/catch，唯独这两处裸奔。修复：抽一个 `loadJSON(key, fallback)` 统一容错并覆盖 history/favorites。
-3. **中 — Host header 未校验 → DNS rebinding**（`server.js`）：所有 `/api/*` 绑定 127.0.0.1 但未校验请求 Host。恶意网页借 DNS rebinding 让 evil.com 解析到 127.0.0.1，浏览器视作同源绕过 CORS，可读响应并调用写端点（`/api/download/push`、`/api/torznab` 含明文 API key、`/api/magnet`、`/api/torznab/test`）。修复：全局中间件校验 `req.hostname` ∈ {127.0.0.1, localhost}，否则 403。这是上方「SSRF-ish」记录之外的补充维度。
+1. ✅ **CSV 公式注入**（`public/app.js` `batchExportCsv`）：`cell()` 已加 `/^[=+\-@\t\r]/` 前缀单引号防御。
+2. ✅ **localStorage 解析无容错**：已抽 `loadJSON(key, fallback)` 统一容错，覆盖 history/favorites。
+3. ✅ **DNS rebinding 防御**：`server.js` 已加 Host header 校验中间件，非 127.0.0.1/localhost 返回 403。
+
+### 优化建议（2026-08-23 全量审查）
+
+以下从编码者角度梳理的优化项，按优先级排列：
+
+1. **`public/app.js` 1634 行单体巨石** — 全量逻辑（搜索/渲染/收藏/设置/历史/CSV/事件绑定）塞在一个文件里，无模块拆分、无测试锚点。应拆为 `js/state.js`、`js/render.js`、`js/actions.js`、`js/history.js`、`js/settings.js`、`js/main.js` 等模块。
+2. **Provider 解析逻辑仍高度重复** — 42 个 provider 自己的 HTML 解析（cheerio 选择器链 + 字段映射）高度相似，虽已通过 `runMirrors`/`normalize`/`extractInfoHash` 消除部分重复，但选择器链仍可声明式配置化。可考虑 JSON DSL 减少 90% 样板代码。
+3. **缺少请求速率控制** — `searchStream()` 对所有启用的引擎同时发起最多 41 个并发 HTTP 请求，对第三方站点近乎 DDoS。应加并发上限（如 5-8 个）。
+4. **`PROVIDER_LABEL` 初始态不完整** — 硬编码仅 4 个，`loadProviders()` 完成后才动态填充。首屏瞬间状态栏/徽章显示 raw id。可改为服务端 `/api/providers` 直接返回完整映射，或提前静态声明。
+5. **无 build 步骤** — JS/CSS 直接服务无压缩。加 `esbuild` minify 即可。
+6. **Provider 级别超时策略单一** — `http.js` 全局 10s，但不同站点响应速度差异大。对已知慢站点应给更长超时，快站点缩短以减少等待。
+
+### ✅ 已修复（本轮审查 — 2026-08-23 补充）
+
+以下为本轮全量遍历新发现的 8 个问题，已全部收口：
+
+1. ✅ **SSE 监听器泄漏**（`public/app.js` `loadPage()`）— `done`/`error` 监听器未移除，每个页面周期泄漏 2 个闭包。已改为 `{ once: true }`。
+2. ✅ **筛选输入无防抖**（`public/app.js` L1306-1308）— `min-seeders`/`min-size`/`name-contains` 每次 `input` 都触发 `render()`，1000+ 条结果时明显卡顿。已加 150ms `debounce()`。
+3. ✅ **`relevanceScore` 副作用污染状态**（`public/app.js` `visibleResults()`）— 直接给 `state.groups` 对象写 `_score` 属性。已改为临时 `scored` 数组，不修改源数据。
+4. ✅ **「打开磁力」离开当前页面**（`public/app.js` L953 + 详情弹窗）— `window.location.href = m` 让浏览器导航离开。已改为 `window.open(m, '_blank', 'noopener')`。
+5. ✅ **无搜索结果计数**（`public/app.js` `render()`）— 用户不知道筛选后还剩多少条。已加 `#result-summary` 概览行（筛选后数量 / 去重前总数 / 排序方式）。
+6. ✅ **清空搜索历史无确认**（`public/app.js` `clearHistory()`）— 误点一键清空全部历史。已加 `confirm()` 二次确认。
+7. ✅ **搜索无法中途取消**（`public/app.js` `doSearch()` + `loadPage()`）— 搜索中按钮仍是「搜索」，只能等或刷新。已改为搜索中显示「取消」（红色），点击即中断；搜索结束自动恢复。
+8. ✅ **批量推送串行瓶颈**（`public/app.js` `batchSendToClient()`）— 选 50 条要等 50 个往返。已改为并发推送（每批 5 条 `Promise.allSettled`）。
+
+**受影响文件**：`public/app.js`（+47 行，~8 处改动）、`public/index.html`（+1 行）、`public/styles.css`（+19 行）。
+
+### 待修复（本轮审查 — 剩余未修项）
+
+以下在本轮审查中识别，但因 ROI 或依赖未在本轮修复：
+
+1. **无限滚动无页码指示** — 纯无限滚动，用户不知道在第几页。建议加「第 N 页」或「回到顶部」按钮。
+2. **引擎状态搜索前不可见** — 状态栏只在搜索后出现。建议缓存上次搜索的引擎状态，或搜索框聚焦时做轻量连通检查。
+3. **缺 lint/format 工具链** — 1634 行 `app.js` 无自动化质量保障。建议加 ESLint + Prettier。
+4. **测试覆盖不足** — 38 个 provider 零覆盖。当前仅 `tpb.js`、`linuxtracker.js`、`normalize.js` 有 golden-file 测试。
 
 ## Syncing features between `main` and `feat/tauri`
 

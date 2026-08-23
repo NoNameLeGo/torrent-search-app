@@ -66,6 +66,9 @@
         <button id="settings-btn" class="icon-btn" title="设置" aria-label="设置">
           <svg aria-hidden="true"><use href="#i-gear" /></svg>
         </button>
+        <button id="theme-btn" class="icon-btn" title="切换亮色/暗色主题" aria-label="切换主题">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        </button>
       </div>
     </div>
   </header>
@@ -175,12 +178,16 @@
         <p class="welcome-hint">先试试这些开源经典 · 需要推送下载时，到右上角设置里连上你的下载器</p>
       </div>
 
+      <div id="result-summary" class="result-summary" hidden></div>
       <div id="results" class="results"></div>
       <div id="sentinel" class="sentinel"></div>
       <div id="loading" class="loading" hidden>加载中…</div>
       <div id="empty" class="empty" hidden>没有结果。试试别的关键词，或检查引擎状态。</div>
     </div>
     <div id="favorites-view" hidden>
+      <div class="fav-toolbar">
+        <input id="fav-search" type="text" class="fav-search" placeholder="搜索收藏…" />
+      </div>
       <div id="favorites" class="results"></div>
       <div id="favorites-empty" class="empty" hidden>收藏夹还是空的。在搜索结果里点 ☆ 收藏，就会出现在这里。</div>
     </div>
@@ -250,6 +257,12 @@
       <hr class="sep" />
       <h2>搜索引擎</h2>
       <p class="hint">逐个开关内置引擎。主界面顶部的分组切换是这里选择结果的快捷入口——勾选状态两处共享。</p>
+      <div class="preset-btns">
+        <span class="hint">预设：</span>
+        <button type="button" class="ghost-btn" data-preset="recommended">推荐（8 个）</button>
+        <button type="button" class="ghost-btn" data-preset="standard">标准（20 个）</button>
+        <button type="button" class="ghost-btn" data-preset="all">全部</button>
+      </div>
       <div id="provider-chips" class="chips"></div>
 
       <hr class="sep" />
@@ -281,7 +294,7 @@
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
   <script src="ambient.js"></script>
-  <script src="app.js"></script>
+  <script type="module" src="js/main.js"></script>
   <script>
     // 结果布局切换：列表 / 卡片，偏好持久化到 localStorage（纯前端，不经过 app.js）
     (() => {

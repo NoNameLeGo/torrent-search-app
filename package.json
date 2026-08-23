@@ -20,7 +20,8 @@
     "build:sidecar": "node scripts/prepare-sidecar.mjs",
     "test": "node test/run.js && node test/normalize.test.js",
     "test:watch": "nodemon test/run.js test/normalize.test.js",
-    "release:check": "node scripts/release-check.js"
+    "release:check": "node scripts/release-check.js",
+    "build:frontend": "node scripts/build-frontend.js"
   },
   "dependencies": {
     "axios": "^1.7.7",
@@ -57,6 +58,7 @@
   "devDependencies": {
     "@tauri-apps/cli": "^2",
     "electron": "^43.1.0",
-    "electron-builder": "^26.15.3"
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.2"
   }
 }
