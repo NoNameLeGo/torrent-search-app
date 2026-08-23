@@ -68,6 +68,46 @@
   --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, "Microsoft YaHei", monospace;
 }
 
+/* Light theme: Catppuccin Latte */
+.light {
+  color-scheme: light;
+  --base:     #eff1f5;
+  --mantle:   #e6e9ef;
+  --crust:    #dce0e8;
+  --surface0: #ccd0da;
+  --surface1: #bcc0cc;
+  --surface2: #acb0be;
+  --overlay1: #8c8fa1;
+  --overlay2: #7c7f93;
+  --subtext0: #6c6f85;
+  --subtext1: #5c5f77;
+  --text:     #4c4f69;
+  --green:    #40a02b;
+  --yellow:   #df8e1d;
+  --red:      #d20f39;
+  --teal:     #179299;
+  --blue:     #1e66f5;
+  --glass:        color-mix(in srgb, var(--surface0) 40%, transparent);
+  --glass-hover:  color-mix(in srgb, var(--surface0) 60%, transparent);
+  --glass-raised: color-mix(in srgb, var(--surface0) 70%, transparent);
+  --well:         rgba(220, 224, 232, .55);
+  --rim:          rgba(76, 79, 105, .12);
+  --rim-soft:     rgba(76, 79, 105, .06);
+  --rim-strong:   rgba(76, 79, 105, .20);
+  --edge:         inset 0 1px 0 rgba(255, 255, 255, .5);
+  --drop:         0 10px 32px rgba(0, 0, 0, .12);
+  --bg-hover:     rgba(76, 79, 105, .06);
+  --line:         rgba(76, 79, 105, .08);
+  --line-strong:  rgba(76, 79, 105, .15);
+  --text-strong:  var(--text);
+  --dim:          var(--subtext0);
+  --faint:        var(--overlay1);
+  --on-accent:    #eff1f5;
+  --overlay:      rgba(239, 241, 245, .70);
+  --shadow-1:     0 1px 2px rgba(0, 0, 0, .08);
+  --shadow-pop:   var(--drop);
+}
+
 /* ---- base ---- */
 
 * { box-sizing: border-box; }
@@ -159,6 +199,23 @@ h1, h2, h3, p { margin: 0; }
   padding: 1px 7px; border-radius: var(--pill); margin-left: 2px;
 }
 
+.fav-toolbar { padding: 8px 0 12px; }
+.fav-search {
+  width: 280px; max-width: 100%;
+  height: 34px; padding: 0 12px;
+  border: 1px solid var(--rim); border-radius: var(--r-s);
+  background: var(--well); color: var(--text);
+  font-size: 13px; font-family: var(--font-body);
+}
+.fav-search:focus { outline: none; border-color: var(--accent); box-shadow: var(--ring); }
+.fav-search::placeholder { color: var(--faint); }
+
+.preset-btns {
+  display: flex; align-items: center; gap: 6px; margin-bottom: 12px; flex-wrap: wrap;
+}
+.preset-btns .hint { margin-bottom: 0; }
+.preset-btns .ghost-btn { font-size: 12px; padding: 3px 10px; }
+
 .icon-btn {
   width: 34px; height: 34px; flex: none;
   display: inline-grid; place-items: center;
@@ -204,6 +261,21 @@ h1, h2, h3, p { margin: 0; }
 }
 #search-btn:hover { filter: brightness(1.07); }
 #search-btn:active { transform: translateY(1px); }
+/* 取消按钮：搜索中变色为警告红，提示可中断 */
+#search-btn.cancel {
+  background: var(--red); color: var(--crust);
+  box-shadow: var(--edge), 0 4px 16px rgba(243, 139, 168, .25);
+}
+#search-btn.cancel:hover { filter: brightness(1.1); }
+
+/* 结果概览：显示筛选后数量 / 去重前总数 + 排序方式 */
+.result-summary {
+  padding: 6px 0 12px;
+  font-size: 13px; color: var(--dim);
+  display: flex; align-items: baseline; gap: 8px;
+}
+.summary-num { font-weight: 600; color: var(--text-strong); }
+.summary-meta { font-size: 12px; color: var(--faint); }
 
 /* 搜索历史下拉：raised 玻璃 + 真模糊 */
 .history-dropdown {
@@ -729,27 +801,55 @@ body.layout-cards .loading, body.layout-cards .empty, body.layout-cards .sentine
 }
 
 @media (max-width: 640px) {
-  .shell { padding-inline: 16px; }
+  .shell { padding-inline: 12px; }
+  .brand h1 { font-size: 16px; }
   .brand-sub { display: none; }
   .masthead-side { margin-left: auto; }
-  .hero { padding-top: 12px; }
-  #search-input { height: 44px; font-size: 16px; }
-  #search-btn { height: 44px; padding: 0 18px; }
+  .hero { padding-top: 8px; }
+  .search-form { gap: 6px; }
+  #search-input { height: 42px; font-size: 15px; padding: 0 14px 0 36px; }
+  #search-btn { height: 42px; padding: 0 14px; font-size: 14px; }
   .control-hint { display: none; }
+  .control-row { flex-wrap: wrap; gap: 6px; }
+  .control-label { min-width: auto; }
+  .group-chip { font-size: 12px; padding: 3px 10px; }
   .safe-toggle { margin-left: 0; width: 100%; }
-  .toolbar { gap: 8px 10px; }
-  .toolbar .field { flex: 1 1 40%; }
+  .toolbar { gap: 6px 8px; flex-wrap: wrap; }
+  .toolbar .field { flex: 1 1 45%; }
   .layout-toggle { margin-left: 0; }
   #min-seeders, #name-contains { width: 100%; }
-  .card { padding: 13px 40px 12px 34px; }
-  .card-check { left: 9px; }
-  .fav-btn { right: 3px; }
-  .name { padding-right: 30px; font-size: 15px; }
-  .stats { gap: 3px 14px; font-size: 12.5px; }
-  .stacked-card { padding: 13px 34px 12px 38px; margin: 10px 0; }
-  .detail-row { grid-template-columns: 84px 1fr; }
+  .results { column-count: 1; }
+  .card { padding: 12px 36px 10px 30px; margin: 6px 0; }
+  .card-check { left: 8px; top: 10px; }
+  .fav-btn { right: 2px; top: 8px; font-size: 15px; }
+  .name { padding-right: 28px; font-size: 14px; }
+  .stats { gap: 2px 10px; font-size: 12px; }
+  .actions { gap: 4px; flex-wrap: wrap; }
+  .actions .btn { font-size: 12px; padding: 4px 10px; }
+  .stacked-card { padding: 12px 30px 10px 34px; margin: 8px 0; }
+  .stacked-source { flex-wrap: wrap; gap: 4px; }
+  .src-magnet { max-width: 140px; font-size: 11px; }
+  .detail-row { grid-template-columns: 76px 1fr; font-size: 13px; }
   .dl-auth { grid-template-columns: 1fr; }
-  .modal-card { padding: 20px 18px; }
-  .batch-bar { bottom: 12px; padding: 8px 10px; gap: 8px; }
-  .toast { bottom: 76px; }
+  .modal-card { padding: 18px 14px; max-width: 100vw; border-radius: 18px 18px 0 0; }
+  .batch-bar { bottom: 8px; left: 8px; right: 8px; padding: 6px 8px; gap: 6px; border-radius: 14px; }
+  .batch-bar .btn { font-size: 12px; padding: 4px 10px; }
+  .toast { bottom: 68px; font-size: 12px; padding: 8px 14px; }
+  .status-bar { gap: 4px; padding: 6px 4px; }
+  .status-pill { font-size: 11px; padding: 2px 7px; }
+  .welcome { padding: 16px 0 28px; }
+  .welcome-title { font-size: 18px; }
+  .welcome h2 { font-size: 20px; }
+  .welcome-seal { font-size: 48px; }
+  .welcome-samples { flex-wrap: wrap; gap: 6px; }
+  .welcome-samples button { font-size: 13px; padding: 6px 14px; }
+  .fav-toolbar { padding: 8px 0; }
+  .fav-search { width: 100%; }
+  .preset-btns { flex-wrap: wrap; gap: 4px; }
+  .preset-btns .ghost-btn { font-size: 12px; padding: 4px 8px; }
+  .pgroup-head { font-size: 13px; }
+  .chip { font-size: 12px; padding: 3px 10px; }
+  .seal { font-size: 28px; }
+  .brand .seal { width: 32px; height: 32px; font-size: 18px; }
+  .settings-card { max-height: 85vh; overflow-y: auto; }
 }

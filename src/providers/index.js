@@ -194,38 +194,72 @@ function aggregateHasMore(targets, perProvider) {
   });
 }
 
-// Run search across the requested (enabled) providers in parallel.
+// Concurrency-limited Promise.all: runs at most `limit` async tasks at once.
+// Each result is passed to `onSettle(result)` as soon as it resolves, before
+// the next task starts — preserving the streaming behavior of searchStream.
+// ponytail: simple pool, replace with p-limit if per-task prioritization matters.
+async function asyncPool(tasks, limit, onSettle) {
+  const results = [];
+  const executing = new Set();
+  for (const task of tasks) {
+    const p = Promise.resolve(task()).then((r) => {
+      onSettle && onSettle(r);
+      return r;
+    });
+    results.push(p);
+    executing.add(p);
+    const clean = () => executing.delete(p);
+    p.then(clean, clean);
+    if (executing.size >= limit) await Promise.race(executing);
+  }
+  return Promise.all(results);
+}
+
+// ponytail: 8 concurrent requests to third-party sites — enough to keep the
+// pipe full without looking like a DDoS. Bump if providers add more mirrors.
+const MAX_CONCURRENT = 8;
+
+// Run search across the requested (enabled) providers with concurrency control.
 // Each provider is isolated: a failure in one never breaks the others.
 async function search(query, { providers = null, page = 1 } = {}) {
   const targets = resolveTargets(providers, page);
 
   const perProvider = {};
-  const settled = await Promise.all(targets.map(async (p) => {
-    const { results, status } = await runProvider(p, query, page);
-    perProvider[p.id] = status;
-    return results;
-  }));
+  const allResults = [];
+  await asyncPool(
+    targets.map((p) => () =>
+      runProvider(p, query, page).then(({ results, status }) => {
+        perProvider[p.id] = status;
+        allResults.push(...results);
+      })
+    ),
+    MAX_CONCURRENT
+  );
 
-  const results = settled.flat();
   const hasMore = aggregateHasMore(targets, perProvider);
-  return { results, providers: perProvider, hasMore };
+  return { results: allResults, providers: perProvider, hasMore };
 }
 
 // Streaming variant: invoke onProvider({ id, name, results, status }) as soon
 // as each provider settles, so the caller (SSE endpoint) can push incremental
-// updates instead of waiting for the slowest provider. Resolves once every
+// updates instead of waiting for the slowest provider. Concurrency-limited to
+// MAX_CONCURRENT to avoid flooding third-party sites. Resolves once every
 // provider has reported, returning the same aggregate as search().
 async function searchStream(query, { providers = null, page = 1 } = {}, onProvider) {
   const targets = resolveTargets(providers, page);
 
   const perProvider = {};
-  await Promise.all(targets.map(async (p) => {
-    const { results, status } = await runProvider(p, query, page);
-    perProvider[p.id] = status;
-    if (typeof onProvider === 'function') {
-      onProvider({ id: p.id, name: p.name, results, status });
-    }
-  }));
+  await asyncPool(
+    targets.map((p) => () =>
+      runProvider(p, query, page).then(({ results, status }) => {
+        perProvider[p.id] = status;
+        if (typeof onProvider === 'function') {
+          onProvider({ id: p.id, name: p.name, results, status });
+        }
+      })
+    ),
+    MAX_CONCURRENT
+  );
 
   const hasMore = aggregateHasMore(targets, perProvider);
   return { providers: perProvider, hasMore };
