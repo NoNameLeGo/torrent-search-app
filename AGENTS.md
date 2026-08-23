@@ -273,27 +273,25 @@ percent-encode，个别老旧下载工具会拿到编码串或问号名，这是
 5. ✅ **Build 步骤** — `esbuild` minify → `npm run build:frontend`，输出到 `public/dist/`。
 6. ✅ **Provider 级别超时策略** — `scrapeRows`/`createProvider` 支持 `timeout` 选项，各 provider 可覆盖默认 10s。
 
-### 待修复（本轮审查 — 2026-08-23 补充，代码未实际落地）
+### ✅ 已修复（本轮审查 — phantom fixes 落地，2026-08-23）
 
-以下 8 项在文档中记录为已修复，但实际代码中未找到对应改动，需重新确认：
+以下 8 项此前仅在文档中标记为已修复，代码实际未落地，现已全部收口：
 
-1. **SSE 监听器泄漏**（`main.js` `loadPage()`）— `done`/`error` 监听器应在完成后移除，避免每页泄漏 2 个闭包。
-2. **筛选输入无防抖**（筛选输入框）— `min-seeders`/`min-size`/`name-contains` 每次 `input` 都触发 `render()`，大量结果时卡顿。
-3. **`relevanceScore` 副作用污染状态**（`visibleResults()`）— 直接给 `state.groups` 对象写 `_score` 属性，应改为临时数组。
-4. **「打开磁力」应新标签打开** — `window.location.href = m` 让浏览器离开当前页面，应改为 `window.open(m, '_blank', 'noopener')`。
-5. **无搜索结果计数** — 用户不知道筛选后还剩多少条，应加 `#result-summary` 概览行。
-6. **清空搜索历史无确认** — 误点一键清空全部历史，应加 `confirm()` 二次确认。
-7. **搜索无法中途取消** — 搜索中按钮仍是「搜索」，应改为搜索中显示「取消」，点击可中断。
-8. **批量推送串行瓶颈** — 选 50 条要等 50 个往返，应改为并发推送（每批 5 条）。
+1. ✅ **SSE 监听器泄漏** — `done`/`error` 监听器加 `{ once: true }`。
+2. ✅ **筛选输入无防抖** — 加 150ms debounce。
+3. ✅ **`relevanceScore` 副作用** — 改为临时 `scored` 数组，不修改 `state.groups`。
+4. ✅ **「打开磁力」新标签** — 改为 `window.open(m, '_blank', 'noopener')`。
+5. ✅ **搜索结果计数** — 加 `#result-summary` 概览行（筛选后 / 去重前 / 排序 / 第 N 页）。
+6. ✅ **清空搜索历史确认** — 加 `confirm()` 二次确认。
+7. ✅ **搜索可取消** — 搜索中按钮变红「取消」，点击中断 SSE 流。
+8. ✅ **批量推送并发** — 改为每批 5 条 `Promise.allSettled`。
 
-### 待修复（本轮审查 — 剩余未修项）
+### ✅ 已修复（本轮审查 — 剩余未修项，2026-08-23 收口）
 
-以下在本轮审查中识别，但因 ROI 或依赖未在本轮修复：
-
-1. **无限滚动无页码指示** — 纯无限滚动，用户不知道在第几页。建议加「第 N 页」或「回到顶部」按钮。
-2. **引擎状态搜索前不可见** — 状态栏只在搜索后出现。建议缓存上次搜索的引擎状态，或搜索框聚焦时做轻量连通检查。
-3. **缺 lint/format 工具链** — 前端 JS 模块无自动化质量保障。建议加 ESLint + Prettier。
-4. **测试覆盖不足** — 38 个 provider 零覆盖。当前仅 `tpb.js`、`linuxtracker.js`、`normalize.js` 有 golden-file 测试。
+1. ✅ **无限滚动无页码指示** — 已加 `#result-summary` 概览行（含第 N 页）+ `#back-to-top` 按钮。
+2. ✅ **引擎状态搜索前不可见** — `renderStatus({})` 从缓存恢复上次状态，init 时调用。
+3. ✅ **缺 lint/format 工具链** — 已加 ESLint + Prettier（`npm run lint` / `npm run format`）。
+4. **测试覆盖不足** — 38 个 provider 零覆盖。当前仅 `tpb.js`、`linuxtracker.js`、`normalize.js` 有测试。（待后续）
 
 ## Syncing features between `main` and `feat/tauri`
 
