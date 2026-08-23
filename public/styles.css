@@ -277,6 +277,18 @@ h1, h2, h3, p { margin: 0; }
 .summary-num { font-weight: 600; color: var(--text-strong); }
 .summary-meta { font-size: 12px; color: var(--faint); }
 
+.back-to-top {
+  position: fixed; bottom: 24px; right: 24px; z-index: 50;
+  padding: 8px 16px;
+  border: 1px solid var(--rim); border-radius: var(--pill);
+  background: var(--glass-raised); color: var(--dim);
+  font-size: 13px; font-family: var(--font-body);
+  backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  box-shadow: var(--edge), var(--drop);
+  transition: color .15s, border-color .15s, transform .15s;
+}
+.back-to-top:hover { color: var(--text-strong); border-color: var(--rim-strong); transform: translateY(-2px); }
+
 /* 搜索历史下拉：raised 玻璃 + 真模糊 */
 .history-dropdown {
   position: absolute; top: calc(100% + 8px); left: 0; right: 0; z-index: 40;

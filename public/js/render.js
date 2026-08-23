@@ -95,7 +95,25 @@ export function renderProviderChips() {
 export function renderStatus(providers) {
   const bar = $('#status-bar');
   const entries = Object.entries(providers);
-  if (!entries.length) { bar.hidden = true; return; }
+  if (!entries.length) {
+    // Show cached status from last search if available
+    try {
+      const cached = JSON.parse(localStorage.getItem('last-status') || '{}');
+      const cachedEntries = Object.entries(cached);
+      if (cachedEntries.length) {
+        bar.hidden = false;
+        bar.innerHTML = cachedEntries.map(([id, s]) => {
+          const label = PROVIDER_LABEL[id] || id;
+          return `<span class="status-pill cached">` +
+            `<span class="status-dot ok" aria-hidden="true"></span>` +
+            `<b>${esc(label)}</b><span class="status-meta">上次 ${s.count} 条</span></span>`;
+        }).join('');
+      } else {
+        bar.hidden = true;
+      }
+    } catch { bar.hidden = true; }
+    return;
+  }
   bar.hidden = false;
   const okCount = entries.filter(([, s]) => s.status === 'ok').length;
   const sum = `<span class="status-pill status-sum"><b>${okCount}/${entries.length}</b> 已响应</span>`;
@@ -159,8 +177,10 @@ export function visibleResults() {
 
   const dir = state.order === 'desc' ? -1 : 1;
   if (state.sort === 'relevance') {
-    list.forEach((it) => { it._score = relevanceScore(it.name, state.query); });
-    list.sort((a, b) => (b._score - a._score) || ((b.seeders ?? -1) - (a.seeders ?? -1)));
+    // Score into a temp Map to avoid mutating state.groups objects
+    const scored = list.map((it) => ({ it, _score: relevanceScore(it.name, state.query) }));
+    scored.sort((a, b) => (b._score - a._score) || ((b.it.seeders ?? -1) - (a.it.seeders ?? -1)));
+    return scored.map((s) => s.it);
   } else {
     list.sort((a, b) => {
       let av, bv;
@@ -298,6 +318,7 @@ export function render() {
   const list = visibleResults();
   if (state.groups.size === 0) {
     wrap.innerHTML = '';
+    $('#result-summary').hidden = true;
     $('#empty').hidden = state.loading;
     $('#empty').textContent = '没有结果。试试别的关键词，或检查引擎状态。';
     return;
@@ -306,7 +327,20 @@ export function render() {
   if (list.length === 0) {
     $('#empty').textContent = '没有符合筛选条件的结果，试着放宽筛选。';
   }
+  // Result count summary
+  const summary = $('#result-summary');
+  if (summary) {
+    const total = state.groups.size;
+    const sortLabel = { relevance: '相关度', seeders: '做种数', size: '大小', date: '时间' }[state.sort] || state.sort;
+    summary.innerHTML = `共 <span class="summary-num">${list.length}</span> 条` +
+      `<span class="summary-meta">（去重后 ${total}，按${sortLabel}${state.order === 'desc' ? '降' : '升'}序）</span>` +
+      (state.page > 1 ? `<span class="summary-meta">· 第 <span class="summary-num">${state.page}</span> 页</span>` : '');
+    summary.hidden = false;
+  }
   wrap.innerHTML = list.map(cardHTML).join('');
+  // Back to top button
+  const btt = $('#back-to-top');
+  if (btt) btt.hidden = list.length < 10;
 }
 
 // ---------- favorites rendering ----------

@@ -1,0 +1,18 @@
+{
+  "env": { "browser": true, "node": true, "es2022": true },
+  "extends": "eslint:recommended",
+  "parserOptions": { "ecmaVersion": 2022, "sourceType": "module" },
+  "rules": {
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+    "no-console": "off",
+    "no-constant-condition": ["error", { "checkLoops": false }]
+  },
+  "overrides": [
+    {
+      "files": ["src/**/*.js", "server.js", "electron/**/*.js", "test/**/*.js"],
+      "parserOptions": { "sourceType": "script" },
+      "env": { "node": true, "es2022": true },
+      "globals": { "require": "readonly", "module": "readonly", "__dirname": "readonly", "process": "readonly" }
+    }
+  ]
+}
