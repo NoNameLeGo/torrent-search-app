@@ -83,7 +83,7 @@ export async function onCardClick(e) {
     return;
   }
   if (act === 'copy') { markViewed(it); const m = await ensureMagnet(it); if (m) copyText(m); return; }
-  if (act === 'open') { markViewed(it); const m = await ensureMagnet(it); if (m) window.location.href = m; return; }
+  if (act === 'open') { markViewed(it); const m = await ensureMagnet(it); if (m) window.open(m, '_blank', 'noopener'); return; }
   if (act === 'dl') { markViewed(it); const m = await ensureMagnet(it); if (m) sendToClient(m); return; }
 }
 
@@ -246,10 +246,13 @@ export async function batchSendToClient() {
   const label = dlLabel(state.dl);
   toast(`正在推送 ${items.length} 条到 ${label}…`);
   let ok = 0;
-  for (const it of items) {
-    const m = await ensureMagnet(it).catch(() => null);
-    if (!m) continue;
-    try {
+  // Batch push in chunks of 5 concurrent requests
+  const BATCH = 5;
+  for (let i = 0; i < items.length; i += BATCH) {
+    const chunk = items.slice(i, i + BATCH);
+    const results = await Promise.allSettled(chunk.map(async (it) => {
+      const m = await ensureMagnet(it).catch(() => null);
+      if (!m) return;
       const r = await fetch('/api/download/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -257,7 +260,7 @@ export async function batchSendToClient() {
       });
       const data = await r.json();
       if (data.ok) ok++;
-    } catch { /* skip */ }
+    }));
   }
   toast(`已推送 ${ok}/${items.length} 条到 ${label}`);
 }

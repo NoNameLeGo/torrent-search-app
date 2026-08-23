@@ -18,6 +18,7 @@ export function removeHistory(q) {
 }
 
 export function clearHistory() {
+  if (!confirm('确定清空全部搜索历史？')) return;
   state.history = [];
   localStorage.setItem('history', JSON.stringify(state.history));
   hideHistory();

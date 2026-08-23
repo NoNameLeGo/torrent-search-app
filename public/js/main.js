@@ -105,7 +105,21 @@ export async function doSearch() {
   state.category = 'all';
   state.checked.clear();
   renderBatchBar();
+  // Show cancel button state
+  const btn = $('#search-btn');
+  if (btn) { btn.textContent = '取消'; btn.classList.add('cancel'); }
   await loadPage();
+  if (btn) { btn.textContent = '搜索'; btn.classList.remove('cancel'); }
+}
+
+function cancelSearch() {
+  state.searchId++;
+  if (state.es) { state.es.close(); state.es = null; }
+  state.loading = false;
+  $('#loading').hidden = true;
+  const btn = $('#search-btn');
+  if (btn) { btn.textContent = '搜索'; btn.classList.remove('cancel'); }
+  toast('已取消搜索');
 }
 
 function loadPage() {
@@ -131,6 +145,8 @@ function loadPage() {
     if (myId !== state.searchId) return;
     state.loading = false;
     $('#loading').hidden = true;
+    // Cache last engine status for display before next search
+    try { localStorage.setItem('last-status', JSON.stringify(state.status)); } catch { /* ignore */ }
     if (state.hasMore && state.all.length > prevCount) state.page++;
     else if (state.page > 1) state.hasMore = false;
   };
@@ -155,7 +171,7 @@ function loadPage() {
     try { msg = JSON.parse(ev.data); } catch { /* ignore */ }
     if (myId === state.searchId) state.hasMore = !!msg.hasMore;
     finish();
-  });
+  }, { once: true });
 
   es.addEventListener('error', () => {
     if (myId === state.searchId) {
@@ -165,7 +181,7 @@ function loadPage() {
       state.hasMore = false;
     }
     finish();
-  });
+  }, { once: true });
 }
 
 function mergeResult(it) {
@@ -210,8 +226,17 @@ function switchView(view) {
 
 // ---------- event bindings ----------
 function bindEvents() {
-  // Search form
-  $('#search-form').addEventListener('submit', (e) => { e.preventDefault(); doSearch(); });
+  // Search form: submit triggers search; if loading, cancel instead
+  $('#search-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (state.loading) { cancelSearch(); return; }
+    doSearch();
+  });
+
+  // Cancel button: stop current search and close SSE stream
+  $('#search-btn').addEventListener('click', () => {
+    if (state.loading) { cancelSearch(); return; }
+  });
 
   // Sort / order
   $('#sort-select').onchange = (e) => { state.sort = e.target.value; render(); };
@@ -221,9 +246,13 @@ function bindEvents() {
     render();
   };
 
-  // Filters
+  // Filters (debounced 150ms to avoid stutter on large result sets)
+  let filterTimer;
   ['min-seeders', 'min-size', 'name-contains'].forEach((id) => {
-    $(`#${id}`).addEventListener('input', () => render());
+    $(`#${id}`).addEventListener('input', () => {
+      clearTimeout(filterTimer);
+      filterTimer = setTimeout(() => render(), 150);
+    });
   });
   $('#reset-filters').onclick = () => {
     $('#min-seeders').value = ''; $('#min-size').value = '0'; $('#name-contains').value = '';
@@ -284,7 +313,7 @@ function bindEvents() {
       return;
     }
     if (act === 'copy') { markViewed(it); const m = await ensureMagnet(it); if (m) copyText(m); return; }
-    if (act === 'open') { markViewed(it); const m = await ensureMagnet(it); if (m) window.location.href = m; return; }
+    if (act === 'open') { markViewed(it); const m = await ensureMagnet(it); if (m) window.open(m, '_blank', 'noopener'); return; }
     if (act === 'dl') { markViewed(it); const m = await ensureMagnet(it); if (m) sendToClient(m); return; }
   });
 
@@ -503,6 +532,9 @@ async function init() {
       document.documentElement.classList.add('light');
     }
   } catch { /* ignore */ }
+
+  // Show cached engine status from last search
+  renderStatus({});
 
   try {
     await loadProviders();
