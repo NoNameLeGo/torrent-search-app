@@ -3,7 +3,7 @@
 ## Quick start
 
 ```bash
-npm install   # express, axios, cheerio (runtime) + electron, electron-builder (dev)
+npm install   # express, axios, cheerio (runtime) + electron, electron-builder, esbuild (dev)
 npm start     # node server.js → http://localhost:3000
 ```
 
@@ -57,22 +57,29 @@ See [test/README.md](test/README.md) for detailed guide on when and how to run t
 ## Architecture (one screen)
 
 ```
-public/               ← static frontend (index.html, app.js, styles.css)
+public/               ← static frontend (index.html, styles.css, ambient.js)
+public/js/            ← ES modules (state, render, actions, history, settings, utils, main)
 server.js             ← Express entry point; exports { app, start }
 electron/main.js      ← Electron wrapper; requires server.js and calls start(port)
-src/providers/        ← one file per search engine
+src/providers/        ← one file per search engine (42 built-in + Torznab)
 src/lib/http.js       ← shared axios instance (UA rotation, 10 s timeout, never throws)
 src/lib/normalize.js  ← size/date/magnet parsing → canonical TorrentResult shape
+src/lib/mirrors.js    ← mirror retry helper (runMirrors)
+src/lib/scraper.js    ← createProvider() factory + scrapeRows() helper
+src/lib/downloaders.js← qB/TR/aria2/Gopeed push/test/detect
 ```
 
 - `server.js` only auto-listens when run directly (`require.main === module`). When required by Electron it returns the `app` without binding.
 - All providers export `search(query, { page }) → { results, error, hasMore }`. Add new engines here.
 - `src/lib/http.js` wrappers (`getText`, `getJSON`, `postJSON`) never throw; they return `{ data|html, error }`. Match this pattern in new providers.
+- `src/lib/scraper.js` provides `createProvider({ id, name, mirrors, searchOn })` to eliminate boilerplate.
 - The `demo` provider is offline-only and always enabled — useful for testing the UI without network.
 
 ## Adding a provider
 
 1. Create `src/providers/<name>.js` exporting `{ id, name, search }`.
+   - Use `createProvider({ id, name, mirrors, searchOn })` from `src/lib/scraper.js` for the common pattern.
+   - Use `scrapeRows()` for simple row-iteration HTML scraping.
 2. Add `resolveMagnet(url)` if magnets require a detail-page fetch (see `1337x.js` for the pattern).
 3. Register in `src/providers/index.js` — the array order is the UI display order.
 4. Results should pass through `normalize()` from `src/lib/normalize.js`.
@@ -108,24 +115,14 @@ grouping (source dimension) — category is the *content* dimension.
 
 The remaining gaps worth closing, ranked by ROI:
 
-1. **Safe Mode** — one toggle that auto-disables NSFW providers (we already have an
-   "adult" group: Sukebei/XXXClub/…) and hides NSFW results. Cheap: a localStorage
-   flag wired into engine selection + result filtering. High value for demo/家用.
-   The `porn` category bucket is already in place to feed the result-hiding half.
-2. **Viewed / dead-torrent filtering** — dead-torrent (seeders=0) filtering mostly
-   exists via the min-seeders filter. Missing: mark "already viewed" results (opened
-   details / copied magnet) as dimmed. Store viewed `infoHash` set in localStorage.
+1. ~~**Safe Mode**~~ ✅ 已完成 — one toggle that auto-disables NSFW providers and hides NSFW results.
+2. ~~**Viewed / dead-torrent filtering**~~ ✅ 已完成 — mark "already viewed" results as dimmed, stored in localStorage.
 3. **Browse (top/latest)** — browse trending/latest without a query. Needs providers
-   to support query-less top/latest fetching (not every site has this) — higher cost,
-   mid-term, start with the few engines that support it.
+   to support query-less top/latest fetching — higher cost, mid-term.
 4. **Bookmarks export/import** — we already persist favorites in localStorage; upstream
    adds export-to-file / import. Natural for a desktop app; guards against cache clears.
 5. **Richer details (poster/screenshots/description)** — upstream detail screen has
-   media poster, screenshot previews, Markdown description. Depends on each site's
-   detail-page structure — lower ROI, nice-to-have.
-
-Suggested order: **Safe Mode + viewed filtering** next — both pure frontend, low risk,
-and Safe Mode is interrelated (the `porn` category feeds its result-hiding half).
+   media poster, screenshot previews, Markdown description. Lower ROI, nice-to-have.
 
 ## Code review findings (coder-facing, 2026-07 full-codebase audit)
 
@@ -265,31 +262,29 @@ percent-encode，个别老旧下载工具会拿到编码串或问号名，这是
 2. ✅ **localStorage 解析无容错**：已抽 `loadJSON(key, fallback)` 统一容错，覆盖 history/favorites。
 3. ✅ **DNS rebinding 防御**：`server.js` 已加 Host header 校验中间件，非 127.0.0.1/localhost 返回 403。
 
-### 优化建议（2026-08-23 全量审查）
+### ✅ 已修复（2026-08-23 全量审查）
 
-以下从编码者角度梳理的优化项，按优先级排列：
+以下从编码者角度梳理的优化项，已全部收口：
 
-1. **`public/app.js` 1634 行单体巨石** — 全量逻辑（搜索/渲染/收藏/设置/历史/CSV/事件绑定）塞在一个文件里，无模块拆分、无测试锚点。应拆为 `js/state.js`、`js/render.js`、`js/actions.js`、`js/history.js`、`js/settings.js`、`js/main.js` 等模块。
-2. **Provider 解析逻辑仍高度重复** — 42 个 provider 自己的 HTML 解析（cheerio 选择器链 + 字段映射）高度相似，虽已通过 `runMirrors`/`normalize`/`extractInfoHash` 消除部分重复，但选择器链仍可声明式配置化。可考虑 JSON DSL 减少 90% 样板代码。
-3. **缺少请求速率控制** — `searchStream()` 对所有启用的引擎同时发起最多 41 个并发 HTTP 请求，对第三方站点近乎 DDoS。应加并发上限（如 5-8 个）。
-4. **`PROVIDER_LABEL` 初始态不完整** — 硬编码仅 4 个，`loadProviders()` 完成后才动态填充。首屏瞬间状态栏/徽章显示 raw id。可改为服务端 `/api/providers` 直接返回完整映射，或提前静态声明。
-5. **无 build 步骤** — JS/CSS 直接服务无压缩。加 `esbuild` minify 即可。
-6. **Provider 级别超时策略单一** — `http.js` 全局 10s，但不同站点响应速度差异大。对已知慢站点应给更长超时，快站点缩短以减少等待。
+1. ✅ **`public/app.js` 1634 行单体巨石** — 已拆为 7 个 ES 模块：`js/state.js`、`js/render.js`、`js/actions.js`、`js/history.js`、`js/settings.js`、`js/utils.js`、`js/main.js`。
+2. ✅ **Provider 解析逻辑重复** — 新建 `src/lib/scraper.js`：`createProvider()` 工厂 + `scrapeRows()` 辅助，已迁移 eztv/torrentkitty/torrentdownload。
+3. ✅ **请求速率控制** — `src/providers/index.js`：`asyncPool()` 限制 8 并发，替代 `Promise.all` 无限制请求。
+4. ✅ **`PROVIDER_LABEL` 初始态不完整** — 已预填充全部 42 个引擎名称，消除首屏 raw id 闪现。
+5. ✅ **Build 步骤** — `esbuild` minify → `npm run build:frontend`，输出到 `public/dist/`。
+6. ✅ **Provider 级别超时策略** — `scrapeRows`/`createProvider` 支持 `timeout` 选项，各 provider 可覆盖默认 10s。
 
-### ✅ 已修复（本轮审查 — 2026-08-23 补充）
+### 待修复（本轮审查 — 2026-08-23 补充，代码未实际落地）
 
-以下为本轮全量遍历新发现的 8 个问题，已全部收口：
+以下 8 项在文档中记录为已修复，但实际代码中未找到对应改动，需重新确认：
 
-1. ✅ **SSE 监听器泄漏**（`public/app.js` `loadPage()`）— `done`/`error` 监听器未移除，每个页面周期泄漏 2 个闭包。已改为 `{ once: true }`。
-2. ✅ **筛选输入无防抖**（`public/app.js` L1306-1308）— `min-seeders`/`min-size`/`name-contains` 每次 `input` 都触发 `render()`，1000+ 条结果时明显卡顿。已加 150ms `debounce()`。
-3. ✅ **`relevanceScore` 副作用污染状态**（`public/app.js` `visibleResults()`）— 直接给 `state.groups` 对象写 `_score` 属性。已改为临时 `scored` 数组，不修改源数据。
-4. ✅ **「打开磁力」离开当前页面**（`public/app.js` L953 + 详情弹窗）— `window.location.href = m` 让浏览器导航离开。已改为 `window.open(m, '_blank', 'noopener')`。
-5. ✅ **无搜索结果计数**（`public/app.js` `render()`）— 用户不知道筛选后还剩多少条。已加 `#result-summary` 概览行（筛选后数量 / 去重前总数 / 排序方式）。
-6. ✅ **清空搜索历史无确认**（`public/app.js` `clearHistory()`）— 误点一键清空全部历史。已加 `confirm()` 二次确认。
-7. ✅ **搜索无法中途取消**（`public/app.js` `doSearch()` + `loadPage()`）— 搜索中按钮仍是「搜索」，只能等或刷新。已改为搜索中显示「取消」（红色），点击即中断；搜索结束自动恢复。
-8. ✅ **批量推送串行瓶颈**（`public/app.js` `batchSendToClient()`）— 选 50 条要等 50 个往返。已改为并发推送（每批 5 条 `Promise.allSettled`）。
-
-**受影响文件**：`public/app.js`（+47 行，~8 处改动）、`public/index.html`（+1 行）、`public/styles.css`（+19 行）。
+1. **SSE 监听器泄漏**（`main.js` `loadPage()`）— `done`/`error` 监听器应在完成后移除，避免每页泄漏 2 个闭包。
+2. **筛选输入无防抖**（筛选输入框）— `min-seeders`/`min-size`/`name-contains` 每次 `input` 都触发 `render()`，大量结果时卡顿。
+3. **`relevanceScore` 副作用污染状态**（`visibleResults()`）— 直接给 `state.groups` 对象写 `_score` 属性，应改为临时数组。
+4. **「打开磁力」应新标签打开** — `window.location.href = m` 让浏览器离开当前页面，应改为 `window.open(m, '_blank', 'noopener')`。
+5. **无搜索结果计数** — 用户不知道筛选后还剩多少条，应加 `#result-summary` 概览行。
+6. **清空搜索历史无确认** — 误点一键清空全部历史，应加 `confirm()` 二次确认。
+7. **搜索无法中途取消** — 搜索中按钮仍是「搜索」，应改为搜索中显示「取消」，点击可中断。
+8. **批量推送串行瓶颈** — 选 50 条要等 50 个往返，应改为并发推送（每批 5 条）。
 
 ### 待修复（本轮审查 — 剩余未修项）
 
@@ -297,7 +292,7 @@ percent-encode，个别老旧下载工具会拿到编码串或问号名，这是
 
 1. **无限滚动无页码指示** — 纯无限滚动，用户不知道在第几页。建议加「第 N 页」或「回到顶部」按钮。
 2. **引擎状态搜索前不可见** — 状态栏只在搜索后出现。建议缓存上次搜索的引擎状态，或搜索框聚焦时做轻量连通检查。
-3. **缺 lint/format 工具链** — 1634 行 `app.js` 无自动化质量保障。建议加 ESLint + Prettier。
+3. **缺 lint/format 工具链** — 前端 JS 模块无自动化质量保障。建议加 ESLint + Prettier。
 4. **测试覆盖不足** — 38 个 provider 零覆盖。当前仅 `tpb.js`、`linuxtracker.js`、`normalize.js` 有 golden-file 测试。
 
 ## Syncing features between `main` and `feat/tauri`
@@ -371,6 +366,17 @@ git worktree remove <tmp>      # clean up AFTER push confirmed
 1. ~~Safe Mode~~ ✅ 已完成
 2. ~~已浏览置灰~~ ✅ 已完成
 3. 收藏导出/导入、Browse 浏览、详情海报等（ROI 递减）
+
+### ✅ 已完成：本轮全量优化（2026-08-23）
+
+编码者 6 项 + 用户 6 项，详见 README 路线图。
+- 前端模块化拆分（1634 行 → 7 个 ES 模块）
+- Provider 工厂 + scrapeRows 辅助
+- 搜索并发控制（8 路）
+- PROVIDER_LABEL 预填充
+- esbuild 构建步骤
+- 差异化超时
+- 键盘快捷键 / 亮色主题 / 收藏搜索 / 引擎预设 / 移动端适配 / 导出完整性提示
 
 ---
 
