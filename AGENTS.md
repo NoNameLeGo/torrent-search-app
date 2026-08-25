@@ -38,7 +38,9 @@ test/
 ### Current coverage
 
 - ✅ `tpb.js` — search parsing, category mapping, empty results, HTTP errors
+- ✅ `knaben.js` — JSON API (POST) parsing, category mapping
 - ✅ `linuxtracker.js` — HTML parsing, infoHash extraction from URL, date/size/seeds parsing
+- ✅ `filemood.js` — HTML parsing, infoHash extraction from detail URL, size/seeds parsing
 - ✅ `normalize.js` — size/date parsing, magnet building, infoHash extraction, ruDate, edge cases
 
 ### Platform note
@@ -117,11 +119,10 @@ The remaining gaps worth closing, ranked by ROI:
 
 1. ~~**Safe Mode**~~ ✅ 已完成 — one toggle that auto-disables NSFW providers and hides NSFW results.
 2. ~~**Viewed / dead-torrent filtering**~~ ✅ 已完成 — mark "already viewed" results as dimmed, stored in localStorage.
-3. **Browse (top/latest)** — browse trending/latest without a query. Needs providers
-   to support query-less top/latest fetching — higher cost, mid-term.
+3. ~~**Browse (top/latest)**~~ ✅ 已完成 — 无关键词浏览最新/热门，`browseable: true` 标记支持引擎（当前 Demo + YTS），`/api/search?browse=1` 只查询这些引擎。
 4. **Bookmarks export/import** — we already persist favorites in localStorage; upstream
    adds export-to-file / import. Natural for a desktop app; guards against cache clears.
-5. **Richer details (poster/screenshots/description)** — upstream detail screen has
+5. ~~**Richer details (poster/screenshots/description)**~~ ✅ 已完成（海报/描述，通用 og:meta 提取）— upstream detail screen has
    media poster, screenshot previews, Markdown description. Lower ROI, nice-to-have.
 
 ## Code review findings (coder-facing, 2026-07 full-codebase audit)
@@ -291,8 +292,7 @@ percent-encode，个别老旧下载工具会拿到编码串或问号名，这是
 1. ✅ **无限滚动无页码指示** — 已加 `#result-summary` 概览行（含第 N 页）+ `#back-to-top` 按钮。
 2. ✅ **引擎状态搜索前不可见** — `renderStatus({})` 从缓存恢复上次状态，init 时调用。
 3. ✅ **缺 lint/format 工具链** — 已加 ESLint + Prettier（`npm run lint` / `npm run format`）。
-4. **测试覆盖不足** — 38 个 provider 零覆盖。当前仅 `tpb.js`、`linuxtracker.js`、`normalize.js` 有测试。（待后续）
-
+4. **测试覆盖不足** — 36 个 provider 仍零覆盖。当前 `tpb.js`、`knaben.js`、`linuxtracker.js`、`filemood.js`、`normalize.js` 有测试。（待后续）
 ## Syncing features between `main` and `feat/tauri`
 
 **铁律：所有修复和功能必须同时在 `main` 和 `feat/tauri` 两个分支上完成。** 不允许先修一个再同步另一个。每轮工作结束后，两个分支的代码（除分支固有限外）必须一致。
@@ -363,7 +363,9 @@ git worktree remove <tmp>      # clean up AFTER push confirmed
 ### 新功能（候选）
 1. ~~Safe Mode~~ ✅ 已完成
 2. ~~已浏览置灰~~ ✅ 已完成
-3. 收藏导出/导入、Browse 浏览、详情海报等（ROI 递减）
+3. ~~Browse 浏览~~ ✅ 已完成（Demo + YTS）
+4. ~~详情海报/描述~~ ✅ 已完成（og:meta 通用提取）
+5. 收藏导出/导入（ROI 递减，待做）
 
 ### ✅ 已完成：本轮全量优化（2026-08-23）
 

@@ -145,6 +145,27 @@ export async function openDetail(it) {
       `<button class="btn" data-act="copy" data-id="${key}">复制磁力</button>${dlBtn}`;
 
   modal.hidden = false;
+
+  // Rich details: best-effort poster + description from the first source's
+  // detail page (generic OpenGraph extraction). Hidden if nothing is found.
+  const rich = $('#detail-rich');
+  if (rich) {
+    rich.hidden = true;
+    const src = (it.sources || []).find((s) => s.detailUrl);
+    if (src && src.detailUrl) {
+      fetch(`/api/details?url=${encodeURIComponent(src.detailUrl)}`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.poster || d.description) {
+            rich.innerHTML =
+              (d.poster ? `<img class="detail-poster" src="${esc(d.poster)}" alt="" loading="lazy" referrerpolicy="no-referrer" />` : '') +
+              (d.description ? `<p class="detail-desc">${esc(d.description)}</p>` : '');
+            rich.hidden = false;
+          }
+        })
+        .catch(() => { /* best-effort */ });
+    }
+  }
 }
 
 export function closeDetail() { $('#detail-modal').hidden = true; }

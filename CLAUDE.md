@@ -22,7 +22,7 @@ npm run build:portable  # manual Electron portable build → dist/portable/
 
 `PORT=8080 node server.js` overrides the port. `start.bat`/`stop.bat` are the primary Windows launchers for the plain web mode.
 
-**Testing**: golden-file tests via Node's built-in `assert` — run `npm test` (see `test/README.md`; fixtures under `test/fixtures/`). No linter, formatter, or typecheck are configured. If you add tooling, document it here and in `AGENTS.md`.
+**Testing**: golden-file tests via Node's built-in `assert` — run `npm test` (see `test/README.md`; fixtures under `test/fixtures/`). ESLint (`npm run lint`) and Prettier (`npm run format`) are configured; no typechecker. If you add tooling, document it here and in `AGENTS.md`.
 
 ## Architecture
 

@@ -4,9 +4,10 @@ const path = require('path');
 const express = require('express');
 const providers = require('./src/providers');
 const torznabStore = require('./src/lib/torznabStore');
+const downloaders = require('./src/lib/downloaders');
+const cheerio = require('cheerio');
 const { normalizeApiUrl } = require('./src/providers/torznab');
 const { getText } = require('./src/lib/http');
-const downloaders = require('./src/lib/downloaders');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -52,10 +53,11 @@ app.get('/api/search', async (req, res) => {
   const q = String(req.query.q || '').trim();
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
   const prov = req.query.providers || null;
-  if (!q) return res.status(400).json({ error: 'missing query' });
+  const browse = req.query.browse === '1';
+  if (!q && !browse) return res.status(400).json({ error: 'missing query' });
 
   try {
-    const out = await providers.search(q, { providers: prov, page });
+    const out = await providers.search(q, { providers: prov, page, browse });
     res.json({ query: q, page, ...out });
   } catch (e) {
     res.status(500).json({ error: e.message || 'search_failed' });
@@ -70,7 +72,8 @@ app.get('/api/search/stream', async (req, res) => {
   const q = String(req.query.q || '').trim();
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
   const prov = req.query.providers || null;
-  if (!q) return res.status(400).json({ error: 'missing query' });
+  const browse = req.query.browse === '1';
+  if (!q && !browse) return res.status(400).json({ error: 'missing query' });
 
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
@@ -91,7 +94,7 @@ app.get('/api/search/stream', async (req, res) => {
   try {
     const summary = await providers.searchStream(
       q,
-      { providers: prov, page },
+      { providers: prov, page, browse },
       ({ id, name, results, status }) => {
         if (closed) return;
         send('provider', { id, name, results, status });
@@ -128,6 +131,34 @@ app.get('/api/magnet', async (req, res) => {
     return res.json({ ...r, fallback: true });
   }
   res.status(404).json({ error: 'no resolver' });
+});
+
+// Best-effort rich metadata for a torrent detail page: poster (og:image) and
+// description (og:description / meta description). Generic across sites — most
+// torrent detail pages expose OpenGraph tags, so this works without per-site
+// scrapers. Returns null fields when a site exposes nothing. Resolution of
+// relative URLs is done against the requested URL.
+app.get('/api/details', async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).json({ error: 'missing url' });
+  if (!safeHttpUrl(url)) return res.status(400).json({ error: 'invalid_url_scheme' });
+
+  const { html, error } = await getText(url, { timeout: 10000 });
+  if (error || !html) return res.json({ error: error || 'fetch_failed' });
+
+  const $ = cheerio.load(html);
+  const meta = (sel, attr) => $(sel).first().attr(attr) || null;
+  const text = (sel) => { const v = $(sel).first().text().trim(); return v || null; };
+  const abs = (v) => {
+    if (!v) return null;
+    try { return new URL(v, url).toString(); } catch (e) { return null; }
+  };
+
+  const poster = abs(meta('meta[property="og:image"]', 'content') || meta('meta[name="twitter:image"]', 'content'));
+  const description = meta('meta[property="og:description"]', 'content') || meta('meta[name="description"]', 'content');
+  const title = meta('meta[property="og:title"]', 'content') || text('title');
+
+  res.json({ poster, description, title });
 });
 
 // ---- Download clients (qBittorrent / Transmission / aria2·Motrix / Gopeed) ----

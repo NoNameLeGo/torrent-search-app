@@ -80,7 +80,7 @@ const REGISTRY = [
   { ...tpb, enabled: true },
   { ...x1337, enabled: true, paginated: true },
   { ...nyaa, enabled: true, paginated: true },
-  { ...yts, enabled: true },
+  { ...yts, enabled: true, browseable: true },
   { ...knaben, enabled: true },
   { ...torrentscsv, enabled: true },
   { ...anilibria, enabled: true },
@@ -117,7 +117,7 @@ const REGISTRY = [
   { ...mypornclub, enabled: true },
   { ...xxxclub, enabled: true },
   { ...xxxtracker, enabled: true },
-  { ...demo, enabled: true },
+  { ...demo, enabled: true, browseable: true },
 ];
 
 function list() {
@@ -142,13 +142,16 @@ function getProvider(id) {
 // drop the single-shot providers: they ignore `page` and would just return the
 // same results to be deduped away — only paginated providers (and demo, which
 // paginates its local pool) can yield genuinely new results deeper in.
-function resolveTargets(providers, page) {
+// In browse mode (`browse=true`, empty query) we only query providers that
+// actually support query-less latest/trending (`browseable: true`).
+function resolveTargets(providers, page, browse) {
   const wanted = providers
     ? providers.split(',').map((s) => s.trim()).filter(Boolean)
     : null;
 
   return REGISTRY.concat(dynamicTorznabProviders()).filter((p) => {
     if (!p.enabled || (wanted && !wanted.includes(p.id))) return false;
+    if (browse && !p.browseable) return false;
     if (page > 1 && !p.paginated && !p.demo) return false;
     return true;
   });
@@ -221,8 +224,8 @@ const MAX_CONCURRENT = 8;
 
 // Run search across the requested (enabled) providers with concurrency control.
 // Each provider is isolated: a failure in one never breaks the others.
-async function search(query, { providers = null, page = 1 } = {}) {
-  const targets = resolveTargets(providers, page);
+async function search(query, { providers = null, page = 1, browse = false } = {}) {
+  const targets = resolveTargets(providers, page, browse);
 
   const perProvider = {};
   const allResults = [];
@@ -245,8 +248,8 @@ async function search(query, { providers = null, page = 1 } = {}) {
 // updates instead of waiting for the slowest provider. Concurrency-limited to
 // MAX_CONCURRENT to avoid flooding third-party sites. Resolves once every
 // provider has reported, returning the same aggregate as search().
-async function searchStream(query, { providers = null, page = 1 } = {}, onProvider) {
-  const targets = resolveTargets(providers, page);
+async function searchStream(query, { providers = null, page = 1, browse = false } = {}, onProvider) {
+  const targets = resolveTargets(providers, page, browse);
 
   const perProvider = {};
   await asyncPool(
