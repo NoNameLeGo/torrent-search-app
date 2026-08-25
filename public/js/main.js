@@ -75,8 +75,21 @@ export function applyPreset(name) {
 
 // ---------- search ----------
 export async function doSearch() {
-  state.query = $('#search-input').value.trim();
-  if (!state.query) return;
+  const q = $('#search-input').value.trim();
+  if (!q) return;
+  await runSearch(q, false);
+}
+
+// Browse mode: query-less latest/trending from the engines that support it
+// (demo offline + YTS latest movies). Reuses the same streaming pipeline.
+export async function doBrowse() {
+  $('#search-input').value = '';
+  await runSearch('', true);
+}
+
+async function runSearch(query, browse) {
+  state.query = query;
+  state.browse = browse;
   const welcome = $('#welcome');
   if (welcome) welcome.hidden = true;
   if (allProviders.length && state.selected.size === 0) {
@@ -92,7 +105,7 @@ export async function doSearch() {
     $('#empty').textContent = '没有启用任何搜索引擎。点顶部分组或到 ⚙ 设置里勾选引擎。';
     return;
   }
-  pushHistory(state.query);
+  if (!browse) pushHistory(query);
   if (state.view !== 'search') switchView('search');
   hideHistory();
   state.searchId++;
@@ -133,6 +146,7 @@ function loadPage() {
 
   const myId = state.searchId;
   const params = new URLSearchParams({ q: state.query, page: state.page });
+  if (state.browse) params.set('browse', '1');
   if (state.selected.size) params.set('providers', [...state.selected].join(','));
 
   if (state.es) { state.es.close(); state.es = null; }
@@ -292,6 +306,13 @@ function bindEvents() {
     render();
     toast(state.safeMode ? '安全模式已启用（成人引擎禁用）' : '安全模式已关闭');
   };
+
+  // Status bar: click a failed engine pill to see the full error reason
+  $('#status-bar').addEventListener('click', (e) => {
+    const pill = e.target.closest('.status-pill[data-err]');
+    if (!pill || !pill.dataset.err) return;
+    toast(pill.dataset.err);
+  });
 
   // Card clicks
   $('#results').addEventListener('click', onCardClick);
@@ -453,10 +474,16 @@ function bindEvents() {
   const welcomeEl = $('#welcome');
   if (welcomeEl) welcomeEl.addEventListener('click', (e) => {
     const b = e.target.closest('[data-sample]');
-    if (!b) return;
-    $('#search-input').value = b.dataset.sample;
-    doSearch();
+    if (b) {
+      $('#search-input').value = b.dataset.sample;
+      doSearch();
+      return;
+    }
+    if (e.target.closest('[data-browse]')) doBrowse();
   });
+
+  // Browse latest (query-less) button
+  $('#browse-btn').onclick = () => doBrowse();
 
   // Search history
   $('#search-input').addEventListener('focus', showHistory);

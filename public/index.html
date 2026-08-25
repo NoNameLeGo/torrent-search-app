@@ -83,6 +83,7 @@
           <div id="history-dropdown" class="history-dropdown" hidden></div>
         </div>
         <button type="submit" id="search-btn">搜索</button>
+        <button type="button" id="browse-btn" class="ghost-btn" title="不输关键词，浏览支持最新/热门的引擎（Demo + YTS 等）">浏览最新</button>
       </form>
     </div>
   </section>
@@ -174,6 +175,7 @@
           <button type="button" data-sample="Big Buck Bunny" translate="no">Big Buck Bunny</button>
           <button type="button" data-sample="Blender" translate="no">Blender</button>
           <button type="button" data-sample="Fedora" translate="no">Fedora</button>
+          <button type="button" data-browse="1">浏览最新 ↗</button>
         </div>
         <p class="welcome-hint">先试试这些开源经典 · 需要推送下载时，到右上角设置里连上你的下载器</p>
       </div>
@@ -210,6 +212,7 @@
     <div class="modal-card detail-card">
       <button class="detail-close" data-close="1" title="关闭" aria-label="关闭">✕</button>
       <h2 id="detail-title" class="detail-title"></h2>
+      <div id="detail-rich" class="detail-rich" hidden></div>
       <div id="detail-body" class="detail-body"></div>
       <p class="hint detail-hint">文件列表因站点各异未做统一抓取，点上方来源链接可跳转到站点查看完整文件清单。</p>
       <div id="detail-actions" class="modal-actions"></div>

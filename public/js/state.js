@@ -189,6 +189,7 @@ export const HISTORY_MAX = 12;
 export const state = {
   query: '',
   page: 1,
+  browse: false,
   selected: new Set(),
   all: [],
   seen: new Set(),
@@ -218,21 +219,16 @@ export let allProviders = [];
 export async function loadProviders() {
   // Dynamic import to avoid circular dependency with render.js
   const { renderGroupChips, renderProviderChips } = await import('./render.js');
-  try {
-    const r = await fetch('/api/providers');
-    const { providers } = await r.json();
-    allProviders = providers;
-    providers.forEach((p) => { PROVIDER_LABEL[p.id] = p.name; });
-    const saved = loadSelectedProviders();
-    state.selected = new Set(
-      saved
-        ? providers.filter((p) => saved.includes(p.id)).map((p) => p.id)
-        : providers.filter((p) => p.enabled).map((p) => p.id)
-    );
-    renderGroupChips();
-    renderProviderChips();
-  } catch (e) {
-    // toast handled by caller
-    throw e;
-  }
+  const r = await fetch('/api/providers');
+  const { providers } = await r.json();
+  allProviders = providers;
+  providers.forEach((p) => { PROVIDER_LABEL[p.id] = p.name; });
+  const saved = loadSelectedProviders();
+  state.selected = new Set(
+    saved
+      ? providers.filter((p) => saved.includes(p.id)).map((p) => p.id)
+      : providers.filter((p) => p.enabled).map((p) => p.id)
+  );
+  renderGroupChips();
+  renderProviderChips();
 }

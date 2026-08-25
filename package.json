@@ -62,7 +62,7 @@
     "electron": "^43.1.0",
     "electron-builder": "^26.15.3",
     "esbuild": "^0.28.2",
-    "eslint": "^10.9.0",
+    "eslint": "^8.57.1",
     "prettier": "^3.9.6"
   }
 }

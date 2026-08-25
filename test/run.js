@@ -24,14 +24,15 @@ function loadHTML(name) {
 function createMockHTTP(mockResponses) {
   // Clear require cache to force fresh module load
   delete require.cache[require.resolve('../src/lib/http')];
-  for (const mod of ['../src/providers/tpb', '../src/providers/linuxtracker']) {
+  for (const mod of ['../src/providers/tpb', '../src/providers/linuxtracker', '../src/providers/knaben']) {
     delete require.cache[require.resolve(mod)];
   }
 
   const httpModule = require('../src/lib/http');
   const originalGetJSON = httpModule.getJSON;
+  const originalPostJSON = httpModule.postJSON;
 
-  httpModule.getJSON = async function(url) {
+  const matchResponse = (url) => {
     for (const [pattern, response] of mockResponses) {
       let matches = false;
       if (typeof pattern === 'function') {
@@ -45,14 +46,18 @@ function createMockHTTP(mockResponses) {
         return response;
       }
     }
-    return originalGetJSON(url);
+    return null;
   };
+
+  httpModule.getJSON = async (url) => matchResponse(url) ?? originalGetJSON(url);
+  httpModule.postJSON = async (url) => matchResponse(url) ?? originalPostJSON(url);
 
   return () => {
     httpModule.getJSON = originalGetJSON;
+    httpModule.postJSON = originalPostJSON;
     // Clear cache again
     delete require.cache[require.resolve('../src/lib/http')];
-    for (const mod of ['../src/providers/tpb', '../src/providers/linuxtracker']) {
+    for (const mod of ['../src/providers/tpb', '../src/providers/linuxtracker', '../src/providers/knaben']) {
       delete require.cache[require.resolve(mod)];
     }
   };
@@ -61,7 +66,7 @@ function createMockHTTP(mockResponses) {
 function createMockHTTPForHTML(mockResponses) {
   // Clear require cache
   delete require.cache[require.resolve('../src/lib/http')];
-  for (const mod of ['../src/providers/linuxtracker']) {
+  for (const mod of ['../src/providers/linuxtracker', '../src/providers/filemood']) {
     delete require.cache[require.resolve(mod)];
   }
 
@@ -88,7 +93,7 @@ function createMockHTTPForHTML(mockResponses) {
   return () => {
     httpModule.getText = originalGetText;
     delete require.cache[require.resolve('../src/lib/http')];
-    for (const mod of ['../src/providers/linuxtracker']) {
+    for (const mod of ['../src/providers/linuxtracker', '../src/providers/filemood']) {
       delete require.cache[require.resolve(mod)];
     }
   };
@@ -166,6 +171,39 @@ console.log('=== TPB (The Pirate Bay) ===\n');
 })();
 
 // ============================================================================
+// Knaben Tests (JSON API provider, POST)
+// ============================================================================
+console.log('=== Knaben ===\n');
+
+(async () => {
+  console.log('Test 1: Parse real Knaben JSON...');
+  const fixture = loadJSON('knaben-ubuntu.json');
+  const cleanup = createMockHTTP([
+    [/(?:^https?:)?\/\/api\.knaben\.org/i, { data: fixture, error: null }]
+  ]);
+
+  const { search } = require('../src/providers/knaben');
+  const result = await search('ubuntu', { page: 1 });
+  cleanup();
+
+  assert.ok(!result.error, 'should not have error');
+  assert.ok(Array.isArray(result.results), 'results should be an array');
+  assert.ok(result.results.length > 0, 'should have at least one result');
+  console.log(`  ✓ Found ${result.results.length} results\n`);
+
+  const first = result.results[0];
+  assert.ok(typeof first.name === 'string' && first.name.length > 0, 'name should be non-empty');
+  assert.equal(first.provider, 'knaben', 'provider should be knaben');
+  assert.ok(first.infoHash, 'should have infoHash');
+  assert.ok(first.magnet?.startsWith('magnet:?'), 'should have magnet URI');
+  assert.ok(typeof first.size === 'number', 'size should be parsed');
+  assert.ok(typeof first.seeders === 'number', 'seeders should be parsed');
+  assert.equal(typeof first.category, 'string', 'category should be string');
+  console.log('  First result:', first.name, '-', first.sizeText, '-', first.seeders, 'seeds -', first.category);
+  console.log('  ✓ Result shape is correct\n');
+})();
+
+// ============================================================================
 // LinuxTracker Tests (HTML-based provider)
 // ============================================================================
 console.log('=== LinuxTracker ===\n');
@@ -193,6 +231,39 @@ console.log('=== LinuxTracker ===\n');
   assert.ok(first.name.length > 0, 'name should not be empty');
   assert.equal(first.provider, 'linuxtracker', 'provider should be linuxtracker');
   assert.ok(first.infoHash, 'should have infoHash from URL');
+  assert.ok(first.magnet?.startsWith('magnet:?'), 'should have magnet URI');
+  assert.ok(typeof first.size === 'number', 'size should be parsed');
+  assert.ok(typeof first.seeders === 'number', 'seeders should be parsed');
+  console.log('  First result:', first.name, '-', first.sizeText, '-', first.seeders, 'seeds');
+  console.log('  ✓ Result shape is correct\n');
+})();
+
+// ============================================================================
+// FileMood Tests (HTML-based provider, single-domain)
+// ============================================================================
+console.log('=== FileMood ===\n');
+
+(async () => {
+  console.log('Test 1: Parse real FileMood HTML...');
+  const html = loadHTML('filemood-ubuntu.html');
+  const cleanup = createMockHTTPForHTML([
+    [/(?:^https?:)?\/\/filemood\.com/i, { html, error: null }]
+  ]);
+
+  const { search } = require('../src/providers/filemood');
+  const result = await search('ubuntu', { page: 1 });
+  cleanup();
+
+  assert.ok(!result.error, 'should not have error');
+  assert.ok(Array.isArray(result.results), 'results should be an array');
+  assert.ok(result.results.length > 0, 'should have at least one result');
+  console.log(`  ✓ Found ${result.results.length} results\n`);
+
+  const first = result.results[0];
+  assert.ok(typeof first.name === 'string' && first.name.length > 0, 'name should be non-empty');
+  assert.equal(first.provider, 'filemood', 'provider should be filemood');
+  assert.ok(first.infoHash, 'should have infoHash from detail URL');
+  assert.match(first.infoHash, /^[a-f0-9]{40}$/, 'infoHash should be 40 hex chars');
   assert.ok(first.magnet?.startsWith('magnet:?'), 'should have magnet URI');
   assert.ok(typeof first.size === 'number', 'size should be parsed');
   assert.ok(typeof first.seeders === 'number', 'seeders should be parsed');

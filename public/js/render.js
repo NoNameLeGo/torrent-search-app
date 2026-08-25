@@ -91,6 +91,17 @@ export function renderProviderChips() {
   });
 }
 
+// Categorize a provider error string into a short human label so the status
+// bar can tell "unreachable/blocked" apart from "parse failure (site redesigned)"
+// — the two failure modes need different user actions (switch mirror vs wait).
+// ponytail: string heuristic, replace with backend error codes if it ever misleads.
+function categorizeError(err) {
+  const e = String(err || '');
+  if (/timeout|timed ?out|econn|enotfound|etimedout|err_|unreachable|refused|getaddrinfo|socket|dns|eai_|reset|blocked|cloudflare|403|429/i.test(e)) return '网络不可达';
+  if (/no_?results|no results|parsed|parse|magnet|selector|empty/i.test(e)) return '解析失败（可能改版）';
+  return '未知错误';
+}
+
 // ---------- status bar ----------
 export function renderStatus(providers) {
   const bar = $('#status-bar');
@@ -123,9 +134,9 @@ export function renderStatus(providers) {
     const label = PROVIDER_LABEL[id] || id;
     const ms = s.ms != null ? ` · ${s.ms}ms` : '';
     const errFull = s.error ? String(s.error) : '';
-    const errShort = errFull.length > 22 ? `${errFull.slice(0, 22)}…` : errFull;
-    const detail = s.error ? `${mark} ${errShort}` : `${mark} ${s.count} 条${ms}`;
-    return `<span class="status-pill"${s.error ? ` title="${esc(label)}: ${esc(errFull)}"` : ''}>` +
+    const errCat = s.error ? categorizeError(s.error) : '';
+    const detail = s.error ? `${mark} ${errCat}` : `${mark} ${s.count} 条${ms}`;
+    return `<span class="status-pill${s.error ? ' err-pill' : ''}"${s.error ? ` title="${esc(label)}：${esc(errFull)}（点击查看）" data-err="${esc(errFull)}"` : ''}>` +
       `<span class="status-dot ${cls}" aria-hidden="true"></span>` +
       `<b>${esc(label)}</b><span class="status-meta">${esc(detail)}</span></span>`;
   }).join('');

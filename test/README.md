@@ -27,11 +27,13 @@ npm run test:watch
 
 ```
 test/
-  run.js                  ← 主入口，测试 TPB + LinuxTracker
+  run.js                  ← 主入口，测试 TPB + Knaben + LinuxTracker + FileMood
   normalize.test.js       ← normalize.js 单元测试
   fixtures/               ← 真实 HTML/JSON 快照
     tpb-ubuntu.json       ← TPB API 响应 (100 results)
+    knaben-ubuntu.json    ← Knaben API 响应 (5 results)
     linuxtracker-linux.html ← LinuxTracker HTML (18 results)
+    filemood-ubuntu.html  ← FileMood HTML (20 results)
 ```
 
 ## How to Add a New Provider Test
@@ -106,7 +108,9 @@ npm test
 | Provider | Tests | Status |
 |----------|-------|--------|
 | `tpb.js` | search parsing, category mapping, empty results, HTTP error | ✅ |
+| `knaben.js` | JSON API (POST) parsing, category mapping | ✅ |
 | `linuxtracker.js` | HTML parsing, infoHash extraction, size/date/seeds | ✅ |
+| `filemood.js` | HTML parsing, infoHash extraction from URL, size/seeds | ✅ |
 | `normalize.js` | parseSize, parseDate, buildMagnet, extractInfoHash, ruDate | ✅ |
 
 ## Troubleshooting
