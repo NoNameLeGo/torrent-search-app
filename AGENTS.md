@@ -47,7 +47,24 @@ crates/bt-core/         领域类型 + 归一化 + HTTP 公共层
 
 | JS 源 | Rust 目标 | 验收 |
 |---|---|---|
-| `src/lib/normalize.js`（161 行） | `crates/bt-core/src/normalize.rs` | `npm test` 的断言全搬到 `tests/normalize.rs`，CI **24 passed / 0 failed** |
+| `src/lib/normalize.js`（161 行） | `crates/bt-core/src/normalize.rs` | `test/normalize.test.js` 的断言全搬到 `tests/normalize.rs`，CI **24 passed / 0 failed** |
+| `src/lib/http.js`（71 行） | `crates/bt-core/src/http.rs` | `tests/http.rs` 自起本地一次性 HTTP 服务，覆盖成功 / 4xx / 5xx / 超时 / 连接失败 / 请求头，**无外网** |
+
+### ⚠️ 边搬边删（用户 2026-10-08 指定）
+
+**每搬完一块，就删掉对应的旧 `.js`**，不允许两套实现长期并存 —— 否则会烂成两份互相漂移的代码。
+
+| 时机 | 删什么 |
+|---|---|
+| 已做 | 构建产物 + 依赖缓存（`node_modules`、`src-tauri/target`、`src-tauri/binaries`）→ 省 1.35GB |
+| 每搬完一个 provider | 对应的 `src/providers/<name>.js` |
+| provider 全搬完 | `src/providers/`、`src/lib/`、`server.js`、`test/run.js` |
+| Rust 版 UI 做完 | `public/` |
+| Rust 版能替代发布 | `electron/`、`scripts/`、`package.json`、`start.bat`/`stop.bat`、`.eslintrc.json`、`.prettierrc`、`build.yml`/`release.yml`/`tauri-build.yml` |
+| **永久保留** | `test/fixtures/`（迁进 Rust 测试后也不删）、`LICENSE`、`SEARCH_ENGINE_PORT_COVERAGE.md` |
+
+⚠️ 反过来也要守：**别提前删还没搬的源码**。`src/providers/` + `public/` 一共才 460KB，
+却是逐行对照的参照物；删了等于凭记忆重写。
 
 **移植约定**：
 - JS 的运行时类型判别（`typeof x === 'number'`）在 Rust 里提为类型：`NumOrText::{Num, Text}`

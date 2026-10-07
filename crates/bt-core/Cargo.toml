@@ -10,3 +10,16 @@ publish.workspace = true
 [dependencies]
 chrono = "0.4"
 regex = "1"
+# 默认特性已含 TLS（Windows 上走 schannel）+ charset + http2；
+# 额外开三个压缩特性，对齐 axios 默认的 Accept-Encoding: gzip, deflate, br
+reqwest = { version = "0.12", features = ["json", "gzip", "brotli", "deflate"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+# 集成测试（tests/）**看不到 crate 的普通依赖**，只能访问公开 API + 这里的东西。
+# 所以测试里要用到的 serde / serde_json / tokio 必须在这儿重复声明一遍。
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# 起本地一次性 HTTP 服务，让 http 层能在 CI 里无网络验证成功/失败/超时三条路径
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "time"] }
