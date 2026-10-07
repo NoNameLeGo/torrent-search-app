@@ -236,9 +236,7 @@ impl HttpClient {
         body: &B,
         opts: Option<&ReqOpts>,
     ) -> JsonResponse<T> {
-        let req = self
-            .request(reqwest::Method::POST, url, opts)
-            .json(body);
+        let req = self.request(reqwest::Method::POST, url, opts).json(body);
         send_json(req).await
     }
 }

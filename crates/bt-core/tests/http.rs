@@ -98,7 +98,10 @@ async fn get_text_http_error_drops_status_like_js() {
     let r = HttpClient::new().get_text(&url, None).await;
 
     assert_eq!(r.html, None);
-    assert_eq!(r.status, None, "error 路径上 status 必须是 None（与 JS 版一致）");
+    assert_eq!(
+        r.status, None,
+        "error 路径上 status 必须是 None（与 JS 版一致）"
+    );
     assert_eq!(
         r.error.as_deref(),
         Some("Request failed with status code 404"),
@@ -113,7 +116,10 @@ async fn get_text_server_error_also_drops_body() {
     let r = HttpClient::new().get_text(&url, None).await;
 
     assert_eq!(r.html, None, "5xx 也一样：不回正文");
-    assert_eq!(r.error.as_deref(), Some("Request failed with status code 503"));
+    assert_eq!(
+        r.error.as_deref(),
+        Some("Request failed with status code 503")
+    );
 }
 
 // ---- get_json / post_json -------------------------------------------------
@@ -225,7 +231,10 @@ async fn opts_header_overrides_pool_ua() {
     let r = HttpClient::new().get_text(&url, Some(&opts)).await;
     let req = r.html.expect("echo 应当回显请求");
 
-    assert!(req.to_lowercase().contains("user-agent: test-ua/1.0"), "{req}");
+    assert!(
+        req.to_lowercase().contains("user-agent: test-ua/1.0"),
+        "{req}"
+    );
     assert!(req.to_lowercase().contains("x-test: yes"), "{req}");
     assert!(
         !USER_AGENTS.iter().any(|ua| req.contains(ua)),
