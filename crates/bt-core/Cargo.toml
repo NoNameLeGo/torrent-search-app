@@ -1,0 +1,12 @@
+[package]
+name = "bt-core"
+description = "BT 聚合搜索 — 领域类型、归一化、HTTP 公共层"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+chrono = "0.4"
+regex = "1"

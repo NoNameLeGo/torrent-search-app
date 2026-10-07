@@ -1,0 +1,48 @@
+name: Rust (test)
+
+# Rust 重写主线 —— `feat/rust` 分支。
+# 本机不开构建（用户磁盘两盘 90%+），一律走 CI：编译 + 跑测试都在这里。
+on:
+  push:
+    branches: [feat/rust]
+  pull_request:
+    paths:
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/rust.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v5
+
+      - name: 安装 Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Rust 缓存
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> target'
+
+      - name: cargo test
+        run: cargo test --workspace
+
+      # 首轮先不做 -D warnings，避免被 lint 噪音挡住"移植是否等价"这个主要信号。
+      # 稳定下来后再收紧。
+      - name: cargo clippy
+        run: cargo clippy --workspace --all-targets
+
+      # fmt 只报告不拦，同样是为了不挡主信号
+      - name: cargo fmt --check
+        continue-on-error: true
+        run: cargo fmt --all -- --check
