@@ -56,7 +56,8 @@ impl From<&String> for NumOrText {
 
 static SIZE_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i)^([\d.]+)\s*([A-Za-z]+)?$").unwrap());
-static BTIH_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)btih:([a-f0-9]{32,40})").unwrap());
+static BTIH_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?i)btih:([a-f0-9]{32,40})").unwrap());
 static AN_AGO_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?i)^an?\s+(min|minute|hour|day|week|month|year)s?\s+ago$").unwrap()
 });
@@ -68,8 +69,7 @@ static TODAY_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)^today$").u
 static LAST_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i)^last\s+(month|year)$").unwrap());
 static MAY_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)мая").unwrap());
-static CYR_WORD_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?i)[а-яё]+").unwrap());
+static CYR_WORD_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)[а-яё]+").unwrap());
 
 const MS_MIN: i64 = 60_000;
 const MS_HOUR: i64 = 3_600_000;
@@ -305,9 +305,7 @@ pub fn build_magnet(info_hash: Option<&str>, name: Option<&str>) -> Option<Strin
 /// 从磁力链（或任何含 `btih:` 的字符串）里抠出 hex infoHash，统一小写。
 pub fn extract_info_hash(s: Option<&str>) -> Option<String> {
     let s = s.filter(|s| !s.is_empty())?;
-    BTIH_RE
-        .captures(s)
-        .map(|c| c[1].to_ascii_lowercase())
+    BTIH_RE.captures(s).map(|c| c[1].to_ascii_lowercase())
 }
 
 // ---- Russian date helpers -------------------------------------------------
@@ -451,13 +449,15 @@ pub fn normalize(raw: &RawResult) -> TorrentResult {
         .map(|s| s.to_string())
         .unwrap_or_else(|| "(untitled)".to_string());
 
-    let id = non_empty(&raw.id).map(|s| s.to_string()).unwrap_or_else(|| {
-        let tail = info_hash
-            .clone()
-            .or_else(|| non_empty(&raw.name).map(|s| s.to_string()))
-            .unwrap_or_default();
-        format!("{}:{}", raw.provider, tail)
-    });
+    let id = non_empty(&raw.id)
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| {
+            let tail = info_hash
+                .clone()
+                .or_else(|| non_empty(&raw.name).map(|s| s.to_string()))
+                .unwrap_or_default();
+            format!("{}:{}", raw.provider, tail)
+        });
 
     let detail_url = non_empty(&raw.detail_url).map(|s| s.to_string());
     // 没有磁力、但有详情页 —— 说明磁力要等用户点击时再去详情页捞
