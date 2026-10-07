@@ -64,11 +64,28 @@ Magnet links: WebView2/Electron won't auto-invoke `magnet:`, so both shells inte
 
 ## CI (.github/workflows/)
 
-Three workflows, split by shell and trigger:
+**编译一律在 CI 里跑，不在本机跑。** 用户机器 C:/D: 两盘均 90%+ 占用，且明确要求不新增本地构建环境。本机的 `CARGO_HOME`（`D:\Vibe-Coding\.cargo`）已被清理、`cargo` 不在 PATH 上 —— **本地跑不了 cargo**。本地只写代码，编译/测试结果看 Actions 日志，产物从 Artifacts 下载。
+
+Four workflows, split by shell and trigger:
 
 - **`build.yml`** — Electron only. Runs on push to `main` (or manual). Builds the NSIS installer + portable zip, uploads as artifacts.
 - **`release.yml`** — Electron **and** Tauri together. Runs on `v*` tags (or manual). Three parallel jobs: `electron` (checks out the trigger ref), `tauri` (explicitly checks out `feat/tauri`), then `publish` bundles both into a single GitHub Release (published **directly, `draft: false`** — no manual "Publish" click), appending `docs/RELEASE_ARTIFACTS.md` as the body. Every artifact name carries an explicit `-Electron-`/`-Tauri-` tag (`BT-Search-Electron-Setup-<ver>.exe`, `BT-Search-Electron-Portable.zip`, `BT-Search-Tauri-Setup-<ver>.exe`) so the two shells' installers can't be confused. Renaming lives in three places — `package.json` `build.win.artifactName` (Electron installer), `release.yml`'s `Zip portable` step (Electron portable) and `Rename Tauri installer` step (Tauri) — plus the example names in `docs/RELEASE_ARTIFACTS.md`.
 - **`tauri-build.yml`** — Tauri only, validation. Runs on push to `feat/tauri` and on PRs; builds but never releases.
+- **`rust.yml`** — the Rust rewrite (see below). Runs on push to `feat/rust` and on PRs touching `crates/**`. `cargo test --workspace` + `clippy` + `fmt --check`.
+
+### Rust rewrite (`feat/rust`)
+
+Since 2026-10-08 the project is being **rewritten from scratch in Rust** on the `feat/rust` branch, which is intended to eventually become `main`. The Node side is untouched and keeps working until each piece is replaced.
+
+```
+Cargo.toml              workspace root (members = ["crates/*"], exclude = ["src-tauri"])
+crates/bt-core/         domain types + normalize + shared HTTP layer
+  src/normalize.rs      port of src/lib/normalize.js (semantically equivalent)
+  tests/normalize.rs    the assertions from test/normalize.test.js, ported verbatim
+```
+
+Porting conventions (details in `AGENTS.md`): JS `typeof` runtime checks become the `NumOrText` enum; JS's lenient numeric parsing (`parseFloat("1.2.3") == 1.2`, `parseInt("12abc") == 12`) is reimplemented rather than replaced by `f64::from_str`; integration tests can't see the crate's normal dependencies, so use `std::time::SystemTime` instead of `chrono::Utc::now()`. Two deliberate divergences from the JS behaviour are pinned as named tests — don't "fix" them.
+
 
 **Version tags increment forward — never re-tag the same version.** Bump `version` in both `package.json` and `src-tauri/tauri.conf.json`, then tag the *next* number (`v0.0.2`, `v0.1.0`, …). Only reuse a tag when the user explicitly says to overwrite a specific version. Rationale: same-tag re-release means moving a published tag, and `softprops` **appends** assets to the existing Release rather than replacing them (leaving stale files behind) — so `release.yml`'s publish job first `gh release delete <tag> --yes` (keeping the tag) before re-creating, but forward-incrementing avoids the whole hazard.
 

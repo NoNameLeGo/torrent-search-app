@@ -42,7 +42,5 @@ jobs:
       - name: cargo clippy
         run: cargo clippy --workspace --all-targets
 
-      # fmt 只报告不拦，同样是为了不挡主信号
       - name: cargo fmt --check
-        continue-on-error: true
         run: cargo fmt --all -- --check

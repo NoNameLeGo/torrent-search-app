@@ -9,6 +9,55 @@ npm start     # node server.js → http://localhost:3000
 
 Electron mode: `npm run electron` (picks a free port automatically, no collision with a running `npm start`).
 
+## 🏗️ 构建约束 — 先读这条（硬规则，2026-10-04 用户明令）
+
+**不要在本机编译任何东西。** 用户原话：「不要在本地新增什么构建环境什么的，我电脑没空间了」。
+实测磁盘（2026-10-07）：C: 301G / 剩 **31G**（90% 用），D: 653G / 剩 **41G**（94% 用）—— **两个盘都快满了，不只是 C**。
+
+凡会产出 `target/` / `dist/` / `node_modules/` 或联网拉依赖的命令
+（`cargo build`、`cargo test`、`npm install`、`npm run dist` …）：**先问用户，默认改走 GitHub Actions**。
+不要因为「D 盘反正还有 41G」就自作主张开跑。
+
+**注**：本机的 `CARGO_HOME`（`D:\Vibe-Coding\.cargo`）已被清理，`cargo` 已不在 PATH 上；
+`RUSTUP_HOME`（`D:\Vibe-Coding\.rustup`）的 toolchain 还在但缺 shim。
+**结论：本地跑不了 cargo，Rust 的一切都必须走 CI。**
+
+| 场景 | workflow | 触发 |
+|---|---|---|
+| Rust workspace（编译 + 测试） | `rust.yml` | push `feat/rust`、PR 改 `crates/**` |
+| Electron 安装包 + portable | `build.yml` | push `main`、`v*` tag |
+| Electron + Tauri 统一发版 | `release.yml` | `v*` tag |
+| Tauri 编译校验 | `tauri-build.yml` | push `feat/tauri` |
+
+**已知可回收空间**：`src-tauri/target` 约 1.1GB（`cargo clean` 即可，但本机已无 cargo）。
+
+## 🦀 Rust 重写主线（`feat/rust` 分支，2026-10-08 起）
+
+本项目**推倒重开、用 Rust 重写**，在 `feat/rust` 上进行，长期长成主分支。
+`main` 上的 Node/Express + Electron/Tauri 实现继续可用；Rust 版每搬完一块就替代一块。
+
+```
+Cargo.toml              workspace 根（members = ["crates/*"]，exclude = ["src-tauri"]）
+crates/bt-core/         领域类型 + 归一化 + HTTP 公共层
+  src/normalize.rs      ← 从 src/lib/normalize.js 移植（语义等价）
+  tests/normalize.rs    ← 从 test/normalize.test.js 搬来的对照断言
+```
+
+**移植进度**：
+
+| JS 源 | Rust 目标 | 验收 |
+|---|---|---|
+| `src/lib/normalize.js`（161 行） | `crates/bt-core/src/normalize.rs` | `npm test` 的断言全搬到 `tests/normalize.rs`，CI **24 passed / 0 failed** |
+
+**移植约定**：
+- JS 的运行时类型判别（`typeof x === 'number'`）在 Rust 里提为类型：`NumOrText::{Num, Text}`
+- JS 的宽松数值解析要复刻，不能直接用 `f64::from_str`：`"1.2.3"` 在 JS `parseFloat` 下是 `1.2`；
+  `parseInt("12abc")` 是 `12`。已手写 `js_parse_float` / `to_int`。
+- `encodeURIComponent` 也手写复刻（只 `A-Za-z0-9-_.!~*'()` 原样）
+- **集成测试（`tests/`）拿不到 crate 的普通依赖**，只能访问公开 API + `[dev-dependencies]`
+  → 测试里别用 `chrono::Utc::now()`，改用 `std::time::SystemTime`
+- 两处**有意**偏离 JS 的行为，都单列成 divergence 测试并写明原因，别当 bug 修掉
+
 ## Testing
 
 This repo uses **Node.js built-in `assert` module** for golden-file tests. No external test framework required.
