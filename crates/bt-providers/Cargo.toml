@@ -1,0 +1,18 @@
+[package]
+name = "bt-providers"
+description = "BT 聚合搜索 — 各站点 provider（一文件一站）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+bt-core = { path = "../bt-core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+# 集成测试看不到 crate 的普通依赖，用到的都得在这儿再声明一遍
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util"] }

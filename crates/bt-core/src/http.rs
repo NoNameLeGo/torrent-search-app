@@ -113,6 +113,15 @@ impl<T> JsonResponse<T> {
     pub fn is_ok(&self) -> bool {
         self.error.is_none()
     }
+
+    /// 失败是否属于「响应体解析不了」，而不是「连不上 / HTTP 状态错」。
+    ///
+    /// provider 要据此给不同文案（JS 版里对应「axios 静默把原始字符串当 data，
+    /// 于是 `!Array.isArray(data)` 成立」那条分支）。把判断收在这里，
+    /// 免得每个 provider 各自去 sniff 字符串前缀。
+    pub fn is_parse_error(&self) -> bool {
+        matches!(&self.error, Some(e) if e.starts_with("invalid json:"))
+    }
 }
 
 /// 共享的 HTTP 客户端。对应 JS 那个模块级 `axios.create({...})`。
@@ -264,7 +273,12 @@ async fn send_json<T: DeserializeOwned>(req: reqwest::RequestBuilder) -> JsonRes
                     status: Some(status.as_u16()),
                     error: None,
                 },
-                Err(e) => JsonResponse::fail(format!("invalid json: {e}")),
+                // 把正文开头也带进错误里 —— 抓取型项目最常见的失败是
+                // 「Cloudflare 拦页」和「429 限流」，光说 invalid json 没法定位。
+                Err(e) => {
+                    let snippet: String = text.chars().take(80).collect();
+                    JsonResponse::fail(format!("invalid json: {e} | body: {snippet:?}"))
+                }
             }
         }
         Err(e) => JsonResponse::fail(map_err(&e)),

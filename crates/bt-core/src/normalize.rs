@@ -270,7 +270,7 @@ pub fn format_date(ts: Option<i64>) -> String {
 // ---- Magnet ---------------------------------------------------------------
 
 /// 复刻 JS `encodeURIComponent`：只有 `A-Za-z0-9-_.!~*'()` 保持原样。
-fn encode_uri_component(s: &str) -> String {
+pub fn encode_uri_component(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for b in s.bytes() {
         match b {
