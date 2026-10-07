@@ -36,19 +36,51 @@ Electron mode: `npm run electron` (picks a free port automatically, no collision
 本项目**推倒重开、用 Rust 重写**，在 `feat/rust` 上进行，长期长成主分支。
 `main` 上的 Node/Express + Electron/Tauri 实现继续可用；Rust 版每搬完一块就替代一块。
 
+### 范围决策（2026-10-08 用户拍板，5 条 · 别再反复问）
+
+| # | 问题 | 决定 |
+|---|---|---|
+| Q1 | 产品形态 | **只做桌面原生应用；浏览器 / 手机访问模式最终放弃**（过渡期它作为副产品先留着） |
+| Q2 | UI 方案 | **先不动 UI**：复用现有 `public/` 前端把核心跑通；核心稳定后再实测 Slint 原生可不可行 |
+| Q3 | 平台 | **暂时 Windows-only**（但代码里别写死平台相关的东西） |
+| Q4 | 切换时机 | **核心齐了就切 `main`**（providers + 聚合层），UI 之后补 |
+| Q5 | 站点改版怎么发现 | **CI 默认只跑离线 fixture**（稳定的门）；另加一条 `workflow_dispatch` **手动触发的联网冒烟**，允许失败 |
+
+### 两阶段路线（由上述决策推导，有异议就说）
+
+**阶段一（当前）—— Rust 核心 + 复用现有 WebView 前端**
+
+- 补齐 `bt-providers` / `bt-torznab` / `bt-downloaders` / `bt-app`（聚合 + 8 路并发 + SSE）
+- 壳：Tauri 壳**直接跑 Rust 核心**，干掉现在那个 89MB 的 node sidecar
+- `public/` **一行不改** —— 阶段一结束时用户看到的界面和现在一样，但内存/体积大幅下降
+- 技术验收点：Rust 版的搜索结果必须和 Node 版**逐字段一致**
+
+**阶段二（阶段一稳了再启动，现阶段不要做）**
+
+- 拿 `spike/slint-ui` 的结论决定是否上 Slint 原生 UI
+- 上：删 `public/` + Tauri 壳，并正式丢掉浏览器访问
+- 不上：就停在阶段一（那终局就是「Rust 核心 + WebView」，与 Q1「桌面原生」有出入，届时再议）
+
+⚠️ **过渡期千万别做的事**：不要为了"干净"提前删 `public/` 或 `src/providers/`。
+两者合计才 460KB，却是逐行对照的参照物；删了等于凭记忆重写。
+
 ```
 Cargo.toml              workspace 根（members = ["crates/*"]，exclude = ["src-tauri"]）
 crates/bt-core/         领域类型 + 归一化 + HTTP 公共层
-  src/normalize.rs      ← 从 src/lib/normalize.js 移植（语义等价）
-  tests/normalize.rs    ← 从 test/normalize.test.js 搬来的对照断言
+  src/normalize.rs      ← src/lib/normalize.js 的语义等价移植
+  tests/normalize.rs    ← test/normalize.test.js 的断言原样搬来
+  src/http.rs           ← src/lib/http.js 的移植（契约：永不返回 Err）
+  tests/http.rs         ← 自起本地一次性 HTTP 服务，全程无外网
+
+（阶段一待建）crates/bt-providers/ · bt-torznab/ · bt-downloaders/ · bt-app/
 ```
 
 **移植进度**：
 
 | JS 源 | Rust 目标 | 验收 |
 |---|---|---|
-| `src/lib/normalize.js`（161 行） | `crates/bt-core/src/normalize.rs` | `test/normalize.test.js` 的断言全搬到 `tests/normalize.rs`，CI **24 passed / 0 failed** |
-| `src/lib/http.js`（71 行） | `crates/bt-core/src/http.rs` | `tests/http.rs` 自起本地一次性 HTTP 服务，覆盖成功 / 4xx / 5xx / 超时 / 连接失败 / 请求头，**无外网** |
+| `src/lib/normalize.js`（161 行） | `crates/bt-core/src/normalize.rs` | `test/normalize.test.js` 的断言全搬到 `tests/normalize.rs`，CI **24 passed** |
+| `src/lib/http.js`（71 行） | `crates/bt-core/src/http.rs` | `tests/http.rs` 覆盖成功 / 4xx / 5xx / JSON / 非 JSON / 超时 / 连接失败 / 请求头，CI **12 passed** |
 
 ### ⚠️ 边搬边删（用户 2026-10-08 指定）
 
@@ -57,10 +89,10 @@ crates/bt-core/         领域类型 + 归一化 + HTTP 公共层
 | 时机 | 删什么 |
 |---|---|
 | 已做 | 构建产物 + 依赖缓存（`node_modules`、`src-tauri/target`、`src-tauri/binaries`）→ 省 1.35GB |
-| 每搬完一个 provider | 对应的 `src/providers/<name>.js` |
+| 每搬完一个 provider | 对应的 `src/providers/<name>.js`（同时删 `test/run.js` 里它的测试块；fixture 保留，改由 Rust 测试消费） |
 | provider 全搬完 | `src/providers/`、`src/lib/`、`server.js`、`test/run.js` |
-| Rust 版 UI 做完 | `public/` |
-| Rust 版能替代发布 | `electron/`、`scripts/`、`package.json`、`start.bat`/`stop.bat`、`.eslintrc.json`、`.prettierrc`、`build.yml`/`release.yml`/`tauri-build.yml` |
+| **阶段二**确认上 Slint 后 | `public/`、Tauri 壳 |
+| Rust 版取代旧 Shell 发版 | `electron/`、`scripts/`、`package.json`、`start.bat`/`stop.bat`、`.eslintrc.json`、`.prettierrc`、`build.yml`/`release.yml`/`tauri-build.yml` |
 | **永久保留** | `test/fixtures/`（迁进 Rust 测试后也不删）、`LICENSE`、`SEARCH_ENGINE_PORT_COVERAGE.md` |
 
 ⚠️ 反过来也要守：**别提前删还没搬的源码**。`src/providers/` + `public/` 一共才 460KB，
@@ -72,12 +104,41 @@ crates/bt-core/         领域类型 + 归一化 + HTTP 公共层
   `parseInt("12abc")` 是 `12`。已手写 `js_parse_float` / `to_int`。
 - `encodeURIComponent` 也手写复刻（只 `A-Za-z0-9-_.!~*'()` 原样）
 - **集成测试（`tests/`）拿不到 crate 的普通依赖**，只能访问公开 API + `[dev-dependencies]`
-  → 测试里别用 `chrono::Utc::now()`，改用 `std::time::SystemTime`
-- 两处**有意**偏离 JS 的行为，都单列成 divergence 测试并写明原因，别当 bug 修掉
+  → 测试里要用 `chrono` / `serde` / `tokio` 都得在 `[dev-dependencies]` 再声明一遍
+- 有意偏离 JS 的行为，一律单列成 divergence 测试并在注释里写明原因，别当 bug 修掉
+- 测试**尽量不依赖外网**：`tests/http.rs` 自起本地一次性 HTTP 服务，这个套路可以直接复用到 provider 上
+
+**Rust 本地工具现状（重要）**：
+- ❌ 本机 `CARGO_HOME`（`D:\Vibe-Coding\.cargo`）已被清理，`cargo` 不在 PATH
+  → **本地跑不了 `cargo build` / `cargo test` / `cargo clippy`**，全走 CI
+- ✅ 但 **`rustfmt.exe` 是独立二进制，不需要 cargo**，提交前先本地自查能省一轮 CI（~1.5 分钟）：
+  ```bash
+  RF="/d/Vibe-Coding/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin/rustfmt.exe"
+  "$RF" --check --edition 2021 <files>   # 只报告
+  "$RF" --edition 2021 <files>           # 就地修好
+  ```
+  **必须带 `--edition 2021`**（独立运行时默认 2015，结果会不一致）。
+- ⚠️ **不要用「行宽 ≤ 100」代替 rustfmt**：它默认 `fn_call_width = 60`，
+  多参数宏/函数调用即使整行不到 100 也会被拆行（`assert_eq!(a, b, "msg")` 是重灾区）。
 
 ## Testing
 
-This repo uses **Node.js built-in `assert` module** for golden-file tests. No external test framework required.
+**过渡期两套测试并存**：
+
+| | 命令 | 跑在哪 | 去向 |
+|---|---|---|---|
+| Node（旧） | `npm test` | 本机（需 node） | 随「边搬边删」逐步缩小，最终退休 |
+| Rust（新） | `cargo test --workspace` | **只能走 CI**（`.github/workflows/rust.yml`） | 本机无 cargo |
+
+### 测试策略（Q5 决策）
+
+- **CI 默认只跑离线 fixture**（`test/fixtures/` 的真实快照）—— 稳定的门，作用是防"解析逻辑退化"
+- ⚠️ **但离线 fixture 证明不了"现在还能用"**：快照是 2026-07 的，站点早已改版。
+  测试全绿也可能一个结果都搜不出来。这条必须记住，别把绿灯当成"抓取正常"。
+- 因此另设一条 **`workflow_dispatch` 手动触发的联网冒烟**，允许失败，按需跑。
+  **状态：尚未实现**（等 provider 落地几个之后再补）
+
+Node 侧仍然使用 **Node.js 内置 `assert` 模块**做 golden-file 测试，无第三方框架：
 
 ```bash
 npm test          # run all tests

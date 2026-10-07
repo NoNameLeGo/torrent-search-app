@@ -8,6 +8,14 @@
 
 > ⚠️ **本项目由 AI 辅助生成**，参考 [prajwalch/TorrentSearch](https://github.com/prajwalch/TorrentSearch)（Kotlin/Android 原生应用）的多引擎并行聚合思路，重写为 Node/Express 后端 + 原生 JS 前端 + Electron 桌面壳。代码可供学习、修改与再分发，但**不保证完整性与安全性**，使用前请自行审阅。
 
+> 🦀 **开发状态（2026-10-08 起）：正在用 Rust 重写。**
+> 现有 Node/Express + Electron/Tauri 实现继续可用；Rust 版在 `feat/rust` 分支上逐块替代，长期长成主分支。
+> - **终局**：Windows 桌面原生应用 —— 浏览器 / 手机访问模式将被放弃
+> - **路径**：阶段一 = Rust 核心 + 复用现有前端（界面不变，内存与体积大幅下降）；阶段二 = 评估 Slint 原生 UI
+> - **构建**：全部走 GitHub Actions（维护者机器磁盘吃紧，本地不编译）
+>
+> 贡献者细节见 [`AGENTS.md`](./AGENTS.md) / [`CLAUDE.md`](./CLAUDE.md)。
+
 <br>
 
 <details open>

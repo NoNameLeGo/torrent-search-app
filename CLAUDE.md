@@ -77,14 +77,37 @@ Four workflows, split by shell and trigger:
 
 Since 2026-10-08 the project is being **rewritten from scratch in Rust** on the `feat/rust` branch, which is intended to eventually become `main`. The Node side is untouched and keeps working until each piece is replaced.
 
+**Scope decisions (2026-10-08, settled — full table in `AGENTS.md`):**
+
+| # | Decision |
+|---|---|
+| Q1 | Desktop-native only. **Browser/mobile access is being dropped** (kept as a free by-product during the transition). |
+| Q2 | **Don't touch the UI yet** — reuse the existing `public/` frontend to get the core working; evaluate Slint native once the core is stable. |
+| Q3 | Windows-only for now, but don't hardcode platform specifics. |
+| Q4 | **Switch `main` once the core is done** (providers + aggregation); UI comes later. |
+| Q5 | CI runs **offline fixtures only** (the stable gate). A manual `workflow_dispatch` online smoke test is planned and *not yet implemented*. Fixtures are a 2026-07 snapshot, so green does **not** mean scraping still works. |
+
+**Two phases.** Phase 1 = Rust core + the existing WebView frontend (the Tauri shell hosts the Rust core directly, killing the 89MB node sidecar; `public/` unchanged). Phase 2 = decide on Slint from the `spike/slint-ui` findings, and only then delete `public/` plus the Tauri shell.
+
 ```
 Cargo.toml              workspace root (members = ["crates/*"], exclude = ["src-tauri"])
 crates/bt-core/         domain types + normalize + shared HTTP layer
   src/normalize.rs      port of src/lib/normalize.js (semantically equivalent)
-  tests/normalize.rs    the assertions from test/normalize.test.js, ported verbatim
+  tests/normalize.rs    assertions from test/normalize.test.js, ported verbatim
+  src/http.rs           port of src/lib/http.js — never returns Err, mirrors the JS contract
+  tests/http.rs         spins up a throwaway local HTTP server; needs no network
+(phase 1, pending)  crates/bt-providers/ · bt-torznab/ · bt-downloaders/ · bt-app/
 ```
 
-Porting conventions (details in `AGENTS.md`): JS `typeof` runtime checks become the `NumOrText` enum; JS's lenient numeric parsing (`parseFloat("1.2.3") == 1.2`, `parseInt("12abc") == 12`) is reimplemented rather than replaced by `f64::from_str`; integration tests can't see the crate's normal dependencies, so use `std::time::SystemTime` instead of `chrono::Utc::now()`. Two deliberate divergences from the JS behaviour are pinned as named tests — don't "fix" them.
+Porting conventions (details in `AGENTS.md`): JS `typeof` runtime checks become the `NumOrText` enum; JS's lenient numeric parsing (`parseFloat("1.2.3") == 1.2`, `parseInt("12abc") == 12`) is reimplemented rather than replaced by `f64::from_str`; integration tests can't see the crate's normal dependencies, so `chrono`/`serde`/`tokio` must also be listed under `[dev-dependencies]`. Deliberate divergences from the JS behaviour are pinned as named tests — don't "fix" them.
+
+**Rust tooling on this machine:** `cargo` is gone (CARGO_HOME was cleaned up), so `cargo build/test/clippy` only ever run in CI. `rustfmt.exe` *is* still usable standalone — run it with `--edition 2021` before pushing:
+
+```bash
+"/d/Vibe-Coding/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin/rustfmt.exe" --check --edition 2021 <files>
+```
+
+Don't substitute a line-width check for it: rustfmt's default `fn_call_width` is 60, so multi-arg calls get split even when the line is well under 100 chars.
 
 
 **Version tags increment forward — never re-tag the same version.** Bump `version` in both `package.json` and `src-tauri/tauri.conf.json`, then tag the *next* number (`v0.0.2`, `v0.1.0`, …). Only reuse a tag when the user explicitly says to overwrite a specific version. Rationale: same-tag re-release means moving a published tag, and `softprops` **appends** assets to the existing Release rather than replacing them (leaving stale files behind) — so `release.yml`'s publish job first `gh release delete <tag> --yes` (keeping the tag) before re-creating, but forward-incrementing avoids the whole hazard.
@@ -100,4 +123,4 @@ Porting conventions (details in `AGENTS.md`): JS `typeof` runtime checks become 
 - **Test scrapers from the agent's sandbox, not the user's machine.** The user's local Windows box has DNS pollution for many BT sites (Facebook's blackhole IPv6 `2a03:2880:face:b00c` hijacks some domains), so a provider that fails from their terminal may work from the agent environment and vice-versa. Verify provider reachability from the agent runtime; **do not** ask the user to share their network or tunnel traffic. The ✓/✕ status reflects real reachability at request time.
 - **Russian-site providers (rutor, etc.)**: serve **UTF-8**, not windows-1251 despite what upstream may imply. Match table cells by *content* (size regex, seeder/leecher `<span>`s), never by column index — these sites inject extra columns (e.g. a comments cell) that shift indices. JS `\b` does not match Cyrillic characters, and a bare unit letter like `B` false-matches titles such as "Black Box"; require a full unit (`GB|MB|KB|TB|ГБ|МБ|КБ|ТБ`).
 - `SEARCH_ENGINE_PORT_COVERAGE.md` tracks which upstream (prajwalch/TorrentSearch) engines have been ported.
-- **Tauri local validation**: `cargo check` (dev) skips code behind `#[cfg(not(debug_assertions))]` — Tauri's release-only `setup` block. CI builds release, so run `cargo check --release` to actually compile it. Also validate `tauri.conf.json` against `node_modules/@tauri-apps/cli/config.schema.json` with `ajv` before pushing (skip `pattern` keywords). The full Tauri v2 gotcha list lives in `AGENTS.md`.
+- **Tauri validation** (legacy `feat/tauri` branch): `cargo check` in dev mode skips code behind `#[cfg(not(debug_assertions))]` — Tauri's release-only `setup` block — so only a release build actually exercises it. ⚠️ **This can no longer be done locally** (`cargo` is gone from this machine); it now only happens in `tauri-build.yml`. Also validate `tauri.conf.json` against `node_modules/@tauri-apps/cli/config.schema.json` with `ajv` before pushing (skip `pattern` keywords). The full Tauri v2 gotcha list lives in `AGENTS.md`.
