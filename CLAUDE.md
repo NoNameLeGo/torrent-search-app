@@ -96,8 +96,17 @@ crates/bt-core/         domain types + normalize + shared HTTP layer
   tests/normalize.rs    assertions from test/normalize.test.js, ported verbatim
   src/http.rs           port of src/lib/http.js — never returns Err, mirrors the JS contract
   tests/http.rs         spins up a throwaway local HTTP server; needs no network
-(phase 1, pending)  crates/bt-providers/ · bt-torznab/ · bt-downloaders/ · bt-app/
+crates/bt-providers/    one file per site, mirroring src/providers/*.js
+  src/lib.rs            SearchOutcome { results, error, has_more } (no Provider trait yet)
+  src/tpb.rs            port of src/providers/tpb.js
+  tests/common/mod.rs   throwaway HTTP server + fixture loader shared by provider tests
+  tests/tpb.rs          real fixture, field-by-field assertions + three failure paths
+(pending)  crates/bt-torznab/ · bt-downloaders/ · bt-app/
 ```
+
+**Deleting the old JS — function-level, not file-level (revised 2026-10-08).** Do *not* mechanically delete `<provider>.js` as soon as its Rust port lands. Delete only once that function is fully usable from Rust (wired into `bt-app`), and never when the JS is still the reference for an accepted equivalence check. Anything kept for now must be logged in the "待删清单" table in `AGENTS.md` and deleted in a batch at the end of a phase. The one hard rule that survives: two implementations must never be allowed to drift, so every ported file's status (`待删` / `保留(对照)` / `已删`) goes in the progress table.
+
+**Next step (agreed, do not start without the user):** continue with the **JSON group first, then the HTML group**. Recommended order: `knaben` → `torrentscsv` → `yts` → `internetarchive`, then introduce the `scraper` crate for the HTML providers (`linuxtracker`, `filemood`) and verify selector equivalence against cheerio. Don't define a `Provider` trait until 3–5 providers exist.
 
 Porting conventions (details in `AGENTS.md`): JS `typeof` runtime checks become the `NumOrText` enum; JS's lenient numeric parsing (`parseFloat("1.2.3") == 1.2`, `parseInt("12abc") == 12`) is reimplemented rather than replaced by `f64::from_str`; integration tests can't see the crate's normal dependencies, so `chrono`/`serde`/`tokio` must also be listed under `[dev-dependencies]`. Deliberate divergences from the JS behaviour are pinned as named tests — don't "fix" them.
 

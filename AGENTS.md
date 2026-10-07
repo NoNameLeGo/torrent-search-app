@@ -71,32 +71,83 @@ crates/bt-core/         领域类型 + 归一化 + HTTP 公共层
   tests/normalize.rs    ← test/normalize.test.js 的断言原样搬来
   src/http.rs           ← src/lib/http.js 的移植（契约：永不返回 Err）
   tests/http.rs         ← 自起本地一次性 HTTP 服务，全程无外网
+crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方式
+  src/lib.rs            SearchOutcome { results, error, has_more }
+                        （暂不引入 Provider trait，等 3~5 个再定抽象）
+  src/tpb.rs            ← src/providers/tpb.js
+  tests/common/mod.rs   本地一次性 HTTP 服务 + fixture 加载（provider 测试公用）
+  tests/tpb.rs          ← 用真 fixture 逐字段断言 + 三条失败路径
 
-（阶段一待建）crates/bt-providers/ · bt-torznab/ · bt-downloaders/ · bt-app/
+（待建）crates/bt-torznab/ · bt-downloaders/ · bt-app/
 ```
 
 **移植进度**：
 
-| JS 源 | Rust 目标 | 验收 |
+| JS 源 | Rust 目标 | 验收 | 旧 JS 状态 |
+|---|---|---|---|
+| `src/lib/normalize.js`（161 行） | `crates/bt-core/src/normalize.rs` | `test/normalize.test.js` 的断言全搬到 `tests/normalize.rs`，CI **24 passed** | 保留(对照) |
+| `src/lib/http.js`（71 行） | `crates/bt-core/src/http.rs` | `tests/http.rs` 覆盖成功 / 4xx / 5xx / JSON / 非 JSON / 超时 / 连接失败 / 请求头，CI **12 passed** | 保留(对照) |
+| `src/providers/tpb.js`（53 行） | `crates/bt-providers/src/tpb.rs` | `tests/tpb.rs` 用真 fixture（100 条）逐字段断言 + 三条失败路径，**全程离线** | **待删**（见待删清单） |
+
+### ⚠️ 边搬边删（用户 2026-10-08 指定，2026-10-08 二次修订）
+
+**原则（修订后 —— 别死板按文件删）**：
+
+1. **以「功能」为粒度，不以「文件」为粒度。** 一个功能在 Rust 侧完整可用（含被
+   `bt-app` 真正接通）之后，才考虑删它对应的旧 JS。
+2. **删了会影响后续的，就先不删。** 判断标准：这个 JS 是否还在被别的东西引用/对照？
+   是 → 留着，登记到下面的「待删清单」，阶段收尾时批量删。
+3. **删之前必须登记。** 不登记就删 = 以后没人知道哪些该删。
+4. 唯一红线不变：**不允许两套实现长期漂移**。所以每搬完一块，必须在下面的
+   「移植进度」表里标注该 JS 的状态（`待删` / `保留(对照)` / `已删`）。
+
+**为什么放宽**：阶段一（Q4B）的技术验收点是「Rust 版结果与 Node 版**逐字段一致**」，
+Node 源码在这个阶段是**验证工具**而不是待清垃圾。提前删掉 = 亲手毁掉对照物。
+
+**待删清单（阶段一收尾 / 阶段二启动时批量处理）**：
+
+| 路径 | 为何现在留着 | 何时可删 |
 |---|---|---|
-| `src/lib/normalize.js`（161 行） | `crates/bt-core/src/normalize.rs` | `test/normalize.test.js` 的断言全搬到 `tests/normalize.rs`，CI **24 passed** |
-| `src/lib/http.js`（71 行） | `crates/bt-core/src/http.rs` | `tests/http.rs` 覆盖成功 / 4xx / 5xx / JSON / 非 JSON / 超时 / 连接失败 / 请求头，CI **12 passed** |
+| `src/providers/tpb.js` ✅已移植 | `test/run.js` 仍在跑它；离线对照要用 | `bt-app` 接通 TPB + Node 测试块删除后 |
+| `src/providers/*.js`（其余 41 个） | 尚未移植，是逐行对照的参照物 | 各自移植完成后按上条判断 |
+| `src/lib/`、`server.js`、`test/run.js` | 聚合层尚未移植，本分支上 Node 版仍需可跑 | provider + 聚合全搬完 |
+| `public/` | 阶段一的前端本体（`public/` 一行不改） | **阶段二**确认上 Slint 后 |
+| `electron/`、`scripts/`、`package.json`、`start.bat`/`stop.bat`、`.eslintrc.json`、`.prettierrc`、`build.yml`/`release.yml`/`tauri-build.yml` | Rust 版尚未能取代旧 Shell 发版 | Rust 版能独立发版后 |
 
-### ⚠️ 边搬边删（用户 2026-10-08 指定）
+**已删（已做）**：构建产物 + 依赖缓存（`node_modules`、`src-tauri/target`、`src-tauri/binaries`）→ 省 1.35GB
 
-**每搬完一块，就删掉对应的旧 `.js`**，不允许两套实现长期并存 —— 否则会烂成两份互相漂移的代码。
-
-| 时机 | 删什么 |
-|---|---|
-| 已做 | 构建产物 + 依赖缓存（`node_modules`、`src-tauri/target`、`src-tauri/binaries`）→ 省 1.35GB |
-| 每搬完一个 provider | 对应的 `src/providers/<name>.js`（同时删 `test/run.js` 里它的测试块；fixture 保留，改由 Rust 测试消费） |
-| provider 全搬完 | `src/providers/`、`src/lib/`、`server.js`、`test/run.js` |
-| **阶段二**确认上 Slint 后 | `public/`、Tauri 壳 |
-| Rust 版取代旧 Shell 发版 | `electron/`、`scripts/`、`package.json`、`start.bat`/`stop.bat`、`.eslintrc.json`、`.prettierrc`、`build.yml`/`release.yml`/`tauri-build.yml` |
-| **永久保留** | `test/fixtures/`（迁进 Rust 测试后也不删）、`LICENSE`、`SEARCH_ENGINE_PORT_COVERAGE.md` |
+**永久保留**：`test/fixtures/`（迁进 Rust 测试后也不删，是 golden 数据源）、
+`LICENSE`、`SEARCH_ENGINE_PORT_COVERAGE.md`
 
 ⚠️ 反过来也要守：**别提前删还没搬的源码**。`src/providers/` + `public/` 一共才 460KB，
 却是逐行对照的参照物；删了等于凭记忆重写。
+
+### 📌 下一步计划（2026-10-08 用户定，**下次开工按这个走**）
+
+用户口径：**Q2 选 A → B，先只记录，不动手。**
+
+推荐顺序 **A（纯 JSON 组）→ B（HTML 组）**，理由：JSON 组零解析风险、每个都快，
+能快速把 provider 的组织形态（crate 内一文件一站、`tests/common/mod.rs` 复用）打磨稳；
+HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地方，值得等前面都稳了再集中攻。
+
+**A 组（纯 JSON API，无 HTML 解析）** —— 按建议顺序：
+
+| 顺序 | provider | 备注 |
+|---|---|---|
+| 1 | ~~`tpb.js`~~ | ✅ 已完成 |
+| 2 | `knaben.js` | POST JSON，已有 fixture |
+| 3 | `torrentscsv.js` | |
+| 4 | `yts.js` | |
+| 5 | `internetarchive.js` | |
+
+**B 组（HTML 抓取，需引入 `scraper` crate 对标 cheerio）**：
+
+- 先在 `bt-core` 里加 `scraper` 依赖 + 一个选择器等价性验证（对照 `cheerio` 的行为）
+- 已有的 HTML fixture：`linuxtracker` / `filemood`
+- ⚠️ 这一步要专门验证：CSS 选择器语义差异、编码（俄站 UTF-8）、属性取值方式
+
+**C 组（基础设施，可穿插）**：`src/lib/scraper.js` 的 `createProvider` 工厂 + `runMirrors` 镜像回退 ——
+搬完 3~5 个 provider、看清共性后再定抽象（现在只有 1 个 provider，定 `Provider` trait 必错）。
 
 **移植约定**：
 - JS 的运行时类型判别（`typeof x === 'number'`）在 Rust 里提为类型：`NumOrText::{Num, Text}`
