@@ -46,7 +46,11 @@ fn parse_size_units() {
     assert_eq!(ps("2048"), Some(2048), "bare bytes");
     assert_eq!(ps("1.5G"), Some(1_610_612_736), "G shorthand");
     assert_eq!(ps("1.5G"), ps("1.5 GB"), "consistent with space");
-    assert_eq!(ps("1,024 MB"), Some(1024 * 1024_i64.pow(2)), "comma separator");
+    assert_eq!(
+        ps("1,024 MB"),
+        Some(1024 * 1024_i64.pow(2)),
+        "comma separator"
+    );
 }
 
 #[test]
@@ -183,7 +187,10 @@ fn extract_info_hash_cases() {
 #[test]
 fn ru_date_cases() {
     assert!(ru_date("Сегодня").contains("Today"), "today translation");
-    assert!(ru_date("Вчера").contains("Yesterday"), "yesterday translation");
+    assert!(
+        ru_date("Вчера").contains("Yesterday"),
+        "yesterday translation"
+    );
     assert!(ru_date("мая").contains("May"), "genitive month -> May");
     assert!(ru_date("янв").contains("Jan"), "Russian month -> Jan");
 }
@@ -236,7 +243,10 @@ fn normalize_full_result() {
 
     let r = normalize(&raw);
 
-    assert_eq!(r.id, "tpb:2C6B6858D61DA9543D4231A71DB4B1C9264B0685", "id format");
+    assert_eq!(
+        r.id, "tpb:2C6B6858D61DA9543D4231A71DB4B1C9264B0685",
+        "id format"
+    );
     assert_eq!(r.name, "Ubuntu 22.04 LTS", "name");
     assert_eq!(r.provider, "tpb", "provider");
     assert_eq!(r.size, Some(3_650_722_202), "size in bytes");
@@ -246,7 +256,10 @@ fn normalize_full_result() {
     assert_eq!(r.date, Some(1_652_877_231_000), "date as ms");
     assert_eq!(r.category.as_deref(), Some("Apps"), "category");
     assert_eq!(r.files, Some(1), "files");
-    assert!(r.magnet.as_deref().unwrap().starts_with("magnet:?"), "magnet URI");
+    assert!(
+        r.magnet.as_deref().unwrap().starts_with("magnet:?"),
+        "magnet URI"
+    );
     assert!(!r.needs_magnet, "no need for magnet");
 }
 
@@ -341,6 +354,10 @@ fn divergence_js_parse_float_leniency() {
 fn divergence_absolute_format_whitelist() {
     assert_eq!(pd("2024/01/15"), Some(1_705_276_800_000), "斜杠格式");
     assert_eq!(pd("2024-01-15 10:30:00"), Some(1_705_314_600_000), "带时间");
-    assert_eq!(pd("2024-01-15T10:30:00Z"), Some(1_705_314_600_000), "RFC3339");
+    assert_eq!(
+        pd("2024-01-15T10:30:00Z"),
+        Some(1_705_314_600_000),
+        "RFC3339"
+    );
     assert_eq!(pd("totally bogus date"), None, "不认识就放弃，不瞎猜");
 }
