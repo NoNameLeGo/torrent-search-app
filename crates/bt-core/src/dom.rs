@@ -131,8 +131,11 @@ mod tests {
 
     #[test]
     fn text_keeps_whitespace_verbatim() {
-        let dom = Dom::parse("<td class='s'>  1.2 GB  \n </td>");
+        // ⚠️ 必须包在 <table> 里：裸 <td> 在文档模式下会被 HTML 解析规则丢掉
+        // （cheerio/parse5 也一样）。见 stray_table_tags_are_dropped_by_the_html_parser。
+        let dom = Dom::parse("<table><tr><td class='s'>  1.2 GB  \n </td></tr></table>");
         let td = dom.select("td.s");
+        assert_eq!(td.len(), 1);
         assert_eq!(text(td[0]), "  1.2 GB  \n ");
         assert_eq!(text_trim(td[0]), "1.2 GB");
     }
@@ -152,9 +155,28 @@ mod tests {
 
     #[test]
     fn selector_matches_are_case_insensitive_for_tag_names() {
-        let dom = Dom::parse("<TD class='lista'>x</TD>");
+        // HTML 模式下标签名不区分大小写（与 cheerio 一致）
+        let dom = Dom::parse("<TABLE><TR><TD class='lista'>x</TD></TR></TABLE>");
         assert_eq!(dom.select("td.lista").len(), 1);
-        assert_eq!(dom.select("TD.LISTA").len(), 1, "类名也按 HTML 规则不敏感");
+        assert_eq!(dom.select("table > tbody > tr > td").len(), 1);
+    }
+
+    /// ⚠️ 这条测的是**解析器行为**，不是我们的代码 —— 但它是个反复会踩的坑：
+    /// 类名匹配在 HTML 模式下**区分大小写**，而裸 `<tr>`/`<td>` 会被文档解析规则丢掉。
+    ///
+    /// 写 provider 测试时如果随手塞一个 `<tr><td>x</td></tr>` 片段，会得到 0 个匹配，
+    /// 看起来像"选择器写错了"，实际是 HTML 解析规则（cheerio 的 parse5 同样如此）。
+    #[test]
+    fn stray_table_tags_are_dropped_and_class_is_case_sensitive() {
+        let stray = Dom::parse("<tr><td class='lista'>x</td></tr>");
+        assert_eq!(stray.select("tr").len(), 0, "裸 tr 被解析器丢掉");
+        assert_eq!(stray.select("td").len(), 0, "裸 td 同样被丢掉");
+        assert_eq!(text_trim(stray.select("body")[0]), "x", "但文本内容保留了");
+
+        // 类名大小写：HTML 的 class 值区分大小写（与 cheerio 一致）
+        let dom = Dom::parse("<table><tr><td class='lista'>x</td></tr></table>");
+        assert_eq!(dom.select("td.lista").len(), 1);
+        assert_eq!(dom.select("td.LISTA").len(), 0, "类名区分大小写");
     }
 
     #[test]
@@ -166,8 +188,9 @@ mod tests {
 
     #[test]
     fn closest_tag_walks_up_including_self() {
-        let dom = Dom::parse("<tr><td><a href='x'>n</a></td></tr>");
+        let dom = Dom::parse("<table><tr><td><a href='x'>n</a></td></tr></table>");
         let a = dom.select("a");
+        assert_eq!(a.len(), 1);
         let tr = closest_tag(a[0], "tr").expect("该找到 tr");
         assert_eq!(tr.value().name(), "tr");
 
@@ -181,23 +204,23 @@ mod tests {
 
     #[test]
     fn find_is_scoped_and_excludes_self() {
-        let dom = Dom::parse("<tr><td>1</td><td><td>2</td></td></tr>");
+        let dom = Dom::parse("<table><tr><td>1</td><td>2</td></tr></table>");
         let tr = dom.select("tr");
-        assert_eq!(dom.find(tr[0], "td").len(), 3);
-        // scope 自身不是 td，所以不会把自己算进去
+        assert_eq!(dom.find(tr[0], "td").len(), 2, "只看后代");
+        // scope 自身不参与匹配（与 cheerio 的 .find() 一致）
         let td = dom.select("td");
         assert_eq!(dom.find(td[0], "td").len(), 0);
     }
 
     #[test]
     fn nested_cells_are_returned_in_document_order() {
-        let dom = Dom::parse("<tr><td>a</td><td>b</td><td>c</td></tr>");
+        let dom = Dom::parse("<table><tr><td>a</td><td>b</td><td>c</td></tr></table>");
         let tr = dom.select("tr");
         let tds = dom.find(tr[0], "td");
         let texts: Vec<String> = tds.iter().map(|e| text_trim(*e)).collect();
         assert_eq!(texts, vec!["a", "b", "c"], "顺序必须与 JS 索引一致");
-        assert_eq!(nth(&tds, 1).map(|e| text_trim(e)), Some("b".to_string()));
-        assert_eq!(nth(&tds, 9).map(|e| text_trim(e)), None, "越界给 None");
+        assert_eq!(nth(&tds, 1).map(text_trim), Some("b".to_string()));
+        assert_eq!(nth(&tds, 9).map(text_trim), None, "越界给 None");
     }
 
     #[test]
