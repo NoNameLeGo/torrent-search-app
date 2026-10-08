@@ -338,6 +338,38 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 | `tpb` | 403 | ⚠️ 机房 IP 被限流，非代码问题 |
 
 以后跑冒烟时，拿这些数字做对比：**数量级突然掉到 0 或个位数**才是真信号。
+（2026-10-09 复跑：knaben 300 / torrentscsv 25 / yts 24 / internetarchive 96 / tpb 403，0 问题 —— 与基线一致。）
+
+---
+
+### ⚠️ 本机 `gh` 会间歇性 403 —— 一律用 `scripts/gh-retry.sh`
+
+本机有一层**透明拦截代理**，对 `api.github.com` 的请求会**间歇性直接返回 403**
+（0.08 秒秒拒、响应体为空、带 `Via: Caddy`）。实测 2026-10-09 各路线成功率：
+
+| 路线 | 成功率 |
+|---|---|
+| 本机代理 `:1267` | 9/10 → 8/12 → 4/12（会波动） |
+| 本机代理 `:80` | 5/12 |
+| 直连（绕开代理） | 7/10 |
+
+**哪条路都不稳，而且 403 成簇出现（见过连续 5 次）。** 这不是 GitHub 拒绝、也不是 token 问题 ——
+`gh auth status` 是 ✓，token 是 `gho_` 格式且 scope 含 `repo` / `workflow` / `admin:org`。
+
+→ **把命令里的 `gh` 换成 `scripts/gh-retry.sh`**（同一个命令，参数原样传）：
+
+```bash
+scripts/gh-retry.sh run list --branch feat/rust
+scripts/gh-retry.sh run view --job=<JOB_ID> --log
+scripts/gh-retry.sh workflow run live-smoke.yml --ref feat/rust
+```
+
+只在输出含 `403` 时重试（其它错误立刻透传），stdout 不缓冲所以 `--log` / `watch` 照常。
+
+⚠️ **旧笔记「`gh` 必须绕开代理（加 `env -u HTTP_PROXY ...`）」已失效** ——
+那是 2026-10-07 在另一个代理实例上的观察；现在绕不绕都会间歇 403。
+
+---
 
 ⚠️ **`gh workflow run <file>` 要求 workflow 已存在于默认分支（`main`）上**，否则报
 `HTTP 404: workflow ... not found on the default branch`。本项目 workflow 目前的状态：

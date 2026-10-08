@@ -140,6 +140,16 @@ Because there is no local `cargo check`, a wrong function signature only shows u
 
 Don't substitute a line-width check for it: rustfmt's default `fn_call_width` is 60, so multi-arg calls get split even when the line is well under 100 chars.
 
+**`gh` on this machine returns 403 intermittently — always wrap it in `scripts/gh-retry.sh`.** A transparent intercepting proxy randomly rejects requests to `api.github.com` (0.08s instant reject, empty body, `Via: Caddy`). Measured 2026-10-09: proxy `:1267` 9/10 → 8/12 → 4/12, proxy `:80` 5/12, direct 7/10 — **no route is reliable, and the 403s come in bursts (5 in a row observed)**. It is *not* GitHub rejecting you and *not* a token problem (`gh auth status` is ✓, scopes include `repo`/`workflow`). Retry is the only fix:
+
+```bash
+scripts/gh-retry.sh run list --branch feat/rust
+scripts/gh-retry.sh run view --job=<JOB_ID> --log
+scripts/gh-retry.sh workflow run live-smoke.yml --ref feat/rust
+```
+
+The note in older docs saying "`gh` must bypass the proxy (`env -u HTTP_PROXY …`)" is **obsolete** — that was a different proxy instance on 2026-10-07.
+
 
 **Version tags increment forward — never re-tag the same version.** Bump `version` in both `package.json` and `src-tauri/tauri.conf.json`, then tag the *next* number (`v0.0.2`, `v0.1.0`, …). Only reuse a tag when the user explicitly says to overwrite a specific version. Rationale: same-tag re-release means moving a published tag, and `softprops` **appends** assets to the existing Release rather than replacing them (leaving stale files behind) — so `release.yml`'s publish job first `gh release delete <tag> --yes` (keeping the tag) before re-creating, but forward-incrementing avoids the whole hazard.
 
