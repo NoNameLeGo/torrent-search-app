@@ -1,0 +1,85 @@
+{
+  "_synthetic": "⚠️ 这不是真响应快照。2026-10-08 本机对 archive.org 有 DNS 污染（连续解析得到不同的假 IP，IPv6 落在 Facebook 黑洞前缀 2a03:2880:face:b00c），直连/代理/中转全部失败，抓不到真数据。字段名与类型依据 src/providers/internetarchive.js 的 fl[] 参数（title,item_size,publicdate,mediatype,identifier,btih）与 archive.org advancedsearch 的公开文档构造。真实形态待 .github/workflows/live-smoke.yml 在 CI（干净 DNS）上抓回来后替换本文件。",
+  "responseHeader": { "status": 0, "QTime": 14 },
+  "response": {
+    "numFound": 211,
+    "start": 0,
+    "docs": [
+      {
+        "title": "Ubuntu 22.04 Desktop amd64",
+        "item_size": 3738247168,
+        "publicdate": "2022-04-21T00:00:00Z",
+        "mediatype": "software",
+        "identifier": "ubuntu-2204-desktop-amd64",
+        "btih": "ABCDEF0123456789ABCDEF0123456789ABCDEF01"
+      },
+      {
+        "title": "Ubuntu Linux Bible 11th Edition",
+        "item_size": 8554738,
+        "publicdate": "2025-12-11T00:00:00Z",
+        "mediatype": "texts",
+        "identifier": "ubuntu-linux-bible-11ed",
+        "btih": "232cd67eb3ffbd7c37bf9ec3ee887417e5ae1ee6"
+      },
+      {
+        "title": "Ubuntu Documentary 2024",
+        "item_size": 1073741824,
+        "publicdate": "2024-06-01T00:00:00Z",
+        "mediatype": "movies",
+        "identifier": "ubuntu-documentary-2024",
+        "btih": "  1111222233334444555566667777888899990000  "
+      },
+      {
+        "title": "Ubuntu Podcast Episode 1",
+        "item_size": 52428800,
+        "publicdate": "2023-01-15T00:00:00Z",
+        "mediatype": "audio",
+        "identifier": "ubuntu-podcast-ep1",
+        "btih": "aaaabbbbccccddddeeeeffff0000111122223333"
+      },
+      {
+        "title": "Ubuntu Without Media Type",
+        "item_size": 2048,
+        "publicdate": "2021-02-02T00:00:00Z",
+        "identifier": "ubuntu-no-mediatype",
+        "btih": "bbbbccccddddeeeeffff00001111222233334444"
+      },
+      {
+        "title": "Ubuntu Item Without InfoHash",
+        "item_size": 4096,
+        "publicdate": "2020-03-03T00:00:00Z",
+        "mediatype": "software",
+        "identifier": "ubuntu-no-btih"
+      },
+      {
+        "item_size": 8192,
+        "publicdate": "2019-04-04T00:00:00Z",
+        "mediatype": "software",
+        "identifier": "ubuntu-no-title",
+        "btih": "ccccddddeeeeffff000011112222333344445555"
+      },
+      {
+        "title": "Ubuntu Zero Size",
+        "item_size": 0,
+        "publicdate": "2018-05-05T00:00:00Z",
+        "mediatype": "software",
+        "identifier": "ubuntu-zero-size",
+        "btih": "ddddeeeeffff0000111122223333444455556666"
+      },
+      {
+        "title": "Ubuntu Missing Size",
+        "publicdate": "2017-06-06T00:00:00Z",
+        "mediatype": "software",
+        "identifier": "ubuntu-missing-size",
+        "btih": "eeeeffff00001111222233334444555566667777"
+      },
+      {
+        "title": "Ubuntu No Identifier",
+        "item_size": 1024,
+        "publicdate": "2016-07-07T00:00:00Z",
+        "mediatype": "software",
+        "btih": "ffff000011112222333344445555666677778888"
+      }
+    ]
+  }
+}
