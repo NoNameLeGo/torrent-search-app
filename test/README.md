@@ -31,10 +31,30 @@ test/
   normalize.test.js       ← normalize.js 单元测试
   fixtures/               ← 真实 HTML/JSON 快照
     tpb-ubuntu.json       ← TPB API 响应 (100 results)
+    tpb-empty.json        ← TPB 限流时的纯文本正文（不是 JSON，用来测解析失败路径）
     knaben-ubuntu.json    ← Knaben API 响应 (5 results)
+    torrentscsv-ubuntu.json ← TorrentsCSV API 响应 (25 results)，2026-10-08 抓
+    yts-matrix.json       ← YTS API 响应 (2 部电影 / 7 个种子)，2026-10-08 抓
     linuxtracker-linux.html ← LinuxTracker HTML (18 results)
     filemood-ubuntu.html  ← FileMood HTML (20 results)
+    1337x-ubuntu.html     ← 1337x HTML（小样本，仅 1KB）
 ```
+
+**fixture 永久保留**：即使对应 provider 已迁到 Rust，`test/fixtures/` 也不删 ——
+Rust 侧的金标准测试直接读这些文件（见 `AGENTS.md` 的「边搬边删」）。
+
+⚠️ **fixture 全绿 ≠ 抓取还能用**：多数快照是 2026-07 的，站点早已改版。
+离线测试只证明"解析逻辑没退化"，证明不了"现在还能搜出东西"。
+
+### 抓新 fixture 的姿势（本机可用）
+
+```bash
+# 必须绕开本机那个坏代理
+curl -s --noproxy "*" --max-time 25 "https://<api-url>" -o test/fixtures/<provider>-<query>.json
+```
+
+**期望值别手抄**：写个临时脚本 require `src/lib/normalize.js`，把同一份 fixture 喂进去，
+把输出逐字段抄进 Rust 断言 —— 这样"Rust 版与 Node 版一致"才有实据。
 
 ## How to Add a New Provider Test
 

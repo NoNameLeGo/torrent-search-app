@@ -24,6 +24,15 @@ pub fn v2string(v: &Value) -> Option<String> {
     }
 }
 
+/// 同 [`v2nt`]，但**数字 0 也算"没有值"**。
+///
+/// 对齐 JS 里 `x ? Number(x) : null` 这种写法 —— `0` 是 falsy，
+/// 于是 `created_unix: 0` 会变成 `null`（而不是 1970-01-01）。
+/// torrentscsv / yts 的日期字段都用了这个写法。
+pub fn v2nt_nonzero(v: &Value) -> Option<NumOrText> {
+    v2nt(v).filter(|nt| !matches!(nt, NumOrText::Num(0)))
+}
+
 /// 取数组里的**最小**数字（用于 knaben 的 `categoryId: [4000000, 4004000]` 这种）。
 ///
 /// 复刻 JS：`it.categoryId.map(Number).filter(n => !isNaN(n))` 后取 `Math.min(...)` ——
@@ -41,4 +50,46 @@ pub fn min_number(v: &Value) -> Option<i64> {
             _ => None,
         })
         .min()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn v2nt_treats_empty_string_as_absent() {
+        assert_eq!(v2nt(&json!(39)), Some(NumOrText::Num(39)));
+        assert_eq!(v2nt(&json!("39")), Some(NumOrText::Text("39".into())));
+        assert_eq!(v2nt(&json!("")), None, "空串在 JS 里是 falsy");
+        assert_eq!(v2nt(&json!(null)), None);
+        assert_eq!(v2nt(&json!([1, 2])), None);
+        assert_eq!(v2nt(&json!(true)), None);
+    }
+
+    #[test]
+    fn v2nt_nonzero_mirrors_js_falsy_zero() {
+        assert_eq!(v2nt_nonzero(&json!(0)), None, "JS: x ? ... : null");
+        assert_eq!(v2nt_nonzero(&json!(1)), Some(NumOrText::Num(1)));
+        // 字符串 "0" 在 JS 里是 truthy
+        assert_eq!(v2nt_nonzero(&json!("0")), Some(NumOrText::Text("0".into())));
+    }
+
+    #[test]
+    fn v2string_accepts_numbers() {
+        assert_eq!(v2string(&json!("x")), Some("x".to_string()));
+        assert_eq!(v2string(&json!(42)), Some("42".to_string()));
+        assert_eq!(v2string(&json!("")), None);
+        assert_eq!(v2string(&json!(null)), None);
+    }
+
+    #[test]
+    fn min_number_picks_the_minimum_and_drops_junk() {
+        assert_eq!(min_number(&json!([4000000, 4004000])), Some(4_000_000));
+        assert_eq!(min_number(&json!([10000000, 9001000])), Some(9_001_000));
+        // 非数字项被丢掉，和 JS 的 `.filter(n => !isNaN(n))` 一致
+        assert_eq!(min_number(&json!(["5", "abc", 3])), Some(3));
+        assert_eq!(min_number(&json!([])), None);
+        assert_eq!(min_number(&json!("nope")), None, "不是数组就是 None");
+    }
 }

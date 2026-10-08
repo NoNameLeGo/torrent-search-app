@@ -3,7 +3,8 @@
 //! 各站点 provider 的集合，一文件一站（对齐 `src/providers/*.js` 的组织方式）。
 //!
 //! ## 现状
-//! `tpb`、`knaben`（纯 JSON 组）。**暂时不引入 `Provider` trait** —— 等搬到 3–5 个之后，
+//! `tpb`、`knaben`、`torrentscsv`、`yts`（纯 JSON 组）。
+//! **暂时不引入 `Provider` trait** —— 等搬到 3–5 个之后，
 //! 看清楚它们真正的共性（镜像回退、翻页、磁力惰性解析…）再定抽象，现在定容易定错。
 //!
 //! ## 约定（对齐 JS 版）
@@ -13,8 +14,10 @@
 //! - 结果必须过 `bt_core::normalize::normalize()` 再返回
 
 pub mod knaben;
+pub mod torrentscsv;
 pub mod tpb;
 pub mod value;
+pub mod yts;
 
 use bt_core::TorrentResult;
 
