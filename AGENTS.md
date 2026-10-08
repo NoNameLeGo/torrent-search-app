@@ -79,9 +79,11 @@ crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方
   src/knaben.rs         ← src/providers/knaben.js（POST，官方 JSON API）
   src/torrentscsv.rs    ← src/providers/torrentscsv.js（GET，简单一层数组）
   src/yts.rs            ← src/providers/yts.js（GET，电影→种子两层结构）
+  src/internetarchive.rs ← src/providers/internetarchive.js（GET，advancedsearch JSON）
   tests/common/mod.rs   本地一次性 HTTP 服务 + fixture 加载（provider 测试公用）
                         oneshot() 只要响应；oneshot_capture() 另交出原始请求，用于钉请求契约
-  tests/{tpb,knaben,torrentscsv,yts}.rs   各自的离线测试
+  tests/{tpb,knaben,torrentscsv,yts,internetarchive}.rs   各自的离线测试
+  tests/live_smoke.rs   联网冒烟；**默认跳过**，只有 BT_LIVE_SMOKE=1 才打外网
 
 （待建）crates/bt-torznab/ · bt-downloaders/ · bt-app/
 ```
@@ -90,14 +92,25 @@ crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方
 
 | JS 源 | Rust 目标 | 验收 | 旧 JS 状态 |
 |---|---|---|---|
-| `src/lib/normalize.js`（161 行） | `crates/bt-core/src/normalize.rs` | `test/normalize.test.js` 的断言全搬到 `tests/normalize.rs`，CI **24 passed** | 保留(对照) |
-| `src/lib/http.js`（71 行） | `crates/bt-core/src/http.rs` | `tests/http.rs` 覆盖成功 / 4xx / 5xx / JSON / 非 JSON / 超时 / 连接失败 / 请求头，CI **12 passed** | 保留(对照) |
-| `src/providers/tpb.js`（53 行） | `crates/bt-providers/src/tpb.rs` | `tests/tpb.rs` 真 fixture（100 条）逐字段 + 三条失败路径，CI **7 passed** | **待删**（见待删清单） |
-| `src/providers/knaben.js`（70 行） | `crates/bt-providers/src/knaben.rs` | `tests/knaben.rs` 真 fixture 逐字段 + 分类区间 + 请求 body 契约 + 失败路径，CI **9 passed** | **待删** |
-| `src/providers/torrentscsv.js`（32 行） | `crates/bt-providers/src/torrentscsv.rs` | `tests/torrentscsv.rs` 真 fixture 首末条 + query 编码契约 + 空/畸形 + falsy 日期，CI **9 passed** | **待删** |
-| `src/providers/yts.js`（55 行） | `crates/bt-providers/src/yts.rs` | `tests/yts.rs` 真 fixture 三条结果 + 请求 URL 契约 + 缺省值 + 两条跳过规则 + 畸形 data 六形态，CI **11 passed** | **待删** |
+| `src/lib/normalize.js`（161 行） | `crates/bt-core/src/normalize.rs` | `test/normalize.test.js` 的断言全搬到 `tests/normalize.rs`，**24 passed** | 保留(对照) |
+| `src/lib/http.js`（71 行） | `crates/bt-core/src/http.rs` | `tests/http.rs` 覆盖成功 / 4xx / 5xx / JSON / 非 JSON / 超时 / 连接失败 / 请求头，**12 passed** | 保留(对照) |
+| `src/providers/tpb.js`（53 行） | `tpb.rs` | 真 fixture（100 条）逐字段 + 三条失败路径，**7 passed** | **待删** |
+| `src/providers/knaben.js`（70 行） | `knaben.rs` | 真 fixture 逐字段 + 分类区间 + 请求 body 契约 + divergence，**9 passed** | **待删** |
+| `src/providers/torrentscsv.js`（32 行） | `torrentscsv.rs` | 真 fixture 首末条 + query 编码契约 + falsy 日期，**9 passed** | **待删** |
+| `src/providers/yts.js`（55 行） | `yts.rs` | 真 fixture 三条结果 + 请求 URL 契约 + 缺省值 + 两条跳过规则，**11 passed** | **待删** |
+| `src/providers/internetarchive.js`（58 行） | `internetarchive.rs` | **合成** fixture（见下）+ 分类映射 + item_size 三态 + `no_docs` 错误语义，**13 passed** | **待删** |
 
-（另有 `bt-providers` 的 4 条单元测试，测 `src/value.rs` 的转换函数）
+（另有 `bt-providers` 的 4 条单元测试测 `src/value.rs`；`tests/live_smoke.rs` 2 条默认跳过。
+合计 **91 passed / 0 failed**。）
+
+⚠️ `test/fixtures/internetarchive-ubuntu.synthetic.json`（文件名带 `.synthetic`）**不是真快照**：
+本机对 `archive.org` 有 **DNS 污染**（连续解析得到不同假 IP，IPv6 落在 `2a03:2880:face:b00c`
+黑洞前缀），直连 / 本机代理 / DoH / 中转全部失败；对照站点 torrents-csv.com 解析正常，
+说明不是网络整体不通。字段名与类型照 JS 的 `fl[]` 与 archive.org 公开文档构造，
+期望值仍是喂给 `src/lib/normalize.js` 跑出来的输出。
+**换成真快照的条件**：在能访问 archive.org 的环境上抓一次（见「联网冒烟」），
+删掉 fixture 里的 `_synthetic` 字段、把文件名去掉 `.synthetic`
+（`fixture_is_still_marked_as_synthetic` 这条测试会逼你这么做）。
 
 ### ⚠️ 边搬边删（用户 2026-10-08 指定，2026-10-08 二次修订）
 
@@ -118,8 +131,8 @@ Node 源码在这个阶段是**验证工具**而不是待清垃圾。提前删�
 
 | 路径 | 为何现在留着 | 何时可删 |
 |---|---|---|
-| `src/providers/tpb.js`、`knaben.js`、`torrentscsv.js`、`yts.js` ✅已移植 | `test/run.js` 仍在跑 tpb/knaben；离线对照要用 | `bt-app` 接通对应 provider + Node 测试块删除后 |
-| `src/providers/*.js`（其余 38 个） | 尚未移植，是逐行对照的参照物 | 各自移植完成后按上条判断 |
+| `src/providers/tpb.js`、`knaben.js`、`torrentscsv.js`、`yts.js`、`internetarchive.js` ✅已移植 | `test/run.js` 仍在跑 tpb/knaben；离线对照要用 | `bt-app` 接通对应 provider + Node 测试块删除后 |
+| `src/providers/*.js`（其余 37 个） | 尚未移植，是逐行对照的参照物 | 各自移植完成后按上条判断 |
 | `src/lib/`、`server.js`、`test/run.js` | 聚合层尚未移植，本分支上 Node 版仍需可跑 | provider + 聚合全搬完 |
 | `public/` | 阶段一的前端本体（`public/` 一行不改） | **阶段二**确认上 Slint 后 |
 | `electron/`、`scripts/`、`package.json`、`start.bat`/`stop.bat`、`.eslintrc.json`、`.prettierrc`、`build.yml`/`release.yml`/`tauri-build.yml` | Rust 版尚未能取代旧 Shell 发版 | Rust 版能独立发版后 |
@@ -140,15 +153,17 @@ Node 源码在这个阶段是**验证工具**而不是待清垃圾。提前删�
 能快速把 provider 的组织形态（crate 内一文件一站、`tests/common/mod.rs` 复用）打磨稳；
 HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地方，值得等前面都稳了再集中攻。
 
-**A 组（纯 JSON API，无 HTML 解析）** —— 按建议顺序：
+**A 组（纯 JSON API，无 HTML 解析）—— ✅ 全部完成**
 
 | 顺序 | provider | 备注 |
 |---|---|---|
-| 1 | ~~`tpb.js`~~ | ✅ 已完成（7 tests） |
-| 2 | ~~`knaben.js`~~ | ✅ 已完成（9 tests） |
-| 3 | ~~`torrentscsv.js`~~ | ✅ 已完成（9 tests） |
-| 4 | ~~`yts.js`~~ | ✅ 已完成（11 tests） |
-| 5 | `internetarchive.js` | **← 下次从这里开始**（A 组最后一个） |
+| 1 | ~~`tpb.js`~~ | ✅ 7 tests |
+| 2 | ~~`knaben.js`~~ | ✅ 9 tests |
+| 3 | ~~`torrentscsv.js`~~ | ✅ 9 tests |
+| 4 | ~~`yts.js`~~ | ✅ 11 tests |
+| 5 | ~~`internetarchive.js`~~ | ✅ 13 tests（fixture 是合成的，见进度表上方说明） |
+
+**← 下次开工从 B 组第一步开始：引入 `scraper` crate 并验证选择器等价性。**
 
 **B 组（HTML 抓取，需引入 `scraper` crate 对标 cheerio）**：
 
@@ -219,10 +234,21 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 ### 测试策略（Q5 决策）
 
 - **CI 默认只跑离线 fixture**（`test/fixtures/` 的真实快照）—— 稳定的门，作用是防"解析逻辑退化"
-- ⚠️ **但离线 fixture 证明不了"现在还能用"**：快照是 2026-07 的，站点早已改版。
+- ⚠️ **但离线 fixture 证明不了"现在还能用"**：快照多半是 2026-07 的，站点早已改版。
   测试全绿也可能一个结果都搜不出来。这条必须记住，别把绿灯当成"抓取正常"。
-- 因此另设一条 **`workflow_dispatch` 手动触发的联网冒烟**，允许失败，按需跑。
-  **状态：尚未实现**（等 provider 落地几个之后再补）
+- 因此另设一条 **联网冒烟**，只有手动触发、**允许失败**：
+  - 测试：`crates/bt-providers/tests/live_smoke.rs`（**默认跳过**，只有 `BT_LIVE_SMOKE=1` 才打外网）
+  - workflow：`.github/workflows/live-smoke.yml`（仅 `workflow_dispatch`，job 级 `continue-on-error`）
+  - 本地跑法：`BT_LIVE_SMOKE=1 cargo test -p bt-providers --test live_smoke -- --nocapture --test-threads=1`
+    （**注意：本机跑没用** —— archive.org 被 DNS 污染；要在 CI 上跑，见下）
+  - 用途 ① 判断站点还能不能用 ② **抓真实响应形态**（日志里有 `[smoke] <provider> first: ...`
+    与 IA 的原始 doc，`gh run view --log` 可读）
+
+⚠️ **`gh workflow run <file>` 要求 workflow 已存在于默认分支（`main`）上**，否则报
+`HTTP 404: workflow ... not found on the default branch`。本项目所有 workflow 目前都只活在
+feature 分支上（`main` 上只有 `build.yml` / `release.yml` / `tauri-build.yml`），
+所以 **`rust.yml` / `slint-spike.yml` / `live-smoke.yml` 现在都无法手动触发**，只能靠 push 触发。
+要用手动触发，得先把对应 workflow 文件放到 `main` 上（或等 Rust 分支合入 `main`）。
 
 Node 侧仍然使用 **Node.js 内置 `assert` 模块**做 golden-file 测试，无第三方框架：
 

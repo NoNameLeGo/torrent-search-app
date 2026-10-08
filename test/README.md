@@ -35,6 +35,7 @@ test/
     knaben-ubuntu.json    ← Knaben API 响应 (5 results)
     torrentscsv-ubuntu.json ← TorrentsCSV API 响应 (25 results)，2026-10-08 抓
     yts-matrix.json       ← YTS API 响应 (2 部电影 / 7 个种子)，2026-10-08 抓
+    internetarchive-ubuntu.synthetic.json ← ⚠️ **合成**的（archive.org 本机 DNS 被污染抓不到）
     linuxtracker-linux.html ← LinuxTracker HTML (18 results)
     filemood-ubuntu.html  ← FileMood HTML (20 results)
     1337x-ubuntu.html     ← 1337x HTML（小样本，仅 1KB）
@@ -45,6 +46,16 @@ Rust 侧的金标准测试直接读这些文件（见 `AGENTS.md` 的「边搬�
 
 ⚠️ **fixture 全绿 ≠ 抓取还能用**：多数快照是 2026-07 的，站点早已改版。
 离线测试只证明"解析逻辑没退化"，证明不了"现在还能搜出东西"。
+
+### 带 `.synthetic` 的 fixture 是假的，别当真快照
+
+`internetarchive-ubuntu.synthetic.json` 是照 JS 的 `fl[]` 参数与 archive.org 公开文档
+**手工构造**的（本机对 `archive.org` 有 DNS 污染，抓不到真数据）。文件内有 `_synthetic` 说明字段，
+Rust 侧有一条 `fixture_is_still_marked_as_synthetic` 测试钉着它 ——
+**换真快照时必须删掉那个字段并改名去掉 `.synthetic`**，测试会强制你这么做。
+
+抓真数据的路子：在 CI 上跑联网冒烟（`.github/workflows/live-smoke.yml`），
+日志里会 dump InternetArchive 的原始 doc。
 
 ### 抓新 fixture 的姿势（本机可用）
 
