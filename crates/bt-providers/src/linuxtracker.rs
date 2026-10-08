@@ -151,6 +151,28 @@ pub async fn search_at(http: &HttpClient, base: &str, query: &str) -> SearchOutc
     SearchOutcome::ok(parse_dom(base, &dom))
 }
 
+/// 把页面里的相对链接拼到 base 上。
+///
+/// ⚠️ **有意偏离 JS**（divergence，别当回退改掉）。
+/// JS 写的是 `` `${base}${detailHref}` ``，而 `base`（`https://linuxtracker.org`）
+/// **没有结尾斜杠**、`detailHref` 又是相对路径（`index.php?…`）—— 于是拼出
+/// `https://linuxtracker.orgindex.php?page=torrent-details&id=…` 这种**死链**，
+/// 点开 404。Rust 版补上斜杠。
+///
+/// 这条按「功能性 bug 就修、纯显示问题先照抄」的口径处理：
+/// 死链会让用户点不动结果，属于功能失败；而 JS 那个"日期显示早一天"的问题是纯显示，
+/// 且与时区绑定，先保持逐字段一致（见 `parse_eu_date` 的注释）。
+fn join_base(base: &str, href: &str) -> String {
+    if href.starts_with("http") {
+        return href.to_string();
+    }
+    if base.ends_with('/') {
+        format!("{base}{href}")
+    } else {
+        format!("{base}/{href}")
+    }
+}
+
 /// 解析段（`search_at` 与测试共用，逻辑只有这一份）。
 fn parse_dom(base: &str, dom: &Dom) -> Vec<TorrentResult> {
     let links = dom.select(NAME_LINKS);
@@ -163,13 +185,7 @@ fn parse_dom(base: &str, dom: &Dom) -> Vec<TorrentResult> {
         }
 
         let href = attr(link, "href").filter(|h| !h.is_empty());
-        let detail_url = href.as_ref().map(|h| {
-            if h.starts_with("http") {
-                h.clone()
-            } else {
-                format!("{base}{h}")
-            }
-        });
+        let detail_url = href.as_ref().map(|h| join_base(base, h));
         let info_hash = href.as_deref().and_then(info_hash_from_href);
 
         // 往上找父 <tr>，按列索引取值
@@ -393,6 +409,26 @@ mod tests {
         assert_eq!(r.leechers, None);
         assert_eq!(r.date, None);
         assert_eq!(r.date_text, "—");
+    }
+
+    /// 绝对链接原样返回，相对链接按 [`join_base`] 拼接。
+    #[test]
+    fn join_base_handles_both_shapes() {
+        assert_eq!(
+            join_base("https://linuxtracker.org", "index.php?page=torrent-details"),
+            "https://linuxtracker.org/index.php?page=torrent-details",
+            "divergence：JS 会拼成 ...orgindex.php（缺斜杠的死链）"
+        );
+        assert_eq!(
+            join_base("https://linuxtracker.org/", "index.php"),
+            "https://linuxtracker.org/index.php",
+            "base 已带斜杠时不要再加一个"
+        );
+        assert_eq!(
+            join_base("https://a", "https://b/c"),
+            "https://b/c",
+            "绝对链接不动"
+        );
     }
 
     /// 没有 torrent-details 链接的页面 → `search_at` 该报 `no_results_parsed`

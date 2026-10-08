@@ -197,6 +197,32 @@ async fn http_error_is_passed_through_unchanged() {
     assert!(!e.contains("linuxtracker"), "JS 不改写错误文案: {e}");
 }
 
+/// ⚠️ **有意偏离 JS**（divergence，别当回退改掉）：
+/// JS 把相对 href 拼到没有结尾斜杠的 base 上，得到
+/// `https://linuxtracker.orgindex.php?page=torrent-details&id=…` —— 死链，点开 404。
+/// Rust 版补斜杠，得到正常可点的详情页。
+#[test]
+fn divergence_detail_url_is_not_the_js_dead_link() {
+    let body = fixture("linuxtracker-linux.html");
+    let results = linuxtracker::parse("https://linuxtracker.org", &body);
+
+    assert_eq!(
+        results[0].detail_url.as_deref(),
+        Some(
+            "https://linuxtracker.org/index.php?page=torrent-details\
+             &id=5a2759c487c21a692df3e521cbcb3df8731bfb5f"
+        )
+    );
+    assert!(
+        !results[0]
+            .detail_url
+            .as_deref()
+            .unwrap()
+            .contains("orgindex.php"),
+        "JS 版就是 orgindex.php 这种死链"
+    );
+}
+
 #[tokio::test]
 async fn page_without_results_reports_no_results_parsed() {
     let url = common::oneshot(200, "<html><body><p>nothing</p></body></html>").await;
