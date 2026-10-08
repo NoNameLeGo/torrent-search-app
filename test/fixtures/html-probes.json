@@ -56,6 +56,27 @@
           "limit": 3
         },
         {
+          "id": "main_only.first_5_hrefs",
+          "op": "attrs",
+          "selector": "td.lista a[href^=\"index.php\"][href*=\"torrent-details\"]",
+          "attr": "href",
+          "limit": 5
+        },
+        {
+          "id": "main_only.first_5_texts",
+          "op": "texts",
+          "selector": "td.lista a[href^=\"index.php\"][href*=\"torrent-details\"]",
+          "limit": 5
+        },
+        {
+          "id": "main_only.first_5_rows",
+          "op": "row_cells",
+          "selector": "td.lista a[href^=\"index.php\"][href*=\"torrent-details\"]",
+          "closest": "tr",
+          "within": "td",
+          "limit": 5
+        },
+        {
           "id": "name_links.attrs_td_index",
           "op": "row_cells",
           "selector": "td.lista a[href*=\"torrent-details\"]",
