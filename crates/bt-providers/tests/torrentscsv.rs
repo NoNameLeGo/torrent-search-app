@@ -146,7 +146,10 @@ async fn torrents_missing_or_not_an_array_is_no_results() {
 }
 
 /// JS 写的是 `it.created_unix ? Number(it.created_unix) : null` —— 0 是 falsy，
-/// 缺字段和 0 都该退化成"没有日期"，而不是 1970-01-01。
+/// 缺字段和 0 都该退化成"没有日期"。
+///
+/// 注意 `dateText` 是 **`"—"`** 而不是空串 —— JS 的 `formatDate(null)` 就返回 `—`
+/// （首次写这条测试时我猜成了空串，CI 打回来才发现）。
 #[tokio::test]
 async fn falsy_created_unix_means_no_date_but_still_a_result() {
     let body = r#"{"torrents":[
@@ -161,7 +164,7 @@ async fn falsy_created_unix_means_no_date_but_still_a_result() {
     assert_eq!(out.results.len(), 2, "缺日期不该让条目消失");
     for r in &out.results {
         assert_eq!(r.date, None, "{}", r.name);
-        assert_eq!(r.date_text, "", "{}", r.name);
+        assert_eq!(r.date_text, "—", "{}", r.name);
     }
 }
 

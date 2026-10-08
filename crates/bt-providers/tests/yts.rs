@@ -152,6 +152,28 @@ async fn missing_title_long_falls_back_and_missing_fields_become_dash() {
     );
 }
 
+/// 同 torrentscsv：`t.date_uploaded_unix ? Number(...) : null` —— 0 是 falsy。
+/// `dateText` 是 `"—"`（JS 的 `formatDate(null)` 就返回 `—`，不是空串）。
+#[tokio::test]
+async fn falsy_date_uploaded_unix_means_no_date_but_still_a_result() {
+    let body = r#"{"data":{"movies":[
+        {"id":9,"title_long":"No Date (2020)","url":"https://yts.gg/movies/no-date-2020","torrents":[
+            {"hash":"abcdef0123456789abcdef0123456789abcdef01","quality":"720p","type":"web","video_codec":"x264","size_bytes":5,"seeds":1,"peers":0},
+            {"hash":"1111222233334444555566667777888899990000","quality":"1080p","type":"web","video_codec":"x264","size_bytes":6,"seeds":2,"peers":1,"date_uploaded_unix":0}
+        ]}
+    ]}}"#;
+    let url = common::oneshot(200, body).await;
+
+    let out = yts::search_at(&HttpClient::new(), &url, "x").await;
+
+    assert_eq!(out.error, None);
+    assert_eq!(out.results.len(), 2, "缺日期不该让条目消失");
+    for r in &out.results {
+        assert_eq!(r.date, None, "{}", r.name);
+        assert_eq!(r.date_text, "—", "{}", r.name);
+    }
+}
+
 /// 没有 `url` 时 JS 把 `detailUrl` 置 null（而不是拼出半个 URL）。
 #[tokio::test]
 async fn missing_movie_url_means_no_detail_url() {
