@@ -38,10 +38,20 @@ jobs:
           workspaces: '. -> target'
 
       - name: 联网冒烟（打真实站点）
+        # 这个文件被特意放在默认分支上（否则 workflow_dispatch 会 404），
+        # 但 Rust workspace 只存在于 feature 分支 → 在别的 ref 上要优雅跳过，别给个假红灯。
+        if: hashFiles('crates/bt-providers/Cargo.toml') != ''
         env:
           BT_LIVE_SMOKE: '1'
         # --nocapture 才有 [smoke] 日志；串行跑，避免日志交错
         run: cargo test -p bt-providers --test live_smoke -- --nocapture --test-threads=1
+
+      - name: 该 ref 上没有 Rust workspace，跳过
+        if: hashFiles('crates/bt-providers/Cargo.toml') == ''
+        shell: bash
+        run: |
+          echo "::warning::ref 上还没有 crates/bt-providers，联网冒烟无事可做。"
+          echo "请用 Actions → 这个 workflow → Run workflow → 选分支 feat/rust。"
 
       - name: 提示
         if: always()
