@@ -9,6 +9,7 @@
 //! 注意：模块名 `normalize` 与函数 `normalize` 同名，所以函数**不在 crate 根**
 //! 重新导出（避免路径歧义），调用方用 `bt_core::normalize::normalize(...)`。
 
+pub mod dom;
 pub mod http;
 pub mod normalize;
 

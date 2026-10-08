@@ -1,0 +1,168 @@
+{
+  "_note": "cheerio 与 scraper 的「选择器 + 取值」语义对照探针。两侧读同一个文件：cheerio 侧 scripts/html-probes.cjs，Rust 侧 crates/bt-core/tests/dom_probes.rs。期望值来自 cheerio（scripts/html-probes.cjs 的输出），存成 html-probes.expected.json。ops: count=匹配数 / text_first=首个匹配的 .text().trim() / attr_first=首个匹配的 attr（无则 null）/ attrs=前 limit 个 attr / texts=前 limit 个 text / row_cells=对前 limit 个匹配各自 closest(标签) 后 find(within) 的 text 列表（closest 未命中给 []）。",
+  "fixtures": [
+    {
+      "file": "linuxtracker-linux.html",
+      "note": "真实结果页（2026-07 快照）。坑点：侧栏 Top10 行只有 2 个 td，主表行更多 —— JS 靠 tds.length < 6 过滤；href 在源码里是 &amp; 形式，两侧都该解码成 &。",
+      "probes": [
+        {
+          "id": "name_links.count",
+          "op": "count",
+          "selector": "td.lista a[href*=\"torrent-details\"]"
+        },
+        {
+          "id": "name_links.first_text",
+          "op": "text_first",
+          "selector": "td.lista a[href*=\"torrent-details\"]"
+        },
+        {
+          "id": "name_links.first_href",
+          "op": "attr_first",
+          "selector": "td.lista a[href*=\"torrent-details\"]",
+          "attr": "href"
+        },
+        {
+          "id": "name_links.first_3_hrefs",
+          "op": "attrs",
+          "selector": "td.lista a[href*=\"torrent-details\"]",
+          "attr": "href",
+          "limit": 3
+        },
+        {
+          "id": "name_links.first_3_texts",
+          "op": "texts",
+          "selector": "td.lista a[href*=\"torrent-details\"]",
+          "limit": 3
+        },
+        {
+          "id": "name_links.first_3_rows",
+          "op": "row_cells",
+          "selector": "td.lista a[href*=\"torrent-details\"]",
+          "closest": "tr",
+          "within": "td",
+          "limit": 3
+        },
+        {
+          "id": "main_only.preference",
+          "op": "count",
+          "selector": "td.lista a[href^=\"index.php\"][href*=\"torrent-details\"]"
+        },
+        {
+          "id": "main_only.first_3_rows",
+          "op": "row_cells",
+          "selector": "td.lista a[href^=\"index.php\"][href*=\"torrent-details\"]",
+          "closest": "tr",
+          "within": "td",
+          "limit": 3
+        },
+        {
+          "id": "name_links.attrs_td_index",
+          "op": "row_cells",
+          "selector": "td.lista a[href*=\"torrent-details\"]",
+          "closest": "tr",
+          "within": "td.lista a",
+          "limit": 2
+        },
+        {
+          "id": "td_lista.count",
+          "op": "count",
+          "selector": "td.lista"
+        }
+      ]
+    },
+    {
+      "file": "filemood-ubuntu.html",
+      "note": "真实结果页（2026-08 快照，20 条）。用 table > tbody > tr（裸 tr 靠解析器补 tbody）+ a.btn-success 过滤数据行；infoHash 从详情页 URL 里抠。",
+      "probes": [
+        {
+          "id": "rows.count",
+          "op": "count",
+          "selector": "table > tbody > tr"
+        },
+        {
+          "id": "btn_success.count",
+          "op": "count",
+          "selector": "a.btn-success"
+        },
+        {
+          "id": "title.count",
+          "op": "count",
+          "selector": "td.dn-title"
+        },
+        {
+          "id": "title.first_text",
+          "op": "text_first",
+          "selector": "td.dn-title"
+        },
+        {
+          "id": "title.first_3_texts",
+          "op": "texts",
+          "selector": "td.dn-title",
+          "limit": 3
+        },
+        {
+          "id": "detail_link.first_href",
+          "op": "attr_first",
+          "selector": "td.dn-btn > div > a",
+          "attr": "href"
+        },
+        {
+          "id": "detail_link.first_3_hrefs",
+          "op": "attrs",
+          "selector": "td.dn-btn > div > a",
+          "attr": "href",
+          "limit": 3
+        },
+        {
+          "id": "size.first_3_texts",
+          "op": "texts",
+          "selector": "td.dn-size",
+          "limit": 3
+        },
+        {
+          "id": "status.first_3_texts",
+          "op": "texts",
+          "selector": "td.dn-status",
+          "limit": 3
+        },
+        {
+          "id": "title.row_status_cells",
+          "op": "row_cells",
+          "selector": "td.dn-title",
+          "closest": "tr",
+          "within": "td.dn-status",
+          "limit": 3
+        },
+        {
+          "id": "title.row_all_cells",
+          "op": "row_cells",
+          "selector": "td.dn-title",
+          "closest": "tr",
+          "within": "td",
+          "limit": 1
+        }
+      ]
+    },
+    {
+      "file": "1337x-ubuntu.html",
+      "note": "⚠️ 这不是结果页 —— 是 FingerprintJS 反爬跳转页（1.1KB，只有 window.location.replace 脚本）。探针用来把这个事实钉住：1337x 走 HTML 抓取在当前形态下拿不到数据。",
+      "probes": [
+        {
+          "id": "rows.count",
+          "op": "count",
+          "selector": "table tbody tr"
+        },
+        {
+          "id": "name_cells.count",
+          "op": "count",
+          "selector": "table tbody tr td.name a"
+        },
+        {
+          "id": "title_text",
+          "op": "text_first",
+          "selector": "title"
+        }
+      ]
+    }
+  ]
+}

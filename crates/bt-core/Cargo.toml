@@ -13,6 +13,9 @@ regex = "1"
 # 默认特性已含 TLS（Windows 上走 schannel）+ charset + http2；
 # 额外开三个压缩特性，对齐 axios 默认的 Accept-Encoding: gzip, deflate, br
 reqwest = { version = "0.12", features = ["json", "gzip", "brotli", "deflate"] }
+# HTML 解析 + CSS 选择器：替代 cheerio（html5ever + selectors，浏览器级）。
+# 见 src/dom.rs 的语义对照表；等价性由 tests/dom_probes.rs 对着真实 fixture 验证。
+scraper = "0.27"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
