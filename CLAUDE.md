@@ -66,12 +66,14 @@ Magnet links: WebView2/Electron won't auto-invoke `magnet:`, so both shells inte
 
 **编译一律在 CI 里跑，不在本机跑。** 用户机器 C:/D: 两盘均 90%+ 占用，且明确要求不新增本地构建环境。本机的 `CARGO_HOME`（`D:\Vibe-Coding\.cargo`）已被清理、`cargo` 不在 PATH 上 —— **本地跑不了 cargo**。本地只写代码，编译/测试结果看 Actions 日志，产物从 Artifacts 下载。
 
-Four workflows, split by shell and trigger:
+Six workflows, split by shell and trigger:
 
 - **`build.yml`** — Electron only. Runs on push to `main` (or manual). Builds the NSIS installer + portable zip, uploads as artifacts.
 - **`release.yml`** — Electron **and** Tauri together. Runs on `v*` tags (or manual). Three parallel jobs: `electron` (checks out the trigger ref), `tauri` (explicitly checks out `feat/tauri`), then `publish` bundles both into a single GitHub Release (published **directly, `draft: false`** — no manual "Publish" click), appending `docs/RELEASE_ARTIFACTS.md` as the body. Every artifact name carries an explicit `-Electron-`/`-Tauri-` tag (`BT-Search-Electron-Setup-<ver>.exe`, `BT-Search-Electron-Portable.zip`, `BT-Search-Tauri-Setup-<ver>.exe`) so the two shells' installers can't be confused. Renaming lives in three places — `package.json` `build.win.artifactName` (Electron installer), `release.yml`'s `Zip portable` step (Electron portable) and `Rename Tauri installer` step (Tauri) — plus the example names in `docs/RELEASE_ARTIFACTS.md`.
 - **`tauri-build.yml`** — Tauri only, validation. Runs on push to `feat/tauri` and on PRs; builds but never releases.
-- **`rust.yml`** — the Rust rewrite (see below). Runs on push to `feat/rust` and on PRs touching `crates/**`. `cargo test --workspace` + `clippy` + `fmt --check`.
+- **`rust.yml`** — the Rust rewrite (see below). Runs on push to `feat/rust` and on PRs touching `crates/**`. `cargo test --workspace` + `clippy` + `fmt --check`. **Push-only** — it doesn't exist on `main`, so `gh workflow run` returns 404.
+- **`live-smoke.yml`** — `workflow_dispatch` only. Hits the real sites with `BT_LIVE_SMOKE=1` and prints `[smoke]` lines. **Deliberately excluded from every push/PR gate.** Exists on both `main` (required for manual dispatch) and `feat/rust` — keep the two copies in sync. Trigger with `gh workflow run live-smoke.yml --ref feat/rust`.
+- **`html-probes.yml`** — `workflow_dispatch` only (also on both `main` and `feat/rust`). Installs cheerio and prints the ground-truth selector values used to build `test/fixtures/html-probes.expected.json`.
 
 ### Rust rewrite (`feat/rust`)
 
@@ -85,9 +87,9 @@ Since 2026-10-08 the project is being **rewritten from scratch in Rust** on the 
 | Q2 | **Don't touch the UI yet** — reuse the existing `public/` frontend to get the core working; evaluate Slint native once the core is stable. |
 | Q3 | Windows-only for now, but don't hardcode platform specifics. |
 | Q4 | **Switch `main` once the core is done** (providers + aggregation); UI comes later. |
-| Q5 | CI runs **offline fixtures only** (the stable gate). A manual `workflow_dispatch` online smoke test is planned and *not yet implemented*. Fixtures are a 2026-07 snapshot, so green does **not** mean scraping still works. |
+| Q5 | CI runs **offline fixtures only** (the stable gate). A manual `workflow_dispatch` online smoke test exists (`live-smoke.yml`) and is deliberately **off** every push/PR gate — allow-failure means "not a gate", not `continue-on-error`. Fixtures are a 2026-07 snapshot, so green does **not** mean scraping still works. |
 
-**Two phases.** Phase 1 = Rust core + the existing WebView frontend (the Tauri shell hosts the Rust core directly, killing the 89MB node sidecar; `public/` unchanged). Phase 2 = decide on Slint from the `spike/slint-ui` findings, and only then delete `public/` plus the Tauri shell.
+**Two phases.** Phase 1 = Rust core + the existing WebView frontend (the Tauri shell hosts the Rust core directly, killing the 89MB node sidecar; `public/` unchanged). Phase 2 = decide on Slint, and only then delete `public/` plus the Tauri shell. The `spike/slint-ui` branch **was deleted on 2026-10-09** — its conclusions are archived in `AGENTS.md` ("Slint 探针结论（留档）") and must be read before re-attempting anything with Slint.
 
 ```
 Cargo.toml              workspace root (members = ["crates/*"], exclude = ["src-tauri"])

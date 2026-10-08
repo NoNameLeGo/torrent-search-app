@@ -57,9 +57,25 @@ Electron mode: `npm run electron` (picks a free port automatically, no collision
 
 **阶段二（阶段一稳了再启动，现阶段不要做）**
 
-- 拿 `spike/slint-ui` 的结论决定是否上 Slint 原生 UI
+- 决定是否上 Slint 原生 UI
 - 上：删 `public/` + Tauri 壳，并正式丢掉浏览器访问
 - 不上：就停在阶段一（那终局就是「Rust 核心 + WebView」，与 Q1「桌面原生」有出入，届时再议）
+
+**Slint 探针结论（留档）** —— `spike/slint-ui` 分支与 `slint-spike.yml` 已于 2026-10-09 删除，
+结论必须留着，否则阶段二要重新踩一遍。要用时重建成本约 500 行。
+
+- 产物体积是硬卖点：**6.7MB 自包含 exe，零运行时依赖**（对照 Electron 便携版 360MB / Tauri + node sidecar 89MB）
+- ⚠️ `@markdown()` **会把插值转义**（官方原文 "Any text passed as an argument to the macro will be escaped"），
+  所以 `@markdown("\{expr}")` 进去的内容永远是纯文本、不参与解析。运行时富文本必须：
+  `.slint` 里属性类型写 **`styled-text`**（不是 `string`），Rust 侧 `slint::StyledText::from_markdown()`
+- ⚠️ **别在 `init` 里写全局属性** —— 会形成属性依赖环，实测 200 条数据触发 **2628** 次实例化。
+  计数要走 `callback` 进 Rust 的 `Cell`，显示属性只在用户点击时写
+- ⚠️ **Slint #13548（1.18.0 / 1.18.1 均未修）**：内联样式跨软/硬换行、且换行后是多字节字符时
+  parley 会 panic（`end byte index N is not a char boundary`）。最小复现 `@markdown("Это очень\nважно")`。
+  **「中文标题 + 关键词高亮 + 自动换行」正中靶心 —— 这是选 Slint 的最大风险点，始终未能实测**
+- `ListView` 自动虚拟化（元素只在可见时实例化，无需手动分页）；CJK 走 `default-font-family` + 系统回退
+- `StyledText` 支持 `<font color>` / `<u>` / 斜体 / 删除线 / 行内代码 / 链接 / 列表；
+  **没有 `wrap` 属性**；高亮色是烘进 markup 的，**切主题必须整体重建模型**
 
 ⚠️ **过渡期千万别做的事**：不要为了"干净"提前删 `public/` 或 `src/providers/`。
 两者合计才 460KB，却是逐行对照的参照物；删了等于凭记忆重写。
@@ -330,7 +346,7 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 |---|---|---|
 | `build.yml` / `release.yml` / `tauri-build.yml` | `main` | 能 |
 | `live-smoke.yml` | `main`（**为能手动触发而特意放的**）+ `feat/rust` | 能（触发时用 `--ref feat/rust` 才检出 Rust 代码） |
-| `rust.yml` / `slint-spike.yml` | 只在 feature 分支 | ❌ 不能，只能靠 push 触发 |
+| `rust.yml` | 只在 `feat/rust` | ❌ 不能，只能靠 push 触发 |
 | `html-probes.yml` | `main` + `feat/rust` | 能（选分支 `feat/rust`，生成 cheerio 真值） |
 
 `live-smoke.yml` 用 `hashFiles('crates/bt-providers/Cargo.toml')` 兜底：

@@ -31,12 +31,16 @@ Thumbs.db
 # 构建缓存（重定向到项目目录，避免占用 C 盘）
 .cache/
 
-# 本地工具数据（本机/每用户，不入库）
+# agent / 本地工具数据（非项目文件，不入库）
+# .workbuddy/ 是本项目的记忆库，其余是各 agent 工具的本地状态
 .workbuddy/
+.dsh-meow/
 .dsh-vision-toolkit/
-
-# Nezha agent 个人配置（第三方工具，与项目无关）
+.agents/
+.claude/
+.reasonix/
 .nezha/
+skills-lock.json
 
 # Torznab 索引器配置（含 API Key，本地数据，禁止入库）
 data/
@@ -48,13 +52,6 @@ dist/
 src-tauri/target/
 src-tauri/binaries/
 src-tauri/gen/
-
-# agent 本地工具配置（非项目文件）
-.agents/
-.claude/
-.reasonix/
-.dsh-meow/
-skills-lock.json
 
 # Rust workspace（feat/rust 主线）构建产物 —— 本机不开构建，target 只会在 CI 产生
 /target/
