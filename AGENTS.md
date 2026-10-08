@@ -103,14 +103,16 @@ crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方
 （另有 `bt-providers` 的 4 条单元测试测 `src/value.rs`；`tests/live_smoke.rs` 2 条默认跳过。
 合计 **91 passed / 0 failed**。）
 
-⚠️ `test/fixtures/internetarchive-ubuntu.synthetic.json`（文件名带 `.synthetic`）**不是真快照**：
-本机对 `archive.org` 有 **DNS 污染**（连续解析得到不同假 IP，IPv6 落在 `2a03:2880:face:b00c`
-黑洞前缀），直连 / 本机代理 / DoH / 中转全部失败；对照站点 torrents-csv.com 解析正常，
-说明不是网络整体不通。字段名与类型照 JS 的 `fl[]` 与 archive.org 公开文档构造，
-期望值仍是喂给 `src/lib/normalize.js` 跑出来的输出。
-**换成真快照的条件**：在能访问 archive.org 的环境上抓一次（见「联网冒烟」），
-删掉 fixture 里的 `_synthetic` 字段、把文件名去掉 `.synthetic`
-（`fixture_is_still_marked_as_synthetic` 这条测试会逼你这么做）。
+⚠️ `test/fixtures/internetarchive-ubuntu.synthetic.json`（文件名带 `.synthetic`）：
+`docs[0..2]` 是 2026-10-08 从 CI 冒烟日志取回的**真实 doc**，`docs[3..]` 是手工构造的边界样本；
+整体**不是逐字节快照**（本机对 `archive.org` 有 DNS 污染 —— 连续解析得到不同假 IP，
+IPv6 落在 `2a03:2880:face:b00c` 黑洞前缀，直连 / 代理 / DoH / 中转全失败；
+对照站点 torrents-csv.com 解析正常，说明不是网络整体不通）。
+真实响应已验证：冒烟取回 97~98 条、`error=None`，字段名与类型与 fixture 一致
+（真实数据里第一条就**没有 btih**，说明"缺 btih 就跳过"确实会命中）。
+**换成完整真快照的条件**：在能访问 archive.org 的环境抓一次（或改进冒烟让它落盘成 artifact，
+但 `gh run download` 在本仓库会卡死），然后删掉 fixture 里的 `_synthetic` 字段、
+把文件名去掉 `.synthetic`（`fixture_is_still_marked_as_synthetic` 会逼你这么做）。
 
 ### ⚠️ 边搬边删（用户 2026-10-08 指定，2026-10-08 二次修订）
 
@@ -238,17 +240,41 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
   测试全绿也可能一个结果都搜不出来。这条必须记住，别把绿灯当成"抓取正常"。
 - 因此另设一条 **联网冒烟**，只有手动触发、**允许失败**：
   - 测试：`crates/bt-providers/tests/live_smoke.rs`（**默认跳过**，只有 `BT_LIVE_SMOKE=1` 才打外网）
-  - workflow：`.github/workflows/live-smoke.yml`（仅 `workflow_dispatch`，job 级 `continue-on-error`）
+  - workflow：`.github/workflows/live-smoke.yml`（仅 `workflow_dispatch`）
   - 本地跑法：`BT_LIVE_SMOKE=1 cargo test -p bt-providers --test live_smoke -- --nocapture --test-threads=1`
     （**注意：本机跑没用** —— archive.org 被 DNS 污染；要在 CI 上跑，见下）
   - 用途 ① 判断站点还能不能用 ② **抓真实响应形态**（日志里有 `[smoke] <provider> first: ...`
     与 IA 的原始 doc，`gh run view --log` 可读）
+  - 「允许失败」= 它不在任何 push/PR 的门上；**不是**把它设成 `continue-on-error`
+    （那会让红变绿，等于把信号藏起来）
+  - ⚠️ **已归为已知噪声**：`tpb` 在 CI 上稳定 403（apibay 对机房 IP 限流），
+    测试里单列 `[smoke] NOTE` 不触发红灯；但「**0 条结果且无错误**」会**计入失败**
+    （那才是选择器/字段名失效的信号）
+
+**冒烟基线（2026-10-08 首次跑，run 37735017845：5 个 provider，0 个问题）**
+
+| provider | 结果 | 备注 |
+|---|---|---|
+| `knaben` | 300 条 | ✅ |
+| `torrentscsv` | 25 条 | ✅ |
+| `yts` | 24 条 | ✅ |
+| `internetarchive` | 97~98 条 | ✅ 顺带拿到真实字段形态（见进度表上方） |
+| `tpb` | 403 | ⚠️ 机房 IP 被限流，非代码问题 |
+
+以后跑冒烟时，拿这些数字做对比：**数量级突然掉到 0 或个位数**才是真信号。
 
 ⚠️ **`gh workflow run <file>` 要求 workflow 已存在于默认分支（`main`）上**，否则报
-`HTTP 404: workflow ... not found on the default branch`。本项目所有 workflow 目前都只活在
-feature 分支上（`main` 上只有 `build.yml` / `release.yml` / `tauri-build.yml`），
-所以 **`rust.yml` / `slint-spike.yml` / `live-smoke.yml` 现在都无法手动触发**，只能靠 push 触发。
-要用手动触发，得先把对应 workflow 文件放到 `main` 上（或等 Rust 分支合入 `main`）。
+`HTTP 404: workflow ... not found on the default branch`。本项目 workflow 目前的状态：
+
+| workflow | 在哪 | 能手动触发吗 |
+|---|---|---|
+| `build.yml` / `release.yml` / `tauri-build.yml` | `main` | 能 |
+| `live-smoke.yml` | `main`（**为能手动触发而特意放的**）+ `feat/rust` | 能（触发时用 `--ref feat/rust` 才检出 Rust 代码） |
+| `rust.yml` / `slint-spike.yml` | 只在 feature 分支 | ❌ 不能，只能靠 push 触发 |
+
+`live-smoke.yml` 用 `hashFiles('crates/bt-providers/Cargo.toml')` 兜底：
+在还没有 Rust workspace 的 ref 上会优雅跳过，不给假红灯。
+改这个文件时记得 **`main` 与 `feat/rust` 上各有一份，要同步**。
 
 Node 侧仍然使用 **Node.js 内置 `assert` 模块**做 golden-file 测试，无第三方框架：
 
