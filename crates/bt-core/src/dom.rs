@@ -198,8 +198,8 @@ mod tests {
         let trs = dom.select("tr");
         assert_eq!(closest_tag(trs[0], "tr").map(|e| e.id()), Some(trs[0].id()));
 
-        // 找不到就是 None，不 panic
-        assert!(closest_tag(a[0], "table").is_none());
+        // 找不到就是 None，不 panic（h1 不是它的任何一级祖先）
+        assert!(closest_tag(a[0], "h1").is_none());
     }
 
     #[test]
