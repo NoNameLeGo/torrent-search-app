@@ -16,8 +16,6 @@ use bt_core::normalize::format_date;
 use bt_providers::linuxtracker;
 use chrono::{Local, TimeZone};
 
-const BASE: &str = "https://linuxtracker.org";
-
 fn fixture(name: &str) -> String {
     let p = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../test/fixtures")

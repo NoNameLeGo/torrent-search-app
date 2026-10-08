@@ -314,7 +314,7 @@ mod tests {
             "0",
         );
         assert!(
-            parse(BASE, html).is_empty(),
+            parse(BASE, &html).is_empty(),
             "名字为空的（展开行的空链接）要跳过"
         );
     }
