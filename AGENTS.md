@@ -101,7 +101,7 @@ crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方
 | `src/providers/internetarchive.js`（58 行） | `internetarchive.rs` | **合成** fixture（见下）+ 分类映射 + item_size 三态 + `no_docs` 错误语义，**13 passed** | **待删** |
 
 （另有 `bt-providers` 的 4 条单元测试测 `src/value.rs`；`tests/live_smoke.rs` 2 条默认跳过。
-合计 **91 passed / 0 failed**。）
+合计 **92 passed / 0 failed**。）
 
 ⚠️ `test/fixtures/internetarchive-ubuntu.synthetic.json`（文件名带 `.synthetic`）：
 `docs[0..2]` 是 2026-10-08 从 CI 冒烟日志取回的**真实 doc**，`docs[3..]` 是手工构造的边界样本；
