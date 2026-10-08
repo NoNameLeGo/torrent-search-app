@@ -103,6 +103,7 @@ crates/bt-providers/    one file per site, mirroring src/providers/*.js
   src/knaben.rs         port of src/providers/knaben.js (POST, official JSON API)
   src/torrentscsv.rs    port of src/providers/torrentscsv.js (GET, flat array)
   src/yts.rs            port of src/providers/yts.js (GET, movie -> torrents, two levels)
+  src/linuxtracker.rs   port of src/providers/linuxtracker.js (HTML via bt_core::dom)
   tests/common/mod.rs   throwaway HTTP server + fixture loader shared by provider tests
                         oneshot() = response only; oneshot_capture() = also hands back the raw request
   tests/{tpb,knaben,torrentscsv,yts}.rs   per-provider offline tests
@@ -113,7 +114,13 @@ crates/bt-providers/    one file per site, mirroring src/providers/*.js
 
 Known pitfalls when guessing expected values (all three have already cost a CI round): `dateText` defaults to `"—"`, not `""`; JS treats `0` as falsy, so `x ? Number(x) : null` means `created_unix: 0` yields no date (use `value::v2nt_nonzero`, but note the *string* `"0"` is truthy); array fields like `categoryId` take the **min**, not the first element.
 
-**Order for the remaining providers:** `internetarchive` finishes the JSON group, then the HTML group with the `scraper` crate (`linuxtracker`, `filemood`).
+**Order for the remaining providers:** `filemood` next (the JSON group is done), then `1337x` — whose fixture turned out to be a FingerprintJS anti-bot interstitial, not a results page.
+
+**HTML providers (worked path, from `linuxtracker`):** parse with `bt_core::dom` (the cheerio-compatible layer over `scraper`). **Ask the page structure via the probe harness instead of guessing from the HTML** — add probes to `test/fixtures/html-probes.json`, run `.github/workflows/html-probes.yml` to get cheerio's ground truth, and only then write the provider. Two things bit us there: cheerio's `.map()` flattens arrays (use `.toArray().map()`), and bare `<tr>`/`<td>` snippets are dropped by the HTML parser (wrap them in `<table>`).
+
+`runMirrors` (`src/lib/mirrors.js`) does **not** mean "retry on error": it fires all mirrors in parallel and takes the first with **non-empty results**; otherwise the error becomes `"<name> unreachable (<err1>; <err2>)"`. So "page loaded but no hits" counts as an **error**.
+
+Upstream bugs found while porting: `linuxtracker`'s `detailUrl` misses a slash (`https://linuxtracker.orgindex.php?...` — a dead link; **fixed** here, pinned as a divergence test); its `parseEuDate` builds local-midnight dates while `dateText` formats in UTC, so results show one day early east of UTC (**copied as-is**); expanded description rows land their size/seeders in the wrong columns (**copied as-is**). Policy: fix functional bugs, copy cosmetic ones.
 
 **Deleting the old JS — function-level, not file-level (revised 2026-10-08).** Do *not* mechanically delete `<provider>.js` as soon as its Rust port lands. Delete only once that function is fully usable from Rust (wired into `bt-app`), and never when the JS is still the reference for an accepted equivalence check. Anything kept for now must be logged in the "待删清单" table in `AGENTS.md` and deleted in a batch at the end of a phase. The one hard rule that survives: two implementations must never be allowed to drift, so every ported file's status (`待删` / `保留(对照)` / `已删`) goes in the progress table.
 

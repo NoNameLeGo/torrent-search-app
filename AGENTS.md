@@ -72,7 +72,7 @@ crates/bt-core/         领域类型 + 归一化 + HTTP 公共层 + HTML 解析�
   src/http.rs           ← src/lib/http.js 的移植（契约：永不返回 Err）
   tests/http.rs         ← 自起本地一次性 HTTP 服务，全程无外网
   src/dom.rs            ← cheerio 的替代层（scraper 0.27 = html5ever + selectors）
-  tests/dom_probes.rs   ← 选择器语义对照：与 cheerio 真值逐条比对
+  tests/dom_probes.rs   ← 选择器语义对照：与 cheerio 真值（28 条 probe）逐条比对
 crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方式  src/lib.rs            SearchOutcome { results, error, has_more }
                         （暂不引入 Provider trait，等 3~5 个再定抽象）
   src/value.rs          Value → NumOrText / String / min 的公共转换（含 v2nt_nonzero）
@@ -81,6 +81,7 @@ crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方
   src/torrentscsv.rs    ← src/providers/torrentscsv.js（GET，简单一层数组）
   src/yts.rs            ← src/providers/yts.js（GET，电影→种子两层结构）
   src/internetarchive.rs ← src/providers/internetarchive.js（GET，advancedsearch JSON）
+  src/linuxtracker.rs   ← src/providers/linuxtracker.js（HTML，bt_core::dom）
   tests/common/mod.rs   本地一次性 HTTP 服务 + fixture 加载（provider 测试公用）
                         oneshot() 只要响应；oneshot_capture() 另交出原始请求，用于钉请求契约
   tests/{tpb,knaben,torrentscsv,yts,internetarchive}.rs   各自的离线测试
@@ -100,10 +101,11 @@ crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方
 | `src/providers/torrentscsv.js`（32 行） | `torrentscsv.rs` | 真 fixture 首末条 + query 编码契约 + falsy 日期，**9 passed** | **待删** |
 | `src/providers/yts.js`（55 行） | `yts.rs` | 真 fixture 三条结果 + 请求 URL 契约 + 缺省值 + 两条跳过规则，**11 passed** | **待删** |
 | `src/providers/internetarchive.js`（58 行） | `internetarchive.rs` | **合成** fixture（见下）+ 分类映射 + item_size 三态 + `no_docs` 错误语义，**13 passed** | **待删** |
-| `src/lib/scraper.js`（HTML 解析底座） | `crates/bt-core/src/dom.rs` | cheerio 语义对照层 + 11 条单测 + 24 条 probe 与 cheerio 1.2.0 真值逐条比对 | 保留(对照) |
+| `src/lib/scraper.js`（HTML 解析底座） | `crates/bt-core/src/dom.rs` | cheerio 语义对照层 + 11 条单测 + 28 条 probe 与 cheerio 1.2.0 真值逐条比对（`dom_probes` **通过**） | 保留(对照) |
+| `src/providers/linuxtracker.js`（95 行） | `linuxtracker.rs` | 真 fixture：43 候选 → 18 条结果（三个数字都由 cheerio 交叉验证）+ 11 条集成 + 8 条单测 | **待删** |
 
-（另有 `bt-providers` 的 4 条单元测试测 `src/value.rs`；`tests/live_smoke.rs` 2 条默认跳过。
-合计 **92 passed / 0 failed**。）
+（另有 `bt-providers` 的 12 条单元测试测 `src/value.rs` + `linuxtracker.rs`；
+`tests/live_smoke.rs` 2 条默认跳过。合计 **123 passed / 0 failed**。）
 
 ⚠️ `test/fixtures/internetarchive-ubuntu.synthetic.json`（文件名带 `.synthetic`）：
 `docs[0..2]` 是 2026-10-08 从 CI 冒烟日志取回的**真实 doc**，`docs[3..]` 是手工构造的边界样本；
@@ -135,8 +137,8 @@ Node 源码在这个阶段是**验证工具**而不是待清垃圾。提前删�
 
 | 路径 | 为何现在留着 | 何时可删 |
 |---|---|---|
-| `src/providers/tpb.js`、`knaben.js`、`torrentscsv.js`、`yts.js`、`internetarchive.js` ✅已移植 | `test/run.js` 仍在跑 tpb/knaben；离线对照要用 | `bt-app` 接通对应 provider + Node 测试块删除后 |
-| `src/providers/*.js`（其余 37 个） | 尚未移植，是逐行对照的参照物 | 各自移植完成后按上条判断 |
+| `src/providers/tpb.js`、`knaben.js`、`torrentscsv.js`、`yts.js`、`internetarchive.js`、`linuxtracker.js` ✅已移植 | `test/run.js` 仍在跑 tpb/knaben/linuxtracker；离线对照要用 | `bt-app` 接通对应 provider + Node 测试块删除后 |
+| `src/providers/*.js`（其余 36 个） | 尚未移植，是逐行对照的参照物 | 各自移植完成后按上条判断 |
 | `src/lib/`、`server.js`、`test/run.js` | 聚合层尚未移植，本分支上 Node 版仍需可跑 | provider + 聚合全搬完 |
 | `public/` | 阶段一的前端本体（`public/` 一行不改） | **阶段二**确认上 Slint 后 |
 | `electron/`、`scripts/`、`package.json`、`start.bat`/`stop.bat`、`.eslintrc.json`、`.prettierrc`、`build.yml`/`release.yml`/`tauri-build.yml` | Rust 版尚未能取代旧 Shell 发版 | Rust 版能独立发版后 |
@@ -176,7 +178,28 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 - ✅ 选择器等价性对照机制：`test/fixtures/html-probes.json`（24 条 probe）+
   `scripts/html-probes.cjs`（cheerio 侧，真值来源）+ `crates/bt-core/tests/dom_probes.rs`（Rust 侧）
   + `test/fixtures/html-probes.expected.json`（真值，cheerio 1.2.0 生成）
-- ⏭️ **下次从这里开始：用这套地基搬第一个 HTML provider（`linuxtracker.js`）**
+- ⏭️ **下次从这里开始：搬 `filemood.js`**（结构已探明：65 个 tr 里 20 条数据行、
+  详情链接 `/name-<40hex>.html`、状态文本 `2518/65` 是 seeds/peers、大小在 `td.dn-size`）
+
+**B 组进度**
+
+| # | provider | 状态 |
+|---|---|---|
+| 0 | 地基（`dom.rs` + 选择器对照机制） | ✅ 28 条 probe 与 cheerio 1.2.0 逐条一致 |
+| 1 | `linuxtracker.js` | ✅ 18 条结果 + 11 集成 + 8 单测 |
+| 2 | `filemood.js` | ⏭️ **下次做** |
+| 3 | `1337x.js` | ⚠️ 见下（fixture 是反爬跳转页，得先解决拿页面这一层） |
+| — | 俄站（rutor 等，**编码**要专门验） | 还没有 fixture |
+
+### 🐞 移植中发现的上游 bug（JS 版既有，值得单独修）
+
+| 位置 | 现象 | 本移植怎么处理 |
+|---|---|---|
+| `linuxtracker.js` 的 `detailUrl` | `` `${base}${href}` `` 而 base 无结尾斜杠 → `https://linuxtracker.orgindex.php?…` **死链，点开 404**（抓取不受影响，所以一直没暴露） | **修掉**（`join_base` 补斜杠）+ 单列 divergence 测试 |
+| `linuxtracker.js` 的 `parseEuDate` | 用 `new Date(y,m-1,d)`（本地时区零点），而 `dateText` 按 UTC 格式化 → **东八区显示早一天**（站上 28/04 显示 04-27） | **照抄**（纯显示问题，且与时区绑定；要修得两版一起改） |
+| `linuxtracker.js` 的列索引 | 主表里夹着 19 个 td 的「展开描述行」，列含义不同 → 这些结果的 size/seeders 落在错误列上 | **照抄**（否则与 Node 版对不上） |
+
+口径：**功能性 bug（死链）就修，纯显示问题先照抄** —— 两条都在代码注释里写明了理由。
 - HTML fixture 现状：
 
 | fixture | 状态 |
@@ -245,6 +268,21 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 - JS 的 `0` 是 falsy：`x ? Number(x) : null` 会让 `created_unix: 0` → 无日期，
   而不是 1970-01-01。用 `value::v2nt_nonzero`。而字符串 `"0"` 是 truthy，别一起过滤掉
 - `categoryId` 之类的**数组取 min 而非首元素**
+- yts 会把 infoHash **小写化**；tpb/knaben 原样保留大小写
+
+**HTML provider 追加的步骤（`linuxtracker` 走通的路子）**：
+
+7. 先用 probe 机制把页面结构问清楚，**别靠读 HTML 猜**：
+   往 `test/fixtures/html-probes.json` 加该 fixture 的 probe（选择器、列索引候选、
+   href、closest+find 的整行），跑 `.github/workflows/html-probes.yml` 拿 cheerio 真值。
+   linuxtracker 就是这样才发现「43 个候选里只有 33 条主表行、最终 18 条」这种数字。
+8. 结构里常有的**坑行/坑列**要单独成测试：侧栏行（td 少）、展开的描述行（列语义不同、
+   名字链接为空）。**照抄 JS 的取舍**，别顺手"修"。
+9. `runMirrors` 的真实语义要读 `src/lib/mirrors.js`（**不是**"出错就换下一个"）：
+   并行请求、按声明顺序取第一个**结果非空**的；全空时错误被包成
+   `"<name> unreachable (<err1>; <err2>)"`。所以「页面正常但没结果」算**错误**。
+10. 移植中发现的上游 bug：**功能性 bug（死链）就修并单列 divergence 测试；
+    纯显示问题先照抄**。已发现的三条登记在上面的「🐞 移植中发现的上游 bug」。
 
 ## Testing
 
