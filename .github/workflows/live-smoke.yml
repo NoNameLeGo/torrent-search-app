@@ -1,0 +1,61 @@
+name: Live smoke (online)
+
+# Q5 决策的 B 半 —— 联网冒烟。
+#
+# 为什么要有它：`test/fixtures/` 是历史快照，离线测试全绿**只能证明"解析逻辑没退化"，
+# 证明不了"站点现在还能用"**。这条真正打外网，用来回答后者。
+#
+# 只有**手动触发**：站点抽风/限流/被墙是常态，不该出现在 push 的门里。
+# 因此也**允许失败**（job 级 continue-on-error）—— 红灯是信号，不是阻塞。
+#
+# 另一个用处：**抓真实响应形态**。比如 internetarchive，
+# 某些网络对 archive.org 有 DNS 污染（本机就是），只能靠这里的日志看真数据。
+#
+# 日志里有 `[smoke] <provider> first: ...` 和 IA 的原始 doc，用 `gh run view --log` 可读。
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    # 站点的事不该把 CI 弄成红的（它本来就不在 push 的门里）
+    continue-on-error: true
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v5
+
+      - name: 安装 Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust 缓存
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> target'
+
+      - name: 联网冒烟（打真实站点）
+        # 这个文件被特意放在默认分支上（否则 workflow_dispatch 会 404），
+        # 但 Rust workspace 只存在于 feature 分支 → 在别的 ref 上要优雅跳过，别给个假红灯。
+        if: hashFiles('crates/bt-providers/Cargo.toml') != ''
+        env:
+          BT_LIVE_SMOKE: '1'
+        # --nocapture 才有 [smoke] 日志；串行跑，避免日志交错
+        run: cargo test -p bt-providers --test live_smoke -- --nocapture --test-threads=1
+
+      - name: 该 ref 上没有 Rust workspace，跳过
+        if: hashFiles('crates/bt-providers/Cargo.toml') == ''
+        shell: bash
+        run: |
+          echo "::warning::ref 上还没有 crates/bt-providers，联网冒烟无事可做。"
+          echo "请用 Actions → 这个 workflow → Run workflow → 选分支 feat/rust。"
+
+      - name: 提示
+        if: always()
+        shell: bash
+        run: |
+          echo "::notice::这是联网冒烟，失败通常意味着站点改版/限流/被墙，不一定是代码回归。"
+          echo "先看上面日志里的 [smoke] 行：results=0 + error=None 往往是选择器失效或站点换域名。"
