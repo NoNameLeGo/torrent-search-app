@@ -6,7 +6,7 @@
 //! 原始站点名在 `tracker` / `cachedOrigin` 字段里，但我们只用 `provider: "knaben"`，
 //! 与 JS 版一致（引擎维度由 provider 决定，不由来源决定）。
 
-use bt_core::http::HttpClient;
+use bt_core::http::{HttpClient, JsonResponse};
 use bt_core::normalize::{extract_info_hash, normalize, RawResult};
 use bt_core::TorrentResult;
 use serde::Serialize;
@@ -65,7 +65,8 @@ pub async fn search_at(http: &HttpClient, api: &str, query: &str) -> SearchOutco
         hide_xxx: false,
     };
 
-    let resp = http.post_json::<Value>(api, &payload, None).await;
+    // `post_json` 是 `post_json<T, B>`，T 无法从参数推出 → 标注在绑定上
+    let resp: JsonResponse<Value> = http.post_json(api, &payload, None).await;
     if let Some(e) = &resp.error {
         return SearchOutcome::err(format!("Knaben unreachable ({e})"));
     }
@@ -94,7 +95,7 @@ fn card_from_value(item: &Value) -> Option<TorrentResult> {
     let info_hash = item
         .get("hash")
         .and_then(v2string)
-        .or_else(|| magnet.as_deref().and_then(extract_info_hash));
+        .or_else(|| extract_info_hash(magnet.as_deref()));
 
     // JS: `it.categoryId.map(Number).filter(!isNaN)` → `Math.min(...)`。
     // fixture 里有一条是 `[10000000, 9001000]`，取最小才是 9001000 → Books；
