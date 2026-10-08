@@ -26,9 +26,17 @@ const SPEC = path.join(ROOT, 'test', 'fixtures', 'html-probes.json');
 /** 与 Rust 侧 run_probe() 一一对应。改一边必须改另一边。 */
 function runProbe($, p) {
   const limit = p.limit == null ? 3 : p.limit;
+  // ⚠️ 一律用 `.toArray().map(...)`，**不要用 cheerio 的 `.map()`** ——
+  // jQuery 血统的 `.map()` 会把回调返回的数组**拍平一层**，
+  // 于是 row_cells 这种「数组的数组」会被压成一维，和 Rust 侧对不上。
+  const els = () => $(p.selector).toArray();
+
   switch (p.op) {
     case 'count':
       return $(p.selector).length;
+
+    case 'count_nonempty_texts':
+      return els().filter((el) => $(el).text().trim() !== '').length;
 
     case 'text_first':
       return $(p.selector).first().text().trim();
@@ -39,32 +47,29 @@ function runProbe($, p) {
     }
 
     case 'attrs':
-      return $(p.selector)
+      return els()
         .slice(0, limit)
-        .map((_, el) => {
+        .map((el) => {
           const v = $(el).attr(p.attr);
           return v === undefined ? null : v;
-        })
-        .get();
+        });
 
     case 'texts':
-      return $(p.selector)
+      return els()
         .slice(0, limit)
-        .map((_, el) => $(el).text().trim())
-        .get();
+        .map((el) => $(el).text().trim());
 
     case 'row_cells':
-      return $(p.selector)
+      return els()
         .slice(0, limit)
-        .map((_, el) => {
+        .map((el) => {
           const row = $(el).closest(p.closest);
           if (!row.length) return [];
           return row
             .find(p.within)
-            .map((__, cell) => $(cell).text().trim())
-            .get();
-        })
-        .get();
+            .toArray()
+            .map((cell) => $(cell).text().trim());
+        });
 
     default:
       return { error: `unknown op ${p.op}` };

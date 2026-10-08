@@ -43,6 +43,12 @@ fn run_probe(dom: &Dom, p: &Value) -> Value {
     match op {
         "count" => json!(els.len()),
 
+        // 对应 cheerio 的 `.filter(el => $(el).text().trim() !== '')` —— 用来算
+        // 「provider 按名字非空过滤后还剩几条」，让 Rust 的最终条数能被 cheerio 侧交叉验证。
+        "count_nonempty_texts" => {
+            json!(els.iter().filter(|e| !text_trim(**e).is_empty()).count())
+        }
+
         "text_first" => json!(els.first().map(|e| text_trim(*e)).unwrap_or_default()),
 
         "attr_first" => match els.first() {

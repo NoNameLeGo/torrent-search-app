@@ -1,5 +1,5 @@
 {
-  "_note": "cheerio 与 scraper 的「选择器 + 取值」语义对照探针。两侧读同一个文件：cheerio 侧 scripts/html-probes.cjs，Rust 侧 crates/bt-core/tests/dom_probes.rs。期望值来自 cheerio（scripts/html-probes.cjs 的输出），存成 html-probes.expected.json。ops: count=匹配数 / text_first=首个匹配的 .text().trim() / attr_first=首个匹配的 attr（无则 null）/ attrs=前 limit 个 attr / texts=前 limit 个 text / row_cells=对前 limit 个匹配各自 closest(标签) 后 find(within) 的 text 列表（closest 未命中给 []）。",
+  "_note": "cheerio 与 scraper 的「选择器 + 取值」语义对照探针。两侧读同一个文件：cheerio 侧 scripts/html-probes.cjs，Rust 侧 crates/bt-core/tests/dom_probes.rs。期望值来自 cheerio（scripts/html-probes.cjs 的输出），存成 html-probes.expected.json。ops: count=匹配数 / count_nonempty_texts=文本 trim 后非空的条数 / text_first=首个匹配的 .text().trim() / attr_first=首个匹配的 attr（无则 null）/ attrs=前 limit 个 attr / texts=前 limit 个 text / row_cells=对前 limit 个匹配各自 closest(标签) 后 find(within) 的 text 列表（closest 未命中给 []，结果是**数组的数组**）。⚠️ cheerio 侧一律用 .toArray().map()，不用 cheerio 的 .map()（jQuery 语义会拍平一层）。",
   "fixtures": [
     {
       "file": "linuxtracker-linux.html",
@@ -54,6 +54,11 @@
           "closest": "tr",
           "within": "td",
           "limit": 3
+        },
+        {
+          "id": "main_only.nonempty_texts_count",
+          "op": "count_nonempty_texts",
+          "selector": "td.lista a[href^=\"index.php\"][href*=\"torrent-details\"]"
         },
         {
           "id": "main_only.first_5_hrefs",
