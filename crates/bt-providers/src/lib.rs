@@ -15,6 +15,7 @@
 
 pub mod internetarchive;
 pub mod knaben;
+pub mod linuxtracker;
 pub mod torrentscsv;
 pub mod tpb;
 pub mod value;

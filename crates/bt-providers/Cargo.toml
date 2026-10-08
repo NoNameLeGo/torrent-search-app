@@ -9,10 +9,14 @@ publish.workspace = true
 
 [dependencies]
 bt-core = { path = "../bt-core" }
+# linuxtracker 把 DD/MM/YYYY 解析成"本地时区当日零点"，与 JS 的
+# `new Date(y, m-1, d).getTime()` 对齐 —— 所以 provider 层就需要 chrono
+chrono = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 [dev-dependencies]
 # 集成测试看不到 crate 的普通依赖，用到的都得在这儿再声明一遍
+chrono = "0.4"
 serde_json = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "time"] }

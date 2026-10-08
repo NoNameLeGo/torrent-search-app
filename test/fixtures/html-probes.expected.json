@@ -14,46 +14,154 @@
       "manjaro-cinnamon-17.1.9-stable-x86_64"
     ],
     "name_links.first_3_rows": [
-      "5.0000",
-      "manjaro-gnome-17.1.9-stable-x86_64",
-      "5.0000",
-      "manjaro-deepin-17.1.9-stable-x86_64",
-      "5.0000",
-      "manjaro-cinnamon-17.1.9-stable-x86_64"
+      [
+        "5.0000",
+        "manjaro-gnome-17.1.9-stable-x86_64"
+      ],
+      [
+        "5.0000",
+        "manjaro-deepin-17.1.9-stable-x86_64"
+      ],
+      [
+        "5.0000",
+        "manjaro-cinnamon-17.1.9-stable-x86_64"
+      ]
     ],
     "main_only.preference": 33,
     "main_only.first_3_rows": [
+      [
+        "",
+        "Fedora-KDE-Desktop-Live-x86_64-44 (EXT)",
+        "",
+        "28/04/2026",
+        "3.14 GB",
+        "JLP",
+        "15",
+        "0",
+        "DEMONLORD"
+      ],
+      [
+        "",
+        "kali-linux-2026.2-installer-amd64.iso (EXT)",
+        "",
+        "29/06/2026",
+        "4.47 GB",
+        "DEMONLORD",
+        "14",
+        "0",
+        "DEMONLORD"
+      ],
+      [
+        "",
+        "debian-13.6.0-amd64-DVD-1.iso (EXT)",
+        "",
+        "12/07/2026",
+        "3.72 GB",
+        "DEMONLORD",
+        "12",
+        "0",
+        "DEMONLORD"
+      ]
+    ],
+    "main_only.nonempty_texts_count": 18,
+    "main_only.first_5_hrefs": [
+      "index.php?page=torrent-details&id=5a2759c487c21a692df3e521cbcb3df8731bfb5f",
+      "index.php?page=torrent-details&id=83f92aecfa3d92d3df79a5661ad8efb57282b48b",
+      "index.php?page=torrent-details&id=204e02b76378fc6e76f8b09d2ede2e3332136b3c",
+      "index.php?page=torrent-details&id=ff818211de0ec5ad17349c6d0f4c1e8a058ba0f9",
+      "index.php?page=torrent-details&id=ff818211de0ec5ad17349c6d0f4c1e8a058ba0f9"
+    ],
+    "main_only.first_5_texts": [
+      "Fedora-KDE-Desktop-Live-x86_64-44",
+      "kali-linux-2026.2-installer-amd64.iso",
+      "debian-13.6.0-amd64-DVD-1.iso",
       "",
-      "Fedora-KDE-Desktop-Live-x86_64-44 (EXT)",
-      "",
-      "28/04/2026",
-      "3.14 GB",
-      "JLP",
-      "15",
-      "0",
-      "DEMONLORD",
-      "",
-      "kali-linux-2026.2-installer-amd64.iso (EXT)",
-      "",
-      "29/06/2026",
-      "4.47 GB",
-      "DEMONLORD",
-      "14",
-      "0",
-      "DEMONLORD",
-      "",
-      "debian-13.6.0-amd64-DVD-1.iso (EXT)",
-      "",
-      "12/07/2026",
-      "3.72 GB",
-      "DEMONLORD",
-      "12",
-      "0",
-      "DEMONLORD"
+      "4MLinux 52 0 core iso"
+    ],
+    "main_only.first_5_rows": [
+      [
+        "",
+        "Fedora-KDE-Desktop-Live-x86_64-44 (EXT)",
+        "",
+        "28/04/2026",
+        "3.14 GB",
+        "JLP",
+        "15",
+        "0",
+        "DEMONLORD"
+      ],
+      [
+        "",
+        "kali-linux-2026.2-installer-amd64.iso (EXT)",
+        "",
+        "29/06/2026",
+        "4.47 GB",
+        "DEMONLORD",
+        "14",
+        "0",
+        "DEMONLORD"
+      ],
+      [
+        "",
+        "debian-13.6.0-amd64-DVD-1.iso (EXT)",
+        "",
+        "12/07/2026",
+        "3.72 GB",
+        "DEMONLORD",
+        "12",
+        "0",
+        "DEMONLORD"
+      ],
+      [
+        "",
+        "4MLinux 52 0 core iso (Multi.)   \n      4MLinux is a small, independent, general-purpose Linux distribution with a strong focus on the following four \"M\" of computing:\n\n[*]Maintenance (system rescue Live CD)\n[*]Multimedia (full support for a huge number of image, audio and video formats),\n[*]Miniserver (DNS, FTP, HTTP, MySQL, NFS, Proxy, SMTP, SSH, and Telnet),\n[*]Mystery (meaning a collection of classic Linux games).\n\nAs always, the new major release has some new features. 4MLinux can now be installed on Bcachefs partitions (b\n\n   \n   \n   Added On: 09/08/2026 \n   Size: 16.13 MB \n Seeds 7 \n Leechers 0 \n Completed 8  \n\n\n\n\n\n\n--- TheLinuxMan  N/A  N/A\n\n          ---",
+        "Added On: 09/08/2026",
+        "",
+        "Size: 16.13 MB",
+        "",
+        "Seeds 7",
+        "",
+        "Leechers 0",
+        "",
+        "Completed 8",
+        "",
+        "---",
+        "TheLinuxMan",
+        "N/A",
+        "N/A",
+        "---",
+        "",
+        ""
+      ],
+      [
+        "",
+        "4MLinux 52 0 core iso (Multi.)   \n      4MLinux is a small, independent, general-purpose Linux distribution with a strong focus on the following four \"M\" of computing:\n\n[*]Maintenance (system rescue Live CD)\n[*]Multimedia (full support for a huge number of image, audio and video formats),\n[*]Miniserver (DNS, FTP, HTTP, MySQL, NFS, Proxy, SMTP, SSH, and Telnet),\n[*]Mystery (meaning a collection of classic Linux games).\n\nAs always, the new major release has some new features. 4MLinux can now be installed on Bcachefs partitions (b\n\n   \n   \n   Added On: 09/08/2026 \n   Size: 16.13 MB \n Seeds 7 \n Leechers 0 \n Completed 8  \n\n\n\n\n\n\n--- TheLinuxMan  N/A  N/A\n\n          ---",
+        "Added On: 09/08/2026",
+        "",
+        "Size: 16.13 MB",
+        "",
+        "Seeds 7",
+        "",
+        "Leechers 0",
+        "",
+        "Completed 8",
+        "",
+        "---",
+        "TheLinuxMan",
+        "N/A",
+        "N/A",
+        "---",
+        "",
+        ""
+      ]
     ],
     "name_links.attrs_td_index": [
-      "manjaro-gnome-17.1.9-stable-x86_64",
-      "manjaro-deepin-17.1.9-stable-x86_64"
+      [
+        "manjaro-gnome-17.1.9-stable-x86_64"
+      ],
+      [
+        "manjaro-deepin-17.1.9-stable-x86_64"
+      ]
     ],
     "td_lista.count": 91
   },
@@ -84,15 +192,23 @@
       "1512/35"
     ],
     "title.row_status_cells": [
-      "2518/65",
-      "1906/25",
-      "1512/35"
+      [
+        "2518/65"
+      ],
+      [
+        "1906/25"
+      ],
+      [
+        "1512/35"
+      ]
     ],
     "title.row_all_cells": [
-      "ubuntu-26.04-desktop-amd64.iso",
-      "2518/65",
-      "6.5 GB",
-      "DOWNLOAD"
+      [
+        "ubuntu-26.04-desktop-amd64.iso",
+        "2518/65",
+        "6.5 GB",
+        "DOWNLOAD"
+      ]
     ]
   },
   "1337x-ubuntu.html": {
