@@ -6,7 +6,9 @@ name: Live smoke (online)
 # 证明不了"站点现在还能用"**。这条真正打外网，用来回答后者。
 #
 # 只有**手动触发**：站点抽风/限流/被墙是常态，不该出现在 push 的门里。
-# 因此也**允许失败**（job 级 continue-on-error）—— 红灯是信号，不是阻塞。
+# 「允许失败」= 它不在任何 push/PR 的门上，失败不阻塞任何东西；
+# 但**不**把这个 job 设成 continue-on-error —— 那会让红变绿，等于把信号藏起来。
+# 已知噪声（apibay 对机房 IP 返回 403）在测试里单列 NOTE，不触发红灯。
 #
 # 另一个用处：**抓真实响应形态**。比如 internetarchive，
 # 某些网络对 archive.org 有 DNS 污染（本机就是），只能靠这里的日志看真数据。
@@ -23,8 +25,6 @@ jobs:
   smoke:
     runs-on: windows-latest
     timeout-minutes: 20
-    # 站点的事不该把 CI 弄成红的（它本来就不在 push 的门里）
-    continue-on-error: true
     steps:
       - name: 检出代码
         uses: actions/checkout@v5
