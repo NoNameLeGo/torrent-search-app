@@ -1,0 +1,103 @@
+{
+  "linuxtracker-linux.html": {
+    "name_links.count": 43,
+    "name_links.first_text": "manjaro-gnome-17.1.9-stable-x86_64",
+    "name_links.first_href": "?page=torrent-details&id=9ac4c70e206139ea618205db73c4e2690516c28c",
+    "name_links.first_3_hrefs": [
+      "?page=torrent-details&id=9ac4c70e206139ea618205db73c4e2690516c28c",
+      "?page=torrent-details&id=28ec93f1e9956f667c694bd4da7b45bae54caaed",
+      "?page=torrent-details&id=47bc4b8b4f9938da4584e76792d331eb4c425a86"
+    ],
+    "name_links.first_3_texts": [
+      "manjaro-gnome-17.1.9-stable-x86_64",
+      "manjaro-deepin-17.1.9-stable-x86_64",
+      "manjaro-cinnamon-17.1.9-stable-x86_64"
+    ],
+    "name_links.first_3_rows": [
+      "5.0000",
+      "manjaro-gnome-17.1.9-stable-x86_64",
+      "5.0000",
+      "manjaro-deepin-17.1.9-stable-x86_64",
+      "5.0000",
+      "manjaro-cinnamon-17.1.9-stable-x86_64"
+    ],
+    "main_only.preference": 33,
+    "main_only.first_3_rows": [
+      "",
+      "Fedora-KDE-Desktop-Live-x86_64-44 (EXT)",
+      "",
+      "28/04/2026",
+      "3.14 GB",
+      "JLP",
+      "15",
+      "0",
+      "DEMONLORD",
+      "",
+      "kali-linux-2026.2-installer-amd64.iso (EXT)",
+      "",
+      "29/06/2026",
+      "4.47 GB",
+      "DEMONLORD",
+      "14",
+      "0",
+      "DEMONLORD",
+      "",
+      "debian-13.6.0-amd64-DVD-1.iso (EXT)",
+      "",
+      "12/07/2026",
+      "3.72 GB",
+      "DEMONLORD",
+      "12",
+      "0",
+      "DEMONLORD"
+    ],
+    "name_links.attrs_td_index": [
+      "manjaro-gnome-17.1.9-stable-x86_64",
+      "manjaro-deepin-17.1.9-stable-x86_64"
+    ],
+    "td_lista.count": 91
+  },
+  "filemood-ubuntu.html": {
+    "rows.count": 65,
+    "btn_success.count": 20,
+    "title.count": 20,
+    "title.first_text": "ubuntu-26.04-desktop-amd64.iso",
+    "title.first_3_texts": [
+      "ubuntu-26.04-desktop-amd64.iso",
+      "ubuntu-26.04-live-server-amd64.iso",
+      "ubuntu-24.04.4-desktop-amd64.iso"
+    ],
+    "detail_link.first_href": "/ubuntu-26.04-desktop-amd64.iso-dafc8c076ca2f3ed376eeae7c76a0d6be2415c45.html",
+    "detail_link.first_3_hrefs": [
+      "/ubuntu-26.04-desktop-amd64.iso-dafc8c076ca2f3ed376eeae7c76a0d6be2415c45.html",
+      "/ubuntu-26.04-live-server-amd64.iso-e1fc140a6391357fa1cf08ddb70274f9c05eb88b.html",
+      "/ubuntu-24.04.4-desktop-amd64.iso-01c137287d6f0ed05a56742dae794f632c79ff3d.html"
+    ],
+    "size.first_3_texts": [
+      "6.5 GB",
+      "2.9 GB",
+      "6.7 GB"
+    ],
+    "status.first_3_texts": [
+      "2518/65",
+      "1906/25",
+      "1512/35"
+    ],
+    "title.row_status_cells": [
+      "2518/65",
+      "1906/25",
+      "1512/35"
+    ],
+    "title.row_all_cells": [
+      "ubuntu-26.04-desktop-amd64.iso",
+      "2518/65",
+      "6.5 GB",
+      "DOWNLOAD"
+    ]
+  },
+  "1337x-ubuntu.html": {
+    "rows.count": 0,
+    "name_cells.count": 0,
+    "title_text": "13377x.to"
+  }
+}
