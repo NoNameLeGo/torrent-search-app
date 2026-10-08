@@ -36,9 +36,11 @@ test/
     torrentscsv-ubuntu.json ← TorrentsCSV API 响应 (25 results)，2026-10-08 抓
     yts-matrix.json       ← YTS API 响应 (2 部电影 / 7 个种子)，2026-10-08 抓
     internetarchive-ubuntu.synthetic.json ← ⚠️ **合成**的（archive.org 本机 DNS 被污染抓不到）
+    html-probes.json      ← 选择器语义对照的 probe 清单（cheerio vs scraper，两侧读同一份）
+    html-probes.expected.json ← cheerio 侧跑出来的真值（cheerio 1.2.0，2026-10-08）
     linuxtracker-linux.html ← LinuxTracker HTML (18 results)
     filemood-ubuntu.html  ← FileMood HTML (20 results)
-    1337x-ubuntu.html     ← 1337x HTML（小样本，仅 1KB）
+    1337x-ubuntu.html     ← ⚠️ 不是结果页：FingerprintJS 反爬跳转页（1.1KB）
 ```
 
 **fixture 永久保留**：即使对应 provider 已迁到 Rust，`test/fixtures/` 也不删 ——
@@ -56,6 +58,18 @@ Rust 侧有一条 `fixture_is_still_marked_as_synthetic` 测试钉着它 ——
 
 抓真数据的路子：在 CI 上跑联网冒烟（`.github/workflows/live-smoke.yml`），
 日志里会 dump InternetArchive 的原始 doc。
+
+### 选择器对照（cheerio vs scraper）
+
+`html-probes.json` 是一份 probe 清单，**两侧读同一份**：
+- cheerio 侧：`node scripts/html-probes.cjs`（需要 cheerio；本机没装，走 CI 的 `html-probes.yml`）
+- Rust 侧：`crates/bt-core/tests/dom_probes.rs`（用 `bt_core::dom`）
+
+`html-probes.expected.json` 就是 cheerio 的输出。Rust 测会**逐条比对**，
+不一致时打印每条差异（而不是只扔一句 assert）。改 probe 后要重新生成真值。
+
+⚠️ 写 HTML 测试的两个坑（都已实测）：
+裸 `<tr>`/`<td>` 片段会被解析器丢掉（要包 `<table>`）；类名匹配**区分大小写**。
 
 ### 抓新 fixture 的姿势（本机可用）
 

@@ -66,13 +66,14 @@ Electron mode: `npm run electron` (picks a free port automatically, no collision
 
 ```
 Cargo.toml              workspace 根（members = ["crates/*"]，exclude = ["src-tauri"]）
-crates/bt-core/         领域类型 + 归一化 + HTTP 公共层
+crates/bt-core/         领域类型 + 归一化 + HTTP 公共层 + HTML 解析层
   src/normalize.rs      ← src/lib/normalize.js 的语义等价移植
   tests/normalize.rs    ← test/normalize.test.js 的断言原样搬来
   src/http.rs           ← src/lib/http.js 的移植（契约：永不返回 Err）
   tests/http.rs         ← 自起本地一次性 HTTP 服务，全程无外网
-crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方式
-  src/lib.rs            SearchOutcome { results, error, has_more }
+  src/dom.rs            ← cheerio 的替代层（scraper 0.27 = html5ever + selectors）
+  tests/dom_probes.rs   ← 选择器语义对照：与 cheerio 真值逐条比对
+crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方式  src/lib.rs            SearchOutcome { results, error, has_more }
                         （暂不引入 Provider trait，等 3~5 个再定抽象）
   src/value.rs          Value → NumOrText / String / min 的公共转换（含 v2nt_nonzero）
   src/tpb.rs            ← src/providers/tpb.js（GET，apibay）
@@ -99,6 +100,7 @@ crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方
 | `src/providers/torrentscsv.js`（32 行） | `torrentscsv.rs` | 真 fixture 首末条 + query 编码契约 + falsy 日期，**9 passed** | **待删** |
 | `src/providers/yts.js`（55 行） | `yts.rs` | 真 fixture 三条结果 + 请求 URL 契约 + 缺省值 + 两条跳过规则，**11 passed** | **待删** |
 | `src/providers/internetarchive.js`（58 行） | `internetarchive.rs` | **合成** fixture（见下）+ 分类映射 + item_size 三态 + `no_docs` 错误语义，**13 passed** | **待删** |
+| `src/lib/scraper.js`（HTML 解析底座） | `crates/bt-core/src/dom.rs` | cheerio 语义对照层 + 11 条单测 + 24 条 probe 与 cheerio 1.2.0 真值逐条比对 | 保留(对照) |
 
 （另有 `bt-providers` 的 4 条单元测试测 `src/value.rs`；`tests/live_smoke.rs` 2 条默认跳过。
 合计 **92 passed / 0 failed**。）
@@ -165,16 +167,36 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 | 4 | ~~`yts.js`~~ | ✅ 11 tests |
 | 5 | ~~`internetarchive.js`~~ | ✅ 13 tests（fixture 是合成的，见进度表上方说明） |
 
-**← 下次开工从 B 组第一步开始：引入 `scraper` crate 并验证选择器等价性。**
+**← 下次开工从 B 组第二步开始：搬 `linuxtracker.js`（地基已就绪）。**
 
-**B 组（HTML 抓取，需引入 `scraper` crate 对标 cheerio）**：
+**B 组（HTML 抓取，需引入 `scraper` crate 对标 cheerio）** —— ✅ 第一步已完成（地基+对照机制）
 
-- 先在 `bt-core` 里加 `scraper` 依赖 + 一个选择器等价性验证（对照 `cheerio` 的行为）
-- 已有的 HTML fixture：`linuxtracker` / `filemood`
-- ⚠️ 这一步要专门验证：CSS 选择器语义差异、编码（俄站 UTF-8）、属性取值方式
+- ✅ `crates/bt-core/src/dom.rs`：cheerio 的替代层（`scraper` 0.27 = html5ever + selectors）
+  语义对照表写在文件头；自带 11 条单元测试
+- ✅ 选择器等价性对照机制：`test/fixtures/html-probes.json`（24 条 probe）+
+  `scripts/html-probes.cjs`（cheerio 侧，真值来源）+ `crates/bt-core/tests/dom_probes.rs`（Rust 侧）
+  + `test/fixtures/html-probes.expected.json`（真值，cheerio 1.2.0 生成）
+- ⏭️ **下次从这里开始：用这套地基搬第一个 HTML provider（`linuxtracker.js`）**
+- HTML fixture 现状：
+
+| fixture | 状态 |
+|---|---|
+| `linuxtracker-linux.html` | ✅ 真实结果页。43 个候选链接里 **33 条**是主表行（其余是 Top10 侧栏，行内只有 2 个 td） |
+| `filemood-ubuntu.html` | ✅ 真实结果页。65 个 tr 里 **20 条**数据行 |
+| `1337x-ubuntu.html` | ❌ **不是结果页** —— FingerprintJS 反爬跳转页（1.1KB，`window.location.replace`） |
+| 俄站（rutor 等） | 还没有 fixture；**编码**（UTF-8 vs win1251）要专门验，见「调试经验」 |
 
 **C 组（基础设施，可穿插）**：`src/lib/scraper.js` 的 `createProvider` 工厂 + `runMirrors` 镜像回退 ——
-搬完 3~5 个 provider、看清共性后再定抽象（现在只有 1 个 provider，定 `Provider` trait 必错）。
+搬完 3~5 个 provider、看清共性后再定抽象（A 组 5 个已落地，等 HTML 组也搬几个再一起看）。
+
+### 🧱 HTML provider 的三条铁律（写自 `dom.rs` 与首次对照的实测）
+
+1. **裸 `<tr>`/`<td>` 片段会被解析器丢掉**（文档模式下不合法的表格标签被忽略，文本留下）。
+   写测试时随手塞 `<tr><td>x</td></tr>` 会得到 0 个匹配，看着像"选择器写错"，其实是 HTML 规则
+   —— cheerio 的 parse5 行为完全一样。**片段要包进 `<table>`。**
+2. **类名匹配区分大小写**，标签名不区分（HTML 规则）。`td.LISTA` 不会命中 `class="lista"`。
+3. **属性值是解码后的**：源码 `&amp;` → 取值 `&`。所以 `[href*=...]` 是对解码后的值做子串匹配
+   （linuxtracker 的 `href^="index.php"` 就是靠这个把侧栏和主表区分开的）。
 
 **移植约定**：
 - JS 的运行时类型判别（`typeof x === 'number'`）在 Rust 里提为类型：`NumOrText::{Num, Text}`
@@ -271,10 +293,12 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 | `build.yml` / `release.yml` / `tauri-build.yml` | `main` | 能 |
 | `live-smoke.yml` | `main`（**为能手动触发而特意放的**）+ `feat/rust` | 能（触发时用 `--ref feat/rust` 才检出 Rust 代码） |
 | `rust.yml` / `slint-spike.yml` | 只在 feature 分支 | ❌ 不能，只能靠 push 触发 |
+| `html-probes.yml` | `main` + `feat/rust` | 能（选分支 `feat/rust`，生成 cheerio 真值） |
 
 `live-smoke.yml` 用 `hashFiles('crates/bt-providers/Cargo.toml')` 兜底：
 在还没有 Rust workspace 的 ref 上会优雅跳过，不给假红灯。
-改这个文件时记得 **`main` 与 `feat/rust` 上各有一份，要同步**。
+`html-probes.yml` 同理（判 `test/fixtures/html-probes.json` 在不在）。
+改这两个文件时记得 **`main` 与 `feat/rust` 上各有一份，要同步**。
 
 Node 侧仍然使用 **Node.js 内置 `assert` 模块**做 golden-file 测试，无第三方框架：
 
