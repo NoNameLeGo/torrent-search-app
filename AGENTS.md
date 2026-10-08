@@ -74,13 +74,14 @@ crates/bt-core/         领域类型 + 归一化 + HTTP 公共层
 crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方式
   src/lib.rs            SearchOutcome { results, error, has_more }
                         （暂不引入 Provider trait，等 3~5 个再定抽象）
-  src/value.rs          Value → NumOrText / String / min 的公共转换
+  src/value.rs          Value → NumOrText / String / min 的公共转换（含 v2nt_nonzero）
   src/tpb.rs            ← src/providers/tpb.js（GET，apibay）
   src/knaben.rs         ← src/providers/knaben.js（POST，官方 JSON API）
+  src/torrentscsv.rs    ← src/providers/torrentscsv.js（GET，简单一层数组）
+  src/yts.rs            ← src/providers/yts.js（GET，电影→种子两层结构）
   tests/common/mod.rs   本地一次性 HTTP 服务 + fixture 加载（provider 测试公用）
                         oneshot() 只要响应；oneshot_capture() 另交出原始请求，用于钉请求契约
-  tests/tpb.rs          ← 用真 fixture 逐字段断言 + 三条失败路径
-  tests/knaben.rs       ← 同上 + 请求 body 契约 + 一条 divergence（非 JSON 正文的处理）
+  tests/{tpb,knaben,torrentscsv,yts}.rs   各自的离线测试
 
 （待建）crates/bt-torznab/ · bt-downloaders/ · bt-app/
 ```
@@ -91,8 +92,12 @@ crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方
 |---|---|---|---|
 | `src/lib/normalize.js`（161 行） | `crates/bt-core/src/normalize.rs` | `test/normalize.test.js` 的断言全搬到 `tests/normalize.rs`，CI **24 passed** | 保留(对照) |
 | `src/lib/http.js`（71 行） | `crates/bt-core/src/http.rs` | `tests/http.rs` 覆盖成功 / 4xx / 5xx / JSON / 非 JSON / 超时 / 连接失败 / 请求头，CI **12 passed** | 保留(对照) |
-| `src/providers/tpb.js`（53 行） | `crates/bt-providers/src/tpb.rs` | `tests/tpb.rs` 用真 fixture（100 条）逐字段断言 + 三条失败路径，CI **7 passed** | **待删**（见待删清单） |
-| `src/providers/knaben.js`（70 行） | `crates/bt-providers/src/knaben.rs` | `tests/knaben.rs` 真 fixture 逐字段 + 分类区间 + 请求 body 契约 + 失败路径，CI **9 passed** | **待删**（见待删清单） |
+| `src/providers/tpb.js`（53 行） | `crates/bt-providers/src/tpb.rs` | `tests/tpb.rs` 真 fixture（100 条）逐字段 + 三条失败路径，CI **7 passed** | **待删**（见待删清单） |
+| `src/providers/knaben.js`（70 行） | `crates/bt-providers/src/knaben.rs` | `tests/knaben.rs` 真 fixture 逐字段 + 分类区间 + 请求 body 契约 + 失败路径，CI **9 passed** | **待删** |
+| `src/providers/torrentscsv.js`（32 行） | `crates/bt-providers/src/torrentscsv.rs` | `tests/torrentscsv.rs` 真 fixture 首末条 + query 编码契约 + 空/畸形 + falsy 日期，CI **9 passed** | **待删** |
+| `src/providers/yts.js`（55 行） | `crates/bt-providers/src/yts.rs` | `tests/yts.rs` 真 fixture 三条结果 + 请求 URL 契约 + 缺省值 + 两条跳过规则 + 畸形 data 六形态，CI **11 passed** | **待删** |
+
+（另有 `bt-providers` 的 4 条单元测试，测 `src/value.rs` 的转换函数）
 
 ### ⚠️ 边搬边删（用户 2026-10-08 指定，2026-10-08 二次修订）
 
@@ -113,8 +118,8 @@ Node 源码在这个阶段是**验证工具**而不是待清垃圾。提前删�
 
 | 路径 | 为何现在留着 | 何时可删 |
 |---|---|---|
-| `src/providers/tpb.js`、`src/providers/knaben.js` ✅已移植 | `test/run.js` 仍在跑它们；离线对照要用 | `bt-app` 接通对应 provider + Node 测试块删除后 |
-| `src/providers/*.js`（其余 40 个） | 尚未移植，是逐行对照的参照物 | 各自移植完成后按上条判断 |
+| `src/providers/tpb.js`、`knaben.js`、`torrentscsv.js`、`yts.js` ✅已移植 | `test/run.js` 仍在跑 tpb/knaben；离线对照要用 | `bt-app` 接通对应 provider + Node 测试块删除后 |
+| `src/providers/*.js`（其余 38 个） | 尚未移植，是逐行对照的参照物 | 各自移植完成后按上条判断 |
 | `src/lib/`、`server.js`、`test/run.js` | 聚合层尚未移植，本分支上 Node 版仍需可跑 | provider + 聚合全搬完 |
 | `public/` | 阶段一的前端本体（`public/` 一行不改） | **阶段二**确认上 Slint 后 |
 | `electron/`、`scripts/`、`package.json`、`start.bat`/`stop.bat`、`.eslintrc.json`、`.prettierrc`、`build.yml`/`release.yml`/`tauri-build.yml` | Rust 版尚未能取代旧 Shell 发版 | Rust 版能独立发版后 |
@@ -141,9 +146,9 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 |---|---|---|
 | 1 | ~~`tpb.js`~~ | ✅ 已完成（7 tests） |
 | 2 | ~~`knaben.js`~~ | ✅ 已完成（9 tests） |
-| 3 | `torrentscsv.js` | **← 下次从这里开始** |
-| 4 | `yts.js` | | |
-| 5 | `internetarchive.js` | |
+| 3 | ~~`torrentscsv.js`~~ | ✅ 已完成（9 tests） |
+| 4 | ~~`yts.js`~~ | ✅ 已完成（11 tests） |
+| 5 | `internetarchive.js` | **← 下次从这里开始**（A 组最后一个） |
 
 **B 组（HTML 抓取，需引入 `scraper` crate 对标 cheerio）**：
 
@@ -195,6 +200,12 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
    空结果 + HTTP 错误 + 非 JSON 正文
 5. 若有**有意偏离** JS 的地方，单列一条 `divergence_*` 测试并写明原因
 6. `git add` 前先跑 rustfmt 自查；**不要删对应的 `.js`**（见上面「边搬边删」）
+
+**⚠️ 已踩的期望值坑（都是没按第 3 条做导致的）**：
+- `dateText` 缺省是 **`"—"`** 不是空串（JS `formatDate(null)` 就返回 `—`）
+- JS 的 `0` 是 falsy：`x ? Number(x) : null` 会让 `created_unix: 0` → 无日期，
+  而不是 1970-01-01。用 `value::v2nt_nonzero`。而字符串 `"0"` 是 truthy，别一起过滤掉
+- `categoryId` 之类的**数组取 min 而非首元素**
 
 ## Testing
 

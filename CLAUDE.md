@@ -98,19 +98,22 @@ crates/bt-core/         domain types + normalize + shared HTTP layer
   tests/http.rs         spins up a throwaway local HTTP server; needs no network
 crates/bt-providers/    one file per site, mirroring src/providers/*.js
   src/lib.rs            SearchOutcome { results, error, has_more } (no Provider trait yet)
-  src/value.rs          shared Value -> NumOrText / String / min conversions
+  src/value.rs          shared Value -> NumOrText / String / min conversions (+ v2nt_nonzero)
   src/tpb.rs            port of src/providers/tpb.js (GET, apibay)
   src/knaben.rs         port of src/providers/knaben.js (POST, official JSON API)
+  src/torrentscsv.rs    port of src/providers/torrentscsv.js (GET, flat array)
+  src/yts.rs            port of src/providers/yts.js (GET, movie -> torrents, two levels)
   tests/common/mod.rs   throwaway HTTP server + fixture loader shared by provider tests
                         oneshot() = response only; oneshot_capture() = also hands back the raw request
-  tests/tpb.rs          real fixture, field-by-field assertions + three failure paths
-  tests/knaben.rs       same + request-body contract + one divergence test
+  tests/{tpb,knaben,torrentscsv,yts}.rs   per-provider offline tests
 (pending)  crates/bt-torznab/ · bt-downloaders/ · bt-app/
 ```
 
-**Porting a provider (recipe, copy tpb/knaben):** read the JS, write `src/<name>.rs` with a payload struct + `search()` + `search_at(http, api, query)` (the latter is what makes offline tests possible), then `tests/<name>.rs` with field-by-field assertions. **Don't hand-write the expected values** — feed the same fixture through `src/lib/normalize.js` with a throwaway Node script and copy its output into the assertions; that is what makes "same as the Node version" verifiable. Pin any deliberate divergence as a named `divergence_*` test.
+**Porting a provider (recipe, copy tpb/knaben/torrentscsv/yts):** read the JS, write `src/<name>.rs` with a payload struct (if it's a POST) + `search()` + `search_at(http, api, query)` (the latter is what makes offline tests possible), then `tests/<name>.rs` with field-by-field assertions. **Don't hand-write the expected values** — feed the same fixture through `src/lib/normalize.js` with a throwaway Node script and copy its output into the assertions; that is what makes "same as the Node version" verifiable. Pin any deliberate divergence as a named `divergence_*` test.
 
-**Order for the remaining providers:** the JSON group first (`torrentscsv` → `yts` → `internetarchive`), then the HTML group with the `scraper` crate.
+Known pitfalls when guessing expected values (all three have already cost a CI round): `dateText` defaults to `"—"`, not `""`; JS treats `0` as falsy, so `x ? Number(x) : null` means `created_unix: 0` yields no date (use `value::v2nt_nonzero`, but note the *string* `"0"` is truthy); array fields like `categoryId` take the **min**, not the first element.
+
+**Order for the remaining providers:** `internetarchive` finishes the JSON group, then the HTML group with the `scraper` crate (`linuxtracker`, `filemood`).
 
 **Deleting the old JS — function-level, not file-level (revised 2026-10-08).** Do *not* mechanically delete `<provider>.js` as soon as its Rust port lands. Delete only once that function is fully usable from Rust (wired into `bt-app`), and never when the JS is still the reference for an accepted equivalence check. Anything kept for now must be logged in the "待删清单" table in `AGENTS.md` and deleted in a batch at the end of a phase. The one hard rule that survives: two implementations must never be allowed to drift, so every ported file's status (`待删` / `保留(对照)` / `已删`) goes in the progress table.
 
