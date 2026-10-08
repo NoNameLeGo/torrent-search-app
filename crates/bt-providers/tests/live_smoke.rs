@@ -44,7 +44,7 @@ async fn smoke_the_json_group() {
         ),
     ];
 
-    let mut broken = Vec::new();
+    let mut problems = Vec::new();
     for (name, out) in &cases {
         println!(
             "[smoke] {name}: results={} error={:?}",
@@ -54,15 +54,31 @@ async fn smoke_the_json_group() {
         if let Some(first) = out.results.first() {
             println!("[smoke] {name} first: {first:?}");
         }
-        if out.error.is_some() {
-            broken.push(format!("{name}: {}", out.error.clone().unwrap_or_default()));
+
+        match &out.error {
+            // apibay 对机房 IP 限流/封禁（2026-10-08 实测：CI 上稳定 403）。
+            // 这不是解析回归，所以单独记一条 NOTE 而不是让冒烟变红。
+            Some(e) if *name == "tpb" && e.contains("403") => println!(
+                "[smoke] NOTE: tpb 返回 403 —— apibay 对机房 IP 限流，属已知情况，不计入失败"
+            ),
+            Some(e) => problems.push(format!("{name}: {e}")),
+            // 有错误要报，**没有结果但也没错误**更要报：那通常是选择器/字段失效
+            None if out.results.is_empty() => problems.push(format!(
+                "{name}: 0 条结果且无错误 —— 选择器或字段名可能已失效"
+            )),
+            None => {}
         }
     }
 
+    println!(
+        "[smoke] 汇总：{} 个 provider，{} 个问题",
+        cases.len(),
+        problems.len()
+    );
     assert!(
-        broken.is_empty(),
-        "这些 provider 现在报错了（可能是站点改版、也可能是被墙/限流，别直接当成回归）:\n{}",
-        broken.join("\n")
+        problems.is_empty(),
+        "这些 provider 现在有问题（站点改版？字段改名？别直接当成代码回归）:\n{}",
+        problems.join("\n")
     );
 }
 
