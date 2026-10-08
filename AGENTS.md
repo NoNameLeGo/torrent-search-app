@@ -74,9 +74,13 @@ crates/bt-core/         领域类型 + 归一化 + HTTP 公共层
 crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方式
   src/lib.rs            SearchOutcome { results, error, has_more }
                         （暂不引入 Provider trait，等 3~5 个再定抽象）
-  src/tpb.rs            ← src/providers/tpb.js
+  src/value.rs          Value → NumOrText / String / min 的公共转换
+  src/tpb.rs            ← src/providers/tpb.js（GET，apibay）
+  src/knaben.rs         ← src/providers/knaben.js（POST，官方 JSON API）
   tests/common/mod.rs   本地一次性 HTTP 服务 + fixture 加载（provider 测试公用）
+                        oneshot() 只要响应；oneshot_capture() 另交出原始请求，用于钉请求契约
   tests/tpb.rs          ← 用真 fixture 逐字段断言 + 三条失败路径
+  tests/knaben.rs       ← 同上 + 请求 body 契约 + 一条 divergence（非 JSON 正文的处理）
 
 （待建）crates/bt-torznab/ · bt-downloaders/ · bt-app/
 ```
@@ -87,7 +91,8 @@ crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方
 |---|---|---|---|
 | `src/lib/normalize.js`（161 行） | `crates/bt-core/src/normalize.rs` | `test/normalize.test.js` 的断言全搬到 `tests/normalize.rs`，CI **24 passed** | 保留(对照) |
 | `src/lib/http.js`（71 行） | `crates/bt-core/src/http.rs` | `tests/http.rs` 覆盖成功 / 4xx / 5xx / JSON / 非 JSON / 超时 / 连接失败 / 请求头，CI **12 passed** | 保留(对照) |
-| `src/providers/tpb.js`（53 行） | `crates/bt-providers/src/tpb.rs` | `tests/tpb.rs` 用真 fixture（100 条）逐字段断言 + 三条失败路径，**全程离线** | **待删**（见待删清单） |
+| `src/providers/tpb.js`（53 行） | `crates/bt-providers/src/tpb.rs` | `tests/tpb.rs` 用真 fixture（100 条）逐字段断言 + 三条失败路径，CI **7 passed** | **待删**（见待删清单） |
+| `src/providers/knaben.js`（70 行） | `crates/bt-providers/src/knaben.rs` | `tests/knaben.rs` 真 fixture 逐字段 + 分类区间 + 请求 body 契约 + 失败路径，CI **9 passed** | **待删**（见待删清单） |
 
 ### ⚠️ 边搬边删（用户 2026-10-08 指定，2026-10-08 二次修订）
 
@@ -108,8 +113,8 @@ Node 源码在这个阶段是**验证工具**而不是待清垃圾。提前删�
 
 | 路径 | 为何现在留着 | 何时可删 |
 |---|---|---|
-| `src/providers/tpb.js` ✅已移植 | `test/run.js` 仍在跑它；离线对照要用 | `bt-app` 接通 TPB + Node 测试块删除后 |
-| `src/providers/*.js`（其余 41 个） | 尚未移植，是逐行对照的参照物 | 各自移植完成后按上条判断 |
+| `src/providers/tpb.js`、`src/providers/knaben.js` ✅已移植 | `test/run.js` 仍在跑它们；离线对照要用 | `bt-app` 接通对应 provider + Node 测试块删除后 |
+| `src/providers/*.js`（其余 40 个） | 尚未移植，是逐行对照的参照物 | 各自移植完成后按上条判断 |
 | `src/lib/`、`server.js`、`test/run.js` | 聚合层尚未移植，本分支上 Node 版仍需可跑 | provider + 聚合全搬完 |
 | `public/` | 阶段一的前端本体（`public/` 一行不改） | **阶段二**确认上 Slint 后 |
 | `electron/`、`scripts/`、`package.json`、`start.bat`/`stop.bat`、`.eslintrc.json`、`.prettierrc`、`build.yml`/`release.yml`/`tauri-build.yml` | Rust 版尚未能取代旧 Shell 发版 | Rust 版能独立发版后 |
@@ -134,10 +139,10 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 
 | 顺序 | provider | 备注 |
 |---|---|---|
-| 1 | ~~`tpb.js`~~ | ✅ 已完成 |
-| 2 | `knaben.js` | POST JSON，已有 fixture |
-| 3 | `torrentscsv.js` | |
-| 4 | `yts.js` | |
+| 1 | ~~`tpb.js`~~ | ✅ 已完成（7 tests） |
+| 2 | ~~`knaben.js`~~ | ✅ 已完成（9 tests） |
+| 3 | `torrentscsv.js` | **← 下次从这里开始** |
+| 4 | `yts.js` | | |
 | 5 | `internetarchive.js` | |
 
 **B 组（HTML 抓取，需引入 `scraper` crate 对标 cheerio）**：
@@ -171,6 +176,25 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
   **必须带 `--edition 2021`**（独立运行时默认 2015，结果会不一致）。
 - ⚠️ **不要用「行宽 ≤ 100」代替 rustfmt**：它默认 `fn_call_width = 60`，
   多参数宏/函数调用即使整行不到 100 也会被拆行（`assert_eq!(a, b, "msg")` 是重灾区）。
+- ⚠️ **没有 `cargo check`，签名错误只能靠 CI 发现**（一次往返 ~1.5 分钟）。已踩过的两类：
+  1. **turbofish 泛型个数**：`bt-core` 的 `post_json<T, B>` 是两个泛型参数，
+     `post_json::<Value>(...)` 会报 E0107。→ 改成在绑定上标注：
+     `let resp: JsonResponse<Value> = http.post_json(url, &body, None).await;`
+  2. **`and_then` 的闭包签名**：`extract_info_hash` 收的是 `Option<&str>` 而不是 `&str`，
+     不能直接 `and_then(extract_info_hash)`，要么 `.or_else(|| f(x.as_deref()))`，
+     要么写 `|s| ...` 闭包。
+  提交前顺手核对一遍要调用的每个函数的真实签名，比等 CI 便宜。
+
+### 🧩 provider 移植配方（照着 tpb / knaben 抄）
+
+1. 读 `src/providers/<name>.js`，grep 出它调了 `getText` / `getJSON` / `postJSON` 哪些形态
+2. 在 `crates/bt-providers/src/<name>.rs` 写 `KnabenRequest` 式的 payload + `search()` + `search_at(http, api, query)`
+3. **期望值不要手抄** —— 写个临时 Node 脚本 require `src/lib/normalize.js`，
+   把同一份 fixture 喂进去，把输出逐字段抄进 Rust 断言。这样「与 Node 版一致」才有实据
+4. `tests/<name>.rs`：真 fixture 逐字段 + 请求契约（用 `common::oneshot_capture`）+
+   空结果 + HTTP 错误 + 非 JSON 正文
+5. 若有**有意偏离** JS 的地方，单列一条 `divergence_*` 测试并写明原因
+6. `git add` 前先跑 rustfmt 自查；**不要删对应的 `.js`**（见上面「边搬边删」）
 
 ## Testing
 
