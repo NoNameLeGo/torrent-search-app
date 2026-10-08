@@ -12,6 +12,7 @@ use bt_core::TorrentResult;
 use serde::Deserialize;
 use serde_json::Value;
 
+use crate::value::{v2nt, v2string};
 use crate::SearchOutcome;
 
 /// 默认端点。
@@ -76,24 +77,6 @@ pub fn tpb_category(code: &str) -> Option<String> {
         _ => return None,
     };
     Some(out.to_string())
-}
-
-/// `Value` → `NumOrText`。空字符串视作"没有值"（JS 里 `"" || null` 也是 falsy）。
-fn v2nt(v: &Value) -> Option<NumOrText> {
-    match v {
-        Value::Number(n) => n.as_i64().map(NumOrText::Num),
-        Value::String(s) if !s.is_empty() => Some(NumOrText::Text(s.clone())),
-        _ => None,
-    }
-}
-
-/// `Value` → 字符串。数字也收（JS 的模板字符串会隐式转）。
-fn v2string(v: &Value) -> Option<String> {
-    match v {
-        Value::String(s) if !s.is_empty() => Some(s.clone()),
-        Value::Number(n) => Some(n.to_string()),
-        _ => None,
-    }
 }
 
 /// apibay 用「单元素数组 + `error` 字段」表示没有结果。

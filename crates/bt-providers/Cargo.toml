@@ -15,4 +15,4 @@ serde_json = "1"
 [dev-dependencies]
 # 集成测试看不到 crate 的普通依赖，用到的都得在这儿再声明一遍
 serde_json = "1"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "time"] }
