@@ -98,6 +98,7 @@ crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方
   src/yts.rs            ← src/providers/yts.js（GET，电影→种子两层结构）
   src/internetarchive.rs ← src/providers/internetarchive.js（GET，advancedsearch JSON）
   src/linuxtracker.rs   ← src/providers/linuxtracker.js（HTML，bt_core::dom）
+  src/filemood.rs       ← src/providers/filemood.js（HTML，bt_core::dom）
   tests/common/mod.rs   本地一次性 HTTP 服务 + fixture 加载（provider 测试公用）
                         oneshot() 只要响应；oneshot_capture() 另交出原始请求，用于钉请求契约
   tests/{tpb,knaben,torrentscsv,yts,internetarchive}.rs   各自的离线测试
@@ -119,9 +120,10 @@ crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方
 | `src/providers/internetarchive.js`（58 行） | `internetarchive.rs` | **合成** fixture（见下）+ 分类映射 + item_size 三态 + `no_docs` 错误语义，**13 passed** | **待删** |
 | `src/lib/scraper.js`（HTML 解析底座） | `crates/bt-core/src/dom.rs` | cheerio 语义对照层 + 11 条单测 + 28 条 probe 与 cheerio 1.2.0 真值逐条比对（`dom_probes` **通过**） | 保留(对照) |
 | `src/providers/linuxtracker.js`（95 行） | `linuxtracker.rs` | 真 fixture：43 候选 → 18 条结果（三个数字都由 cheerio 交叉验证）+ 11 条集成 + 8 条单测 | **待删** |
+| `src/providers/filemood.js`（74 行） | `filemood.rs` | 真 fixture：65 行 → 20 条数据行（cheerio 交叉验证）+ 11 条集成 + 11 条单测 | **待删** |
 
-（另有 `bt-providers` 的 12 条单元测试测 `src/value.rs` + `linuxtracker.rs`；
-`tests/live_smoke.rs` 2 条默认跳过。合计 **123 passed / 0 failed**。）
+（另有 `bt-providers` 的 23 条单元测试（测 `src/value.rs` + `linuxtracker.rs` + `filemood.rs`）；
+`tests/live_smoke.rs` 2 条默认跳过。合计 **145 passed / 0 failed**。）
 
 ⚠️ `test/fixtures/internetarchive-ubuntu.synthetic.json`（文件名带 `.synthetic`）：
 `docs[0..2]` 是 2026-10-08 从 CI 冒烟日志取回的**真实 doc**，`docs[3..]` 是手工构造的边界样本；
@@ -153,8 +155,8 @@ Node 源码在这个阶段是**验证工具**而不是待清垃圾。提前删�
 
 | 路径 | 为何现在留着 | 何时可删 |
 |---|---|---|
-| `src/providers/tpb.js`、`knaben.js`、`torrentscsv.js`、`yts.js`、`internetarchive.js`、`linuxtracker.js` ✅已移植 | `test/run.js` 仍在跑 tpb/knaben/linuxtracker；离线对照要用 | `bt-app` 接通对应 provider + Node 测试块删除后 |
-| `src/providers/*.js`（其余 36 个） | 尚未移植，是逐行对照的参照物 | 各自移植完成后按上条判断 |
+| `src/providers/tpb.js`、`knaben.js`、`torrentscsv.js`、`yts.js`、`internetarchive.js`、`linuxtracker.js`、`filemood.js` ✅已移植 | `test/run.js` 仍在跑 tpb/knaben/linuxtracker/filemood；离线对照要用 | `bt-app` 接通对应 provider + Node 测试块删除后 |
+| `src/providers/*.js`（其余 35 个） | 尚未移植，是逐行对照的参照物 | 各自移植完成后按上条判断 |
 | `src/lib/`、`server.js`、`test/run.js` | 聚合层尚未移植，本分支上 Node 版仍需可跑 | provider + 聚合全搬完 |
 | `public/` | 阶段一的前端本体（`public/` 一行不改） | **阶段二**确认上 Slint 后 |
 | `electron/`、`scripts/`、`package.json`、`start.bat`/`stop.bat`、`.eslintrc.json`、`.prettierrc`、`build.yml`/`release.yml`/`tauri-build.yml` | Rust 版尚未能取代旧 Shell 发版 | Rust 版能独立发版后 |
@@ -185,17 +187,16 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 | 4 | ~~`yts.js`~~ | ✅ 11 tests |
 | 5 | ~~`internetarchive.js`~~ | ✅ 13 tests（fixture 是合成的，见进度表上方说明） |
 
-**← 下次开工从 B 组第二步开始：搬 `linuxtracker.js`（地基已就绪）。**
+**← 下次开工：`1337x.js` —— 但它卡在「怎么拿到页面」这一层，见下面的 ⚠️。**
 
-**B 组（HTML 抓取，需引入 `scraper` crate 对标 cheerio）** —— ✅ 第一步已完成（地基+对照机制）
+**B 组（HTML 抓取，需引入 `scraper` crate 对标 cheerio）** —— ✅ 地基 + 2 个 provider 完成
 
 - ✅ `crates/bt-core/src/dom.rs`：cheerio 的替代层（`scraper` 0.27 = html5ever + selectors）
   语义对照表写在文件头；自带 11 条单元测试
-- ✅ 选择器等价性对照机制：`test/fixtures/html-probes.json`（24 条 probe）+
+- ✅ 选择器等价性对照机制：`test/fixtures/html-probes.json`（**28 条 probe**）+
   `scripts/html-probes.cjs`（cheerio 侧，真值来源）+ `crates/bt-core/tests/dom_probes.rs`（Rust 侧）
   + `test/fixtures/html-probes.expected.json`（真值，cheerio 1.2.0 生成）
-- ⏭️ **下次从这里开始：搬 `filemood.js`**（结构已探明：65 个 tr 里 20 条数据行、
-  详情链接 `/name-<40hex>.html`、状态文本 `2518/65` 是 seeds/peers、大小在 `td.dn-size`）
+- ✅ `linuxtracker.js` + `filemood.js` 两个 HTML provider 落地，全部离线可测
 
 **B 组进度**
 
@@ -203,8 +204,8 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 |---|---|---|
 | 0 | 地基（`dom.rs` + 选择器对照机制） | ✅ 28 条 probe 与 cheerio 1.2.0 逐条一致 |
 | 1 | `linuxtracker.js` | ✅ 18 条结果 + 11 集成 + 8 单测 |
-| 2 | `filemood.js` | ⏭️ **下次做** |
-| 3 | `1337x.js` | ⚠️ 见下（fixture 是反爬跳转页，得先解决拿页面这一层） |
+| 2 | `filemood.js` | ✅ 20 条结果 + 11 集成 + 11 单测 |
+| 3 | `1337x.js` | ⚠️ **卡住**：fixture 是 FingerprintJS 反爬跳转页，不是结果页。得先解决「怎么拿到页面」这一层（UA / 指纹 / 镜像都不够），否则选择器写得再对也没数据 |
 | — | 俄站（rutor 等，**编码**要专门验） | 还没有 fixture |
 
 ### 🐞 移植中发现的上游 bug（JS 版既有，值得单独修）

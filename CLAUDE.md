@@ -106,6 +106,7 @@ crates/bt-providers/    one file per site, mirroring src/providers/*.js
   src/torrentscsv.rs    port of src/providers/torrentscsv.js (GET, flat array)
   src/yts.rs            port of src/providers/yts.js (GET, movie -> torrents, two levels)
   src/linuxtracker.rs   port of src/providers/linuxtracker.js (HTML via bt_core::dom)
+  src/filemood.rs       port of src/providers/filemood.js (HTML via bt_core::dom)
   tests/common/mod.rs   throwaway HTTP server + fixture loader shared by provider tests
                         oneshot() = response only; oneshot_capture() = also hands back the raw request
   tests/{tpb,knaben,torrentscsv,yts}.rs   per-provider offline tests
@@ -126,7 +127,9 @@ Upstream bugs found while porting: `linuxtracker`'s `detailUrl` misses a slash (
 
 **Deleting the old JS — function-level, not file-level (revised 2026-10-08).** Do *not* mechanically delete `<provider>.js` as soon as its Rust port lands. Delete only once that function is fully usable from Rust (wired into `bt-app`), and never when the JS is still the reference for an accepted equivalence check. Anything kept for now must be logged in the "待删清单" table in `AGENTS.md` and deleted in a batch at the end of a phase. The one hard rule that survives: two implementations must never be allowed to drift, so every ported file's status (`待删` / `保留(对照)` / `已删`) goes in the progress table.
 
-**Next step (agreed, do not start without the user):** continue with the **JSON group first, then the HTML group**. Recommended order: `knaben` → `torrentscsv` → `yts` → `internetarchive`, then introduce the `scraper` crate for the HTML providers (`linuxtracker`, `filemood`) and verify selector equivalence against cheerio. Don't define a `Provider` trait until 3–5 providers exist.
+**Next step:** the HTML group. `1337x.js` is **blocked** — its fixture is a FingerprintJS anti-bot redirect page, not a result page, so "how do we even get the HTML" has to be solved first (UA/fingerprint/mirrors are all insufficient). The Russian sites need a fixture before they can start (and their **encoding** is the thing to verify).
+
+`filemood.js` (done, 2026-10-09) is worth reading as the second HTML template: 65 `<tr>` → 20 data rows (kept by `a.btn-success`), title text spans multiple `<span class="highlated">` children so it must be concatenated, infoHash is scraped out of the detail URL's tail (`/name-<40hex>.html`), and its hrefs start with `/` so the base join is actually correct — unlike linuxtracker. One JS quirk is copied on purpose: empty body + no HTTP error yields `filemood unreachable ()`.
 
 Porting conventions (details in `AGENTS.md`): JS `typeof` runtime checks become the `NumOrText` enum; JS's lenient numeric parsing (`parseFloat("1.2.3") == 1.2`, `parseInt("12abc") == 12`) is reimplemented rather than replaced by `f64::from_str`; integration tests can't see the crate's normal dependencies, so `chrono`/`serde`/`tokio` must also be listed under `[dev-dependencies]`. Deliberate divergences from the JS behaviour are pinned as named tests — don't "fix" them.
 
