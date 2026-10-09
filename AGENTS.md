@@ -403,20 +403,37 @@ NODE_TLS_REJECT_UNAUTHORIZED=0 node --use-env-proxy scripts/provider-health.mjs
 **⚠️ 反过来，CI 也不等于用户环境**：CI 是机房 IP，有些站对机房 IP 更凶
 （apibay 对机房 IP 直接 403）。**两边都跑，才是完整答案。**
 
-**2026-10-09 本机首次探活的结果分层**（不完整，仅作参照）：
+**2026-10-09 两个环境各跑一次 —— 结论必须两边合起来看**（同一脚本、同一关键词 `ubuntu`）：
 
-| 分层 | 引擎 |
-|---|---|
-| ✅ **确认有结果**（10） | `tpb` 100 行 / `rutor` 111 行 / `limetorrents` 45 行 / `therarbg` 39 行 / `audiobookbay` 36 行 / `torrentscsv` 25 行 / `torrent9` 4 行 / `oxtorrent` 3 行 / `knaben` 1 / `yts` 1 |
-| ⛔ **被拦**（两次探针一致） | `1337x` / `blueroms` / `megapeer` / `torrentdatabase` / `uindex` → **403**（Cloudflare 挑战页）；`eztv` → **451**（法律性封锁，非技术问题） |
-| ❌ **本机网络问题（非站点）** | `internetarchive`（已知 DNS 污染）、`linuxtracker` / `filemood`（本机代理 MITM 证书 / 连接抖动） |
-| ⚠️ **200 但 0 行** | `animetosho` / `nekobt`（页面在，粗判标记没命中 → 需按站点看选择器）；`anilibria` / `subsplease`（返回 2 字节 = 空 JSON `[]`） |
-| ❓ **无法判定** | `nyaa` / `sukebei` / `dmhy` / `mikan` / `btdigg` / `bt4g` / `bangumimoe` / `torrentkitty` / `anirena` / `zeromagnet` / `tokyotoshokan` / `mypornclub` 等 —— 本机全 timeout/abort |
+| 引擎 | 本机 | CI | 引擎 | 本机 | CI |
+|---|---|---|---|---|---|
+| `tpb` | ✅ 100 行 | ⛔ 403 | `rutor` | ✅ 111 行 | ✅ 111 行 |
+| `audiobookbay` | ✅ 36 行 | ✅ 36 行 | `torrentscsv` | ✅ 25 行 | ✅ 25 行 |
+| `filemood` | ❌ ECONNRESET | ✅ 65 行 | `linuxtracker` | ❌ 000 | ✅ 26 行 |
+| `internetarchive` | ❌ timeout | ✅ 1 行 | `knaben` | ✅ 1 | ✅ 1 |
+| `yts` | ✅ 1 | ✅ 1 | `limetorrents` | ✅ 45 行 | ⛔ 403 |
+| `therarbg` | ✅ 39 行 | ⛔ 403 | `torrent9` | ✅ 4 行 | ⛔ 403 |
+| `oxtorrent` | ✅ 3 行 | ⛔ 403 | `dmhy` | ❌ timeout | ✅ 10 行 |
+| `megapeer` | ⛔ 403 | ✅ 14 行 | `nyaa` | ❌ timeout | ✅ 2 行 |
+| `zeromagnet` | ❌ timeout | ✅ 29 行 | `xxxtracker` | ❌ timeout | ✅ 1 行 |
+| `1337x` | ⛔ 403 | ⛔ 403 | `blueroms` | ⛔ 403 | ⛔ 403 |
+| `eztv` | ⛔ 451 | ⛔ 403 | `torrentdatabase` | ⛔ 403 | ⛔ 403 |
+| `uindex` | ⛔ 403 | ⛔ 403 | `btdigg` | ❌ timeout | ↪ 429 |
 
-**顺带两条发现**：
-- `megapeer` 用的是 `getWin1251()` —— 就是那条「俄站**编码**要专门验」的实例
-- 探活里的 `451`（Unavailable For Legal Reasons）和 `403`（Cloudflare 挑战）要分开看：
-  前者是法律性封锁，写多少 UA 都没用；后者理论上能靠真实浏览器过，成本很高
+**怎么读这张表（重要）**：
+- **两个环境合起来，至少 18 个引擎真的出结果** —— 所以「剩下的全都坏了」是**不成立**的
+- **两边都 ✅** 才是最硬的（`rutor` / `audiobookbay` / `torrentscsv` / `knaben` / `yts`）
+- **一边 ✅ 一边 ❌ 的，说明问题在「网络出口」而不在站点**：
+  - CI ✅ / 本机 ❌ → 本机网络挡着（`linuxtracker` / `filemood` / `internetarchive` / `dmhy` / `nyaa` / `megapeer` / `zeromagnet` / `xxxtracker`）
+  - 本机 ✅ / CI ⛔ → **机房 IP 被 Cloudflare 拦**（`tpb` / `limetorrents` / `therarbg` / `torrent9` / `oxtorrent`）
+    ⚠️ 所以 **CI 上的 403 是「下限」不是「真相」** —— 本机跑得通就说明用户那儿也能用
+- **两边都 ⛔**：`1337x` / `blueroms` / `eztv` / `torrentdatabase` / `uindex` —— 这几个基本可以判死刑
+- `btdigg` 的 **429** = 限流（不是封锁）；`animetosho` / `mikan` 是本机/CI 都 200 但
+  粗判标记没命中 → **要按站点看真实选择器**，不能只看这个数字
+
+**顺带发现**：`megapeer` 用的是 `getWin1251()` —— 就是那条「俄站**编码**要专门验」的实例。
+**`eztv` 的 451**（Unavailable For Legal Reasons）是法律性封锁 —— 写多少 UA 都没用，
+和 Cloudflare 的 403 要分开对待。
 
 ---
 
