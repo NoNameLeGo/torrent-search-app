@@ -3,7 +3,8 @@
 //! 各站点 provider 的集合，一文件一站（对齐 `src/providers/*.js` 的组织方式）。
 //!
 //! ## 现状
-//! `tpb`、`knaben`、`torrentscsv`、`yts`、`internetarchive`（纯 JSON 组，A 组已齐）。
+//! `tpb`、`knaben`、`torrentscsv`、`yts`、`internetarchive`（纯 JSON 组，A 组已齐）；
+//! `linuxtracker`、`filemood`（HTML 组，B 组进行中）。
 //! **暂时不引入 `Provider` trait** —— 等 HTML 组落地后，
 //! 看清楚它们真正的共性（镜像回退、翻页、磁力惰性解析…）再定抽象，现在定容易定错。
 //!
@@ -13,6 +14,7 @@
 //! - **永不 panic、永不返回 Err**：失败一律落在 `SearchOutcome::error`
 //! - 结果必须过 `bt_core::normalize::normalize()` 再返回
 
+pub mod filemood;
 pub mod internetarchive;
 pub mod knaben;
 pub mod linuxtracker;

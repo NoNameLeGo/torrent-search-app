@@ -29,11 +29,15 @@
 //! 语义等价性由 `tests/dom_probes.rs` 对着真实 fixture 与 cheerio 逐条比对
 //! （探针清单 `test/fixtures/html-probes.json`，cheerio 侧实现见 `scripts/html-probes.mjs`）。
 
-use scraper::{ElementRef, Html, Selector};
+use scraper::{Html, Selector};
 // `select` 在 Html 上可能是固有方法，也可能是 Selectable trait 提供的；
 // 多导入一个 trait 最多是个未使用告警，比编译失败划算。
 #[allow(unused_imports)]
 use scraper::selectable::Selectable;
+
+// 重新导出，好让 provider 能写 `bt_core::dom::ElementRef` 而不用自己依赖 `scraper`
+// —— `find` / `closest_tag` / `attr` 这些 helper 的签名里都有它。
+pub use scraper::ElementRef;
 
 /// 一份解析好的文档。持有整棵树，所有选取结果都借用它。
 pub struct Dom {
