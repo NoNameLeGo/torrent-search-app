@@ -23,7 +23,9 @@ fn fixture(name: &str) -> String {
 /// 且 20 行全部抠得出 infoHash —— 两个数字都由 cheerio 侧交叉验证。
 const EXPECTED_RESULTS: usize = 20;
 
-const BASE: &str = "https://filemood.com";
+/// fixture 首条的详情路径（= cheerio 真值里的 `detail_link.first_href`）。
+const FIRST_DETAIL_PATH: &str =
+    "/ubuntu-26.04-desktop-amd64.iso-dafc8c076ca2f3ed376eeae7c76a0d6be2415c45.html";
 
 #[tokio::test]
 async fn parses_the_real_fixture() {
@@ -60,13 +62,13 @@ async fn first_row_fields_match_the_js_pipeline() {
     assert_eq!(r.date, None, "本 provider 不产出日期");
     assert_eq!(r.date_text, "—", "formatDate(null) 的产物，不是空串");
     assert_eq!(r.category.as_deref(), Some("Other"));
-    assert_eq!(
-        r.detail_url.as_deref(),
-        Some(
-            "https://filemood.com/ubuntu-26.04-desktop-amd64.iso-\
-             dafc8c076ca2f3ed376eeae7c76a0d6be2415c45.html"
-        )
-    );
+
+    // 详情链接 = 本次请求的 base + fixture 里的相对路径。
+    // （离线测试的 base 是本地一次性服务，所以不能拿线上域名去断言。）
+    let base = url.trim_end_matches('/');
+    let expected = format!("{base}{FIRST_DETAIL_PATH}");
+    assert_eq!(r.detail_url.as_deref(), Some(expected.as_str()));
+
     assert_eq!(
         r.magnet.as_deref(),
         Some(
@@ -202,11 +204,21 @@ async fn search_returns_ok_when_results_are_non_empty() {
 #[tokio::test]
 async fn detail_url_is_clickable() {
     let url = common::oneshot(200, &fixture("filemood-ubuntu.html")).await;
+    let base = url.trim_end_matches('/').to_string();
 
     let out = filemood::search_at(&HttpClient::new(), &url, "ubuntu").await;
 
+    let first = out.results[0]
+        .detail_url
+        .as_deref()
+        .expect("首条应有详情链接");
+    assert_eq!(first, format!("{base}{FIRST_DETAIL_PATH}"));
+
     for r in &out.results {
         let d = r.detail_url.as_deref().expect("每条都该有详情链接");
-        assert!(d.starts_with(&format!("{BASE}/")), "不该拼出半截域名: {d}");
+        assert!(
+            d.starts_with(&format!("{base}/")),
+            "不该拼出半截域名或双斜杠: {d}"
+        );
     }
 }
