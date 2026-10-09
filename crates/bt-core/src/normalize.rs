@@ -197,7 +197,86 @@ fn parse_absolute_date(s: &str) -> Option<i64> {
             return Some(Utc.from_utc_datetime(&naive).timestamp_millis());
         }
     }
+    // JS 在这一步之后还有 `Date.parse(s)` 兜底，它能认「日 月缩写 年」这类写法。
+    // 少了这一支，`"30 Jun 26"`（rutor 的 `ru_date` 正好产出这个形状）在 Rust 里
+    // 会是 None —— 2026-10-09 移植 rutor 时才暴露出来。这里按 JS 的语义补上：
+    // **按本地时区当天零点**（不是 UTC，这点与上面 `%Y-%m-%d` 那一支不同，与 JS 一致）。
+    if let Some(ms) = parse_named_month_date(s) {
+        return Some(ms);
+    }
     None
+}
+
+/// 解析 `Date.parse` 认识、但上面那些格式没覆盖的「月名」写法：
+///
+/// ```text
+/// 30 Jun 26     30 Jun 2026     Jun 30 26     Jun 30, 2026
+/// ```
+///
+/// 月份名用英文三字母缩写（大小写不敏感，`ru_date` 产出的就是这个）。
+/// **按本地时区当天零点**，与 JS 的 `Date.parse` 一致。
+fn parse_named_month_date(s: &str) -> Option<i64> {
+    let cleaned = s.replace(',', " ");
+    let parts: Vec<&str> = cleaned.split_whitespace().collect();
+    if parts.len() != 3 {
+        return None;
+    }
+
+    let (month_idx, month) = parts
+        .iter()
+        .enumerate()
+        .find_map(|(i, p)| month_from_name(p).map(|m| (i, m)))?;
+
+    // 月名之外的两个数字：前一个是「日」，后一个是「年」
+    // （`30 Jun 26` 与 `Jun 30 26` 都是这个顺序）
+    let nums: Vec<&str> = parts
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| *i != month_idx)
+        .map(|(_, p)| *p)
+        .collect();
+    if nums.len() != 2 {
+        return None;
+    }
+
+    let day: u32 = nums[0].parse().ok()?;
+    let year_raw: i32 = nums[1].parse().ok()?;
+    // JS 的规则：两位年份 0-49 归 20xx，50-99 归 19xx
+    let year = if (0..100).contains(&year_raw) {
+        if year_raw < 50 {
+            2000 + year_raw
+        } else {
+            1900 + year_raw
+        }
+    } else {
+        year_raw
+    };
+
+    let naive = NaiveDate::from_ymd_opt(year, month, day)?.and_hms_opt(0, 0, 0)?;
+    Local
+        .from_local_datetime(&naive)
+        .earliest()
+        .map(|dt| dt.timestamp_millis())
+}
+
+/// 英文三字母月份缩写 → 月号。只看前三个字符，所以 `June` / `JUN` 也认。
+fn month_from_name(s: &str) -> Option<u32> {
+    let l = s.to_ascii_lowercase();
+    Some(match l.get(0..3)? {
+        "jan" => 1,
+        "feb" => 2,
+        "mar" => 3,
+        "apr" => 4,
+        "may" => 5,
+        "jun" => 6,
+        "jul" => 7,
+        "aug" => 8,
+        "sep" => 9,
+        "oct" => 10,
+        "nov" => 11,
+        "dec" => 12,
+        _ => return None,
+    })
 }
 
 /// `"2 hours ago"` / `"Yesterday"` / `"2024-01-02"` / unix 秒或毫秒 → 毫秒时间戳。

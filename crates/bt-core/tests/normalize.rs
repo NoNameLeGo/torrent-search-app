@@ -4,6 +4,9 @@
 //! 两处**有意**的差异在文件末尾单独成测试，写明了原因。
 
 use bt_core::normalize::*;
+// `parse_date` 对「月名」格式是按**本地时区**零点算的（对齐 JS 的 Date.parse），
+// 所以这条测试要现算期望值，需要 TimeZone trait。
+use chrono::TimeZone;
 
 fn ps(s: &str) -> Option<i64> {
     parse_size(Some(&NumOrText::Text(s.to_string())))
@@ -107,6 +110,57 @@ fn parse_date_absolute() {
     assert_eq!(pd("not a date"), None, "invalid string");
     assert_eq!(pd(""), None, "empty string");
     assert_eq!(parse_date(None), None, "null / undefined");
+}
+
+/// JS 在最后会落 `Date.parse(s)`，它能认「日 月缩写 年」这类写法。
+/// rutor 的 `ru_date` 正好产出 `30 Jun 26` —— 2026-10-09 移植 rutor 时才发现
+/// Rust 缺这一支（当时那里返回 None）。
+///
+/// ⚠️ 这一支按 **本地时区** 零点算（与 JS 一致），所以断言用 `chrono::Local` 现算，
+/// 而不是写死时间戳 —— 在 UTC 的 CI 与东八区的本机都要过。
+#[test]
+fn parse_date_named_month_formats() {
+    let expected = |y: i32, m: u32, d: u32| {
+        chrono::Local
+            .with_ymd_and_hms(y, m, d, 0, 0, 0)
+            .single()
+            .map(|dt| dt.timestamp_millis())
+    };
+
+    // 「日 月 年」三种年份写法
+    assert_eq!(pd("30 Jun 26"), expected(2026, 6, 30), "DD Mon YY");
+    assert_eq!(pd("30 Jun 2026"), expected(2026, 6, 30), "DD Mon YYYY");
+    // 「月 日 年」
+    assert_eq!(pd("Jun 30 26"), expected(2026, 6, 30), "Mon DD YY");
+    assert_eq!(pd("Jun 30, 2026"), expected(2026, 6, 30), "Mon DD, YYYY");
+    // 大小写与全名都认（只看前三个字母）
+    assert_eq!(pd("30 JUN 2026"), expected(2026, 6, 30), "大写");
+    assert_eq!(pd("30 June 2026"), expected(2026, 6, 30), "全名");
+    // 两位年份的分界（JS 规则：0-49 → 20xx，50-99 → 19xx）
+    assert_eq!(pd("1 Jan 49"), expected(2049, 1, 1), "49 → 2049");
+    assert_eq!(pd("1 Jan 50"), expected(1950, 1, 1), "50 → 1950");
+}
+
+#[test]
+fn parse_date_named_month_rejects_non_dates() {
+    // 不能因为「三个词」就瞎猜
+    assert_eq!(pd("totally bogus date"), None);
+    assert_eq!(pd("not a date"), None);
+    assert_eq!(pd("Jun 2026"), None, "缺一个数字");
+    assert_eq!(pd("32 Jun 2026"), None, "日超范围");
+    assert_eq!(pd("30 Jun 26 extra"), None, "四个词");
+}
+
+/// ⚠️ **有意保留的 divergence**（别当 bug 修）：
+/// JS 的 `Date.parse("30.06.2026")` 是 `NaN` → 返回 null；Rust 认 `%d.%m.%Y` → 返回 Some。
+/// 目前没有任何 provider 会喂这种格式，先留着（改动会影响别处的行为），
+/// 但两边不一致这件事必须写在明面上。
+#[test]
+fn divergence_dotted_date_is_parsed_here_but_null_in_js() {
+    assert!(
+        pd("30.06.2026").is_some(),
+        "Rust 认 %d.%m.%Y；JS 的 Date.parse 对这个格式返回 NaN"
+    );
 }
 
 #[test]

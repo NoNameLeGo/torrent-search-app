@@ -408,7 +408,9 @@ mod tests {
     #[test]
     fn a_name_containing_a_digit_and_letter_b_is_not_a_size() {
         let html = one("30 Июн 26", "Black Box 2 (2026)", "1 MB", "1", "0", false);
-        assert_eq!(parse(BASE, &html)[0].size_text, "1 MB");
+        // ⚠️ `size_text` 是 normalize 用 `format_size` 从**字节数**格式化出来的，
+        // 不是页面上的原文，所以这里得到 "1.0 MB" 而不是 "1 MB"。
+        assert_eq!(parse(BASE, &html)[0].size_text, "1.0 MB");
     }
 
     #[test]
