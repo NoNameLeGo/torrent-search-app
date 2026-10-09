@@ -108,6 +108,7 @@ crates/bt-providers/    one file per site, mirroring src/providers/*.js
   src/yts.rs            port of src/providers/yts.js (GET, movie -> torrents, two levels)
   src/linuxtracker.rs   port of src/providers/linuxtracker.js (HTML via bt_core::dom)
   src/filemood.rs       port of src/providers/filemood.js (HTML via bt_core::dom)
+  src/rutor.rs          port of src/providers/rutor.js (HTML via bt_core::dom; Russian site, UTF-8)
   tests/common/mod.rs   throwaway HTTP server + fixture loader shared by provider tests
                         oneshot() = response only; oneshot_capture() = also hands back the raw request
   tests/{tpb,knaben,torrentscsv,yts}.rs   per-provider offline tests
@@ -128,7 +129,9 @@ Upstream bugs found while porting: `linuxtracker`'s `detailUrl` misses a slash (
 
 **Deleting the old JS — function-level, not file-level (revised 2026-10-08).** Do *not* mechanically delete `<provider>.js` as soon as its Rust port lands. Delete only once that function is fully usable from Rust (wired into `bt-app`), and never when the JS is still the reference for an accepted equivalence check. Anything kept for now must be logged in the "待删清单" table in `AGENTS.md` and deleted in a batch at the end of a phase. The one hard rule that survives: two implementations must never be allowed to drift, so every ported file's status (`待删` / `保留(对照)` / `已删`) goes in the progress table.
 
-**Next step:** the Russian sites (`rutor` etc.) — grab a fixture first and verify **encoding** (UTF-8 vs win1251).
+**Next step:** pick from the health probe's "✅ in both environments" set — `audiobookbay` (36 rows), `dmhy` (10 rows on CI), `nyaa` (2 rows on CI). `rutor` is done and settles the encoding question: **UTF-8, not windows-1251**.
+
+**Blocked engines are catalogued in `AGENTS.md` ("🚧 受阻引擎清单")** — before starting any provider, check that list; four of them (`eztv`, `blueroms`, `torrentdatabase`, `uindex`) are dead in both environments, and `1337x` has its own section.
 
 **`1337x` is investigated and skipped (2026-10-09).** A plain HTTP client cannot get a result page — and neither can the JS version, so this is not a porting regression. `1337x.to`/`1337x.is`/`x1337x.se` return **no A record** from this machine's resolver; `1337x.st`/`x1337x.ws`/`x1337x.eu`/`x1337x.cc` all serve Cloudflare's `Just a moment...` challenge; the old fixture's redirect domain `13377x.to` is now a **parked ad lander**; every third-party mirror tried is either Cloudflare or a squatter page. Note the old fixture's FingerprintJS gate *was* followable (it had an `<a href="…&fp=-3">Click here to enter</a>` fallback for non-JS clients) — that path died with the domain, and what blocks us now is Cloudflare + DNS-level blocking, a different mechanism. **Do not implement a `1337x` provider in `bt-providers`** — it would only ever return an error. Full findings and the four options for revisiting live in `AGENTS.md`.
 

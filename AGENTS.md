@@ -99,6 +99,7 @@ crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方
   src/internetarchive.rs ← src/providers/internetarchive.js（GET，advancedsearch JSON）
   src/linuxtracker.rs   ← src/providers/linuxtracker.js（HTML，bt_core::dom）
   src/filemood.rs       ← src/providers/filemood.js（HTML，bt_core::dom）
+  src/rutor.rs          ← src/providers/rutor.js（HTML，bt_core::dom；俄站 UTF-8）
   tests/common/mod.rs   本地一次性 HTTP 服务 + fixture 加载（provider 测试公用）
                         oneshot() 只要响应；oneshot_capture() 另交出原始请求，用于钉请求契约
   tests/{tpb,knaben,torrentscsv,yts,internetarchive}.rs   各自的离线测试
@@ -121,9 +122,10 @@ crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方
 | `src/lib/scraper.js`（HTML 解析底座） | `crates/bt-core/src/dom.rs` | cheerio 语义对照层 + 11 条单测 + 28 条 probe 与 cheerio 1.2.0 真值逐条比对（`dom_probes` **通过**） | 保留(对照) |
 | `src/providers/linuxtracker.js`（95 行） | `linuxtracker.rs` | 真 fixture：43 候选 → 18 条结果（三个数字都由 cheerio 交叉验证）+ 11 条集成 + 8 条单测 | **待删** |
 | `src/providers/filemood.js`（74 行） | `filemood.rs` | 真 fixture：65 行 → 20 条数据行（cheerio 交叉验证）+ 11 条集成 + 11 条单测 | **待删** |
+| `src/providers/rutor.js`（99 行） | `rutor.rs` | 真 fixture：101 行（含表头）→ 100 条（cheerio 交叉验证）+ 13 条集成 + 13 条单测 | **待删** |
 
-（另有 `bt-providers` 的 23 条单元测试（测 `src/value.rs` + `linuxtracker.rs` + `filemood.rs`）；
-`tests/live_smoke.rs` 2 条默认跳过。合计 **145 passed / 0 failed**。）
+（另有 `bt-providers` 的 36 条单元测试（测 `src/value.rs` + `linuxtracker.rs` + `filemood.rs` + `rutor.rs`）；
+`tests/live_smoke.rs` 2 条默认跳过。合计 **174 passed / 0 failed**。）
 
 ⚠️ `test/fixtures/internetarchive-ubuntu.synthetic.json`（文件名带 `.synthetic`）：
 `docs[0..2]` 是 2026-10-08 从 CI 冒烟日志取回的**真实 doc**，`docs[3..]` 是手工构造的边界样本；
@@ -155,8 +157,8 @@ Node 源码在这个阶段是**验证工具**而不是待清垃圾。提前删�
 
 | 路径 | 为何现在留着 | 何时可删 |
 |---|---|---|
-| `src/providers/tpb.js`、`knaben.js`、`torrentscsv.js`、`yts.js`、`internetarchive.js`、`linuxtracker.js`、`filemood.js` ✅已移植 | `test/run.js` 仍在跑 tpb/knaben/linuxtracker/filemood；离线对照要用 | `bt-app` 接通对应 provider + Node 测试块删除后 |
-| `src/providers/*.js`（其余 35 个） | 尚未移植，是逐行对照的参照物 | 各自移植完成后按上条判断 |
+| `src/providers/tpb.js`、`knaben.js`、`torrentscsv.js`、`yts.js`、`internetarchive.js`、`linuxtracker.js`、`filemood.js`、`rutor.js` ✅已移植 | `test/run.js` 仍在跑 tpb/knaben/linuxtracker/filemood/rutor；离线对照要用 | `bt-app` 接通对应 provider + Node 测试块删除后 |
+| `src/providers/*.js`（其余 34 个） | 尚未移植，是逐行对照的参照物 | 各自移植完成后按上条判断 |
 | `src/lib/`、`server.js`、`test/run.js` | 聚合层尚未移植，本分支上 Node 版仍需可跑 | provider + 聚合全搬完 |
 | `public/` | 阶段一的前端本体（`public/` 一行不改） | **阶段二**确认上 Slint 后 |
 | `electron/`、`scripts/`、`package.json`、`start.bat`/`stop.bat`、`.eslintrc.json`、`.prettierrc`、`build.yml`/`release.yml`/`tauri-build.yml` | Rust 版尚未能取代旧 Shell 发版 | Rust 版能独立发版后 |
@@ -187,17 +189,18 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 | 4 | ~~`yts.js`~~ | ✅ 11 tests |
 | 5 | ~~`internetarchive.js`~~ | ✅ 14 tests（fixture 是合成的，见进度表上方说明） |
 
-**← 下次开工：俄站（`rutor` 等）—— 得先抓 fixture，并专门验编码（UTF-8 vs win1251）。
+**← 下次开工：按探活表挑「两边都 ✅」的继续搬（`audiobookbay` 36 行、`dmhy` CI 10 行、`nyaa` CI 2 行）。
+`rutor` 已搬完，顺带把「俄站编码」验清楚了：**它是 UTF-8，不是 win1251**。
 `1337x.js` 已调查完毕、判定当前不可抓取，**跳过**（见 B 组进度表下的专门小节）。**
 
-**B 组（HTML 抓取，需引入 `scraper` crate 对标 cheerio）** —— ✅ 地基 + 2 个 provider 完成
+**B 组（HTML 抓取，需引入 `scraper` crate 对标 cheerio）** —— ✅ 地基 + 3 个 provider 完成
 
 - ✅ `crates/bt-core/src/dom.rs`：cheerio 的替代层（`scraper` 0.27 = html5ever + selectors）
   语义对照表写在文件头；自带 11 条单元测试
-- ✅ 选择器等价性对照机制：`test/fixtures/html-probes.json`（**28 条 probe**）+
+- ✅ 选择器等价性对照机制：`test/fixtures/html-probes.json`（**38 条 probe / 4 个 fixture**）+
   `scripts/html-probes.cjs`（cheerio 侧，真值来源）+ `crates/bt-core/tests/dom_probes.rs`（Rust 侧）
   + `test/fixtures/html-probes.expected.json`（真值，cheerio 1.2.0 生成）
-- ✅ `linuxtracker.js` + `filemood.js` 两个 HTML provider 落地，全部离线可测
+- ✅ `linuxtracker.js` + `filemood.js` + `rutor.js` 三个 HTML provider 落地，全部离线可测
 
 **B 组进度**
 
@@ -206,7 +209,8 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 | 0 | 地基（`dom.rs` + 选择器对照机制） | ✅ 28 条 probe 与 cheerio 1.2.0 逐条一致 |
 | 1 | `linuxtracker.js` | ✅ 18 条结果 + 11 集成 + 8 单测 |
 | 2 | `filemood.js` | ✅ 20 条结果 + 11 集成 + 11 单测 |
-| 3 | `1337x.js` | ⛔ **已调查，当前不可抓取 → 跳过**，见下面专门小节 |
+| 3 | `rutor.js` | ✅ 100 条结果 + 13 集成 + 13 单测（**本机与 CI 两边都 ✅ 的第一个**） |
+| 4 | `1337x.js` | ⛔ **已调查，当前不可抓取 → 跳过**，见下面专门小节 |
 | — | 俄站（rutor 等，**编码**要专门验） | ⏭️ **下一个**：还没有 fixture，得先抓一个 |
 
 ### ⛔ `1337x.js` —— 2026-10-09 调查完毕，**跳过**
@@ -434,6 +438,28 @@ NODE_TLS_REJECT_UNAUTHORIZED=0 node --use-env-proxy scripts/provider-health.mjs
 **顺带发现**：`megapeer` 用的是 `getWin1251()` —— 就是那条「俄站**编码**要专门验」的实例。
 **`eztv` 的 451**（Unavailable For Legal Reasons）是法律性封锁 —— 写多少 UA 都没用，
 和 Cloudflare 的 403 要分开对待。
+
+### 🚧 受阻引擎清单（2026-10-09，**先记下来，以后再看有没有办法**）
+
+用户口径：**先搬能用的，不能用的记录在案**。按「有没有救」分四档：
+
+| 档 | 引擎 | 现象 | 还有什么办法 |
+|---|---|---|---|
+| **A. 基本没救** | `eztv` | **451 法律性封锁**（两个环境都是） | 没有。法律性封锁不是技术问题 |
+| | `blueroms` / `torrentdatabase` / `uindex` / `1337x` | **Cloudflare 403**（两个环境都是） | 参考 1337x 小节那四条路（换环境抓 fixture / 第三方 API / 浏览器自动化 / 放弃），成本都高 |
+| **B. 机房 IP 被拦，本机可用** | `tpb` / `limetorrents` / `therarbg` / `torrent9` / `oxtorrent` | 本机 ✅ 出结果，CI ⛔ 403 | **不是问题** —— 用户在家里跑就能用。只是别拿 CI 的 403 当真相 |
+| **C. 两个环境都不通** | `anirena` / `bitsearch` / `bt4g` / `mypornclub` / `tokyotoshokan` / `torrentdownload` / `torrentdownloads` / `torrentkitty` / `xxxclub` | CI ⛔ 403，本机 timeout/连不上 | CI 全 403 → 大概率也是 Cloudflare；要确认得**换个住宅 IP 的环境**再探一次 |
+| | `sukebei` / `nekobt` | 两边都连不上（`UND_ERR_CONNECT_TIMEOUT` / timeout） | 确认域名是否还活着（`sukebei` 是 `nyaa.si` 的子域，可能一起被网络层挡了） |
+| **D. 页面在但拿不到结果行** | `animetosho` / `mikan` | 两边都 200，但粗判 0 行 | **不是坏事** —— 很可能只是我的粗判标记（数 `<tr`）跟它们的结构不符。按站点核一遍真实选择器即可 |
+| | `anilibria` / `subsplease` / `bangumimoe` | 200 但响应只有 2~55 字节 | 空 JSON（`[]`）—— 说明接口通、只是这个关键词没结果。**换关键词再探一次就能定性** |
+
+**重新评估的触发条件**（满足任一条就该重探，不用等）：
+1. 探活里某个引擎从 ⛔/❌ 变成 200+有行（可能只是它自己换了域名/放开了）
+2. 有志愿者/上游给出可用的镜像或 API
+3. 真要上浏览器自动化（CDP）时 —— 那是一次性成本，摊到多个 Cloudflare 站上才划算
+
+⚠️ 别忘了「探活 ≠ 能解析」：`provider-health.mjs` 的行数是**粗判**。
+D 档那几个要真搬，第一步仍然是**加探针、拿 cheerio 真值**（见下面的移植配方）。
 
 ---
 
