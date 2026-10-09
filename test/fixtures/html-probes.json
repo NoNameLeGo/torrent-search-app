@@ -171,7 +171,7 @@
     },
     {
       "file": "1337x-ubuntu.html",
-      "note": "⚠️ 这不是结果页 —— 是 FingerprintJS 反爬跳转页（1.1KB，只有 window.location.replace 脚本）。探针用来把这个事实钉住：1337x 走 HTML 抓取在当前形态下拿不到数据。",
+      "note": "⚠️ 这不是结果页 —— 是 1337x 的反爬 JS 挑战页（1.1KB，只有 window.location.replace）。探针用来把这个事实钉住：rows.count == 0。2026-10-09 复查：页里那个跳转域名 13377x.to 已变成域名停放广告页，而 1337x 官方域名要么 DNS 不返回 A 记录、要么撞 Cloudflare 挑战页 —— 详见 AGENTS.md 的「1337x.js —— 调查完毕，跳过」小节。",
       "probes": [
         {
           "id": "rows.count",

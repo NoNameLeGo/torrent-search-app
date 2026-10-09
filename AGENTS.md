@@ -117,7 +117,7 @@ crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方
 | `src/providers/knaben.js`（70 行） | `knaben.rs` | 真 fixture 逐字段 + 分类区间 + 请求 body 契约 + divergence，**9 passed** | **待删** |
 | `src/providers/torrentscsv.js`（32 行） | `torrentscsv.rs` | 真 fixture 首末条 + query 编码契约 + falsy 日期，**9 passed** | **待删** |
 | `src/providers/yts.js`（55 行） | `yts.rs` | 真 fixture 三条结果 + 请求 URL 契约 + 缺省值 + 两条跳过规则，**11 passed** | **待删** |
-| `src/providers/internetarchive.js`（58 行） | `internetarchive.rs` | **合成** fixture（见下）+ 分类映射 + item_size 三态 + `no_docs` 错误语义，**13 passed** | **待删** |
+| `src/providers/internetarchive.js`（58 行） | `internetarchive.rs` | **合成** fixture（见下）+ 分类映射 + item_size 三态 + `no_docs` 错误语义，**14 passed** | **待删** |
 | `src/lib/scraper.js`（HTML 解析底座） | `crates/bt-core/src/dom.rs` | cheerio 语义对照层 + 11 条单测 + 28 条 probe 与 cheerio 1.2.0 真值逐条比对（`dom_probes` **通过**） | 保留(对照) |
 | `src/providers/linuxtracker.js`（95 行） | `linuxtracker.rs` | 真 fixture：43 候选 → 18 条结果（三个数字都由 cheerio 交叉验证）+ 11 条集成 + 8 条单测 | **待删** |
 | `src/providers/filemood.js`（74 行） | `filemood.rs` | 真 fixture：65 行 → 20 条数据行（cheerio 交叉验证）+ 11 条集成 + 11 条单测 | **待删** |
@@ -185,9 +185,10 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 | 2 | ~~`knaben.js`~~ | ✅ 9 tests |
 | 3 | ~~`torrentscsv.js`~~ | ✅ 9 tests |
 | 4 | ~~`yts.js`~~ | ✅ 11 tests |
-| 5 | ~~`internetarchive.js`~~ | ✅ 13 tests（fixture 是合成的，见进度表上方说明） |
+| 5 | ~~`internetarchive.js`~~ | ✅ 14 tests（fixture 是合成的，见进度表上方说明） |
 
-**← 下次开工：`1337x.js` —— 但它卡在「怎么拿到页面」这一层，见下面的 ⚠️。**
+**← 下次开工：俄站（`rutor` 等）—— 得先抓 fixture，并专门验编码（UTF-8 vs win1251）。
+`1337x.js` 已调查完毕、判定当前不可抓取，**跳过**（见 B 组进度表下的专门小节）。**
 
 **B 组（HTML 抓取，需引入 `scraper` crate 对标 cheerio）** —— ✅ 地基 + 2 个 provider 完成
 
@@ -205,8 +206,42 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 | 0 | 地基（`dom.rs` + 选择器对照机制） | ✅ 28 条 probe 与 cheerio 1.2.0 逐条一致 |
 | 1 | `linuxtracker.js` | ✅ 18 条结果 + 11 集成 + 8 单测 |
 | 2 | `filemood.js` | ✅ 20 条结果 + 11 集成 + 11 单测 |
-| 3 | `1337x.js` | ⚠️ **卡住**：fixture 是 FingerprintJS 反爬跳转页，不是结果页。得先解决「怎么拿到页面」这一层（UA / 指纹 / 镜像都不够），否则选择器写得再对也没数据 |
-| — | 俄站（rutor 等，**编码**要专门验） | 还没有 fixture |
+| 3 | `1337x.js` | ⛔ **已调查，当前不可抓取 → 跳过**，见下面专门小节 |
+| — | 俄站（rutor 等，**编码**要专门验） | ⏭️ **下一个**：还没有 fixture，得先抓一个 |
+
+### ⛔ `1337x.js` —— 2026-10-09 调查完毕，**跳过**
+
+**结论：1337x 用普通 HTTP 客户端拿不到结果页** —— 不是选择器的问题，也不是本移植引入的
+（**JS 版在同样环境下一模一样地失败**）。全部候选域名实测：
+
+| 域名 | 结果 |
+|---|---|
+| `1337x.to` / `1337x.is` / `x1337x.se` | **DNS 不返回 A 记录**（本机 `nslookup` 只回路由器地址 + 污染 IPv6；对照 `torrents-csv.com` 正常解析到 51.15.62.20） |
+| `1337x.st` / `x1337x.ws` / `x1337x.eu` / `x1337x.cc` | **Cloudflare 挑战页**：403 + 5.5KB，`Just a moment... Enable JavaScript and cookies to continue` |
+| `13377x.to`（旧 fixture 里那个跳转域名） | **已变成域名停放广告页**（`mode:"iframe"` → `yfdpco5.com/sk-park.php`） |
+| `1337x.tw` | 301 → `www.1337x.tw` → 404 |
+| `1337x.net` / `1337x.am` / `1377x.is` / `1337x.piratic.org` / `1337x.pages.dev` | 停放页 / 空响应 / 不可信的"买流量"页 |
+| `1337x.proxyninja.org` / `1337x.torrentsbay.org` | 同样撞 Cloudflare 挑战页 |
+
+⚠️ **顺带修正一条旧认知**：`test/fixtures/1337x-ubuntu.html` 里那个 FingerprintJS 挑战页
+**当年其实是可以跟的** —— 它只是在同域 URL 上加 `fp=<指纹>` 重定向，而且页面自带
+`<a href="...&fp=-3">Click here to enter</a>` 这个**给非 JS 客户端的降级入口**，
+跟着那个隐藏链接走就绕过去了。但**那个域名现在已停放**，所以这条路彻底断了；
+今天挡住我们的是 **Cloudflare + DNS 级封锁**，机制与当年完全不同。
+
+**要继续，可选路径**（按成本排序，都需要用户先点头）：
+1. **换个能访问的环境抓一次 fixture** —— 成本最低。但 Cloudflare 对机房 IP 更凶，
+   在 `live-smoke.yml` 里试一次可能也拿不到
+2. **第三方 1337x API / 代理服务** —— 引入外部依赖 + 信任问题，与原设计（自抓 HTML）不符
+3. **浏览器自动化过 Cloudflare** —— 本机 Playwright 不可用（Node 不能 spawn 子进程），
+   只能走 CDP 启 Chrome；给 app 引入重量级依赖，且 Cloudflare 对自动化浏览器同样会拦
+4. **放弃这个引擎** —— 项目已有 40+ 引擎，1337x 并非不可替代
+
+**决定：先跳过**（用户 2026-10-09 拍板）。`src/providers/1337x.js` 与
+`test/fixtures/1337x-ubuntu.html` 原样保留（那个 fixture 仍是「JS 挑战页长什么样」的真实样本，
+probe 用 `rows.count == 0` 把事实钉住）。
+
+⚠️ 因此在 `bt-providers` 里**不要**实现 `1337x`：写出来只会是一个永远报错的 provider。
 
 ### 🐞 移植中发现的上游 bug（JS 版既有，值得单独修）
 
@@ -223,7 +258,7 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 |---|---|
 | `linuxtracker-linux.html` | ✅ 真实结果页。43 个候选链接里 **33 条**是主表行（其余是 Top10 侧栏，行内只有 2 个 td） |
 | `filemood-ubuntu.html` | ✅ 真实结果页。65 个 tr 里 **20 条**数据行 |
-| `1337x-ubuntu.html` | ❌ **不是结果页** —— FingerprintJS 反爬跳转页（1.1KB，`window.location.replace`） |
+| `1337x-ubuntu.html` | ❌ **不是结果页** —— FingerprintJS 反爬跳转页（1.1KB，`window.location.replace`）。该域名 2026-10-09 已停放，详见上面的 `1337x.js` 小节 |
 | 俄站（rutor 等） | 还没有 fixture；**编码**（UTF-8 vs win1251）要专门验，见「调试经验」 |
 
 **C 组（基础设施，可穿插）**：`src/lib/scraper.js` 的 `createProvider` 工厂 + `runMirrors` 镜像回退 ——

@@ -40,7 +40,7 @@ test/
     html-probes.expected.json ← cheerio 侧跑出来的真值（cheerio 1.2.0，2026-10-08）
     linuxtracker-linux.html ← LinuxTracker HTML (18 results)
     filemood-ubuntu.html  ← FileMood HTML (20 results)
-    1337x-ubuntu.html     ← ⚠️ 不是结果页：FingerprintJS 反爬跳转页（1.1KB）
+    1337x-ubuntu.html     ← ⚠️ 不是结果页：FingerprintJS 反爬跳转页（1.1KB）；该域名 2026-10-09 已停放
 ```
 
 **fixture 永久保留**：即使对应 provider 已迁到 Rust，`test/fixtures/` 也不删 ——
