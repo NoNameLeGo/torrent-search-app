@@ -66,7 +66,7 @@ Magnet links: WebView2/Electron won't auto-invoke `magnet:`, so both shells inte
 
 **编译一律在 CI 里跑，不在本机跑。** 用户机器 C:/D: 两盘均 90%+ 占用，且明确要求不新增本地构建环境。本机的 `CARGO_HOME`（`D:\Vibe-Coding\.cargo`）已被清理、`cargo` 不在 PATH 上 —— **本地跑不了 cargo**。本地只写代码，编译/测试结果看 Actions 日志，产物从 Artifacts 下载。
 
-Six workflows, split by shell and trigger:
+Seven workflows, split by shell and trigger:
 
 - **`build.yml`** — Electron only. Runs on push to `main` (or manual). Builds the NSIS installer + portable zip, uploads as artifacts.
 - **`release.yml`** — Electron **and** Tauri together. Runs on `v*` tags (or manual). Three parallel jobs: `electron` (checks out the trigger ref), `tauri` (explicitly checks out `feat/tauri`), then `publish` bundles both into a single GitHub Release (published **directly, `draft: false`** — no manual "Publish" click), appending `docs/RELEASE_ARTIFACTS.md` as the body. Every artifact name carries an explicit `-Electron-`/`-Tauri-` tag (`BT-Search-Electron-Setup-<ver>.exe`, `BT-Search-Electron-Portable.zip`, `BT-Search-Tauri-Setup-<ver>.exe`) so the two shells' installers can't be confused. Renaming lives in three places — `package.json` `build.win.artifactName` (Electron installer), `release.yml`'s `Zip portable` step (Electron portable) and `Rename Tauri installer` step (Tauri) — plus the example names in `docs/RELEASE_ARTIFACTS.md`.
@@ -74,6 +74,7 @@ Six workflows, split by shell and trigger:
 - **`rust.yml`** — the Rust rewrite (see below). Runs on push to `feat/rust` and on PRs touching `crates/**`. `cargo test --workspace` + `clippy` + `fmt --check`. **Push-only** — it doesn't exist on `main`, so `gh workflow run` returns 404.
 - **`live-smoke.yml`** — `workflow_dispatch` only. Hits the real sites with `BT_LIVE_SMOKE=1` and prints `[smoke]` lines. **Deliberately excluded from every push/PR gate.** Exists on both `main` (required for manual dispatch) and `feat/rust` — keep the two copies in sync. Trigger with `gh workflow run live-smoke.yml --ref feat/rust`.
 - **`html-probes.yml`** — `workflow_dispatch` only (also on both `main` and `feat/rust`). Installs cheerio and prints the ground-truth selector values used to build `test/fixtures/html-probes.expected.json`.
+- **`provider-health.yml`** — `workflow_dispatch` only (also on both `main` and `feat/rust`). Runs `scripts/provider-health.mjs`, which hits the real search URL of all 40 engines and prints `HTTP / bytes / result rows`. This is the "is this engine still usable" check that offline fixtures cannot provide. **Run it on CI, not locally** — locally the MITM proxy breaks Node's TLS trust and the sandbox/DNS makes results unstable (the same host gave 200 then 000 minutes apart). CI is a datacenter IP though, so treat its 403s as a floor, not the user's reality.
 
 ### Rust rewrite (`feat/rust`)
 

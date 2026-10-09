@@ -1,0 +1,58 @@
+name: Provider health (online)
+
+# 对全部 40 个引擎发真实搜索请求，打印「HTTP / 字节 / 结果行数」表。
+#
+# 用途 —— 这是**离线 fixture 测试证明不了**的那件事（快照全绿 ≠ 站点还活着），
+# 也是 Q5「站点改版怎么发现」的手动那一半（`live-smoke.yml` 只覆盖 5 个 JSON provider）。
+#
+# ⚠️ 为什么要在 CI 上跑而不是本机：
+#   - 本机那层代理是 MITM 的，Node 不信任它的证书 → 一堆假失败
+#   - 本机对部分域名 DNS 污染（archive.org 等）
+#   - 本机结果不稳定（同一域名两次结论可能不同）
+#   - CI 出口干净、可复现，适合当参照基线
+#
+# ⚠️ 反过来也要知道：CI 是**机房 IP**，有些站点对机房 IP 更凶
+#   （apibay 对机房 IP 直接 403）。所以 CI 的红 ≠ 用户那儿也不行。
+#   两边都跑一次、对比着看，才是完整答案。
+#
+# 触发（workflow_dispatch 要求在默认分支上存在，所以 main 与 feat/rust 各有一份，
+# 改动要同步 —— 同 live-smoke.yml / html-probes.yml）：
+#
+#   scripts/gh-retry.sh workflow run provider-health.yml --ref feat/rust
+#   scripts/gh-retry.sh run view --job=<JOB_ID> --log | grep -E '^\| `'
+#
+# 失败不算回归，所以**刻意不放进任何 push/PR 的门**里。
+
+on:
+  workflow_dispatch:
+    inputs:
+      query:
+        description: 搜索关键词
+        required: false
+        default: ubuntu
+        type: string
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # 探活不需要依赖（脚本是零依赖的），所以不跑 npm install
+      - name: 探活全部引擎
+        env:
+          PROBE_TIMEOUT_MS: '15000'
+        run: node scripts/provider-health.mjs "${{ inputs.query || 'ubuntu' }}"
+
+      - name: 提示
+        if: always()
+        shell: bash
+        run: |
+          echo "::notice::这张表是「站点现在能不能用」的快照，不是回归信号。"
+          echo "::notice::读法：200+有行=正常；200+0 行=选择器可能改了；403/451=被拦；timeout=网络/被墙。"
+          echo "::notice::对照 AGENTS.md 的「provider 探活」小节看历史基线。"

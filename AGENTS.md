@@ -376,6 +376,48 @@ probe 用 `rows.count == 0` 把事实钉住）。
 以后跑冒烟时，拿这些数字做对比：**数量级突然掉到 0 或个位数**才是真信号。
 （2026-10-09 复跑：knaben 300 / torrentscsv 25 / yts 24 / internetarchive 96 / tpb 403，0 问题 —— 与基线一致。）
 
+### 🔍 provider 探活：全部 40 个引擎，`scripts/provider-health.mjs`
+
+冒烟只覆盖 5 个 JSON provider。要问「**其他 35 个现在还能用吗**」，用这个脚本 ——
+零依赖（只用 Node 内置 `fetch`，不用装 `node_modules`），对每个引擎的**真实搜索 URL**
+发一次请求，打印 `HTTP / 字节 / 结果行数`：
+
+```bash
+# CI（推荐，出口干净）
+scripts/gh-retry.sh workflow run provider-health.yml --ref feat/rust
+scripts/gh-retry.sh run view --job=<JOB_ID> --log | grep -E '^\| `'
+
+# 本机（得加两个开关，见下）
+NODE_TLS_REJECT_UNAUTHORIZED=0 node --use-env-proxy scripts/provider-health.mjs
+```
+
+**⚠️ 本机结果不可全信 —— 已实测**：
+- Node 的 `fetch` 默认不读 `HTTP_PROXY`（要 Node 24+ 的 `--use-env-proxy`）
+- 本机那层代理是 **MITM** 的，Node 不信任其证书 → 报 `DEPTH_ZERO_SELF_SIGNED_CERT`
+- 同一域名**前后两次探活结论会不同**（实测 `linuxtracker` 一次 200、几分钟后 000；
+  `filemood` 报 ECONNRESET，但我们手里有它真实的结果页快照）
+- 本机对 `archive.org` 等还有 DNS 污染
+
+→ 所以「本机探不通」**不等于**「站点挂了」。要权威结论就用 CI，或两边都跑、对比着看。
+
+**⚠️ 反过来，CI 也不等于用户环境**：CI 是机房 IP，有些站对机房 IP 更凶
+（apibay 对机房 IP 直接 403）。**两边都跑，才是完整答案。**
+
+**2026-10-09 本机首次探活的结果分层**（不完整，仅作参照）：
+
+| 分层 | 引擎 |
+|---|---|
+| ✅ **确认有结果**（10） | `tpb` 100 行 / `rutor` 111 行 / `limetorrents` 45 行 / `therarbg` 39 行 / `audiobookbay` 36 行 / `torrentscsv` 25 行 / `torrent9` 4 行 / `oxtorrent` 3 行 / `knaben` 1 / `yts` 1 |
+| ⛔ **被拦**（两次探针一致） | `1337x` / `blueroms` / `megapeer` / `torrentdatabase` / `uindex` → **403**（Cloudflare 挑战页）；`eztv` → **451**（法律性封锁，非技术问题） |
+| ❌ **本机网络问题（非站点）** | `internetarchive`（已知 DNS 污染）、`linuxtracker` / `filemood`（本机代理 MITM 证书 / 连接抖动） |
+| ⚠️ **200 但 0 行** | `animetosho` / `nekobt`（页面在，粗判标记没命中 → 需按站点看选择器）；`anilibria` / `subsplease`（返回 2 字节 = 空 JSON `[]`） |
+| ❓ **无法判定** | `nyaa` / `sukebei` / `dmhy` / `mikan` / `btdigg` / `bt4g` / `bangumimoe` / `torrentkitty` / `anirena` / `zeromagnet` / `tokyotoshokan` / `mypornclub` 等 —— 本机全 timeout/abort |
+
+**顺带两条发现**：
+- `megapeer` 用的是 `getWin1251()` —— 就是那条「俄站**编码**要专门验」的实例
+- 探活里的 `451`（Unavailable For Legal Reasons）和 `403`（Cloudflare 挑战）要分开看：
+  前者是法律性封锁，写多少 UA 都没用；后者理论上能靠真实浏览器过，成本很高
+
 ---
 
 ### ⚠️ 本机 `gh` 会间歇性 403 —— 一律用 `scripts/gh-retry.sh`
@@ -416,6 +458,7 @@ scripts/gh-retry.sh workflow run live-smoke.yml --ref feat/rust
 | `live-smoke.yml` | `main`（**为能手动触发而特意放的**）+ `feat/rust` | 能（触发时用 `--ref feat/rust` 才检出 Rust 代码） |
 | `rust.yml` | 只在 `feat/rust` | ❌ 不能，只能靠 push 触发 |
 | `html-probes.yml` | `main` + `feat/rust` | 能（选分支 `feat/rust`，生成 cheerio 真值） |
+| `provider-health.yml` | `main` + `feat/rust` | 能（全部 40 个引擎的联网探活） |
 
 `live-smoke.yml` 用 `hashFiles('crates/bt-providers/Cargo.toml')` 兜底：
 在还没有 Rust workspace 的 ref 上会优雅跳过，不给假红灯。
