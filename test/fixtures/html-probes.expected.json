@@ -215,5 +215,79 @@
     "rows.count": 0,
     "name_cells.count": 0,
     "title_text": "13377x.to"
+  },
+  "rutor-ubuntu.html": {
+    "rows.count": 101,
+    "name.first_3_texts": [
+      "Rufus 4.15 (Build 2396) (2026) PC | Portable",
+      "WinPE 11-10-8 Sergei Strelec (x86/x64/Native x86) 2025.09.07 (2025) PC",
+      "VA - Beach Deep House (2025) MP3"
+    ],
+    "name.first_href": "/torrent/915382/rufus-4.15-build-2396-2026-pc-portable",
+    "name.attrs_first_3": [
+      "/torrent/915382/rufus-4.15-build-2396-2026-pc-portable",
+      "/torrent/932561/winpe-11-10-8-sergei-strelec-x86/x64/native-x86-2025.09.07-2025-pc",
+      "/torrent/1052881/va-beach-deep-house-2025-mp3"
+    ],
+    "magnet.first_href": "magnet:?xt=urn:btih:5c1d6707dade6bb1150ea1c7020a67cfa2b908f5&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce",
+    "date_cells.first_3_texts": [
+      "Добавлен",
+      "30 Июн 26",
+      "08 Сен 25"
+    ],
+    "row_tds.first_3_rows": [
+      [
+        "30 Июн 26",
+        "Rufus 4.15 (Build 2396) (2026) PC | Portable",
+        "14",
+        "10.88 MB",
+        "44  2"
+      ],
+      [
+        "08 Сен 25",
+        "WinPE 11-10-8 Sergei Strelec (x86/x64/Native x86) 2025.09.07 (2025) PC",
+        "8",
+        "4.56 GB",
+        "9  0"
+      ],
+      [
+        "13 Сен 25",
+        "VA - Beach Deep House (2025) MP3",
+        "1.63 GB",
+        "9  0"
+      ]
+    ],
+    "row_spans.first_3_rows": [
+      [
+        "44",
+        "2"
+      ],
+      [
+        "9",
+        "0"
+      ],
+      [
+        "9",
+        "0"
+      ]
+    ],
+    "row_links.first_3_rows": [
+      [
+        "",
+        "",
+        "Rufus 4.15 (Build 2396) (2026) PC | Portable"
+      ],
+      [
+        "",
+        "",
+        "WinPE 11-10-8 Sergei Strelec (x86/x64/Native x86) 2025.09.07 (2025) PC"
+      ],
+      [
+        "",
+        "",
+        "VA - Beach Deep House (2025) MP3"
+      ]
+    ],
+    "html.lang_text": "rutor.info :: Поиск\n\t\n\t\n\t\n\t\n\n\n\n\n\n\n\n\n\n\n\t\n\n\n\n  Новости трекера22-Апр\n  \tНовый Адрес: RUTOR.INFO и RUTOR.IS29-Ноя\n  \tВечная блокировка в России09-Окт\n  \tПутеводитель по RUTOR.is: Правила, Руководства, Секреты\n  \n  $(document).ready(function(){if($.cookie(\"news\")<89){$(\"#news89\").css({\"color\":\"orange\",\"font-weight\":\"bold\"});}});\n  \n\n\n\n\nГлавная\nТоп\nКатегории\nВсё\nПоиск\nКомменты\nЗалить\nЧат\n\n\n\n\n$(document).ready(function()\n{\n\tvar menu_right;\n\tif ($.cookie('userid') > 0)\n\t{\n\t\tmenu_right = '<a href=\"/users.php?logout\" class=\"logout\" border=\"0\"><img src=\"//cdnbunny.org/i/viti.gif\" alt=\"logout\" /></a><span class=\"logout\"><a href=\"/profile.php\" class=\"logout\"  border=\"0\"><img src=\"//cdnbunny.org/i/profil.gif\" alt=\"profile\" /></a>';\n\t}\n\telse\n\t{\n\t\tmenu_right = '<a href=\"/users.php\" class=\"logout\" border=\"0\"><img src=\"//cdnbunny.org/i/zaiti.gif\" alt=\"login\" /></a>';\n\t}\n\t$(\"#menu_right_side\").html(menu_right);\n});\n\n\n\nПоиск\n\n\n\n\n\n\n\n\n\nif(location.href.indexOf(\"rutor.is\")!==-1 || location.href.indexOf(\"rutor.info\")!==-1){\nif ($.cookie('redir_ipv6')===null) {\n$(document).ready(function(){$.ajax({url:\"http://6tor.org/ping.php?proto=ipv6&\"+Math.random()+\"=\"+Math.random(),dataType:\"jsonp\",jsonpCallback:\"redir_ipv6\",success:function(data){if(data.status==\"ok\"){location.href=location.href.replace(/http:\\/\\/([^\\/]+)/,\"http://6tor.org\");}}});});\n$.cookie('redir_ipv6', 'redir_ipv6');\n}\n}\n\n\n\n$(document).ready(function()\n{\n\tif ($.cookie('msg') != null)\n\t{\n\t\tif ($.cookie('msg').length > 0)\n\t\t{\n\t\t\tvar msg2 = '<div id=\"warning\">' + $.cookie('msg').replace(/[\"+\"]/g, ' ') + '</div>';\n\t\t\t$(\"#msg1\").html(msg2);\n\t\t\t$.cookie('msg', '', { expires: -1 });\n\t\t}\n\t}\n});\n\n\tvar search_page = 0;\n\tvar search_string = 'ubuntu';\n\tvar search_category = 0;\n\tvar search_sort = 2;\n\tvar search_in = 1;\n\tvar search_method = 0;\n\tvar sort_ascdesc = 0;\n\n\tif (search_sort % 2 != 0)\n\t{\n\t\tsearch_sort -= 1;\n\t\tsort_ascdesc = 1;\n\t}\n\n\t\n\t$(document).ready(function()\n\t{\n\t\t$('#category_id').attr(\"value\", search_category);\n\t\t$('#sort_id').attr(\"value\", search_sort);\n\t\t//$('#inputtext_id').val(search_string);\n\t\t$('#search_in').attr(\"value\", search_in);\n\t\t$('#search_method').attr(\"value\", search_method);\n\t\tif (sort_ascdesc == 0)\n\t\t\t$('input[name=s_ad]')[1].checked = true;\n\t\telse\n\t\t\t$('input[name=s_ad]')[0].checked = true;\n\t});\n\n\tfunction search_submit()\n\t{\n\t\tvar sort_id = parseInt($('#sort_id').val())+parseInt($('input[name=s_ad]:checked').val());\n\t\tdocument.location.href = '/search/' + search_page + '/' + $('#category_id').val() + '/' + $('#search_method').val()+''+$('#search_in').val()+'0' + '/' + sort_id + '/' + $('#inputtext_id').val().replace(/&/g,'AND');\n\t}\n\tПоиск и сортировка\n\t\n\t\n\t\n\tИщем\n\t\n\t\t\n\t\t\n\t\t\tфразу полностью\n\t\t\tвсе слова\n\t\t\tлюбое из слов\n\t\t\tлогическое выражение\n\t\t\n\t\tв\n\t\t\n\t\t\tназвании\n\t\t\tназвании и описании\n\t\t\n\t\n\t\n\t\n\tКатегория\n\t\n\t\n\t\tЛюбая категорияЗарубежные фильмыНаши фильмыНаучно-популярные фильмыЗарубежные сериалыНаши сериалыТелевизорМультипликацияАнимеМузыкаИгрыСофтСпорт и ЗдоровьеЮморХозяйство и БытКнигиДругоеИностранные релизы\n\t\n\t\n\t\n\tУпорядочить по\n\t\n\t\n\t\tдате добавления\n\t\tраздающим\n\t\tкачающим\n\t\tназванию\n\t\tразмеру\n\t\tрелевантности\n\t\n\tпо\n\tвозрастанию\n\tубыванию\n\t\n\t\n\n\t\n\t\n\t\n\t\n\t\n\n\n\t\n\t\n\tСтраницы:  1 2 3 4 5 Результатов поиска 424 (max. 2000)ДобавленНазваниеРазмерПиры30 Июн 26\nRufus 4.15 (Build 2396) (2026) PC | Portable  14\n10.88 MB 44  208 Сен 25\nWinPE 11-10-8 Sergei Strelec (x86/x64/Native x86) 2025.09.07 (2025) PC  8\n4.56 GB 9  013 Сен 25\nVA - Beach Deep House (2025) MP3  \n1.63 GB 9  020 Июн 26\nVA - Cyber Dreams: Electro House (2026) MP3  \n1.79 GB 6  025 Авг 25\nUbuntu ServerPack 24.04 [amd64] [август] (2025) PC  \n4.11 GB 5  019 Апр 24\nUbuntu EducationPack 18.04 [amd64] [апрель] (2024) PC  1\n9.56 GB 4  014 Июл 26\nUbuntu*Pack 24.04 KDE / Kubuntu [amd64] [июль] (2026) PC  \n4.56 GB 4  025 Сен 21\nКристофер Негус - Библия Linux. 10-е издание (2022) PDF  1\n11.73 MB 4  028 Мар 26\nVA - Unity Groove (2026) MP3  \n1.64 GB 4  012 Сен 26\nVA - Spirit And Beats: Ethnic Electro House (2026) MP3  \n1.46 GB 4  130 Июн 26\nUALinux RescuePack / Antivirus LiveDisk 26.06 [июнь] (2026) PC  \n3.57 GB 3  028 Июн 15\nВячеслав Зубик - Руководство Ubuntu для начинающих  v.2.0.0 (2015) PDF  2\n26.91 MB 2  026 Янв 21\nUbuntu*Pack 18.04 GNOME Like Win [amd64] [декабрь] (2020) PC  4\n3.11 GB 2  016 Авг 25\nUbuntu*Pack 24.04 [amd64] [июль] (2025) PC  \n4.09 GB 2  114 Июл 26\nUbuntu*Pack 24.04 [amd64] [июль] (2026) PC  2\n4.35 GB 2  014 Июл 26\nUbuntu*Pack 24.04 Unity [amd64] [июль] (2026) PC  \n4.18 GB 2  020 Мар 12\nCall of Duty: Black Ops (2010) Linux  9\n6.84 GB 2  026 Мар 23\nRufus 2.18.1213 Stable / 3.22 (Build 2009) Stable (2017-2023) PC | Portable  72\n4.55 MB 2  020 Июн 24\nUALinux RescuePack / Antivirus LiveDisk 24.06 [июнь] (2024) PC  \n3.42 GB 2  014 Дек 25\nUALinux RescuePack / Antivirus LiveDisk 25.12 [декабрь] (2025) PC  \n3.33 GB 2  025 Июн 26\nJacob Boss - Before the Nation Comes [24-bit Hi-Res] (2026) FLAC  \n755.47 MB 2  018 Мар 10\nВидео уроки Debian Linux и Ubuntu Linux (2008) DVDRip  14\n331.90 MB 1  028 Окт 11\nLinux Ubuntu v9.10. Обучающий видеокурс (2011) PC  5\n119.22 MB 1  017 Май 14\nUbuntu CyberPack (ALF) 1.1 [i386] (2014) PC  1\n787.76 MB 1  025 Май 14\nUbuntu*Pack 12.04.4 Unity [i386 + amd64] [май] (2014) PC  \n1.88 GB 1  025 Янв 21\nUbuntu*Pack 18.04 [amd64] [декабрь] (2020) PC  \n3.11 GB 1  001 Дек 21\nUbuntu*Pack 20.04 KDE / Kubuntu [amd64] [ноябрь] (2021) PC  \n3.76 GB 1  001 Дек 21\nUbuntu*Pack 20.04 [amd64] [ноябрь] (2021) PC  \n3.76 GB 1  013 Апр 23\nUbuntu*Pack 22.04 [amd64] [март] (2023) PC  \n4.63 GB 1  018 Апр 23\nUbuntu*Pack 22.04 MATE [amd64] [март] (2023) PC  1\n3.62 GB 1  018 Апр 23\nUbuntu*Pack 22.04 Xfce / Xubuntu [amd64] [март] (2023) PC  \n3.62 GB 1  018 Апр 23\nUbuntu*Pack 22.04 LXqt / Lubuntu [amd64] [март] (2023) PC  \n3.42 GB 1  018 Апр 23\nUbuntu*Pack 22.04 KDE / Kubuntu [amd64] [март] (2023) PC  \n4.75 GB 1  018 Апр 23\nUbuntu*Pack 22.04 GNOME [amd64] [март] (2023) PC  \n4.60 GB 1  018 Апр 23\nUbuntu*Pack 22.04 DDE [amd64] [март] (2023) PC  \n3.81 GB 1  010 Июл 23\nUbuntu*Pack 20.04 DDE [amd64] [май] (2023) PC  \n4.22 GB 1  014 Дек 23\nUbuntu ServerPack 20.04 [amd64] [ноябрь] (2023) PC  \n3.98 GB 1  016 Мар 24\nUbuntu*Pack 20.04 LikeWin [amd64] [март] (2024) PC  \n3.47 GB 1  016 Мар 24\nUbuntu*Pack 20.04 MATE [amd64] [март] (2024) PC  \n3.60 GB 1  016 Мар 24\nUbuntu*Pack 20.04 Unity [amd64] [март] (2024) PC  \n3.57 GB 1  016 Мар 24\nUbuntu*Pack 20.04 Xfce / Xubuntu [amd64] [март] (2024) PC  1\n3.43 GB 1  020 Мар 24\nUbuntu GamePack 20.04 [amd64] [март] (2024) PC  6\n3.72 GB 1  023 Мар 24\nUbuntu*Pack 22.04 [amd64] [март] (2024) PC  \n3.36 GB 1  023 Мар 24\nUbuntu*Pack 22.04 Budgie [amd64] [март] (2024) PC  \n3.37 GB 1  023 Мар 24\nUbuntu*Pack 22.04 Cinnamon [amd64] [март] (2024) PC  \n3.60 GB 1  023 Мар 24\nUbuntu*Pack 22.04 DDE [amd64] [март] (2024) PC  \n4.14 GB 1  023 Мар 24\nUbuntu*Pack 22.04 GNOME [amd64] [март] (2024) PC  \n3.33 GB 1  023 Мар 24\nUbuntu*Pack 22.04 KDE / Kubuntu [amd64] [март] (2024) PC  \n3.50 GB 1  023 Мар 24\nUbuntu*Pack 22.04 LikeWin [amd64] [март] (2024) PC  \n3.33 GB 1  023 Мар 24\nUbuntu*Pack 22.04 LXqt / Lubuntu [amd64] [март] (2024) PC  \n3.25 GB 1  023 Мар 24\nUbuntu*Pack 22.04 MATE [amd64] [март] (2024) PC  \n3.36 GB 1  023 Мар 24\nUbuntu*Pack 22.04 Unity [amd64] [март] (2024) PC  3\n3.47 GB 1  023 Мар 24\nUbuntu*Pack 22.04 Xfce / Xubuntu [amd64] [март] (2024) PC  \n3.41 GB 1  024 Мар 24\nUbuntu GamePack 22.04 [amd64] [март] (2024) PC  7\n3.90 GB 1  011 Май 24\nUbuntu EducationPack 20.04 [amd64] [май] (2024) PC  1\n10.83 GB 1  125 Май 24\nUbuntu EducationPack 22.04 [amd64] [май] (2024) PC  \n12.01 GB 1  028 Июл 24\nUbuntu*Pack 24.04 [amd64] [июль] (2024) PC  \n4.00 GB 1  028 Июл 24\nUbuntu*Pack 24.04 KDE / Kubuntu [amd64] [июль] (2024) PC  \n4.19 GB 1  028 Июл 24\nUbuntu*Pack 24.04 MATE [amd64] [июль] (2024) PC  \n3.91 GB 1  028 Июл 24\nUbuntu*Pack 24.04 Unity [amd64] [июль] (2024) PC  \n3.87 GB 1  028 Июл 24\nUbuntu*Pack 24.04 Xfce / Xubuntu [amd64] [июль] (2024) PC  \n3.94 GB 1  028 Июл 24\nUbuntu ServerPack 22.04 [amd64] [март] (2024) PC  \n4.20 GB 1  007 Сен 24\nUbuntu ServerPack 24.04 [amd64] [сентябрь] (2024) PC  \n3.51 GB 1  016 Сен 24\nUbuntu*Pack 22.04 [amd64] [сентябрь] (2024) PC  \n3.65 GB 1  016 Сен 24\nUbuntu*Pack 22.04 DDE [amd64] [сентябрь] (2024) PC  \n4.19 GB 1  016 Сен 24\nUbuntu*Pack 22.04 LXqt / Lubuntu [amd64] [сентябрь] (2024) PC  \n3.72 GB 1  016 Сен 24\nUbuntu*Pack 22.04 Unity [amd64] [сентябрь] (2024) PC  \n3.89 GB 1  016 Сен 24\nUbuntu*Pack 22.04 Xfce / Xubuntu [amd64] [сентябрь] (2024) PC  \n3.84 GB 1  026 Окт 24\nFields Of Næcluda - Ubuntu (2024) MP3  \n138.45 MB 1  024 Ноя 24\nUbuntu GamePack 22.04 [amd64] [ноябрь] (2024) PC  \n4.02 GB 1  031 Июл 25\nUbuntu ServerPack 22.04 [amd64] [июль] (2025) PC  \n4.19 GB 1  031 Июл 25\nUbuntu*Pack 22.04 [amd64] [июль] (2025) PC  \n3.68 GB 1  031 Июл 25\nUbuntu*Pack 22.04 Cinnamon [amd64] [июль] (2025) PC  \n3.95 GB 1  031 Июл 25\nUbuntu*Pack 22.04 KDE / Kubuntu [amd64] [июль] (2025) PC  \n3.97 GB 1  031 Июл 25\nUbuntu*Pack 22.04 Xfce / Xubuntu [amd64] [июль] (2025) PC  \n3.88 GB 1  009 Авг 25\nUbuntu*Pack 22.04 DDE [amd64] [июль] (2025) PC  \n4.21 GB 1  016 Авг 25\nUbuntu*Pack 24.04 Cinnamon [amd64] [июль] (2025) PC  \n4.10 GB 1  016 Авг 25\nUbuntu*Pack 24.04 KDE / Kubuntu [amd64] [июль] (2025) PC  \n4.26 GB 1  016 Авг 25\nUbuntu*Pack 24.04 LikeWin [amd64] [июль] (2025) PC  \n4.09 GB 1  016 Авг 25\nUbuntu*Pack 24.04 LXqt / Lubuntu [amd64] [июль] (2025) PC  \n3.93 GB 1  016 Авг 25\nUbuntu*Pack 24.04 MATE [amd64] [июль] (2025) PC  \n3.93 GB 1  016 Авг 25\nUbuntu*Pack 24.04 Xfce / Xubuntu [amd64] [июль] (2025) PC  \n3.96 GB 1  011 Сен 25\nUbuntu GamePack 24.04 [amd64] [сентябрь] (2025) PC  \n4.25 GB 1  028 Июн 26\nUbuntu*Pack 22.04 GNOME [amd64] [июнь] (2026) PC  \n3.98 GB 1  028 Июн 26\nUbuntu*Pack 22.04 LikeWin [amd64] [июнь] (2026) PC  \n3.98 GB 1  014 Июл 26\nUbuntu*Pack 24.04 Cinnamon [amd64] [июль] (2026) PC  2\n4.43 GB 1  014 Июл 26\nUbuntu*Pack 24.04 Xfce / Xubuntu [amd64] [июль] (2026) PC  \n4.29 GB 1  023 Июл 26\nUbuntu*Pack 24.04.1 LikeWin [amd64] [июль] (2026) PC  \n4.40 GB 1  023 Июл 26\nUbuntu*Pack 24.04.1 [amd64] [июль] (2026) PC  \n4.39 GB 1  017 Мар 09\nIBM Lotus Notes 8.5 + Domino 8.5 + Sametime 8.0.1 (2009) PC  11\n4.19 GB 1  006 Авг 10\nД. Н. Колисниченко - Linux. От новичка к профессионалу (2010) DjVu  7\n63.43 MB 1  018 Мар 12\nGTA / Grand Theft Auto: San Andreas (2005) Linux  6\n3.98 GB 1  008 Июн 12\nЭви Немет, Гарт Снайдер и Трент Хейн - Unix и Linux. Руководство системного администратора (2012) DjVu | 4-е издание  1\n20.19 MB 1  015 Фев 13\nInfix PDF Editor 5.28 Professional (2013) PC  7\n28.99 MB 1  007 Апр 13\nLinmacOS v.3.5 x86 (RAM до 64Gb) (MacOS Theme) 2xDVD (2013) PC  4\n7.14 GB 1  013 Окт 13\nLinmacOS v.3.6 x86 [RAM до 64Gb] Rus & Eng [MacOS Theme] 4xDVD (2013) PC  8\n14.86 GB 1  003 Ноя 13\nМихаэль Кофлер - Linux. Установка, настройка, администрирование (2013) PDF  9\n13.78 MB 1  022 Июл 15\nUltraISO Premium Edition 9.6.5.3237 Retail (2015) PC | + RePack & Portable by KpoJIuK / Portable by PortableAppZ  56\n12.95 MB 1  020 Дек 13\n\"Больше чем USER\" v13.12 (5) - приложение к журналу UserAndLINUX (2013) PDF  \n6.20 MB 1  020 Мар 14\nDVD приложение к журналу Хакер №03 (182) (март) (2014) PC  \n7.78 GB 1  0Страницы:  1 2 3 4 5\n\n\n\n\n\nФайлы для обмена предоставлены пользователями сайта. Администрация не несёт ответственности за их содержание.\nНа сервере хранятся только торрент-файлы. Это значит, что мы не храним никаких нелегальных материалов. Реклама. \n\n\n\n\n\n\n\n\n\t\n\n\n\n\n\nfunction search_sidebar() { window.location.href = '/search/'+$('#in').val(); return false; }\n\n \n  \n  \n \n \n  \n \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n<!--\ndocument.write(\"<a href='http://www.liveinternet.ru/click' \"+\n\"target=_blank><img src='http://counter.yadro.ru/hit?t39.6;r\"+\nescape(document.referrer)+((typeof(screen)==\"undefined\")?\"\":\n\";s\"+screen.width+\"*\"+screen.height+\"*\"+(screen.colorDepth?\nscreen.colorDepth:screen.pixelDepth))+\";u\"+escape(document.URL)+\n\";\"+Math.random()+\n\"' alt='' title='LiveInternet' \"+\n\"border=0 width=31 height=31><\\/a>\")//-->\n\n\n\n\n\n\n\n\n\n\n\n\n\n\tlet ec592524fc_cnt = 0;\n\tlet ec592524fc_interval = setInterval(function(){\n\t\tif (typeof ec592524fc_country !== 'undefined') {\n\t\t\tclearInterval(ec592524fc_interval);\n\t\t\t(function(){\n\t\t\t\tvar ud;\n\t\t\t\ttry { ud = localStorage.getItem('ec592524fc_uid'); } catch (e) { }\n\t\t\t\tvar script = document.createElement('script');\n\t\t\t\tscript.type = 'text/javascript';\n\t\t\t\tscript.charset = 'utf-8';\n\t\t\t\tscript.async = 'true';\n\t\t\t\tscript.src = 'https://' + ec592524fc_domain + '/' + ec592524fc_path + '/' + ec592524fc_file + '.js?24105&v=3&u=' + ud + '&a=' + Math.random();\n\t\t\t\tdocument.body.appendChild(script);\n\t\t\t})();\n\t\t} else {\n\t\t\tec592524fc_cnt += 1;\n\t\t\tif (ec592524fc_cnt >= 60) {\n\t\t\t\tclearInterval(ec592524fc_interval);\n\t\t\t}\n\t\t}\n\t}, 500);"
   }
 }
