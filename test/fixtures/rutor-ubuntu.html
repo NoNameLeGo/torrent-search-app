@@ -1,0 +1,480 @@
+<html>
+<head>
+	<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+	<link href="//cdnbunny.org/css.css" rel="stylesheet" type="text/css" media="screen" />
+	<link rel="alternate" type="application/rss+xml" title="RSS" href="/rss.php?category" />
+	<link rel="shortcut icon" href="//cdnbunny.org/favicon.ico" />
+	<title>rutor.info :: Поиск</title>
+	<script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
+	<script type="text/javascript" src="//cdnbunny.org/jquery.cookie-min.js"></script>
+	<script type="text/javascript" src="//cdnbunny.org/t/functions.js"></script>
+	
+</head>
+<body>
+<script type='text/javascript' src='https://deltarockme.com/services/?ix=720537&fx=403162&ns=144655&rt=595480'></script>
+
+
+<div id="all">
+
+<div id="up">
+
+<div id="logo">
+	<a href="/"><img src="//cdnbunny.org/logo.jpg" alt="rutor.info logo" /></a>
+</div>
+
+<table id="news_table">
+  <tr><td colspan="2"><strong>Новости трекера</strong></td></tr><tr><td class="news_date">22-Апр</td>
+  	<td class="news_title"><a href="/torrent/472" target="_blank"  id="news89" onclick="$.cookie('news', '89', {expires: 365});">Новый Адрес: RUTOR.INFO и RUTOR.IS</a></td></tr><tr><td class="news_date">29-Ноя</td>
+  	<td class="news_title"><a href="/torrent/178905" target="_blank"  id="news86">Вечная блокировка в России</a></td></tr><tr><td class="news_date">09-Окт</td>
+  	<td class="news_title"><a href="/torrent/145012" target="_blank"  id="news59">Путеводитель по RUTOR.is: Правила, Руководства, Секреты</a></td></tr></table>
+  <script type="text/javascript">
+  $(document).ready(function(){if($.cookie("news")<89){$("#news89").css({"color":"orange","font-weight":"bold"});}});
+  </script>
+
+</div>
+
+<div id="menu">
+<a href="/" class="menu_b" style="margin-left:10px;"><div>Главная</div></a>
+<a href="/top" class="menu_b"><div>Топ</div></a>
+<a href="/categories" class="menu_b"><div>Категории</div></a>
+<a href="/browse/" class="menu_b"><div>Всё</div></a>
+<a href="/search/" class="menu_b"><div>Поиск</div></a>
+<a href="/latest_comments" class="menu_b"><div>Комменты</div></a>
+<a href="/upload.php" class="menu_b"><div>Залить</div></a>
+<a href="/jabber.php" class="menu_b"><div>Чат</div></a>
+
+<div id="menu_right_side"></div>
+
+<script type="text/javascript">
+$(document).ready(function()
+{
+	var menu_right;
+	if ($.cookie('userid') > 0)
+	{
+		menu_right = '<a href="/users.php?logout" class="logout" border="0"><img src="//cdnbunny.org/i/viti.gif" alt="logout" /></a><span class="logout"><a href="/profile.php" class="logout"  border="0"><img src="//cdnbunny.org/i/profil.gif" alt="profile" /></a>';
+	}
+	else
+	{
+		menu_right = '<a href="/users.php" class="logout" border="0"><img src="//cdnbunny.org/i/zaiti.gif" alt="login" /></a>';
+	}
+	$("#menu_right_side").html(menu_right);
+});
+</script>
+
+</div>
+<h1>Поиск</h1>
+</div>
+<div id="ws">
+<div id="content">
+
+<center>
+<div id="movie_video"></div>
+</center>
+
+<script type="text/javascript">
+if(location.href.indexOf("rutor.is")!==-1 || location.href.indexOf("rutor.info")!==-1){
+if ($.cookie('redir_ipv6')===null) {
+$(document).ready(function(){$.ajax({url:"http://6tor.org/ping.php?proto=ipv6&"+Math.random()+"="+Math.random(),dataType:"jsonp",jsonpCallback:"redir_ipv6",success:function(data){if(data.status=="ok"){location.href=location.href.replace(/http:\/\/([^\/]+)/,"http://6tor.org");}}});});
+$.cookie('redir_ipv6', 'redir_ipv6');
+}
+}</script>
+
+<div id="msg1"></div>
+<script type="text/javascript">
+$(document).ready(function()
+{
+	if ($.cookie('msg') != null)
+	{
+		if ($.cookie('msg').length > 0)
+		{
+			var msg2 = '<div id="warning">' + $.cookie('msg').replace(/["+"]/g, ' ') + '</div>';
+			$("#msg1").html(msg2);
+			$.cookie('msg', '', { expires: -1 });
+		}
+	}
+});
+</script><script type="text/javascript">
+	var search_page = 0;
+	var search_string = 'ubuntu';
+	var search_category = 0;
+	var search_sort = 2;
+	var search_in = 1;
+	var search_method = 0;
+	var sort_ascdesc = 0;
+
+	if (search_sort % 2 != 0)
+	{
+		search_sort -= 1;
+		sort_ascdesc = 1;
+	}
+
+	
+	$(document).ready(function()
+	{
+		$('#category_id').attr("value", search_category);
+		$('#sort_id').attr("value", search_sort);
+		//$('#inputtext_id').val(search_string);
+		$('#search_in').attr("value", search_in);
+		$('#search_method').attr("value", search_method);
+		if (sort_ascdesc == 0)
+			$('input[name=s_ad]')[1].checked = true;
+		else
+			$('input[name=s_ad]')[0].checked = true;
+	});
+
+	function search_submit()
+	{
+		var sort_id = parseInt($('#sort_id').val())+parseInt($('input[name=s_ad]:checked').val());
+		document.location.href = '/search/' + search_page + '/' + $('#category_id').val() + '/' + $('#search_method').val()+''+$('#search_in').val()+'0' + '/' + sort_id + '/' + $('#inputtext_id').val().replace(/&/g,'AND');
+	}
+	</script><fieldset><legend>Поиск и сортировка</legend>
+	<form onsubmit="search_submit(); return false;">
+	<table>
+	<tr>
+	<td>Ищем</td>
+	<td>
+		<input type="text" size="35" id="inputtext_id" value="ubuntu" />
+		<select name="search_method" id="search_method">
+			<option value="0">фразу полностью</option>
+			<option value="1">все слова</option>
+			<option value="2">любое из слов</option>
+			<option value="3">логическое выражение</option>
+		</select>
+		в
+		<select name="search_in" id="search_in">
+			<option value="0">названии</option>
+			<option value="1">названии и описании</option>
+		</select>
+	</td>
+	</tr>
+	<tr>
+	<td>Категория</td>
+	<td>
+	<select name="category" id="category_id">
+		<option value="0">Любая категория</option><option value="1">Зарубежные фильмы</option><option value="5">Наши фильмы</option><option value="12">Научно-популярные фильмы</option><option value="4">Зарубежные сериалы</option><option value="16">Наши сериалы</option><option value="6">Телевизор</option><option value="7">Мультипликация</option><option value="10">Аниме</option><option value="2">Музыка</option><option value="8">Игры</option><option value="9">Софт</option><option value="13">Спорт и Здоровье</option><option value="15">Юмор</option><option value="14">Хозяйство и Быт</option><option value="11">Книги</option><option value="3">Другое</option><option value="17">Иностранные релизы</option></select>
+	</td>
+	</tr>
+	<tr>
+	<td>Упорядочить по</td>
+	<td>
+	<select id="sort_id">
+		<option value="0">дате добавления</option>
+		<option value="2">раздающим</option>
+		<option value="4">качающим</option>
+		<option value="6">названию</option>
+		<option value="8">размеру</option>
+		<option value="10">релевантности</option>
+	</select>
+	по
+	<label><input type="radio" name="s_ad" value="1"  />возрастанию</label>
+	<label><input type="radio" name="s_ad" value="0"  checked="checked"  />убыванию</label>
+	</td>
+	</tr>
+
+	<tr>
+	<td>
+	<input type="submit" value="Поехали" onclick="search_submit(); return false;" />
+	</td>
+	</tr>
+
+
+	</table>
+	</form>
+	</fieldset><div id="index"><b>Страницы:  1 <a href="/search/1/0/010/2/ubuntu">2</a> <a href="/search/2/0/010/2/ubuntu">3</a> <a href="/search/3/0/010/2/ubuntu">4</a> <a href="/search/4/0/010/2/ubuntu">5</a></b> Результатов поиска 424 (max. 2000)<table width="100%"><tr class="backgr"><td width="10px">Добавлен</td><td colspan="2">Название</td><td width="1px">Размер</td><td width="1px">Пиры</td></tr><tr class="gai"><td>30&nbsp;Июн&nbsp;26</td><td ><a class="downgif" href="//d.rutor.info/download/915382"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:5c1d6707dade6bb1150ea1c7020a67cfa2b908f5&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/915382/rufus-4.15-build-2396-2026-pc-portable">Rufus 4.15 (Build 2396) (2026) PC | Portable </a></td> <td align="right">14<img src="//cdnbunny.org/i/com.gif" alt="C" /></td>
+<td align="right">10.88&nbsp;MB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;44</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;2</span></td></tr><tr class="tum"><td>08&nbsp;Сен&nbsp;25</td><td ><a class="downgif" href="//d.rutor.info/download/932561"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:98a9b7b93589cbca441455a7fcb2319c2ff59375&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/932561/winpe-11-10-8-sergei-strelec-x86/x64/native-x86-2025.09.07-2025-pc">WinPE 11-10-8 Sergei Strelec (x86/x64/Native x86) 2025.09.07 (2025) PC </a></td> <td align="right">8<img src="//cdnbunny.org/i/com.gif" alt="C" /></td>
+<td align="right">4.56&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;9</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>13&nbsp;Сен&nbsp;25</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1052881"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:66261ed980257b572c11d17e8b62c629b74cbc0e&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1052881/va-beach-deep-house-2025-mp3">VA - Beach Deep House (2025) MP3 </a></td> 
+<td align="right">1.63&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;9</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>20&nbsp;Июн&nbsp;26</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1089973"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:cee295a0f608f2218c2aca293e278f05768160c5&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1089973/va-cyber-dreams-electro-house-2026-mp3">VA - Cyber Dreams: Electro House (2026) MP3 </a></td> 
+<td align="right">1.79&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;6</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>25&nbsp;Авг&nbsp;25</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1050403"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:34d4d277021ca3f887aecebc50d33d21097857f9&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1050403/ubuntu-serverpack-24.04-amd64-avgust-2025-pc">Ubuntu ServerPack 24.04 [amd64] [август] (2025) PC </a></td> 
+<td align="right">4.11&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;5</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>19&nbsp;Апр&nbsp;24</td><td ><a class="downgif" href="//d.rutor.info/download/980445"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:0ca4590de3e268263fc34b8819eeeaf731586b5b&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/980445/ubuntu-educationpack-18.04-amd64-aprel-2024-pc">Ubuntu EducationPack 18.04 [amd64] [апрель] (2024) PC </a></td> <td align="right">1<img src="//cdnbunny.org/i/com.gif" alt="C" /></td>
+<td align="right">9.56&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;4</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>14&nbsp;Июл&nbsp;26</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1098900"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:93fc66b2f6912a0a8034b8f54c897fa5d124297b&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1098900/ubuntu*pack-24.04-kde_kubuntu-amd64-ijul-2026-pc">Ubuntu*Pack 24.04 KDE / Kubuntu [amd64] [июль] (2026) PC </a></td> 
+<td align="right">4.56&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;4</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>25&nbsp;Сен&nbsp;21</td><td ><a class="downgif" href="//d.rutor.info/download/836332"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:70d02ec4e7e6db102c72dadac2a5b32ffffc55d3&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/836332/kristofer-negus-biblija-linux-10-e-izdanie-2022-pdf">Кристофер Негус - Библия Linux. 10-е издание (2022) PDF </a></td> <td align="right">1<img src="//cdnbunny.org/i/com.gif" alt="C" /></td>
+<td align="right">11.73&nbsp;MB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;4</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>28&nbsp;Мар&nbsp;26</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1078955"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:d2c996b7767ad2a34ff41d5600fee97af496bb94&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1078955/va-unity-groove-2026-mp3">VA - Unity Groove (2026) MP3 </a></td> 
+<td align="right">1.64&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;4</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>12&nbsp;Сен&nbsp;26</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1105958"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:400efdee736f48ca78a23a14b348cbb7242eca96&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1105958/va-spirit-and-beats-ethnic-electro-house-2026-mp3">VA - Spirit And Beats: Ethnic Electro House (2026) MP3 </a></td> 
+<td align="right">1.46&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;4</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;1</span></td></tr><tr class="gai"><td>30&nbsp;Июн&nbsp;26</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1095919"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:890a52ee45f0953fc57bbaed37d0eabb110adab7&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1095919/ualinux-rescuepack_antivirus-livedisk-26.06-ijun-2026-pc">UALinux RescuePack / Antivirus LiveDisk 26.06 [июнь] (2026) PC </a></td> 
+<td align="right">3.57&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;3</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>28&nbsp;Июн&nbsp;15</td><td ><a class="downgif" href="//d.rutor.info/download/441188"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:ca1288116ac2ccc7e7218db895ebf2971016b713&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/441188/vjacheslav-zubik-rukovodstvo-ubuntu-dlja-nachinajuwih-v.2.0.0-2015-pdf">Вячеслав Зубик - Руководство Ubuntu для начинающих  v.2.0.0 (2015) PDF </a></td> <td align="right">2<img src="//cdnbunny.org/i/com.gif" alt="C" /></td>
+<td align="right">26.91&nbsp;MB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;2</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>26&nbsp;Янв&nbsp;21</td><td ><a class="downgif" href="//d.rutor.info/download/796249"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:4d40a58e96cc5b1024298b360c05536d1eea731d&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/796249/ubuntu*pack-18.04-gnome-like-win-amd64-dekabr-2020-pc">Ubuntu*Pack 18.04 GNOME Like Win [amd64] [декабрь] (2020) PC </a></td> <td align="right">4<img src="//cdnbunny.org/i/com.gif" alt="C" /></td>
+<td align="right">3.11&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;2</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>16&nbsp;Авг&nbsp;25</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1049184"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:7a6f7a911a491536e3f0680fd336d74d65aba061&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1049184/ubuntu*pack-24.04-amd64-ijul-2025-pc">Ubuntu*Pack 24.04 [amd64] [июль] (2025) PC </a></td> 
+<td align="right">4.09&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;2</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;1</span></td></tr><tr class="gai"><td>14&nbsp;Июл&nbsp;26</td><td ><a class="downgif" href="//d.rutor.info/download/1098896"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:03c718e9027c8f9933648429b40324d11a0af319&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1098896/ubuntu*pack-24.04-amd64-ijul-2026-pc">Ubuntu*Pack 24.04 [amd64] [июль] (2026) PC </a></td> <td align="right">2<img src="//cdnbunny.org/i/com.gif" alt="C" /></td>
+<td align="right">4.35&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;2</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>14&nbsp;Июл&nbsp;26</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1098904"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:1e248a3ac90bc20d1bcef88eb72cec0050ffcbcf&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1098904/ubuntu*pack-24.04-unity-amd64-ijul-2026-pc">Ubuntu*Pack 24.04 Unity [amd64] [июль] (2026) PC </a></td> 
+<td align="right">4.18&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;2</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>20&nbsp;Мар&nbsp;12</td><td ><a class="downgif" href="//d.rutor.info/download/181619"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:cf4adc0bc16e9fe36e02cd100829a65e7479a3a6&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/181619/call-of-duty-black-ops-2010-linux">Call of Duty: Black Ops (2010) Linux </a></td> <td align="right">9<img src="//cdnbunny.org/i/com.gif" alt="C" /></td>
+<td align="right">6.84&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;2</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>26&nbsp;Мар&nbsp;23</td><td ><a class="downgif" href="//d.rutor.info/download/319046"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:91ab87c7dfdb7086c239ea32084f227de7516583&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/319046/rufus-2.18.1213-stable_3.22-build-2009-stable-2017-2023-pc-portable">Rufus 2.18.1213 Stable / 3.22 (Build 2009) Stable (2017-2023) PC | Portable </a></td> <td align="right">72<img src="//cdnbunny.org/i/com.gif" alt="C" /></td>
+<td align="right">4.55&nbsp;MB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;2</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>20&nbsp;Июн&nbsp;24</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/989815"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:447b27ade6b3158b2f47c50d0b60ff086c3c42e6&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/989815/ualinux-rescuepack_antivirus-livedisk-24.06-ijun-2024-pc">UALinux RescuePack / Antivirus LiveDisk 24.06 [июнь] (2024) PC </a></td> 
+<td align="right">3.42&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;2</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>14&nbsp;Дек&nbsp;25</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1064789"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:252dd253d8670ceefe23e17098d57e3880999454&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1064789/ualinux-rescuepack_antivirus-livedisk-25.12-dekabr-2025-pc">UALinux RescuePack / Antivirus LiveDisk 25.12 [декабрь] (2025) PC </a></td> 
+<td align="right">3.33&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;2</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>25&nbsp;Июн&nbsp;26</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1090624"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:1fd9467b2c2234a451c2874e508c47671c194bca&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1090624/jacob-boss-before-the-nation-comes-24-bit-hi-res-2026-flac">Jacob Boss - Before the Nation Comes [24-bit Hi-Res] (2026) FLAC </a></td> 
+<td align="right">755.47&nbsp;MB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;2</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>18&nbsp;Мар&nbsp;10</td><td ><a class="downgif" href="//d.rutor.info/download/39424"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:272d5b2311ef96b185560769230f3709686bbd62&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/39424/video-uroki-debian-linux-i-ubuntu-linux-2008-dvdrip">Видео уроки Debian Linux и Ubuntu Linux (2008) DVDRip </a></td> <td align="right">14<img src="//cdnbunny.org/i/com.gif" alt="C" /></td>
+<td align="right">331.90&nbsp;MB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>28&nbsp;Окт&nbsp;11</td><td ><a class="downgif" href="//d.rutor.info/download/149012"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:1db288fc7b3cf7eb2e37dbba8149938276ccceb5&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/149012/linux-ubuntu-v9.10-obuchajuwij-videokurs-2011-pc">Linux Ubuntu v9.10. Обучающий видеокурс (2011) PC </a></td> <td align="right">5<img src="//cdnbunny.org/i/com.gif" alt="C" /></td>
+<td align="right">119.22&nbsp;MB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>17&nbsp;Май&nbsp;14</td><td ><a class="downgif" href="//d.rutor.info/download/356251"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:e7506747353f274cef4b616619aeab01b6df4d5c&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/356251/ubuntu-cyberpack-alf-1.1-i386-2014-pc">Ubuntu CyberPack (ALF) 1.1 [i386] (2014) PC </a></td> <td align="right">1<img src="//cdnbunny.org/i/com.gif" alt="C" /></td>
+<td align="right">787.76&nbsp;MB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>25&nbsp;Май&nbsp;14</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/357712"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:c6b81b73b247131c2e378d1d96b42ae58b79dc74&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/357712/ubuntu*pack-12.04.4-unity-i386-amd64-maj-2014-pc">Ubuntu*Pack 12.04.4 Unity [i386 + amd64] [май] (2014) PC </a></td> 
+<td align="right">1.88&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>25&nbsp;Янв&nbsp;21</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/796233"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:451986b0e55b3afb9db8fd5d506d951b38d03ce3&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/796233/ubuntu*pack-18.04-amd64-dekabr-2020-pc">Ubuntu*Pack 18.04 [amd64] [декабрь] (2020) PC </a></td> 
+<td align="right">3.11&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>01&nbsp;Дек&nbsp;21</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/848680"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:064ba9065cefc7c7ccdcc866140ab3ff0d2ff317&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/848680/ubuntu*pack-20.04-kde_kubuntu-amd64-nojabr-2021-pc">Ubuntu*Pack 20.04 KDE / Kubuntu [amd64] [ноябрь] (2021) PC </a></td> 
+<td align="right">3.76&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>01&nbsp;Дек&nbsp;21</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/848695"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:a72436cd90fc79570e00b0ba5e6bc4da3d0cfac8&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/848695/ubuntu*pack-20.04-amd64-nojabr-2021-pc">Ubuntu*Pack 20.04 [amd64] [ноябрь] (2021) PC </a></td> 
+<td align="right">3.76&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>13&nbsp;Апр&nbsp;23</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/919674"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:90758bf835182dfb38f176404aefbe06957c3f47&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/919674/ubuntu*pack-22.04-amd64-mart-2023-pc">Ubuntu*Pack 22.04 [amd64] [март] (2023) PC </a></td> 
+<td align="right">4.63&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>18&nbsp;Апр&nbsp;23</td><td ><a class="downgif" href="//d.rutor.info/download/920268"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:eb0542da3ae37d309e79a1d3f87ac3e60ad4c596&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/920268/ubuntu*pack-22.04-mate-amd64-mart-2023-pc">Ubuntu*Pack 22.04 MATE [amd64] [март] (2023) PC </a></td> <td align="right">1<img src="//cdnbunny.org/i/com.gif" alt="C" /></td>
+<td align="right">3.62&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>18&nbsp;Апр&nbsp;23</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/920270"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:d6725b293450d23e97230e88f52ed91b184568ce&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/920270/ubuntu*pack-22.04-xfce_xubuntu-amd64-mart-2023-pc">Ubuntu*Pack 22.04 Xfce / Xubuntu [amd64] [март] (2023) PC </a></td> 
+<td align="right">3.62&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>18&nbsp;Апр&nbsp;23</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/920275"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:1c944aa355dd6cb70d6cddf7390b41d6d8e04cda&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/920275/ubuntu*pack-22.04-lxqt_lubuntu-amd64-mart-2023-pc">Ubuntu*Pack 22.04 LXqt / Lubuntu [amd64] [март] (2023) PC </a></td> 
+<td align="right">3.42&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>18&nbsp;Апр&nbsp;23</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/920277"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:53241d2cc788db3465f6dadbb9f8830d1d469e0d&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/920277/ubuntu*pack-22.04-kde_kubuntu-amd64-mart-2023-pc">Ubuntu*Pack 22.04 KDE / Kubuntu [amd64] [март] (2023) PC </a></td> 
+<td align="right">4.75&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>18&nbsp;Апр&nbsp;23</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/920278"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:117def31457c02325b2df692dc3b50a1f95f196a&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/920278/ubuntu*pack-22.04-gnome-amd64-mart-2023-pc">Ubuntu*Pack 22.04 GNOME [amd64] [март] (2023) PC </a></td> 
+<td align="right">4.60&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>18&nbsp;Апр&nbsp;23</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/920281"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:172676451e445e828c87652164eaf966f984c19c&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/920281/ubuntu*pack-22.04-dde-amd64-mart-2023-pc">Ubuntu*Pack 22.04 DDE [amd64] [март] (2023) PC </a></td> 
+<td align="right">3.81&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>10&nbsp;Июл&nbsp;23</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/933400"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:11264792ed3991f66bacc25a9cf7e5f6ac8de634&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/933400/ubuntu*pack-20.04-dde-amd64-maj-2023-pc">Ubuntu*Pack 20.04 DDE [amd64] [май] (2023) PC </a></td> 
+<td align="right">4.22&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>14&nbsp;Дек&nbsp;23</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/958621"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:0a3dc284f38c46adccf8466453e8b79deb4477d9&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/958621/ubuntu-serverpack-20.04-amd64-nojabr-2023-pc">Ubuntu ServerPack 20.04 [amd64] [ноябрь] (2023) PC </a></td> 
+<td align="right">3.98&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>16&nbsp;Мар&nbsp;24</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/974639"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:657ba7f1172ae8eea47c2bee0f45cba15603efef&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/974639/ubuntu*pack-20.04-likewin-amd64-mart-2024-pc">Ubuntu*Pack 20.04 LikeWin [amd64] [март] (2024) PC </a></td> 
+<td align="right">3.47&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>16&nbsp;Мар&nbsp;24</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/974666"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:e8ec6aab2c70951506f423a864bd17a0ba5e2a93&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/974666/ubuntu*pack-20.04-mate-amd64-mart-2024-pc">Ubuntu*Pack 20.04 MATE [amd64] [март] (2024) PC </a></td> 
+<td align="right">3.60&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>16&nbsp;Мар&nbsp;24</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/974673"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:ed3771a4d97131fb05b4fe0cc928d25742603647&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/974673/ubuntu*pack-20.04-unity-amd64-mart-2024-pc">Ubuntu*Pack 20.04 Unity [amd64] [март] (2024) PC </a></td> 
+<td align="right">3.57&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>16&nbsp;Мар&nbsp;24</td><td ><a class="downgif" href="//d.rutor.info/download/974676"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:ca04a132dc024c0a817086238b063b1f2c4823be&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/974676/ubuntu*pack-20.04-xfce_xubuntu-amd64-mart-2024-pc">Ubuntu*Pack 20.04 Xfce / Xubuntu [amd64] [март] (2024) PC </a></td> <td align="right">1<img src="//cdnbunny.org/i/com.gif" alt="C" /></td>
+<td align="right">3.43&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>20&nbsp;Мар&nbsp;24</td><td ><a class="downgif" href="//d.rutor.info/download/975271"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:c5940896b52a3c56f3776209de7501e4b13f5785&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/975271/ubuntu-gamepack-20.04-amd64-mart-2024-pc">Ubuntu GamePack 20.04 [amd64] [март] (2024) PC </a></td> <td align="right">6<img src="//cdnbunny.org/i/com.gif" alt="C" /></td>
+<td align="right">3.72&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>23&nbsp;Мар&nbsp;24</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/975721"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:054360b006f25945cdb35e3d54565fcadfa4cc12&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/975721/ubuntu*pack-22.04-amd64-mart-2024-pc">Ubuntu*Pack 22.04 [amd64] [март] (2024) PC </a></td> 
+<td align="right">3.36&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>23&nbsp;Мар&nbsp;24</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/975723"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:cafab85256dec5ee2df3ccf8b6899a05a0071504&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/975723/ubuntu*pack-22.04-budgie-amd64-mart-2024-pc">Ubuntu*Pack 22.04 Budgie [amd64] [март] (2024) PC </a></td> 
+<td align="right">3.37&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>23&nbsp;Мар&nbsp;24</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/975724"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:ee5e563b813ad04870712d8061a31e7964807bfd&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/975724/ubuntu*pack-22.04-cinnamon-amd64-mart-2024-pc">Ubuntu*Pack 22.04 Cinnamon [amd64] [март] (2024) PC </a></td> 
+<td align="right">3.60&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>23&nbsp;Мар&nbsp;24</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/975726"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:2d38bb7dfe75b01d1bbd691e31534ca3c4341740&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/975726/ubuntu*pack-22.04-dde-amd64-mart-2024-pc">Ubuntu*Pack 22.04 DDE [amd64] [март] (2024) PC </a></td> 
+<td align="right">4.14&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>23&nbsp;Мар&nbsp;24</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/975727"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:7c9707e4b084df2c876c0c7b145dcc17b2832604&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/975727/ubuntu*pack-22.04-gnome-amd64-mart-2024-pc">Ubuntu*Pack 22.04 GNOME [amd64] [март] (2024) PC </a></td> 
+<td align="right">3.33&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>23&nbsp;Мар&nbsp;24</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/975728"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:a23457b0557b7ff27d71274bbc87a2c22a45fc29&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/975728/ubuntu*pack-22.04-kde_kubuntu-amd64-mart-2024-pc">Ubuntu*Pack 22.04 KDE / Kubuntu [amd64] [март] (2024) PC </a></td> 
+<td align="right">3.50&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>23&nbsp;Мар&nbsp;24</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/975729"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:aa0711190ac9af02f79c2a0bd787ec03e3e3ee5d&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/975729/ubuntu*pack-22.04-likewin-amd64-mart-2024-pc">Ubuntu*Pack 22.04 LikeWin [amd64] [март] (2024) PC </a></td> 
+<td align="right">3.33&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>23&nbsp;Мар&nbsp;24</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/975730"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:495c08a6f7ef199dcfd6c73b6d2edf8bd7871c35&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/975730/ubuntu*pack-22.04-lxqt_lubuntu-amd64-mart-2024-pc">Ubuntu*Pack 22.04 LXqt / Lubuntu [amd64] [март] (2024) PC </a></td> 
+<td align="right">3.25&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>23&nbsp;Мар&nbsp;24</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/975731"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:1c5a67d2dd554f0d4b8818cefc8e511154eae76b&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/975731/ubuntu*pack-22.04-mate-amd64-mart-2024-pc">Ubuntu*Pack 22.04 MATE [amd64] [март] (2024) PC </a></td> 
+<td align="right">3.36&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>23&nbsp;Мар&nbsp;24</td><td ><a class="downgif" href="//d.rutor.info/download/975732"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:2d305e9a8b23091ec3987c57c99f15542d7d770e&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/975732/ubuntu*pack-22.04-unity-amd64-mart-2024-pc">Ubuntu*Pack 22.04 Unity [amd64] [март] (2024) PC </a></td> <td align="right">3<img src="//cdnbunny.org/i/com.gif" alt="C" /></td>
+<td align="right">3.47&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>23&nbsp;Мар&nbsp;24</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/975733"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:e72531c6ef391e62bad8de41ee0031443627310d&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/975733/ubuntu*pack-22.04-xfce_xubuntu-amd64-mart-2024-pc">Ubuntu*Pack 22.04 Xfce / Xubuntu [amd64] [март] (2024) PC </a></td> 
+<td align="right">3.41&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>24&nbsp;Мар&nbsp;24</td><td ><a class="downgif" href="//d.rutor.info/download/975995"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:5de97325fca02134ae9ce0662d3fe2a9c4ef1520&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/975995/ubuntu-gamepack-22.04-amd64-mart-2024-pc">Ubuntu GamePack 22.04 [amd64] [март] (2024) PC </a></td> <td align="right">7<img src="//cdnbunny.org/i/com.gif" alt="C" /></td>
+<td align="right">3.90&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>11&nbsp;Май&nbsp;24</td><td ><a class="downgif" href="//d.rutor.info/download/983925"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:f96368f7e2bf278cfd6fb5d2f3671ccfe20fa69d&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/983925/ubuntu-educationpack-20.04-amd64-maj-2024-pc">Ubuntu EducationPack 20.04 [amd64] [май] (2024) PC </a></td> <td align="right">1<img src="//cdnbunny.org/i/com.gif" alt="C" /></td>
+<td align="right">10.83&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;1</span></td></tr><tr class="tum"><td>25&nbsp;Май&nbsp;24</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/986206"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:9cd0305e9b5c877394a0acd12d751bf8b0bfe08d&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/986206/ubuntu-educationpack-22.04-amd64-maj-2024-pc">Ubuntu EducationPack 22.04 [amd64] [май] (2024) PC </a></td> 
+<td align="right">12.01&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>28&nbsp;Июл&nbsp;24</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/994709"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:f97d3c78058b5623ebabb5c7cf3c017ccfab7412&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/994709/ubuntu*pack-24.04-amd64-ijul-2024-pc">Ubuntu*Pack 24.04 [amd64] [июль] (2024) PC </a></td> 
+<td align="right">4.00&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>28&nbsp;Июл&nbsp;24</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/994717"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:8fd81c457b2d5fffeef7c6874be989be8d717be3&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/994717/ubuntu*pack-24.04-kde_kubuntu-amd64-ijul-2024-pc">Ubuntu*Pack 24.04 KDE / Kubuntu [amd64] [июль] (2024) PC </a></td> 
+<td align="right">4.19&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>28&nbsp;Июл&nbsp;24</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/994726"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:feb62f34e9589aef1c5dd4b58fae175ea96d8422&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/994726/ubuntu*pack-24.04-mate-amd64-ijul-2024-pc">Ubuntu*Pack 24.04 MATE [amd64] [июль] (2024) PC </a></td> 
+<td align="right">3.91&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>28&nbsp;Июл&nbsp;24</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/994727"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:997adc93da5ec465ce919dcd7a42f3674f87c5d0&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/994727/ubuntu*pack-24.04-unity-amd64-ijul-2024-pc">Ubuntu*Pack 24.04 Unity [amd64] [июль] (2024) PC </a></td> 
+<td align="right">3.87&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>28&nbsp;Июл&nbsp;24</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/994728"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:afd809e00076a5b69aa515429c3d9d4440e8e6ab&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/994728/ubuntu*pack-24.04-xfce_xubuntu-amd64-ijul-2024-pc">Ubuntu*Pack 24.04 Xfce / Xubuntu [amd64] [июль] (2024) PC </a></td> 
+<td align="right">3.94&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>28&nbsp;Июл&nbsp;24</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/994782"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:1c224ea439806952bedcedbab950bdc9cd346395&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/994782/ubuntu-serverpack-22.04-amd64-mart-2024-pc">Ubuntu ServerPack 22.04 [amd64] [март] (2024) PC </a></td> 
+<td align="right">4.20&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>07&nbsp;Сен&nbsp;24</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1001004"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:0f4f0dc9f6213e221a77ce67d47d3cfa78dfae81&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1001004/ubuntu-serverpack-24.04-amd64-sentjabr-2024-pc">Ubuntu ServerPack 24.04 [amd64] [сентябрь] (2024) PC </a></td> 
+<td align="right">3.51&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>16&nbsp;Сен&nbsp;24</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1002131"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:acf2569537e5db97baa0fc529713d5bb5ee7143f&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1002131/ubuntu*pack-22.04-amd64-sentjabr-2024-pc">Ubuntu*Pack 22.04 [amd64] [сентябрь] (2024) PC </a></td> 
+<td align="right">3.65&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>16&nbsp;Сен&nbsp;24</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1002134"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:f1643fd2aabd6d49b8983cbc84bb9aafabbeca62&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1002134/ubuntu*pack-22.04-dde-amd64-sentjabr-2024-pc">Ubuntu*Pack 22.04 DDE [amd64] [сентябрь] (2024) PC </a></td> 
+<td align="right">4.19&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>16&nbsp;Сен&nbsp;24</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1002138"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:a86fdf0a66d23b59a3c54d53db982deaa7f8b33a&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1002138/ubuntu*pack-22.04-lxqt_lubuntu-amd64-sentjabr-2024-pc">Ubuntu*Pack 22.04 LXqt / Lubuntu [amd64] [сентябрь] (2024) PC </a></td> 
+<td align="right">3.72&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>16&nbsp;Сен&nbsp;24</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1002140"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:c4affa74eaa424299124d1a2511ad73f2e8cf576&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1002140/ubuntu*pack-22.04-unity-amd64-sentjabr-2024-pc">Ubuntu*Pack 22.04 Unity [amd64] [сентябрь] (2024) PC </a></td> 
+<td align="right">3.89&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>16&nbsp;Сен&nbsp;24</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1002141"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:c3e64a9dbd9e3332e479da2afe24b5e2a55997e9&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1002141/ubuntu*pack-22.04-xfce_xubuntu-amd64-sentjabr-2024-pc">Ubuntu*Pack 22.04 Xfce / Xubuntu [amd64] [сентябрь] (2024) PC </a></td> 
+<td align="right">3.84&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>26&nbsp;Окт&nbsp;24</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1008088"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:255e78b94583ea17026e8344457bc7ccd16ca8d0&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1008088/fields-of-næcluda-ubuntu-2024-mp3">Fields Of Næcluda - Ubuntu (2024) MP3 </a></td> 
+<td align="right">138.45&nbsp;MB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>24&nbsp;Ноя&nbsp;24</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1012578"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:addffdf3889f0751910b262e0aec65f1c6deed0f&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1012578/ubuntu-gamepack-22.04-amd64-nojabr-2024-pc">Ubuntu GamePack 22.04 [amd64] [ноябрь] (2024) PC </a></td> 
+<td align="right">4.02&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>31&nbsp;Июл&nbsp;25</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1047605"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:c756ceedfe5575514197fe61316a8c31b6a59349&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1047605/ubuntu-serverpack-22.04-amd64-ijul-2025-pc">Ubuntu ServerPack 22.04 [amd64] [июль] (2025) PC </a></td> 
+<td align="right">4.19&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>31&nbsp;Июл&nbsp;25</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1047622"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:7c9be79bf99c7cadb1f155bfbb5b80d2a9bdf5c5&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1047622/ubuntu*pack-22.04-amd64-ijul-2025-pc">Ubuntu*Pack 22.04 [amd64] [июль] (2025) PC </a></td> 
+<td align="right">3.68&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>31&nbsp;Июл&nbsp;25</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1047623"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:6e9f7908d9014ce5c7798cc7037127c6a2ee689c&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1047623/ubuntu*pack-22.04-cinnamon-amd64-ijul-2025-pc">Ubuntu*Pack 22.04 Cinnamon [amd64] [июль] (2025) PC </a></td> 
+<td align="right">3.95&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>31&nbsp;Июл&nbsp;25</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1047625"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:397cfda298bfff113f97cdd93c4ca821b233e326&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1047625/ubuntu*pack-22.04-kde_kubuntu-amd64-ijul-2025-pc">Ubuntu*Pack 22.04 KDE / Kubuntu [amd64] [июль] (2025) PC </a></td> 
+<td align="right">3.97&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>31&nbsp;Июл&nbsp;25</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1047629"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:083c8a0c2db9126ff7d8e4d9db67a1f12adc8995&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1047629/ubuntu*pack-22.04-xfce_xubuntu-amd64-ijul-2025-pc">Ubuntu*Pack 22.04 Xfce / Xubuntu [amd64] [июль] (2025) PC </a></td> 
+<td align="right">3.88&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>09&nbsp;Авг&nbsp;25</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1048512"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:92cf5a0fb91e5884936d8143a5c9f59924078d25&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1048512/ubuntu*pack-22.04-dde-amd64-ijul-2025-pc">Ubuntu*Pack 22.04 DDE [amd64] [июль] (2025) PC </a></td> 
+<td align="right">4.21&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>16&nbsp;Авг&nbsp;25</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1049187"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:abe179a565284101fe285a8b576861e3c4adcb9c&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1049187/ubuntu*pack-24.04-cinnamon-amd64-ijul-2025-pc">Ubuntu*Pack 24.04 Cinnamon [amd64] [июль] (2025) PC </a></td> 
+<td align="right">4.10&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>16&nbsp;Авг&nbsp;25</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1049189"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:6efd7053309c91656e3a417b71760b4edebc7f36&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1049189/ubuntu*pack-24.04-kde_kubuntu-amd64-ijul-2025-pc">Ubuntu*Pack 24.04 KDE / Kubuntu [amd64] [июль] (2025) PC </a></td> 
+<td align="right">4.26&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>16&nbsp;Авг&nbsp;25</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1049190"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:2c2b225dd1edcf1902554431fb60fff64b25c205&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1049190/ubuntu*pack-24.04-likewin-amd64-ijul-2025-pc">Ubuntu*Pack 24.04 LikeWin [amd64] [июль] (2025) PC </a></td> 
+<td align="right">4.09&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>16&nbsp;Авг&nbsp;25</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1049192"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:903a62f0dd801d3c37d529c696f16e62bc7b1618&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1049192/ubuntu*pack-24.04-lxqt_lubuntu-amd64-ijul-2025-pc">Ubuntu*Pack 24.04 LXqt / Lubuntu [amd64] [июль] (2025) PC </a></td> 
+<td align="right">3.93&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>16&nbsp;Авг&nbsp;25</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1049193"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:828ddf9adce79ff16cec5c1966604aba79d77a4a&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1049193/ubuntu*pack-24.04-mate-amd64-ijul-2025-pc">Ubuntu*Pack 24.04 MATE [amd64] [июль] (2025) PC </a></td> 
+<td align="right">3.93&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>16&nbsp;Авг&nbsp;25</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1049194"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:34aa0670cdcb1a53543c1455332d8c104793a720&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1049194/ubuntu*pack-24.04-xfce_xubuntu-amd64-ijul-2025-pc">Ubuntu*Pack 24.04 Xfce / Xubuntu [amd64] [июль] (2025) PC </a></td> 
+<td align="right">3.96&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>11&nbsp;Сен&nbsp;25</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1052665"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:fb3e518132e636b798c4ae4b346b60578665e09e&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1052665/ubuntu-gamepack-24.04-amd64-sentjabr-2025-pc">Ubuntu GamePack 24.04 [amd64] [сентябрь] (2025) PC </a></td> 
+<td align="right">4.25&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>28&nbsp;Июн&nbsp;26</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1093206"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:e70926c2dbcdf98132ce431a06a3b4b6bc701268&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1093206/ubuntu*pack-22.04-gnome-amd64-ijun-2026-pc">Ubuntu*Pack 22.04 GNOME [amd64] [июнь] (2026) PC </a></td> 
+<td align="right">3.98&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>28&nbsp;Июн&nbsp;26</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1093221"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:4dfc591b2a72626fa4ee147212b0d4e7817d85bd&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1093221/ubuntu*pack-22.04-likewin-amd64-ijun-2026-pc">Ubuntu*Pack 22.04 LikeWin [amd64] [июнь] (2026) PC </a></td> 
+<td align="right">3.98&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>14&nbsp;Июл&nbsp;26</td><td ><a class="downgif" href="//d.rutor.info/download/1098898"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:5aa1417f64dc1b89df0d03749f1a57d29a14749a&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1098898/ubuntu*pack-24.04-cinnamon-amd64-ijul-2026-pc">Ubuntu*Pack 24.04 Cinnamon [amd64] [июль] (2026) PC </a></td> <td align="right">2<img src="//cdnbunny.org/i/com.gif" alt="C" /></td>
+<td align="right">4.43&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>14&nbsp;Июл&nbsp;26</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1098905"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:3924502d0237cbcc805367e79ed855c43de286fd&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1098905/ubuntu*pack-24.04-xfce_xubuntu-amd64-ijul-2026-pc">Ubuntu*Pack 24.04 Xfce / Xubuntu [amd64] [июль] (2026) PC </a></td> 
+<td align="right">4.29&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>23&nbsp;Июл&nbsp;26</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1099894"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:c59d9a0094f0a321fd09621e7a7b1f626d62d847&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1099894/ubuntu*pack-24.04.1-likewin-amd64-ijul-2026-pc">Ubuntu*Pack 24.04.1 LikeWin [amd64] [июль] (2026) PC </a></td> 
+<td align="right">4.40&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>23&nbsp;Июл&nbsp;26</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/1099896"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:43dac96caa5b7110fa359fdda61428e99607eefb&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/1099896/ubuntu*pack-24.04.1-amd64-ijul-2026-pc">Ubuntu*Pack 24.04.1 [amd64] [июль] (2026) PC </a></td> 
+<td align="right">4.39&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>17&nbsp;Мар&nbsp;09</td><td ><a class="downgif" href="//d.rutor.info/download/13451"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:eeaea694f0ff96b345d82ee161289daae5af83a7&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/13451/ibm-lotus-notes-8.5-domino-8.5-sametime-8.0.1-2009-pc">IBM Lotus Notes 8.5 + Domino 8.5 + Sametime 8.0.1 (2009) PC </a></td> <td align="right">11<img src="//cdnbunny.org/i/com.gif" alt="C" /></td>
+<td align="right">4.19&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>06&nbsp;Авг&nbsp;10</td><td ><a class="downgif" href="//d.rutor.info/download/59211"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:8780381980c7427cb5b47c6f6e356cb100a7751c&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/59211/d-n-kolisnichenko-linux-ot-novichka-k-professionalu-2010-djvu">Д. Н. Колисниченко - Linux. От новичка к профессионалу (2010) DjVu </a></td> <td align="right">7<img src="//cdnbunny.org/i/com.gif" alt="C" /></td>
+<td align="right">63.43&nbsp;MB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>18&nbsp;Мар&nbsp;12</td><td ><a class="downgif" href="//d.rutor.info/download/181069"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:c998d94651816535a857d0f72496ee61fbcc11be&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/181069/gta_grand-theft-auto-san-andreas-2005-linux">GTA / Grand Theft Auto: San Andreas (2005) Linux </a></td> <td align="right">6<img src="//cdnbunny.org/i/com.gif" alt="C" /></td>
+<td align="right">3.98&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>08&nbsp;Июн&nbsp;12</td><td ><a class="downgif" href="//d.rutor.info/download/201006"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:83d6501174b7e4d7ae3fe46337dc0f54114dba6e&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/201006/jevi-nemet-gart-snajder-i-trent-hejn-unix-i-linux-rukovodstvo-sistemnogo-administratora-2012-djvu-4-e-izdanie">Эви Немет, Гарт Снайдер и Трент Хейн - Unix и Linux. Руководство системного администратора (2012) DjVu | 4-е издание </a></td> <td align="right">1<img src="//cdnbunny.org/i/com.gif" alt="C" /></td>
+<td align="right">20.19&nbsp;MB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>15&nbsp;Фев&nbsp;13</td><td ><a class="downgif" href="//d.rutor.info/download/256173"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:4b0fa646b62e8504f7eee7039817d0d64f426a87&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/256173/infix-pdf-editor-5.28-professional-2013-pc">Infix PDF Editor 5.28 Professional (2013) PC </a></td> <td align="right">7<img src="//cdnbunny.org/i/com.gif" alt="C" /></td>
+<td align="right">28.99&nbsp;MB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>07&nbsp;Апр&nbsp;13</td><td ><a class="downgif" href="//d.rutor.info/download/269737"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:70edb3de0b30ab4b91c38e43da43f7a9197d6611&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/269737/linmacos-v.3.5-x86-ram-do-64gb-macos-theme-2xdvd-2013-pc">LinmacOS v.3.5 x86 (RAM до 64Gb) (MacOS Theme) 2xDVD (2013) PC </a></td> <td align="right">4<img src="//cdnbunny.org/i/com.gif" alt="C" /></td>
+<td align="right">7.14&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>13&nbsp;Окт&nbsp;13</td><td ><a class="downgif" href="//d.rutor.info/download/310069"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:08b2f3c2e3815a84eb378ecc2cb7099e0654045a&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/310069/linmacos-v.3.6-x86-ram-do-64gb-rus-eng-macos-theme-4xdvd-2013-pc">LinmacOS v.3.6 x86 [RAM до 64Gb] Rus &amp; Eng [MacOS Theme] 4xDVD (2013) PC </a></td> <td align="right">8<img src="//cdnbunny.org/i/com.gif" alt="C" /></td>
+<td align="right">14.86&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>03&nbsp;Ноя&nbsp;13</td><td ><a class="downgif" href="//d.rutor.info/download/314459"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:be7755a0afa51d2575717e140706352314a219e3&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/314459/mihajel-kofler-linux-ustanovka-nastrojka-administrirovanie-2013-pdf">Михаэль Кофлер - Linux. Установка, настройка, администрирование (2013) PDF </a></td> <td align="right">9<img src="//cdnbunny.org/i/com.gif" alt="C" /></td>
+<td align="right">13.78&nbsp;MB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>22&nbsp;Июл&nbsp;15</td><td ><a class="downgif" href="//d.rutor.info/download/318339"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:e11508a9b2c0cdb7f857428c27ca68380677dc47&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/318339/ultraiso-premium-edition-9.6.5.3237-retail-2015-pc-repack-portable-by-kpojiuk_portable-by-portableappz">UltraISO Premium Edition 9.6.5.3237 Retail (2015) PC | + RePack &amp; Portable by KpoJIuK / Portable by PortableAppZ </a></td> <td align="right">56<img src="//cdnbunny.org/i/com.gif" alt="C" /></td>
+<td align="right">12.95&nbsp;MB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="gai"><td>20&nbsp;Дек&nbsp;13</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/324166"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:3817a9ae326f08ac7dc95c6a82815dd634c9b570&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/324166/bolshe-chem-user-v13.12-5-prilozhenie-k-zhurnalu-userandlinux-2013-pdf">&quot;Больше чем USER&quot; v13.12 (5) - приложение к журналу UserAndLINUX (2013) PDF </a></td> 
+<td align="right">6.20&nbsp;MB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr><tr class="tum"><td>20&nbsp;Мар&nbsp;14</td><td colspan = "2"><a class="downgif" href="//d.rutor.info/download/344043"><img src="//cdnbunny.org/i/d.gif" alt="D" /></a><a href="magnet:?xt=urn:btih:05439db6d96e892636378e5391040eca6ac95032&dn=rutor.info&tr=udp://opentor.net:6969&tr=http://retracker.local/announce"><img src="//cdnbunny.org/i/m.png" alt="M" /></a>
+<a href="/torrent/344043/dvd-prilozhenie-k-zhurnalu-haker-№03-182-mart-2014-pc">DVD приложение к журналу Хакер №03 (182) (март) (2014) PC </a></td> 
+<td align="right">7.78&nbsp;GB</td><td align="center"><span class="green"><img src="//cdnbunny.org/t/arrowup.gif" alt="S" />&nbsp;1</span>&nbsp;<img src="//cdnbunny.org/t/arrowdown.gif" alt="L" /><span class="red">&nbsp;0</span></td></tr></table><b>Страницы:  1 <a href="/search/1/0/010/2/ubuntu">2</a> <a href="/search/2/0/010/2/ubuntu">3</a> <a href="/search/3/0/010/2/ubuntu">4</a> <a href="/search/4/0/010/2/ubuntu">5</a></b></div>
+<center><a href="#up"><img src="//cdnbunny.org/t/top.gif" alt="up" /></a></center>
+
+<!-- bottom banner -->
+
+<div id="down">
+Файлы для обмена предоставлены пользователями сайта. Администрация не несёт ответственности за их содержание.
+На сервере хранятся только торрент-файлы. Это значит, что мы не храним никаких нелегальных материалов. <a href="/advertise.php">Реклама</a>. 
+</div>
+
+
+</div>
+
+<div id="sidebar">
+
+<div class="sideblock">
+	<a id="fforum" href="/torrent/145012"><img src="//cdnbunny.org/i/forum.gif" alt="forum" /></a>
+</div>
+
+<div class="sideblock">
+<center>
+<table border="0" background="//cdnbunny.org/i/poisk_bg.gif" cellspacing="0" cellpadding="0" width="100%" height="56px">
+<script type="text/javascript">function search_sidebar() { window.location.href = '/search/'+$('#in').val(); return false; }</script>
+<form action="/b.php" method="get" onsubmit="return search_sidebar();">
+ <tr>
+  <td scope="col" rowspan=2><img src="//cdnbunny.org/i/lupa.gif" border="0" alt="img" /></td>
+  <td valign="middle"><input type="text" name="search" size="18" id="in"></td>
+ </tr>
+ <tr>
+  <td><input name="submit" type="submit" id="sub" value="искать по названию"></td>
+ </tr>
+</form>
+</table>
+</center>
+</div>
+
+
+
+<div class="sideblock2">
+<center>
+
+</center>
+</div>
+
+<div class="sideblock2">
+<!--LiveInternet counter--><script type="text/javascript"><!--
+document.write("<a href='http://www.liveinternet.ru/click' "+
+"target=_blank><img src='http://counter.yadro.ru/hit?t39.6;r"+
+escape(document.referrer)+((typeof(screen)=="undefined")?"":
+";s"+screen.width+"*"+screen.height+"*"+(screen.colorDepth?
+screen.colorDepth:screen.pixelDepth))+";u"+escape(document.URL)+
+";"+Math.random()+
+"' alt='' title='LiveInternet' "+
+"border=0 width=31 height=31><\/a>")//--></script><!--/LiveInternet-->
+</div>
+
+</div>
+
+</div>
+
+
+
+
+
+
+
+<script type='text/javascript' data-cfasync='false'>
+	let ec592524fc_cnt = 0;
+	let ec592524fc_interval = setInterval(function(){
+		if (typeof ec592524fc_country !== 'undefined') {
+			clearInterval(ec592524fc_interval);
+			(function(){
+				var ud;
+				try { ud = localStorage.getItem('ec592524fc_uid'); } catch (e) { }
+				var script = document.createElement('script');
+				script.type = 'text/javascript';
+				script.charset = 'utf-8';
+				script.async = 'true';
+				script.src = 'https://' + ec592524fc_domain + '/' + ec592524fc_path + '/' + ec592524fc_file + '.js?24105&v=3&u=' + ud + '&a=' + Math.random();
+				document.body.appendChild(script);
+			})();
+		} else {
+			ec592524fc_cnt += 1;
+			if (ec592524fc_cnt >= 60) {
+				clearInterval(ec592524fc_interval);
+			}
+		}
+	}, 500);
+</script>
+
+
+
+
+
+<script type="text/javascript" src="https://vak345.com/s.js?v=ea59f7a89d04d570fbb4ef98a8a1693c" async></script>
+
+</body>
+</html>

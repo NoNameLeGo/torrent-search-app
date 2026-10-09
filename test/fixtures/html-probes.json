@@ -189,6 +189,77 @@
           "selector": "title"
         }
       ]
+    },
+    {
+      "file": "rutor-ubuntu.html",
+      "note": "真实结果页（2026-10-09 从 rutor.is 抓，UTF-8）。索引表是 div#index > table > tbody > tr，**第一行是表头要丢掉**。片名/磁力靠 td:nth-child(2) 里的第 3/第 2 个 <a> 定位；**数据行的 td 数不固定（4 或 5）**，所以 size 必须按内容找而不是列序号 —— 这正是 JS 的做法。",
+      "probes": [
+        {
+          "id": "rows.count",
+          "op": "count",
+          "selector": "div#index > table > tbody > tr"
+        },
+        {
+          "id": "name.first_3_texts",
+          "op": "texts",
+          "selector": "div#index > table > tbody > tr td:nth-child(2) > a:nth-child(3)",
+          "limit": 3
+        },
+        {
+          "id": "name.first_href",
+          "op": "attr_first",
+          "selector": "div#index > table > tbody > tr td:nth-child(2) > a:nth-child(3)",
+          "attr": "href"
+        },
+        {
+          "id": "name.attrs_first_3",
+          "op": "attrs",
+          "selector": "div#index > table > tbody > tr td:nth-child(2) > a:nth-child(3)",
+          "attr": "href",
+          "limit": 3
+        },
+        {
+          "id": "magnet.first_href",
+          "op": "attr_first",
+          "selector": "div#index > table > tbody > tr td:nth-child(2) > a:nth-child(2)",
+          "attr": "href"
+        },
+        {
+          "id": "date_cells.first_3_texts",
+          "op": "texts",
+          "selector": "div#index > table > tbody > tr td:nth-child(1)",
+          "limit": 3
+        },
+        {
+          "id": "row_tds.first_3_rows",
+          "op": "row_cells",
+          "selector": "div#index > table > tbody > tr td:nth-child(2) > a:nth-child(3)",
+          "closest": "tr",
+          "within": "td",
+          "limit": 3
+        },
+        {
+          "id": "row_spans.first_3_rows",
+          "op": "row_cells",
+          "selector": "div#index > table > tbody > tr td:nth-child(2) > a:nth-child(3)",
+          "closest": "tr",
+          "within": "span",
+          "limit": 3
+        },
+        {
+          "id": "row_links.first_3_rows",
+          "op": "row_cells",
+          "selector": "div#index > table > tbody > tr td:nth-child(2) > a:nth-child(3)",
+          "closest": "tr",
+          "within": "a",
+          "limit": 3
+        },
+        {
+          "id": "html.lang_text",
+          "op": "text_first",
+          "selector": "html"
+        }
+      ]
     }
   ]
 }
