@@ -72,9 +72,11 @@ async fn titles_match_the_cheerio_oracle() {
 #[tokio::test]
 async fn first_row_fields_match_the_js_pipeline() {
     let url = common::oneshot(200, &fixture("audiobookbay-ubuntu.html")).await;
+    // 站点基址本来就不带尾斜杠（JS 的 DOMAINS 也是这样），测试里也去掉，
+    // 否则拼出来是 `http://host//abss/...` 这种双斜杠
     let base = url.trim_end_matches('/').to_string();
 
-    let out = audiobookbay::search_at(&HttpClient::new(), &url, "ubuntu").await;
+    let out = audiobookbay::search_at(&HttpClient::new(), &base, "ubuntu").await;
     let r = &out.results[0];
 
     assert_eq!(r.provider, "audiobookbay");
@@ -128,7 +130,7 @@ async fn every_result_is_magnetless_and_points_at_a_clickable_detail_url() {
     let url = common::oneshot(200, &fixture("audiobookbay-ubuntu.html")).await;
     let base = url.trim_end_matches('/').to_string();
 
-    let out = audiobookbay::search_at(&HttpClient::new(), &url, "ubuntu").await;
+    let out = audiobookbay::search_at(&HttpClient::new(), &base, "ubuntu").await;
 
     for r in &out.results {
         assert!(r.needs_magnet, "{}", r.name);
