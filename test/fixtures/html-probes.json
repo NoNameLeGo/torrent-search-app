@@ -551,6 +551,72 @@
           "limit": 2
         }
       ]
+    },
+    {
+      "file": "oxtorrent-ubuntu.html",
+      "note": "真实结果页（2026-10-10 快照，关键词 ubuntu → **3 条，没有表头行**）。每行 4 个 td：名称链接、大小、seeders、leechers —— **JS 只取名称与详情链接，后三格全丢**（卡片上除名字外都是 —）。另外第 1 格里的 `<i class=\"Logiciels\">` 就是分类（法语），JS 也没用。与 torrent9 是同一个毛病。",
+      "probes": [
+        {
+          "id": "rows.count",
+          "op": "count",
+          "selector": "table > tbody > tr"
+        },
+        {
+          "id": "rows.first_3_rows",
+          "op": "row_cells",
+          "selector": "table > tbody > tr",
+          "closest": "tr",
+          "within": "td",
+          "limit": 3
+        },
+        {
+          "id": "names.count_nonempty_texts",
+          "op": "count_nonempty_texts",
+          "selector": "td:nth-child(1) > a"
+        },
+        {
+          "id": "names.first_3_texts",
+          "op": "texts",
+          "selector": "td:nth-child(1) > a",
+          "limit": 3
+        },
+        {
+          "id": "names.attrs_first_3",
+          "op": "attrs",
+          "selector": "td:nth-child(1) > a",
+          "attr": "href",
+          "limit": 3
+        },
+        {
+          "id": "cat_classes.attrs_first_3",
+          "op": "attrs",
+          "selector": "td:nth-child(1) > i",
+          "attr": "class",
+          "limit": 3
+        }
+      ]
+    },
+    {
+      "file": "oxtorrent-detail.html",
+      "note": "真实详情页（2026-10-10 快照）。`div.btn-magnet > a` 只有 1 条；页面上别处还有个 `div.btn-download > a` 指向**同一条**磁力（实测内容一样），但 JS 只认 btn-magnet。",
+      "probes": [
+        {
+          "id": "btn_magnet_links.count",
+          "op": "count",
+          "selector": "div.btn-magnet > a"
+        },
+        {
+          "id": "btn_magnet_links.first_href",
+          "op": "attr_first",
+          "selector": "div.btn-magnet > a",
+          "attr": "href"
+        },
+        {
+          "id": "all_magnets.count",
+          "op": "count",
+          "selector": "a[href^=\"magnet:?\"]"
+        }
+      ]
     }
   ]
 }

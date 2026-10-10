@@ -1,0 +1,288 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="fr" lang="fr">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+<title>ubuntu - OxTorrent.co</title>
+<meta name="description" content="OxTorrent - Téléchargement de Films, Séries, Musiques, Logiciels, Jeux, Ebooks" />
+<meta name="keywords" content="oxtorrent, telecharger, telechargement, download, free, torrent, torrente, torrents, series, films, dvdrip, bdrip, xvid, divx, x264, gratuit, gratuitement, exclue, exclus, french, truefrench, logiciels, jeux, musique, album, mangas, ebook, spectacle, francais, bluray, 1080p, 720p, vostfr, vfstfr, dvdscr, mp3" />
+<meta http-equiv="Content-Language" content="fr-fr" />
+<link rel="shortcut icon" type="image/ico" href="/favicon.ico" />
+<link href="/static/css/style.css" rel="stylesheet">
+<link href="/static/css/bootstrap.css" rel="stylesheet">
+<script type="text/javascript" src="/static/js/jquery.min.js"></script>
+<script type="text/javascript" src="/static/js/bootstrap.min.js"></script>
+<link href="/static/css/font-awesome.min.css" rel="stylesheet">
+
+<style>
+.listing-torrent{overflow: hidden;}
+.listing-detail{overflow: hidden;}
+.main-wrap{float: left;width: 74%;}
+.base-block{width: 100%}
+.block-detail{width: 100%}
+.bloc-torrent{position: relative;margin-left: 0;float: right;}
+.table{width: 100%}
+.torent-nav{display: none}
+#trier{margin: 0}
+@media (max-width: 767px) {
+    #conteneur{width: 100%;}
+    #header{width: 100%;}
+    #contenu{width: 100%}
+    #ariane{width: 100%;height: auto;margin-top: 5px}
+    .main-wrap{width: 100%;}
+    .bloc-torrent{width: 100%}
+    .block-detail{height: auto}
+    #header .torent-nav{display: block;background: 0 0;margin: 0;min-height: auto;}
+    #header .torent-nav li{width: 100%;display: block;float: none;text-align: center;}
+    #menu{display: none}
+    .torent-nav .navbar-collapse{width: 100%;background: #393939;}
+    .navbar-default .navbar-nav>li>a{color: #b3b3b3}
+    .col-md-4{width: 100%;}
+    .col-md-offset-2{margin-left: 0}
+    .col-md-4 .dropdown{float: left;}
+    .cover{margin: 11px 0 11px 0;width: 50%;}
+    .listing-torrent{padding: 1px 7px 7px;}
+    .listing-detail {padding: 1px 7px;}
+    #torrentsimage img {display: block;margin: 0 auto 5px auto;float: none;}
+    #torrentsdesc p{word-break: break-all;}
+    .table td{word-break: break-all!important;}
+    .container{padding-top: 25px}
+}
+</style>
+</head>
+<body><a href="https://www.oxtorrent.co/cdn-cgi/content?id=q1PCPNpP2RLNMa_RSugWvhTFgvV7_BciquRI6gyNF2U-1791626595.708409-1.2.1.1-P9gEY4uEy47_sMp_r.mcd6RGuiO3K0T039XD0UqpMqEE6cnktjWUI7aioRwRLDRi" aria-hidden="true" rel="nofollow noopener" style="display: none !important; visibility: hidden !important"></a>
+    <div id="conteneur">
+        <div id="header">
+            <h1><a href="/" id="logo"><img src="/static/img/logo.png" alt="oxtorrent"></a></h1>
+            <form class="form" method="POST" action="/search_torrent">
+                <div class="recherche">
+                    <input type="text" name="torrentSearch" placeholder="Recherche..." value="ubuntu" maxlength="49" required="">
+                    <button type="submit"><i class="fa fa-search "></i>
+                    </button>
+                </div>
+            </form>
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse" style="z-index:99;color:#dedede;background:#2e2e2e;font-size:20px;float: left;margin: 0;padding: 0 15px;">
+            <i class="fa fa-bars"></i>
+            </button>
+            <div class="container">
+                <div id="menu">
+                    <ul class="arbo">
+                        <li><a href="/" title="Accéder à l'accueil"><i class="fa fa-home" style="font-size:18px"></i></a>
+                        </li>
+                        <li> <a href="/torrents/films" title="Accéder aux Films">Films</a>
+                        </li>
+                        <li> <a href="/torrents/series" title="Accéder aux Séries">Séries</a>
+                        </li>
+                        <li> <a href="/torrents/musique" title="Accéder aux Musiques">Musique</a>
+                        </li>
+                        <li> <a href="/torrents/ebook" title="Accéder aux Ebooks">Ebook</a>
+                        </li>
+                        <li> <a href="/torrents/logiciels" title="Accéder aux Logiciels">Logiciels</a>
+                        </li>
+                        <li> <a href="/torrents/jeux-pc" title="Accéder aux Jeux">Jeux PC</a>
+                        </li>
+                        <li> <a href="/torrents/jeux-consoles" title="Accéder aux Jeux">Jeux Consoles</a>
+                        </li>
+                        <li> <a href="/top" title="Accéder aux top 100">Top 100</a>
+                        </li>
+                    </ul>
+                </div>
+                <nav class="navbar navbar-default torent-nav" style="border:0;">
+                    <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+                        <ul class="nav navbar-nav">
+                            <li> <a href="/torrents/films" title="Accéder aux Films">Films</a>
+                            </li>
+                            <li> <a href="/torrents/series" title="Accéder aux Séries">Séries</a>
+                            </li>
+                            <li> <a href="/torrents/musique" title="Accéder aux Musiques">Musique</a>
+                            </li>
+                            <li> <a href="/torrents/ebook" title="Accéder aux Ebooks">Ebook</a>
+                            </li>
+                            <li> <a href="/torrents/logiciels" title="Accéder aux Logiciels">Logiciels</a>
+                            </li>
+                            <li> <a href="/torrents/jeux-pc" title="Accéder aux Jeux">Jeux PC</a>
+                            </li>
+                            <li> <a href="/torrents/jeux-consoles" title="Accéder aux Jeux">Jeux Consoles</a>
+                            </li>
+                            <li> <a href="/top" title="Accéder aux top 100">Top 100</a>
+                            </li>
+                        </ul>
+                    </div>
+                </nav>
+
+                
+<div id="ariane">
+<a href="/" title="Accueil">Accueil</a> › Recherche › <a href="">ubuntu</a>
+</div>
+
+                <div id="contenu">
+                    
+<div class="listing-torrent">
+    <<div class="main-wrap">
+    <h2 style="margin-bottom:14px;"><i class="fa fa-search"></i> <a href="/top">Recherche</a></h2>
+    <div style="border:1px solid #c3c3c3; background:#f6f6f6; width:100%; margin-bottom:14px; border-radius:4px; padding:15px">
+        <fieldset>
+        <legend>Filtres <small><i class="fa fa-check colorChecked"></i> <a href="/recherche/ubuntu" style="font-weight:bold">Tout afficher</a></small> </legend>
+        <div class="row">
+        <div class="col-xs-6 col-md-4 col-lg-3">
+        <i class="fa fa-square-o colorChecked"></i> <a href="/recherche/films/ubuntu">Films</a>
+        </div>
+        <div class="col-xs-6 col-md-4 col-lg-3">
+        <i class="fa fa-square-o colorChecked"></i> <a href="/recherche/1080p/ubuntu">Films BluRay 1080p</a>
+        </div>
+        <div class="col-xs-6 col-md-4 col-lg-3">
+        <i class="fa fa-square-o colorChecked"></i> <a href="/recherche/series/ubuntu">Séries TV</a>
+        </div>
+        <div class="col-xs-6 col-md-4 col-lg-3">
+        <i class="fa fa-square-o colorChecked"></i> <a href="/recherche/musique/ubuntu">Musiques</a>
+        </div>
+        <div class="col-xs-6 col-md-4 col-lg-3">
+        <i class="fa fa-square-o colorChecked"></i> <a href="/recherche/films-french/ubuntu">Films FRENCH</a>
+        </div>
+        <div class="col-xs-6 col-md-4 col-lg-3">
+        <i class="fa fa-square-o colorChecked"></i> <a href="/recherche/720p/ubuntu">Films BluRay 720p</a>
+        </div>
+        <div class="col-xs-6 col-md-4 col-lg-3">
+        <i class="fa fa-square-o colorChecked"></i> <a href="/recherche/series-francaise/ubuntu">Séries TV FRENCH</a>
+        </div>
+        <div class="col-xs-6 col-md-4 col-lg-3">
+        <i class="fa fa-square-o colorChecked"></i> <a href="/recherche/logiciels/ubuntu">Logiciels</a>
+        </div>
+        <div class="col-xs-6 col-md-4 col-lg-3">
+        <i class="fa fa-square-o colorChecked"></i> <a href="/recherche/films-vostfr/ubuntu">Films VOSTFR</a>
+        </div>
+        <div class="col-xs-6 col-md-4 col-lg-3">
+        <i class="fa fa-square-o colorChecked"></i> <a href="/recherche/films-dvdrip-x264/ubuntu">Films DVDRIP .x264</a>
+        </div>
+        <div class="col-xs-6 col-md-4 col-lg-3">
+        <i class="fa fa-square-o colorChecked"></i> <a href="/recherche/series-vostfr/ubuntu">Séries TV VOSTFR</a>
+        </div>
+        <div class="col-xs-6 col-md-4 col-lg-3">
+        <i class="fa fa-square-o colorChecked"></i> <a href="/recherche/jeux-pc/ubuntu">Jeux PC</a>
+        </div>
+        <div class="col-xs-6 col-md-4 col-lg-3">
+        <i class="fa fa-square-o colorChecked"></i> <a href="/recherche/films-dvdrip/ubuntu">Films DVDRIP .avi</a>
+        </div>
+        <div class="col-xs-6 col-md-4 col-lg-3">
+        <i class="fa fa-square-o colorChecked"></i> <a href="/recherche/spectacles/ubuntu">Spectacles</a>
+        </div>
+        <div class="col-xs-6 col-md-4 col-lg-3">
+        <i class="fa fa-square-o colorChecked"></i> <a href="/recherche/ebook/ubuntu">Ebooks</a>
+        </div>
+        <div class="col-xs-6 col-md-4 col-lg-3">
+        <i class="fa fa-square-o colorChecked"></i> <a href="/recherche/jeux-consoles/ubuntu">Jeux consoles</a>
+        </div>
+        </div>
+        </fieldset>
+    </div>
+    <table class="table table-hover">
+        <tbody>
+            <tr>
+    <td width="71%" align="left"><i class="Logiciels"></i>  <a href="/torrent/48951/ubuntu-10-04-desktop-32-bits" title="Ubuntu 10.04 Desktop (32 bits) en Torrent">Ubuntu 10.04 Desktop (32 bits)</a>
+    </td>
+    <td width="11%" align="left">700.4 MB</td>
+    <td width="9%" align="left">
+        <img src="/static/img/uploader.png" alt="seeders">9</td>
+    <td width="9%" align="left">
+        <img src="/static/img/downloader.png" alt="leechers">2</td>
+</tr><tr>
+    <td width="71%" align="left"><i class="Logiciels"></i>  <a href="/torrent/49504/super-ubuntu-2008-09" title="Super Ubuntu 2008.09 en Torrent">Super Ubuntu 2008.09</a>
+    </td>
+    <td width="11%" align="left">872.0 MB</td>
+    <td width="9%" align="left">
+        <img src="/static/img/uploader.png" alt="seeders">6</td>
+    <td width="9%" align="left">
+        <img src="/static/img/downloader.png" alt="leechers">1</td>
+</tr><tr>
+    <td width="71%" align="left"><i class="Logiciels"></i>  <a href="/torrent/49542/ubuntu-ultimate-edition-1-4-dvd" title="Ubuntu Ultimate Edition 1.4 DVD en Torrent">Ubuntu Ultimate Edition 1.4 DVD</a>
+    </td>
+    <td width="11%" align="left">1.9 GB</td>
+    <td width="9%" align="left">
+        <img src="/static/img/uploader.png" alt="seeders">3</td>
+    <td width="9%" align="left">
+        <img src="/static/img/downloader.png" alt="leechers">3</td>
+</tr>        </tbody>
+    </table>
+    <ul class="pagination">    </ul>    </div>
+    <div class="bloc-torrent">
+    <pre><strong><big>OxTorrent Officiel <span style="color:red;">.co</span></big><br><br>--> <kbd>Ctrl</kbd> + <kbd>D</kbd>  (Favoris)<br><br></strong></pre>
+    <div class="title"><i class="fa fa-th-large"> </i> Films Hasard</div>
+    <div class="cover">
+        <a href="/torrent/63659/triple-threat-truefrench-webrip-2019">
+            <img style="width:135px;height:177px;" title="Triple Threat TRUEFRENCH WEBRIP 2019" alt="Triple Threat TRUEFRENCH WEBRIP 2019" src="/pictures/triple-threat-truefrench-webrip-2019.jpg">
+            <b>Télécharger !</b>
+        </a>
+    </div><div class="cover">
+        <a href="/torrent/89215/spider-man-no-way-home-french-dvdrip-2021">
+            <img style="width:135px;height:177px;" title="Spider-Man: No Way Home FRENCH DVDRIP 2021" alt="Spider-Man: No Way Home FRENCH DVDRIP 2021" src="/pictures/spider-man-no-way-home-french-dvdrip-2021.jpg">
+            <b>Télécharger !</b>
+        </a>
+    </div><div class="cover">
+        <a href="/torrent/109389/expendables-4-truefrench-webrip-x264-2023">
+            <img style="width:135px;height:177px;" title="Expendables 4 TRUEFRENCH WEBRIP x264 2023" alt="Expendables 4 TRUEFRENCH WEBRIP x264 2023" src="/pictures/expendables-4-truefrench-webrip-x264-2023.jpg">
+            <b>Télécharger !</b>
+        </a>
+    </div><div class="cover">
+        <a href="/torrent/104240/le-samaritain-truefrench-webrip-x264-2022">
+            <img style="width:135px;height:177px;" title="Le Samaritain TRUEFRENCH WEBRIP x264 2022" alt="Le Samaritain TRUEFRENCH WEBRIP x264 2022" src="/pictures/le-samaritain-truefrench-webrip-x264-2022.jpg">
+            <b>Télécharger !</b>
+        </a>
+    </div><div class="cover">
+        <a href="/torrent/103400/sonic-2-le-film-truefrench-webrip-x264-2022">
+            <img style="width:135px;height:177px;" title="Sonic 2 le film TRUEFRENCH WEBRIP x264 2022" alt="Sonic 2 le film TRUEFRENCH WEBRIP x264 2022" src="/pictures/sonic-2-le-film-truefrench-webrip-x264-2022.jpg">
+            <b>Télécharger !</b>
+        </a>
+    </div><div class="cover">
+        <a href="/torrent/87178/one-shot-french-dvdrip-2022">
+            <img style="width:135px;height:177px;" title="One Shot FRENCH DVDRIP 2022" alt="One Shot FRENCH DVDRIP 2022" src="/pictures/one-shot-french-dvdrip-2022.jpg">
+            <b>Télécharger !</b>
+        </a>
+    </div><div class="cover">
+        <a href="/torrent/63630/agents-presque-secrets-french-bluray-1080p-2016">
+            <img style="width:135px;height:177px;" title="Agents presque secrets FRENCH BluRay 1080p 2016" alt="Agents presque secrets FRENCH BluRay 1080p 2016" src="/pictures/agents-presque-secrets-french-bluray-1080p-2016.jpg">
+            <b>Télécharger !</b>
+        </a>
+    </div><div class="cover">
+        <a href="/torrent/63724/fast-and-furious-5-french-hdlight-1080p-2011">
+            <img style="width:135px;height:177px;" title="Fast and Furious 5 FRENCH HDLight 1080p 2011" alt="Fast and Furious 5 FRENCH HDLight 1080p 2011" src="/pictures/fast-and-furious-5-french-hdlight-1080p-2011.jpg">
+            <b>Télécharger !</b>
+        </a>
+    </div><div class="cover">
+        <a href="/torrent/63751/l-adieu-the-farewell-french-dvdrip-2019">
+            <img style="width:135px;height:177px;" title="L'Adieu (The Farewell) FRENCH DVDRIP 2019" alt="L'Adieu (The Farewell) FRENCH DVDRIP 2019" src="/pictures/l-adieu-the-farewell-french-dvdrip-2019.jpg">
+            <b>Télécharger !</b>
+        </a>
+    </div><div class="cover">
+        <a href="/torrent/10394/catwoman-french-dvdrip-2004-1">
+            <img style="width:135px;height:177px;" title="Catwoman FRENCH DVDRIP 2004" alt="Catwoman FRENCH DVDRIP 2004" src="/pictures/catwoman-french-dvdrip-2004-1.jpg">
+            <b>Télécharger !</b>
+        </a>
+    </div></div>
+</div>         
+
+                </div>
+            </div>
+            <div class="base-bodi"></div>
+            <div class="footing navbar-fixed-bottom">
+                <div class="container">
+                </div>
+            </div>
+        </div>
+    </div>
+
+<div style="display:none"><!-- Histats.com  (div with counter) --><div id="histats_counter"></div>
+<!-- Histats.com  START  (aync)-->
+<script type="text/javascript">var _Hasync= _Hasync|| [];
+_Hasync.push(['Histats.start', '1,4336799,4,511,95,18,00000000']);
+_Hasync.push(['Histats.fasi', '1']);
+_Hasync.push(['Histats.track_hits', '']);
+(function() {
+var hs = document.createElement('script'); hs.type = 'text/javascript'; hs.async = true;
+hs.src = ('//s10.histats.com/js15_as.js');
+(document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(hs);
+})();</script>
+<noscript><a href="/" target="_blank"><img  src="//sstatic1.histats.com/0.gif?4336799&101" alt="how to add a hit counter to a website" border="0"></a></noscript>
+<!-- Histats.com  END  --></div>
+<script data-cfasync="false" async type="text/javascript" src="//gm.vaisyabam.com/r7KhaIYzNic/136905"></script>    
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a484cb4f29a094f6',t:'MTc5MTYyNjU5NQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
