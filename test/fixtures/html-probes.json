@@ -407,6 +407,79 @@
           "attr": "href"
         }
       ]
+    },
+    {
+      "file": "limetorrents-ubuntu.html",
+      "note": "真实结果页（2026-10-10 快照，关键词 ubuntu）。坑点：第一行是**表头 `<tr><th>`**（无 td）→ `row_cells` 给出 `[]`；名称在第 1 格 `.tt-name` 里的**第 2 个** `<a>`，第 1 个是 `itorrents.net/torrent/<HASH>.torrent`（info hash 就从它里面抠）；第 2 格是「`<相对日期> - in <分类>`」一句话，日期与分类得自己切；分类词是 `TV shows` / `E-books` / `Applications`，**对不上 JS `switch` 里的 `TV`/`E-book`/`App`**。",
+      "probes": [
+        {
+          "id": "rows.count",
+          "op": "count",
+          "selector": ".table2 > tbody > tr"
+        },
+        {
+          "id": "rows.first_3_rows",
+          "op": "row_cells",
+          "selector": ".table2 > tbody > tr",
+          "closest": "tr",
+          "within": "td",
+          "limit": 3
+        },
+        {
+          "id": "names.count_nonempty_texts",
+          "op": "count_nonempty_texts",
+          "selector": "td:nth-child(1) > div.tt-name > a:nth-child(2)"
+        },
+        {
+          "id": "names.first_3_texts",
+          "op": "texts",
+          "selector": "td:nth-child(1) > div.tt-name > a:nth-child(2)",
+          "limit": 3
+        },
+        {
+          "id": "names.attrs_first_3",
+          "op": "attrs",
+          "selector": "td:nth-child(1) > div.tt-name > a:nth-child(2)",
+          "attr": "href",
+          "limit": 3
+        },
+        {
+          "id": "filelinks.count",
+          "op": "count",
+          "selector": "td:nth-child(1) > div.tt-name > a:nth-child(1)[href*=\"itorrents.net/torrent/\"]"
+        },
+        {
+          "id": "filelinks.attrs_first_3",
+          "op": "attrs",
+          "selector": "td:nth-child(1) > div.tt-name > a:nth-child(1)",
+          "attr": "href",
+          "limit": 3
+        },
+        {
+          "id": "datecell.texts",
+          "op": "texts",
+          "selector": "td:nth-child(2)",
+          "limit": 6
+        },
+        {
+          "id": "size.first_3_texts",
+          "op": "texts",
+          "selector": "td:nth-child(3)",
+          "limit": 3
+        },
+        {
+          "id": "seeds.first_3_texts",
+          "op": "texts",
+          "selector": "td.tdseed",
+          "limit": 3
+        },
+        {
+          "id": "leech.first_3_texts",
+          "op": "texts",
+          "selector": "td.tdleech",
+          "limit": 3
+        }
+      ]
     }
   ]
 }
