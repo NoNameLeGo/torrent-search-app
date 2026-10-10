@@ -260,6 +260,62 @@
           "selector": "html"
         }
       ]
+    },
+    {
+      "file": "audiobookbay-ubuntu.html",
+      "note": "真实结果页（2026-10-09 快照，关键词 ubuntu → 9 条）。坑点：div.postContent 的**第 3 个孩子**才是那句 'Posted: … File Size: …'（前两个是 div.center 和一个空的 <p style=\"center;\">），JS 用 `p:nth-child(3)` 命中它。关键未知数：这句里字段靠 <br /> 分隔，而 cheerio 的 .text() 给不给换行 —— 直接决定 JS 的 size/date 解析是否生效。cover.first_src 用来独立确认 info hash（站点把 hash 当前缀写进封面图文件名）。",
+      "probes": [
+        {
+          "id": "posts.count",
+          "op": "count",
+          "selector": "div.post"
+        },
+        {
+          "id": "titles.count",
+          "op": "count",
+          "selector": "div.postTitle > h2 > a"
+        },
+        {
+          "id": "titles.first_3_texts",
+          "op": "texts",
+          "selector": "div.postTitle > h2 > a",
+          "limit": 3
+        },
+        {
+          "id": "titles.attrs_first_3",
+          "op": "attrs",
+          "selector": "div.postTitle > h2 > a",
+          "attr": "href",
+          "limit": 3
+        },
+        {
+          "id": "info.count",
+          "op": "count",
+          "selector": "div.postContent > p:nth-child(3)"
+        },
+        {
+          "id": "info.first_text",
+          "op": "text_first",
+          "selector": "div.postContent > p:nth-child(3)"
+        },
+        {
+          "id": "info.first_3_texts",
+          "op": "texts",
+          "selector": "div.postContent > p:nth-child(3)",
+          "limit": 3
+        },
+        {
+          "id": "cover.first_src",
+          "op": "attr_first",
+          "selector": "div.postContent > div.center img",
+          "attr": "src"
+        },
+        {
+          "id": "html.lang_text",
+          "op": "text_first",
+          "selector": "html"
+        }
+      ]
     }
   ]
 }
