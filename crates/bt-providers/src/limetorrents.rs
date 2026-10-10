@@ -42,9 +42,7 @@
 
 use bt_core::dom::{attr, text, text_trim, Dom, ElementRef};
 use bt_core::http::HttpClient;
-use bt_core::normalize::{
-    coerce_page, encode_uri_component, normalize, NumOrText, RawResult,
-};
+use bt_core::normalize::{coerce_page, encode_uri_component, normalize, NumOrText, RawResult};
 use bt_core::TorrentResult;
 
 use crate::SearchOutcome;
@@ -130,10 +128,7 @@ fn split_date_category(dc_text: &str) -> (Option<NumOrText>, Option<String>) {
     let after = after.strip_prefix("in ").unwrap_or(after);
     let after = after.strip_suffix('.').unwrap_or(after);
 
-    (
-        Some(NumOrText::Text(date)),
-        Some(category_from_raw(after)),
-    )
+    (Some(NumOrText::Text(date)), Some(category_from_raw(after)))
 }
 
 /// 用默认镜像搜索。`page` 与 JS 一样先过 `coercePage`（0/空 → 1）。
@@ -261,7 +256,8 @@ mod tests {
 
     const BASE: &str = "https://limetorrents.fun";
     const HASH: &str = "232cd67eb3ffbd7c37bf9ec3ee887417e5ae1ee6";
-    const FILE_HREF: &str = "http://itorrents.net/torrent/232CD67EB3FFBD7C37BF9EC3EE887417E5AE1EE6.torrent?title=x";
+    const FILE_HREF: &str =
+        "http://itorrents.net/torrent/232CD67EB3FFBD7C37BF9EC3EE887417E5AE1EE6.torrent?title=x";
 
     /// ⚠️ 本机跟外网无关：这里只钉 URL 拼接 + `coercePage` 的接法（JS 在 `search` 里做）。
     /// 真正的请求路径由集成测试的 `request_url_matches_the_js_contract` 盯着。
@@ -337,9 +333,18 @@ mod tests {
         assert_eq!(d, Some(NumOrText::Text("2 days ago".to_string())));
     }
 
-    fn row(name: &str, detail: &str, file: &str, dc: &str, size: &str, seeds: &str, leech: &str) -> String {
+    fn row(
+        name: &str,
+        detail: &str,
+        file: &str,
+        dc: &str,
+        size: &str,
+        seeds: &str,
+        leech: &str,
+    ) -> String {
+        // ⚠️ 用 `r##"…"##`：内容里有 `="#`（bgcolor），单层 `r#"` 会在那里提前结束
         format!(
-            r#"<tr bgcolor="#F4F4F4"><td class="tdleft"><div class="tt-name">
+            r##"<tr bgcolor="#F4F4F4"><td class="tdleft"><div class="tt-name">
                  <a href="{file}" rel="nofollow" class="csprite_dl14"></a>
                  <a href="{detail}">{name}</a>
                </div><div class="tt-options"></div></td>
@@ -347,7 +352,7 @@ mod tests {
                <td class="tdnormal">{size}</td>
                <td class="tdseed">{seeds}</td>
                <td class="tdleech">{leech}</td>
-               <td class="tdright"><div class="hb2"></div></td></tr>"#
+               <td class="tdright"><div class="hb2"></div></td></tr>"##
         )
     }
 
@@ -421,7 +426,15 @@ mod tests {
         let rows = format!(
             "{}{}{}",
             header_row(),
-            row("no hash", "/a.html", "https://example.com/nope.torrent", "1 day ago", "1 MB", "1", "0"),
+            row(
+                "no hash",
+                "/a.html",
+                "https://example.com/nope.torrent",
+                "1 day ago",
+                "1 MB",
+                "1",
+                "0"
+            ),
             row("no file link", "/b.html", "", "1 day ago", "1 MB", "1", "0")
         );
         let out = parse_page(&rows);
@@ -449,7 +462,15 @@ mod tests {
         let rows = format!(
             "{}{}",
             header_row(),
-            row("n", "/a.html", FILE_HREF, "1 Year+ - in Other", "1 MB", "1", "0")
+            row(
+                "n",
+                "/a.html",
+                FILE_HREF,
+                "1 Year+ - in Other",
+                "1 MB",
+                "1",
+                "0"
+            )
         );
         let out = parse_page(&rows);
 
