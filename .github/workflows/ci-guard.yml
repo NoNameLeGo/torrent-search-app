@@ -1,0 +1,42 @@
+name: CI guard (workflow files)
+
+# 为什么单独一条 workflow 来做这件事：
+# **workflow 文件本身坏掉的时候，那条 workflow 是不会跑的** —— GitHub 会建一个 run，
+# 里面**一个 job 都没有**，`gh run view --log-failed` 输出为空，只有一句
+# "This run likely failed because of a workflow file issue"。事后完全无从回溯。
+#
+# 历史事故（2026-08-14）：那次的「同步 Tauri Build workflow 到 main」把 `main` 上的
+# `.github/workflows/tauri-build.yml` 写成了 **0 字节**，之后 6 天里 `main` 上每一次
+# push 都产生一个 0 job 的失败 run（共 15 次），直到 08-20 才被修掉。
+# 那段时间「远程构建总是出问题」的真凶，就是这个空文件。
+#
+# 用法：改完任何 `.github/workflows/*.yml` 后会自动跑；也可以手动触发。
+# 本机等价命令：python3 scripts/check-workflows.py
+
+on:
+  push:
+    paths:
+      - '.github/workflows/**'
+      - 'scripts/check-workflows.py'
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - 'scripts/check-workflows.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v5
+
+      - name: 确认有 pyyaml（镜像自带就用自带的）
+        run: python3 -c "import yaml" || pip install --quiet pyyaml
+
+      - name: 体检所有 workflow 文件
+        run: python3 scripts/check-workflows.py
