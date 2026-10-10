@@ -541,5 +541,44 @@
     "btn_magnet_links.count": 1,
     "btn_magnet_links.first_href": "magnet:?xt=urn:btih:574034E0EC52BA3BF08B5C58AB4A5DEE0627FA89&tr=udp://eddie4.nl:6969/announce&tr=udp://shadowshq.yi.org:6969/announce&tr=udp://tracker.leechers-paradise.org:6969/announce&tr=udp://tracker.pirateparty.gr:6969/announce&tr=udp://tracker.coppersurfer.tk:6969/announce&tr=udp://tracker.coppersurfer.tk:80/announce&tr=udp://9.rarbg.com:2800/announce&tr=udp://9.rarbg.me:2780/announce&tr=udp://9.rarbg.to:2710/announce&tr=udp://p4p.arenabg.com:1337/announce&tr=udp://public.popcorn-tracker.org:6969/announce&tr=udp://tracker.vanitycore.co:6969/announce&tr=udp://open.stealth.si:80/announce&tr=udp://tracker.zer0day.to:1337/announce&tr=udp://tracker.opentrackr.org:1337/announce&tr=udp://tracker.internetwarriors.net:1337/announce&tr=udp://ipv4.tracker.harry.lu:80/announce&tr=udp://explodie.org:6969/announce&tr=http://inferno.demonoid.ph:3389/announce",
     "all_magnets.count": 2
+  },
+  "nyaa-ubuntu.html": {
+    "rows.count": 1,
+    "rows.first_3_rows": [
+      [
+        "",
+        "Koha Live CD Release 3 (3.0.4 Ubuntu 9.10 Desktop x86)",
+        "",
+        "624.0 MiB",
+        "2009-11-03 07:03",
+        "0",
+        "0",
+        "0"
+      ]
+    ],
+    "view_links.count": 1,
+    "view_links.first_3_texts": [
+      "Koha Live CD Release 3 (3.0.4 Ubuntu 9.10 Desktop x86)"
+    ],
+    "view_links.attrs_first_3": [
+      "/view/96659"
+    ],
+    "cat_titles.attrs_first_3": [
+      "Software - Applications"
+    ],
+    "namecell_magnets.count": 0,
+    "namecell_magnets.first_href": null,
+    "td3.texts": [
+      ""
+    ],
+    "td4.texts": [
+      "624.0 MiB"
+    ],
+    "td5.texts": [
+      "2009-11-03 07:03"
+    ],
+    "td6.texts": [
+      "0"
+    ]
   }
 }

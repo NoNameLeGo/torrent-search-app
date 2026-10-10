@@ -617,6 +617,85 @@
           "selector": "a[href^=\"magnet:?\"]"
         }
       ]
+    },
+    {
+      "file": "nyaa-ubuntu.html",
+      "note": "真实结果页（2026-10-10 由 CI 抓取，关键词 ubuntu → **只有 1 条**，探活的「2 行」是 <tr 计数含表头）。⚠️ 名字那格带 colspan=\"2\"，所以一行只有 **8 个 td**（评论列被合并了），而 JS 是按 9 列的旧布局写的：它读的 tds.eq(2)/eq(3)/eq(4)/eq(5) 实际落在 Link/Size/Date/Seeders 上 —— size 拿到空串、date 拿到 \"624.0 MiB\"、seeders 拿到日期。探针 rows.first_3_rows 把真实格子逐个钉住。",
+      "probes": [
+        {
+          "id": "rows.count",
+          "op": "count",
+          "selector": "table.torrent-list tbody tr"
+        },
+        {
+          "id": "rows.first_3_rows",
+          "op": "row_cells",
+          "selector": "table.torrent-list tbody tr",
+          "closest": "tr",
+          "within": "td",
+          "limit": 3
+        },
+        {
+          "id": "view_links.count",
+          "op": "count",
+          "selector": "a[href^=\"/view/\"]"
+        },
+        {
+          "id": "view_links.first_3_texts",
+          "op": "texts",
+          "selector": "a[href^=\"/view/\"]",
+          "limit": 3
+        },
+        {
+          "id": "view_links.attrs_first_3",
+          "op": "attrs",
+          "selector": "a[href^=\"/view/\"]",
+          "attr": "href",
+          "limit": 3
+        },
+        {
+          "id": "cat_titles.attrs_first_3",
+          "op": "attrs",
+          "selector": "td:nth-child(1) a[href*=\"c=\"]",
+          "attr": "title",
+          "limit": 3
+        },
+        {
+          "id": "namecell_magnets.count",
+          "op": "count",
+          "selector": "td:nth-child(2) a[href^=\"magnet:\"]"
+        },
+        {
+          "id": "namecell_magnets.first_href",
+          "op": "attr_first",
+          "selector": "td:nth-child(2) a[href^=\"magnet:\"]",
+          "attr": "href"
+        },
+        {
+          "id": "td3.texts",
+          "op": "texts",
+          "selector": "td:nth-child(3)",
+          "limit": 3
+        },
+        {
+          "id": "td4.texts",
+          "op": "texts",
+          "selector": "td:nth-child(4)",
+          "limit": 3
+        },
+        {
+          "id": "td5.texts",
+          "op": "texts",
+          "selector": "td:nth-child(5)",
+          "limit": 3
+        },
+        {
+          "id": "td6.texts",
+          "op": "texts",
+          "selector": "td:nth-child(6)",
+          "limit": 3
+        }
+      ]
     }
   ]
 }

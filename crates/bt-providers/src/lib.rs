@@ -4,7 +4,7 @@
 //!
 //! ## 现状
 //! `tpb`、`knaben`、`torrentscsv`、`yts`、`internetarchive`（纯 JSON 组，A 组已齐）；
-//! `torrent9`、`oxtorrent`、`linuxtracker`、`filemood`、`rutor`、`audiobookbay`、`therarbg`、`limetorrents`（HTML 组，B 组进行中）。
+//! `nyaa`、`torrent9`、`oxtorrent`、`linuxtracker`、`filemood`、`rutor`、`audiobookbay`、`therarbg`、`limetorrents`（HTML 组，B 组进行中）。
 //! **暂时不引入 `Provider` trait** —— 等 HTML 组落地后，
 //! 看清楚它们真正的共性（镜像回退、翻页、磁力惰性解析…）再定抽象，现在定容易定错。
 //!
@@ -20,6 +20,7 @@ pub mod internetarchive;
 pub mod knaben;
 pub mod limetorrents;
 pub mod linuxtracker;
+pub mod nyaa;
 pub mod oxtorrent;
 pub mod rutor;
 pub mod therarbg;
