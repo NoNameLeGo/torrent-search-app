@@ -1,0 +1,87 @@
+name: Fetch a fixture (online, from CI)
+
+# 为什么需要它：本机有一层 MITM 代理，而且部分站点对**本机出口**封锁得更狠
+# （`dmhy` / `nyaa` / `megapeer` / `zeromagnet` / `xxxtracker` / `sukebei` 在本机都探不通，
+# 但 CI 的干净机房 IP 能通）。搬这些 provider 时需要一份**真实页面快照** ——
+# 只能让 CI 去取，本机拿不到。
+#
+# 与 `html-probes.yml` 同一套路：手动触发 → CI 干活 → **自己 commit 回触发它的 ref**。
+# 人只负责 `git fetch` + `git restore`（见 AGENTS.md「探针流程」）。
+#
+# 用法：
+#   scripts/gh-retry.sh workflow run fetch-fixture.yml --ref feat/rust \
+#     -f url='https://nyaa.si/?f=0&c=0_0&q=ubuntu' -f path='test/fixtures/nyaa-ubuntu.html'
+#
+# ⚠️ 只写 `test/fixtures/` 下的路径（下面有校验）。
+# ⚠️ 抓到的东西**先看一眼内容再当 fixture 用** —— Cloudflare 挑战页 / 停放页 / 空壳
+#   都是 200 且几千字节，大小校验拦不住（用 `head -c 400` 看开头）。
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: '要抓的 URL（结果页 / 详情页各抓一次）'
+        required: true
+        type: string
+      path:
+        description: '存成哪个文件，必须在 test/fixtures/ 下'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v5
+
+      - name: 校验 path 只能落在 test/fixtures/
+        env:
+          TARGET_PATH: ${{ inputs.path }}
+        run: |
+          case "$TARGET_PATH" in
+            test/fixtures/*) echo "OK: $TARGET_PATH" ;;
+            *) echo "::error::path 必须在 test/fixtures/ 下，收到：$TARGET_PATH"; exit 1 ;;
+          esac
+          case "$TARGET_PATH" in
+            *..*) echo "::error::path 里不许有 .."; exit 1 ;;
+          esac
+
+      - name: 抓取（浏览器式 UA + 跟随跳转）
+        env:
+          TARGET_URL: ${{ inputs.url }}
+          TARGET_PATH: ${{ inputs.path }}
+        run: |
+          UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+          mkdir -p "$(dirname "$TARGET_PATH")"
+          code=$(curl -sS -L --max-time 60 --compressed \
+                   -A "$UA" \
+                   -H 'Accept-Language: en-US,en;q=0.9' \
+                   -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' \
+                   -w '%{http_code}' -o "$TARGET_PATH" "$TARGET_URL")
+          size=$(wc -c < "$TARGET_PATH")
+          echo "HTTP $code → $TARGET_PATH（$size 字节）"
+          echo "---- 开头 300 字节（自己看一眼是不是挑战页/停放页）----"
+          head -c 300 "$TARGET_PATH"; echo
+          test "$code" = "200" || { echo "::error::HTTP $code，没拿到真页面"; exit 1; }
+          test "$size" -gt 2000 || { echo "::error::只有 $size 字节，太小了"; exit 1; }
+
+      - name: 提交回触发这次运行的 ref
+        env:
+          TARGET_PATH: ${{ inputs.path }}
+          SOURCE_URL: ${{ inputs.url }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$TARGET_PATH"
+          if git diff --cached --quiet; then
+            echo "::notice::抓到的内容和仓库里一致，没什么要提交的。"
+            exit 0
+          fi
+          git commit -m "test(fixture): CI 抓取 $TARGET_PATH（$SOURCE_URL）"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+          echo "::notice::已提交到 ${GITHUB_REF_NAME} —— 记得 git fetch + git restore 取回来"
