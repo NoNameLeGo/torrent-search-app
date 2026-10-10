@@ -319,7 +319,7 @@
     },
     {
       "file": "therarbg-ubuntu.html",
-      "note": "真实结果页（2026-10-10 快照，关键词 ubuntu → 39 个 tr.list-entry）。坑点：日期/大小不在文本里，而在 data-order 属性里（秒 / 字节）；分类在第 3 个 td 的 <a> 文本里；第 1 个 td 是图标、没有名字。名字那一格还有多一个 </a>（站上写错了），看解析器吃不吃。",
+      "note": "真实结果页（2026-10-10 快照，关键词 ubuntu → 39 个 tr.list-entry）。坑点：日期/大小不在文本里，而在 data-order 属性里（秒 / 字节）；分类在第 3 个 td 的 <a> 文本里；第 1 个 td 是图标、没有名字。名字那一格还有多一个 </a>（站上写错了），看解析器吃不吃。⚠️ 这一页**故意不设 `html.lang_text`** —— 那一条是整页 text 拼接的超长单行，实测会把 CI 日志在这里截断，导致后面的 probe 真值全拿不到（2026-10-10 踩过）。整页拼接的语义已由 rutor / audiobookbay 两条覆盖。",
       "probes": [
         {
           "id": "rows.count",
@@ -388,11 +388,6 @@
           "id": "magnet.count",
           "op": "count",
           "selector": "a[href^=\"magnet:?\"]"
-        },
-        {
-          "id": "html.lang_text",
-          "op": "text_first",
-          "selector": "html"
         }
       ]
     },
