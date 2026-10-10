@@ -60,7 +60,7 @@ use bt_core::http::HttpClient;
 use bt_core::normalize::{encode_uri_component, normalize, NumOrText, RawResult};
 use bt_core::TorrentResult;
 
-use crate::SearchOutcome;
+use crate::{MagnetOutcome, SearchOutcome};
 
 /// 镜像列表，与 JS 的 `DOMAINS` 一致（只有一个 —— 见 `AGENTS.md` 的单域名清单）。
 pub const DOMAINS: &[&str] = &["https://audiobookbay.lu"];
@@ -73,14 +73,6 @@ const TITLE_LINK: &str = "div.postTitle > h2 > a";
 
 /// size / date 所在的那个 `<p>`（JS: `div.postContent > p:nth-child(3)`）。
 const INFO_P: &str = "div.postContent > p:nth-child(3)";
-
-/// `resolveMagnet` 的返回形状，字段名对齐 JS（`magnet` / `infoHash` / `error`）。
-#[derive(Debug, Clone, PartialEq)]
-pub struct MagnetOutcome {
-    pub magnet: Option<String>,
-    pub info_hash: Option<String>,
-    pub error: Option<String>,
-}
 
 /// 用默认镜像搜索。`page` 与 JS 一样**收下但不用** —— 站点搜索页没有分页参数。
 pub async fn search(http: &HttpClient, query: &str, _page: u32) -> SearchOutcome {
@@ -215,6 +207,7 @@ fn strip_trailing_s(s: &str) -> String {
 /// 惰性解析磁力。对应 JS 的 `resolveMagnet(detailUrl)`。
 ///
 /// ⚠️ 取不到 hash（含 HTTP 出错）时**只给 `no_info_hash`**，不区分原因 —— 照抄 JS。
+/// （`MagnetOutcome` 现住在 `crate::lib` 里，见那里的说明。）
 pub async fn resolve_magnet(http: &HttpClient, detail_url: &str) -> MagnetOutcome {
     match info_hash_at(http, detail_url).await {
         Some(h) => MagnetOutcome {
@@ -222,11 +215,7 @@ pub async fn resolve_magnet(http: &HttpClient, detail_url: &str) -> MagnetOutcom
             info_hash: Some(h),
             error: None,
         },
-        None => MagnetOutcome {
-            magnet: None,
-            info_hash: None,
-            error: Some("no_info_hash".to_string()),
-        },
+        None => MagnetOutcome::err("no_info_hash"),
     }
 }
 
