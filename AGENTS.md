@@ -381,6 +381,71 @@ probe 用 `rows.count == 0` 把事实钉住）。
 10. 移植中发现的上游 bug：**功能性 bug（死链）就修并单列 divergence 测试；
     纯显示问题先照抄**。已发现的三条登记在上面的「🐞 移植中发现的上游 bug」。
 
+## 🔴 CI 失败模式总账（2026-07-10 ~ 2026-10-10，223 个 run / **51 次失败**）
+
+把远程所有失败 run 拉下来逐条归类后，结论是：**这 51 次里只有 3 次是真·环境问题，
+其余都是自己造成的，而且大部分本机就能拦住**。
+
+| 类 | 次数 | 现象 | 根因 | 以后怎么避免 |
+|---|---|---|---|---|
+| **A. workflow 文件变成空壳** | **15** | run 有结论、但**一个 job 都没有**；`gh run view` 只说 `likely failed because of a workflow file issue`，`--log-failed` 输出**完全为空** | `main` 上的 `.github/workflows/tauri-build.yml` 是 **0 字节**。来源于 `3ad0c59`（2026-08-14「同步 Tauri Build workflow 到 main」）—— 那次同步写出了一个空文件，一直挂到 08-20 的 `8d06e5e` 才修。期间 main 上**每次 push 都失败一次** | ① 新增 `ci-guard.yml` + `scripts/check-workflows.py`（见下）；② 同步/恢复文件后立刻 `gh run view <id>`，**看不到 job 就是文件坏了**，别等日志 |
+| **B. 探针真值没跟上** | 7 | `dom_probes::selectors_and_accessors_match_cheerio_on_real_fixtures` 失败，打印 "期望值里没有这个 probe" | 先推了「fixture + 新 probe」，而 `html-probes.expected.json` 还是旧的 —— **两步流程的必然红灯**（每搬一个 HTML provider 就来一次） | 见「探针两步流程」；根治办法（待做）：让 `html-probes.yml` 自己 commit 回 expected.json |
+| **C. 测试返回值写错** | 7 | 各种 `assertion left == right` | 手算的期望值错：`dateText` 默认是 `—` 不是空串、`1 MB` 会格式化成 `1.0 MB`、`date` 不含 `Posted:` 前缀、base 多一个尾斜杠、`ends_with` 写成了带 slug 的、把线上域名写进本地服务测试 | 期望值**一律先跑真 JS**：`node -e "require('./src/lib/normalize.js')"` —— 本机零依赖，能跑（实测过） |
+| **D. 自己代码编译不过 / 单测片段写错** | 6 | `error[E0107] expected 2 generic arguments`、`error[E0308] &str vs String`、`error: prefix \`x\` is unknown`、3 次 dom.rs 单测（裸 `<tr>`/`<td>` 片段被解析器丢掉） | 本机没 cargo，签名/泛型靠 CI 发现；测试里随手塞不合法表格标签 | 见「本机三道门」+ 「HTML provider 铁律 #1」 |
+| **E. `cargo fmt --check`** | 2 | `Diff in crates/...` | 本地没跑 rustfmt，或跑了没看退出码 | 见「本机三道门」第 1 条 —— **必须用 `&&` 串，不能用 `;`** |
+| **F. 打包 / 发版** | 14 | EPERM×5（npm cleanup 删不掉被进程锁住的 `@tauri-apps`/`@electron` 原生二进制）、GH_TOKEN×2（electron-builder 想自动 publish）、E0593×2（`src-tauri` closure 参数个数）、NSIS 配置不合法×1、`未找到 electron 运行时`×1、`cat docs/RELEASE_ARTIFACTS.md: No such file`×1、pwsh `working directory` 不存在×1、无日志无说明×1 | 基本上是**同一台 Windows runner 上的文件锁 / 上游 schema 变动 / 分支上缺文件**，跟被测代码无关 | EPERM：不要在同一 job 里先 `npm ci` 再就地删 node_modules（已修）；GH_TOKEN：别让 electron-builder 自动 publish，改 artifact 上传（已修）；引用文件前先 `test -f` |
+| **G. Slint spike** | 1 | `Cannot convert string to styled-text`（build.rs 挂了） | spike 分支已删，结论留在阶段二说明里 | 阶段二重建 Slint 时别再踩 |
+
+（组合：A15 + B~E22（Rust 门禁）+ F14 + G1 = 51；Rust 那一组 22 次里
+**没有一次是环境问题**。）
+
+### 🚧 本机三道门（提交前必须过，任一条不过就别 push）
+
+```bash
+# 1) 格式化 —— ⚠️ 必须用 && 串起来！用 ; 的话前面失败了你还会继续 commit+push
+RF="/d/Vibe-Coding/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin/rustfmt.exe"
+"$RF" --edition 2021 <改动的 .rs 文件> && "$RF" --check --edition 2021 <改动的 .rs 文件> && \
+  git commit ... && git push ...
+
+# 2) 期望值先跑真 JS（normalize.js 零依赖，本机能跑）
+node -e "const {normalize}=require('./src/lib/normalize.js'); console.log(normalize({...}))"
+
+# 3) workflow 文件体检
+python3 scripts/check-workflows.py
+```
+
+> 2026-10-10 实测：`limetorrents` 那次 raw string 编译错**本机 rustfmt 已经报出来了**，
+> 是我用 `;` 串命令、`echo $?` 之后照样 commit+push，白丢一轮 CI。
+
+### 🔒 workflow 文件守卫（`ci-guard.yml` + `scripts/check-workflows.py`）
+
+workflow 文件坏掉时**它自己不跑**，所以要另一条无关的 workflow 来体检：
+
+- 触发：push / PR 改动 `.github/workflows/**` 或 `scripts/check-workflows.py`（也可手动触发）
+- 检查：每个 `*.yml` ① 体积 ≥ 200 字节（抓空壳）② 能 YAML 解析 ③ 有 `on:` 与 `jobs:`
+  ④ 每个 job 有 `runs-on` 或 `uses`（没装 pyyaml 就退化成字符串级检查）
+- ⚠️ **这个文件在 `feat/rust` 上有，`main` 上还没有**（新 workflow 要同时放两个分支，
+  见「同步 features」一节）。下次动 `main` 时把它和 `scripts/check-workflows.py` 一并带过去
+
+### 🐢 探针两步流程（现在的样子）
+
+搬 HTML provider 时是两步，**中间一定会有一次红灯**：
+
+1. 推「fixture + 新 probe」→ **这次 push 的 rust.yml 必红**（expected.json 还是旧的），
+   同时手动触发 `html-probes.yml --ref feat/rust`
+2. 从日志里把 JSON 抠出来存成 `html-probes.expected.json`，再推 → 绿
+
+已知的坑：
+- 日志里的 JSON 要靠 `scripts/gh-retry.sh run view <id> --log` 抓，然后**按 `\t` 切掉前两段前缀、
+  去掉 `\uFEFF`、从单独一行的 `{` 读到单独一行的 `}`**，再和旧的 expected.json 逐 fixture 比对
+  （老 fixture 必须一模一样，不然就是抓错了）
+- ⚠️ **别给大页面加 `text_first` on `html`** —— 超长单行会让 CI 日志从那一行起被截断，
+  后面的真值全拿不到（therarbg 实测）。
+  **根治办法（待做）**：让 `html-probes.yml` 自己 `git commit` 回 expected.json
+  （需要 `contents: write`），就不用手抄日志、也不会有这一步红灯了。
+
+---
+
 ## Testing
 
 **过渡期两套测试并存**：
