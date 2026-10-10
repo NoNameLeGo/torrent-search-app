@@ -316,6 +316,102 @@
           "selector": "html"
         }
       ]
+    },
+    {
+      "file": "therarbg-ubuntu.html",
+      "note": "真实结果页（2026-10-10 快照，关键词 ubuntu → 39 个 tr.list-entry）。坑点：日期/大小不在文本里，而在 data-order 属性里（秒 / 字节）；分类在第 3 个 td 的 <a> 文本里；第 1 个 td 是图标、没有名字。名字那一格还有多一个 </a>（站上写错了），看解析器吃不吃。",
+      "probes": [
+        {
+          "id": "rows.count",
+          "op": "count",
+          "selector": "table > tbody > tr.list-entry"
+        },
+        {
+          "id": "rows.first_3_rows",
+          "op": "row_cells",
+          "selector": "table > tbody > tr.list-entry",
+          "closest": "tr",
+          "within": "td",
+          "limit": 3
+        },
+        {
+          "id": "name.count_nonempty_texts",
+          "op": "count_nonempty_texts",
+          "selector": "td.cellName > div > a"
+        },
+        {
+          "id": "name.first_3_texts",
+          "op": "texts",
+          "selector": "td.cellName > div > a",
+          "limit": 3
+        },
+        {
+          "id": "name.attrs_first_3",
+          "op": "attrs",
+          "selector": "td.cellName > div > a",
+          "attr": "href",
+          "limit": 3
+        },
+        {
+          "id": "size.attrs_first_3",
+          "op": "attrs",
+          "selector": "td.sizeCell",
+          "attr": "data-order",
+          "limit": 3
+        },
+        {
+          "id": "date.attrs_first_3",
+          "op": "attrs",
+          "selector": "td:nth-child(4)",
+          "attr": "data-order",
+          "limit": 3
+        },
+        {
+          "id": "cat.first_3_texts",
+          "op": "texts",
+          "selector": "td:nth-child(3) > a",
+          "limit": 3
+        },
+        {
+          "id": "seeders.first_3_texts",
+          "op": "texts",
+          "selector": "td:nth-child(7)",
+          "limit": 3
+        },
+        {
+          "id": "leechers.first_3_texts",
+          "op": "texts",
+          "selector": "td:nth-child(8)",
+          "limit": 3
+        },
+        {
+          "id": "magnet.count",
+          "op": "count",
+          "selector": "a[href^=\"magnet:?\"]"
+        },
+        {
+          "id": "html.lang_text",
+          "op": "text_first",
+          "selector": "html"
+        }
+      ]
+    },
+    {
+      "file": "therarbg-detail.html",
+      "note": "真实详情页（2026-10-10 快照，150KB / 磁力链只有 1 条）。整个列表页都没有磁力，只有详情页有 —— 这就是 resolveMagnet 的存在理由。源玛里是 `&amp;dn=…`，取值应该是**解码后**的单 & ，这条 probe 同时验证长属性的实体解码。",
+      "probes": [
+        {
+          "id": "magnet.count",
+          "op": "count",
+          "selector": "a[href^=\"magnet:?\"]"
+        },
+        {
+          "id": "magnet.first_href",
+          "op": "attr_first",
+          "selector": "a[href^=\"magnet:?\"]",
+          "attr": "href"
+        }
+      ]
     }
   ]
 }
