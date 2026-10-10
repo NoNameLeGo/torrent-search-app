@@ -88,7 +88,7 @@ crates/bt-core/         领域类型 + 归一化 + HTTP 公共层 + HTML 解析�
   src/http.rs           ← src/lib/http.js 的移植（契约：永不返回 Err）
   tests/http.rs         ← 自起本地一次性 HTTP 服务，全程无外网
   src/dom.rs            ← cheerio 的替代层（scraper 0.27 = html5ever + selectors）
-  tests/dom_probes.rs   ← 选择器语义对照：与 cheerio 真值（90 条 probe）逐条比对
+  tests/dom_probes.rs   ← 选择器语义对照：与 cheerio 真值（102 条 probe）逐条比对
 crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方式  src/lib.rs            SearchOutcome { results, error, has_more }
                         （暂不引入 Provider trait，等 3~5 个再定抽象）
   src/value.rs          Value → NumOrText / String / min 的公共转换（含 v2nt_nonzero）
@@ -105,6 +105,7 @@ crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方
   src/limetorrents.rs   ← src/providers/limetorrents.js（HTML；info hash 在 itorrents 链接里；带真分页）
   src/torrent9.rs       ← src/providers/torrent9.js（HTML，法站；只取名字+详情链接，其余四格 JS 丢掉）
   src/oxtorrent.rs      ← src/providers/oxtorrent.js（HTML，法站；同上，错误串是 no_results）
+  src/nyaa.rs           ← src/providers/nyaa.js（HTML；fixture 是 CI 抓的；⚠️ JS 列索引全错位）
   tests/common/mod.rs   本地一次性 HTTP 服务 + fixture 加载（provider 测试公用）
                         oneshot() 只要响应；oneshot_capture() 另交出原始请求，用于钉请求契约
   tests/{tpb,knaben,torrentscsv,yts,internetarchive}.rs   各自的离线测试
@@ -133,9 +134,10 @@ crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方
 | `src/providers/limetorrents.js`（95 行） | `limetorrents.rs` | 真 fixture：41 行（含表头）→ 40 条（hash 从 itorrents 链接抠）+ 10 条集成 + 9 条单测（含两个上游 bug 的钉住） | **待删** |
 | `src/providers/torrent9.js`（126 行） | `torrent9.rs` | 真 fixture：3 条结果（只有名字！）+ 详情页磁力 + 11 条集成 + 5 条单测（含「缺 h1 就不给磁力」的守卫） | **待删** |
 | `src/providers/oxtorrent.js`（61 行） | `oxtorrent.rs` | 真 fixture：3 条结果（**无表头行**）+ 详情页磁力 + 12 条集成 + 4 条单测 | **待删** |
+| `src/providers/nyaa.js`（64 行） | `nyaa.rs` | 真 fixture（**CI 抓的**）：1 条结果 + 8 条集成 + 6 条单测（把三处上游 bug 钉住） | **待删** |
 
-（另有 `bt-providers` 的 72 条单元测试（测 `src/value.rs` + `linuxtracker.rs` + `filemood.rs` + `rutor.rs` + `audiobookbay.rs` + `therarbg.rs` + `limetorrents.rs` + `torrent9.rs` + `oxtorrent.rs`）；
-`tests/live_smoke.rs` 2 条默认跳过。合计 **281 passed / 0 failed**。）
+（另有 `bt-providers` 的 78 条单元测试（测 `src/value.rs` + `linuxtracker.rs` + `filemood.rs` + `rutor.rs` + `audiobookbay.rs` + `therarbg.rs` + `limetorrents.rs` + `torrent9.rs` + `oxtorrent.rs` + `nyaa.rs`）；
+`tests/live_smoke.rs` 2 条默认跳过。合计 **295 passed / 0 failed**。）
 
 ⚠️ `test/fixtures/internetarchive-ubuntu.synthetic.json`（文件名带 `.synthetic`）：
 `docs[0..2]` 是 2026-10-08 从 CI 冒烟日志取回的**真实 doc**，`docs[3..]` 是手工构造的边界样本；
@@ -167,8 +169,8 @@ Node 源码在这个阶段是**验证工具**而不是待清垃圾。提前删�
 
 | 路径 | 为何现在留着 | 何时可删 |
 |---|---|---|
-| `src/providers/tpb.js`、`knaben.js`、`torrentscsv.js`、`yts.js`、`internetarchive.js`、`linuxtracker.js`、`filemood.js`、`rutor.js`、`audiobookbay.js`、`therarbg.js`、`limetorrents.js`、`torrent9.js`、`oxtorrent.js` ✅已移植 | `test/run.js` 仍在跑 tpb/knaben/linuxtracker/filemood/rutor；离线对照要用 | `bt-app` 接通对应 provider + Node 测试块删除后 |
-| `src/providers/*.js`（其余 29 个） | 尚未移植，是逐行对照的参照物 | 各自移植完成后按上条判断 |
+| `src/providers/tpb.js`、`knaben.js`、`torrentscsv.js`、`yts.js`、`internetarchive.js`、`linuxtracker.js`、`filemood.js`、`rutor.js`、`audiobookbay.js`、`therarbg.js`、`limetorrents.js`、`torrent9.js`、`oxtorrent.js`、`nyaa.js` ✅已移植 | `test/run.js` 仍在跑 tpb/knaben/linuxtracker/filemood/rutor；离线对照要用 | `bt-app` 接通对应 provider + Node 测试块删除后 |
+| `src/providers/*.js`（其余 28 个） | 尚未移植，是逐行对照的参照物 | 各自移植完成后按上条判断 |
 | `src/lib/`、`server.js`、`test/run.js` | 聚合层尚未移植，本分支上 Node 版仍需可跑 | provider + 聚合全搬完 |
 | `public/` | 阶段一的前端本体（`public/` 一行不改） | **阶段二**确认上 Slint 后 |
 | `electron/`、`scripts/`、`package.json`、`start.bat`/`stop.bat`、`.eslintrc.json`、`.prettierrc`、`build.yml`/`release.yml`/`tauri-build.yml` | Rust 版尚未能取代旧 Shell 发版 | Rust 版能独立发版后 |
@@ -203,30 +205,37 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 `rutor` 已搬完，顺带把「俄站编码」验清楚了：**它是 UTF-8，不是 win1251**。
 `1337x.js` 已调查完毕、判定当前不可抓取，**跳过**（见 B 组进度表下的专门小节）。**
 
-**← 再下一个（2026-10-10 更新）**：`audiobookbay`、`therarbg`、`limetorrents`、`torrent9`、`oxtorrent` 都已搬完。
-⭐ **本机能抓到的候选已经用完了**（全部 40 个引擎里能在本机探通的都搬了）。
-剩下的 `dmhy` / `nyaa` / `megapeer` / `zeromagnet` / `xxxtracker` / `sukebei` 等
-**本机探不通、但 CI 能通**，要搬得先解决「在 CI 上落一份页面快照」：
-建一条 `fetch-fixture.yml`（`workflow_dispatch` 带 `url` + `path` 两个 input，
-在干净 IP 上 curl 一份页面、自己 commit 回分支）—— 与 `html-probes.yml` 同一套路。
+**← 再下一个（2026-10-10 更新）**：`audiobookbay`…`nyaa` 共 9 个 HTML provider 都已搬完。
+⭐ **本机能抓到的候选已经用完了**（本机能探通的基本都搬了）。
+剩下的本机都不通，但 **CI 能通**，已经有工具了：
+
+```bash
+scripts/gh-retry.sh workflow run fetch-fixture.yml --ref feat/rust \
+  -f url='https://dmhy.org/topics/list?keyword=ubuntu' \
+  -f path='test/fixtures/dmhy-ubuntu.html'
+# 20 秒后 pull 回来，按「探针流程」继续
+```
+
+候选：`dmhy`（CI 10 行）、`nyaa` 已搬、`megapeer`（CI 14 行，俄站→编码要验）、
+`zeromagnet`（CI 29 行）、`xxxtracker`（CI 1 行）、`sukebei` / `nekobt`（域名是死是活待确认）。
 
 **B 组（HTML 抓取，需引入 `scraper` crate 对标 cheerio）** —— ✅ 地基 + 4 个 provider 完成
 
 - ✅ `crates/bt-core/src/dom.rs`：cheerio 的替代层（`scraper` 0.27 = html5ever + selectors）
   语义对照表写在文件头；自带 11 条单元测试
-- ✅ 选择器等价性对照机制：`test/fixtures/html-probes.json`（**90 条 probe / 12 个 fixture**）+
+- ✅ 选择器等价性对照机制：`test/fixtures/html-probes.json`（**102 条 probe / 13 个 fixture**）+
   `scripts/html-probes.cjs`（cheerio 侧，真值来源）+ `crates/bt-core/tests/dom_probes.rs`（Rust 侧）
   + `test/fixtures/html-probes.expected.json`（真值，cheerio 1.2.0 生成）
   ⚠️ **别给大页面加 `text_first` on `html`**（整页 text 拼接的超长单行）—— 实测会让 CI 日志
   从那一行起被截断，后面的 probe 真值全拿不到（2026-10-10 在 therarbg 上踩过）。
   整页拼接的语义已有 rutor / audiobookbay 两条覆盖，不必每个 fixture 都加。
-- ✅ `linuxtracker.js` + `filemood.js` + `rutor.js` + `audiobookbay.js` + `therarbg.js` + `limetorrents.js` + `torrent9.js` + `oxtorrent.js` 八个 HTML provider 落地，全部离线可测
+- ✅ `linuxtracker.js` + `filemood.js` + `rutor.js` + `audiobookbay.js` + `therarbg.js` + `limetorrents.js` + `torrent9.js` + `oxtorrent.js` + `nyaa.js` 九个 HTML provider 落地，全部离线可测
 
 **B 组进度**
 
 | # | provider | 状态 |
 |---|---|---|
-| 0 | 地基（`dom.rs` + 选择器对照机制） | ✅ 90 条 probe 与 cheerio 1.2.0 逐条一致 |
+| 0 | 地基（`dom.rs` + 选择器对照机制） | ✅ 102 条 probe 与 cheerio 1.2.0 逐条一致 |
 | 1 | `linuxtracker.js` | ✅ 18 条结果 + 11 集成 + 8 单测 |
 | 2 | `filemood.js` | ✅ 20 条结果 + 11 集成 + 11 单测 |
 | 3 | `rutor.js` | ✅ 100 条结果 + 13 集成 + 13 单测（**本机与 CI 两边都 ✅ 的第一个**） |
@@ -235,7 +244,8 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 | 6 | `limetorrents.js` | ✅ 40 条结果（本机 ✅ 45 行 / CI ⛔403）+ 10 集成 + 9 单测；第一个**带真分页**的 HTML provider |
 | 7 | `torrent9.js` | ✅ 3 条结果（本机 ✅ 4 行 / CI ⛔403）+ 11 集成 + 5 单测；⚠️ 卡片上除名字外全是 `—`（JS 把同页的日期/大小/peers 全丢了） |
 | 8 | `oxtorrent.js` | ✅ 3 条结果（本机 ✅ 3 行 / CI ⛔403）+ 12 集成 + 4 单测；无表头行；错误串是 `no_results` |
-| 9 | `1337x.js` | ⛔ **已调查，当前不可抓取 → 跳过**，见下面专门小节 |
+| 9 | `nyaa.js` | ✅ 1 条结果（CI ✅ 2 行，**本机不通 → fixture 由 CI 抓**）+ 8 集成 + 6 单测；⚠️ 三种上游 bug（见下） |
+| 10 | `1337x.js` | ⛔ **已调查，当前不可抓取 → 跳过**，见下面专门小节 |
 | — | 俄站（rutor 等，**编码**要专门验） | ⏭️ **下一个**：还没有 fixture，得先抓一个 |
 
 ### ⛔ `1337x.js` —— 2026-10-09 调查完毕，**跳过**
@@ -286,6 +296,8 @@ probe 用 `rows.count == 0` 把事实钉住）。
 | `torrent9.js` 的数据白扔 | 结果表第 2~5 格就摆着 `30/08/2018` / `1.9Go` / `3` / `3`，详情页也有 `Poids du torrent`（大小）、`Date d'ajout`（日期）、`Catégories`；但 `searchOn` 只传 `name` + `detailUrl`，`resolveMagnet` 只回 `{magnet, infoHash}` —— **其余字段全丢**，卡片上除名字外全是 `—` | **照抄**（属「数据没用上」；要修就是让 search 直接读那四格，或让 resolve 顺手补全字段） |
 | `torrent9.js` 的 `parseDetail` | 它抽出的 `size`/`seeders`/`leechers`/`date`/`category` **没有任何调用方用到**（`resolveMagnet` 只要 magnet + hash）→ JS 里的死代码，连带 `categoryFromRaw` 也只服务于它 | **不搬**（Rust 侧只实现可达路径；文件头写了哪一天要补就照 JS 补） |
 | `oxtorrent.js` 的数据白扔 | 与 torrent9 同一个毛病：同行就有 `700.4 MB` / `9` / `2`，第 1 格还带 `<i class="Logiciels">`（法语分类，本该映成 `Apps`）—— `searchOne` 只传 `name` + `detailUrl`，全不要 | **照抄**（探针 `cat_classes.attrs_first_3` 把「分类其实拿得到」这个事实钉住了） |
+| `nyaa.js` 的列索引 | 名字那格带 `colspan="2"`（评论列被并掉），一行只有 **8 个 td**，而 JS 按 9 列读 `tds.eq(2..5)` → 实际落到 Link/Size/Date/Seeders：`sizeText` 恒 `—`、`dateText` 恒 `—`、**`seeders` 变成日期串里的 2009**（实测 JS 真给这个数） | **照抄**（测试把 `seeders = Some(2009)` 都钉住了，免得以后有人以为 Rust 写错） |
+| `nyaa.js` 的磁力 | `nameCell.find('a[href^="magnet:"]')` 在**名字格**里找，而磁力在 `tds.eq(2)`（Link 格）→ **magnet 恒 `null`、`needsMagnet` 恒 true**；而 `nyaa.js` **又没有 `resolveMagnet`**，于是前端「获取磁力」会打到 `/api/magnet` → 无 resolver → 回退到已死的 1337x → 报错。**结论：nyaa 现在拿不到磁力** | **照抄**（真要修：把搜索范围改成整行 + 补一个 `resolveMagnet`，两版一起改） |
 
 口径：**功能性 bug（死链）就修，纯显示问题先照抄** —— 三条都在代码注释里写明了理由。
 - HTML fixture 现状：
@@ -305,12 +317,13 @@ probe 用 `rows.count == 0` 把事实钉住）。
 | `torrent9-detail.html` | ✅ 真实详情页（48KB，861 字符的磁力链，19 个 tracker）。源玛里是**裸 `&`**（不是 `&amp;`）—— 与 therarbg 那条正好互补 |
 | `oxtorrent-ubuntu.html` | ✅ 真实结果页，**3 行且没有表头行**。同行就有大小/peers/分类（`<i class="Logiciels">`），JS 都不要 |
 | `oxtorrent-detail.html` | ✅ 真实详情页（20KB）。`div.btn-magnet > a` 1 条，同级还有个 `div.btn-download > a` 指向同一条磁力（JS 不认） |
+| `nyaa-ubuntu.html` | ✅ 真实结果页（**CI 抓的**，本机不通），只有 1 条。⚠️ 名字格 `colspan="2"` → 一行 8 个 td，JS 的列索引全错位；磁力在 `td[2]` 而 JS 在 `td[1]` 找 |
 
 **C 组（基础设施，可穿插）**：`src/lib/scraper.js` 的 `createProvider` 工厂 + `runMirrors` 镜像回退 ——
 搬完 3~5 个 provider、看清共性后再定抽象。
-**截至 2026-10-10 已搬 13 个**，三类共性全都有实例了：
+**截至 2026-10-10 已搬 14 个**，三类共性全都有实例了：
 镜像回退（`rutor` / `audiobookbay` / `therarbg` / `limetorrents` / `torrent9` / `oxtorrent`，各自的 `search_with` 逐字复刻 `runMirrors`）、
-翻页（`rutor` 的 0/1 起始差异、`limetorrents` 的真分页 URL）、
+翻页（`rutor` 的 0/1 起始差异、`limetorrents` 的真分页 URL、`nyaa` 的**不** coerce）、
 磁力惰性解析（`audiobookbay` / `therarbg` / `torrent9` / `oxtorrent` 的 `resolve_magnet` + `MagnetOutcome`，已因此从 provider 提到 `lib.rs`）。
 → **随时可以定 `Provider` trait 了**，再拖就是重复代码在同一形状上多抄几遍。
 
@@ -446,8 +459,24 @@ workflow 文件坏掉时**它自己不跑**，所以要另一条无关的 workfl
 
 搬一个 HTML provider 时，按下面走 —— **feat/rust 上不会出现「probe 有了、真值还没」的中间态**：
 
-1. 抓真 fixture，往 `test/fixtures/html-probes.json` 加 probe
-2. **先在临时分支上把真值跑出来**（别在 feat/rust 上先推，那样 rust.yml 必红一次）：
+**0. 先看本机能不能抓到真页面**
+
+- **能**（大多数站）：自己抓一份存成 `test/fixtures/<site>-<query>.html`（详情页要单独再抓一次）
+- **不能**（`dmhy` / `megapeer` / `zeromagnet` 这类本机探不通的）：让 CI 去抓
+
+  ```bash
+  scripts/gh-retry.sh workflow run fetch-fixture.yml --ref feat/rust \
+    -f url='<结果页 URL>' -f path='test/fixtures/<site>-<query>.html'
+  # 20 秒左右，CI 会把文件 commit 回 feat/rust
+  git pull --rebase
+  ```
+
+  ⚠️ 抓回来**先看一眼内容**（`head -c 300`）—— Cloudflare 挑战页 / 停放页也是 200。
+
+**1. 加 probe**：往 `test/fixtures/html-probes.json` 里加这个 fixture 的条目，
+选择器就拄 JS 里那几条（`rows.count` / `row_cells` 的整行 / 每个用到的格子各一条）。
+
+**2. 在临时分支上把真值跑出来**（别在 feat/rust 上先推，那样 rust.yml 必红一次）：
 
    ```bash
    git checkout -b probes/scratch
@@ -456,14 +485,15 @@ workflow 文件坏掉时**它自己不跑**，所以要另一条无关的 workfl
    GIT_SSL_NO_VERIFY=true git push -u origin probes/scratch
    scripts/gh-retry.sh workflow run html-probes.yml --ref probes/scratch   # 20 秒左右
    git fetch origin probes/scratch
-   git checkout origin/probes/scratch -- test/fixtures/    # 整个目录：fixture + probe 清单 + 真值
+   git checkout feat/rust            # ← 先切回来
+   git restore --source=origin/probes/scratch -- test/fixtures/html-probes.json test/fixtures/html-probes.expected.json
    ```
 
-   ⚠️ **先把这三个文件带回 `feat/rust` 再删临时分支**（`git checkout feat/rust` 会把临时分支上
-   独有、而 feat/rust 上还没提交的文件删掉；2026-10-10 实测踩过，靠 reflog 才找回来）。
+   ⚠️ 取文件要用 `git restore --source=<ref>` **从 feat/rust 上**拿 —— 千万别先 `git checkout feat/rust`
+   再想拿临时分支独有的文件（拿不到，而且会把它们从工作区删掉；2026-10-10 踩过，靠 `git reflog` 才救回来）。
 
-3. 回 `feat/rust`，把 fixture + probe + 真值 + provider + 测试**一次推完** → 一次就绿
-4. 删临时分支（本地 + 远程）：`git branch -D probes/scratch && git push origin :probes/scratch`
+**3. 回 `feat/rust` 一次推完**：fixture + probe + 真值 + provider + 测试 → 一次就绿
+**4. 删临时分支**：`git branch -D probes/scratch && GIT_SSL_NO_VERIFY=true git push origin :probes/scratch`
 
 为什么这么改：`html-probes.yml` 现在**自己 commit** `expected.json` 回触发它的 ref
 （`permissions: contents: write`），所以人只负责 fetch 文件。
@@ -649,7 +679,8 @@ GIT_SSL_NO_VERIFY=true git push origin feat/rust
 | `build.yml` / `release.yml` / `tauri-build.yml` | `main` | 能 |
 | `live-smoke.yml` | `main`（**为能手动触发而特意放的**）+ `feat/rust` | 能（触发时用 `--ref feat/rust` 才检出 Rust 代码） |
 | `rust.yml` | 只在 `feat/rust` | ❌ 不能，只能靠 push 触发 |
-| `html-probes.yml` | `main` + `feat/rust` | 能（选分支 `feat/rust`，生成 cheerio 真值） |
+| `html-probes.yml` | `main` + `feat/rust` | 能（选分支 `feat/rust`，生成 cheerio 真值**并自己提交**） |
+| `fetch-fixture.yml` | `main` + `feat/rust` | 能（带 `url`/`path`，让 CI 去抓本机探不通的页面快照，抓完自己提交） |
 | `provider-health.yml` | `main` + `feat/rust` | 能（全部 40 个引擎的联网探活） |
 
 `live-smoke.yml` 用 `hashFiles('crates/bt-providers/Cargo.toml')` 兜底：
