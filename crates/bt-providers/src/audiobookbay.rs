@@ -352,11 +352,12 @@ mod tests {
     fn the_real_pages_info_text_loses_both_size_and_date() {
         let (size, date) = split_info(REAL_INFO_TEXT);
         assert_eq!(size, None, "JS 的 else if 让 File Size 那一支永远走不到");
-        assert_eq!(
-            date,
-            Some(NumOrText::Text(REAL_INFO_TEXT.to_string())),
-            "date 被赋成 'Posted:' 之后的整段（含 MP3 / File Size 等内容）"
-        );
+        // JS: `line.substring('Posted:'.length).trim()` —— 只切掉 "Posted:" 五个字，
+        // 后面的 Format / File Size 全被当成日期
+        let expected_date = REAL_INFO_TEXT
+            .strip_prefix("Posted: ")
+            .expect("REAL_INFO_TEXT 该以 Posted: 开头");
+        assert_eq!(date, Some(NumOrText::Text(expected_date.to_string())));
     }
 
     /// 上面那条垃圾 date 经 `normalize` 之后确实是空的（与 JS 实测一致）。
