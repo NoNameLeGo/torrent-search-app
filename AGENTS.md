@@ -427,22 +427,37 @@ workflow 文件坏掉时**它自己不跑**，所以要另一条无关的 workfl
 - ⚠️ **这个文件在 `feat/rust` 上有，`main` 上还没有**（新 workflow 要同时放两个分支，
   见「同步 features」一节）。下次动 `main` 时把它和 `scripts/check-workflows.py` 一并带过去
 
-### 🐢 探针两步流程（现在的样子）
+### 🐢 探针流程（2026-10-10 改造：CI 自己提交真值，中间不再必红）
 
-搬 HTML provider 时是两步，**中间一定会有一次红灯**：
+搬一个 HTML provider 时，按下面走 —— **feat/rust 上不会出现「probe 有了、真值还没」的中间态**：
 
-1. 推「fixture + 新 probe」→ **这次 push 的 rust.yml 必红**（expected.json 还是旧的），
-   同时手动触发 `html-probes.yml --ref feat/rust`
-2. 从日志里把 JSON 抠出来存成 `html-probes.expected.json`，再推 → 绿
+1. 抓真 fixture，往 `test/fixtures/html-probes.json` 加 probe
+2. **先在临时分支上把真值跑出来**（别在 feat/rust 上先推，那样 rust.yml 必红一次）：
 
-已知的坑：
-- 日志里的 JSON 要靠 `scripts/gh-retry.sh run view <id> --log` 抓，然后**按 `\t` 切掉前两段前缀、
-  去掉 `\uFEFF`、从单独一行的 `{` 读到单独一行的 `}`**，再和旧的 expected.json 逐 fixture 比对
-  （老 fixture 必须一模一样，不然就是抓错了）
-- ⚠️ **别给大页面加 `text_first` on `html`** —— 超长单行会让 CI 日志从那一行起被截断，
-  后面的真值全拿不到（therarbg 实测）。
-  **根治办法（待做）**：让 `html-probes.yml` 自己 `git commit` 回 expected.json
-  （需要 `contents: write`），就不用手抄日志、也不会有这一步红灯了。
+   ```bash
+   git checkout -b probes/scratch
+   git add test/fixtures/<新 fixture> test/fixtures/html-probes.json
+   git commit -m "test(<site>): 抓真 fixture + N 条探针"
+   GIT_SSL_NO_VERIFY=true git push -u origin probes/scratch
+   scripts/gh-retry.sh workflow run html-probes.yml --ref probes/scratch   # 20 秒左右
+   git fetch origin probes/scratch
+   git checkout origin/probes/scratch -- test/fixtures/html-probes.expected.json
+   ```
+
+3. 回 `feat/rust`，把 fixture + probe + 真值 + provider + 测试**一次推完** → 一次就绿
+4. 删临时分支（本地 + 远程）：`git branch -D probes/scratch && git push origin :probes/scratch`
+
+为什么这么改：`html-probes.yml` 现在**自己 commit** `expected.json` 回触发它的 ref
+（`permissions: contents: write`），所以人只负责 fetch 文件。
+以前是「先推 probe（rust.yml 必红）→ 再从日志手抠 JSON」，那个红灯在 CI 失败总账里出现了 **7 次**。
+
+残留的坑：
+- 如果 CI 提交失败（分支保护之类），日志里还有一份可抠：`scripts/gh-retry.sh run view <id> --log`，
+  **按 `\t` 切掉前两段前缀、去掉 `\uFEFF`、从单独一行的 `{` 读到单独一行的 `}`**，
+  再和旧的 expected.json 逐 fixture 比对（老 fixture 必须逐字一样，不然就是抓错了）
+- ⚠️ **别给大页面加 `text_first` on `html`** —— 超长单行会让 CI 日志从那一行起被截断
+  （therarbg 实测）；现在真值走文件、不走日志，但那条 probe 依旧没意义，别加
+- ⚠️ CI 提交后**远端比本地新**，接着推之前先 `git pull --rebase`，否则会被拒
 
 ---
 
