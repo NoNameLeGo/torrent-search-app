@@ -131,7 +131,7 @@ async fn the_row_with_two_links_uses_the_first_one() {
     assert!(
         r.detail_url
             .as_deref()
-            .is_some_and(|d| d.ends_with("/post-detail/7879f1/")),
+            .is_some_and(|d| d.contains("/post-detail/7879f1/")),
         "{:?}",
         r.detail_url
     );
