@@ -88,7 +88,7 @@ crates/bt-core/         领域类型 + 归一化 + HTTP 公共层 + HTML 解析�
   src/http.rs           ← src/lib/http.js 的移植（契约：永不返回 Err）
   tests/http.rs         ← 自起本地一次性 HTTP 服务，全程无外网
   src/dom.rs            ← cheerio 的替代层（scraper 0.27 = html5ever + selectors）
-  tests/dom_probes.rs   ← 选择器语义对照：与 cheerio 真值（61 条 probe）逐条比对
+  tests/dom_probes.rs   ← 选择器语义对照：与 cheerio 真值（71 条 probe）逐条比对
 crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方式  src/lib.rs            SearchOutcome { results, error, has_more }
                         （暂不引入 Provider trait，等 3~5 个再定抽象）
   src/value.rs          Value → NumOrText / String / min 的公共转换（含 v2nt_nonzero）
@@ -102,6 +102,7 @@ crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方
   src/rutor.rs          ← src/providers/rutor.js（HTML，bt_core::dom；俄站 UTF-8）
   src/audiobookbay.rs   ← src/providers/audiobookbay.js（HTML；磁力惰性，resolve_magnet）
   src/therarbg.rs       ← src/providers/therarbg.js（HTML；size/date 在 data-order 属性里；resolve_magnet）
+  src/limetorrents.rs   ← src/providers/limetorrents.js（HTML；info hash 在 itorrents 链接里；带真分页）
   tests/common/mod.rs   本地一次性 HTTP 服务 + fixture 加载（provider 测试公用）
                         oneshot() 只要响应；oneshot_capture() 另交出原始请求，用于钉请求契约
   tests/{tpb,knaben,torrentscsv,yts,internetarchive}.rs   各自的离线测试
@@ -127,9 +128,10 @@ crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方
 | `src/providers/rutor.js`（99 行） | `rutor.rs` | 真 fixture：101 行（含表头）→ 100 条（cheerio 交叉验证）+ 13 条集成 + 13 条单测 | **待删** |
 | `src/providers/audiobookbay.js`（92 行） | `audiobookbay.rs` | 真 fixture：9 条结果 + 详情页（还原 info hash）+ 15 条集成 + 11 条单测（含上游 size/date bug 的钉住） | **待删** |
 | `src/providers/therarbg.js`（91 行） | `therarbg.rs` | 真 fixture：39 条结果（size/date 走 `data-order`）+ 详情页磁力 + 18 条集成 + 7 条单测 | **待删** |
+| `src/providers/limetorrents.js`（95 行） | `limetorrents.rs` | 真 fixture：41 行（含表头）→ 40 条（hash 从 itorrents 链接抠）+ 10 条集成 + 9 条单测（含两个上游 bug 的钉住） | **待删** |
 
-（另有 `bt-providers` 的 54 条单元测试（测 `src/value.rs` + `linuxtracker.rs` + `filemood.rs` + `rutor.rs` + `audiobookbay.rs` + `therarbg.rs`）；
-`tests/live_smoke.rs` 2 条默认跳过。合计 **225 passed / 0 failed**。）
+（另有 `bt-providers` 的 63 条单元测试（测 `src/value.rs` + `linuxtracker.rs` + `filemood.rs` + `rutor.rs` + `audiobookbay.rs` + `therarbg.rs` + `limetorrents.rs`）；
+`tests/live_smoke.rs` 2 条默认跳过。合计 **244 passed / 0 failed**。）
 
 ⚠️ `test/fixtures/internetarchive-ubuntu.synthetic.json`（文件名带 `.synthetic`）：
 `docs[0..2]` 是 2026-10-08 从 CI 冒烟日志取回的**真实 doc**，`docs[3..]` 是手工构造的边界样本；
@@ -161,8 +163,8 @@ Node 源码在这个阶段是**验证工具**而不是待清垃圾。提前删�
 
 | 路径 | 为何现在留着 | 何时可删 |
 |---|---|---|
-| `src/providers/tpb.js`、`knaben.js`、`torrentscsv.js`、`yts.js`、`internetarchive.js`、`linuxtracker.js`、`filemood.js`、`rutor.js`、`audiobookbay.js`、`therarbg.js` ✅已移植 | `test/run.js` 仍在跑 tpb/knaben/linuxtracker/filemood/rutor；离线对照要用 | `bt-app` 接通对应 provider + Node 测试块删除后 |
-| `src/providers/*.js`（其余 32 个） | 尚未移植，是逐行对照的参照物 | 各自移植完成后按上条判断 |
+| `src/providers/tpb.js`、`knaben.js`、`torrentscsv.js`、`yts.js`、`internetarchive.js`、`linuxtracker.js`、`filemood.js`、`rutor.js`、`audiobookbay.js`、`therarbg.js`、`limetorrents.js` ✅已移植 | `test/run.js` 仍在跑 tpb/knaben/linuxtracker/filemood/rutor；离线对照要用 | `bt-app` 接通对应 provider + Node 测试块删除后 |
+| `src/providers/*.js`（其余 31 个） | 尚未移植，是逐行对照的参照物 | 各自移植完成后按上条判断 |
 | `src/lib/`、`server.js`、`test/run.js` | 聚合层尚未移植，本分支上 Node 版仍需可跑 | provider + 聚合全搬完 |
 | `public/` | 阶段一的前端本体（`public/` 一行不改） | **阶段二**确认上 Slint 后 |
 | `electron/`、`scripts/`、`package.json`、`start.bat`/`stop.bat`、`.eslintrc.json`、`.prettierrc`、`build.yml`/`release.yml`/`tauri-build.yml` | Rust 版尚未能取代旧 Shell 发版 | Rust 版能独立发版后 |
@@ -197,34 +199,35 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 `rutor` 已搬完，顺带把「俄站编码」验清楚了：**它是 UTF-8，不是 win1251**。
 `1337x.js` 已调查完毕、判定当前不可抓取，**跳过**（见 B 组进度表下的专门小节）。**
 
-**← 再下一个（2026-10-10 更新）**：`audiobookbay`、`therarbg` 都已搬完。
+**← 再下一个（2026-10-10 更新）**：`audiobookbay`、`therarbg`、`limetorrents` 都已搬完。
 挑下一个时**先看「本机能不能抓到 fixture」** —— `dmhy` / `nyaa` / `megapeer` / `zeromagnet` /
 `xxxtracker` 本机探不通（CI 才行），要搬得先想办法在 CI 上落一份页面快照；
-本机抓得到的还剩：`limetorrents`（45 行）、`torrent9`（4 行）、`oxtorrent`（3 行）。
+本机实测还活着的只剩：`torrent9`（4 行）、`oxtorrent`（3 行）。
 
 **B 组（HTML 抓取，需引入 `scraper` crate 对标 cheerio）** —— ✅ 地基 + 4 个 provider 完成
 
 - ✅ `crates/bt-core/src/dom.rs`：cheerio 的替代层（`scraper` 0.27 = html5ever + selectors）
   语义对照表写在文件头；自带 11 条单元测试
-- ✅ 选择器等价性对照机制：`test/fixtures/html-probes.json`（**61 条 probe / 7 个 fixture**）+
+- ✅ 选择器等价性对照机制：`test/fixtures/html-probes.json`（**71 条 probe / 8 个 fixture**）+
   `scripts/html-probes.cjs`（cheerio 侧，真值来源）+ `crates/bt-core/tests/dom_probes.rs`（Rust 侧）
   + `test/fixtures/html-probes.expected.json`（真值，cheerio 1.2.0 生成）
   ⚠️ **别给大页面加 `text_first` on `html`**（整页 text 拼接的超长单行）—— 实测会让 CI 日志
   从那一行起被截断，后面的 probe 真值全拿不到（2026-10-10 在 therarbg 上踩过）。
   整页拼接的语义已有 rutor / audiobookbay 两条覆盖，不必每个 fixture 都加。
-- ✅ `linuxtracker.js` + `filemood.js` + `rutor.js` + `audiobookbay.js` + `therarbg.js` 五个 HTML provider 落地，全部离线可测
+- ✅ `linuxtracker.js` + `filemood.js` + `rutor.js` + `audiobookbay.js` + `therarbg.js` + `limetorrents.js` 六个 HTML provider 落地，全部离线可测
 
 **B 组进度**
 
 | # | provider | 状态 |
 |---|---|---|
-| 0 | 地基（`dom.rs` + 选择器对照机制） | ✅ 61 条 probe 与 cheerio 1.2.0 逐条一致 |
+| 0 | 地基（`dom.rs` + 选择器对照机制） | ✅ 71 条 probe 与 cheerio 1.2.0 逐条一致 |
 | 1 | `linuxtracker.js` | ✅ 18 条结果 + 11 集成 + 8 单测 |
 | 2 | `filemood.js` | ✅ 20 条结果 + 11 集成 + 11 单测 |
 | 3 | `rutor.js` | ✅ 100 条结果 + 13 集成 + 13 单测（**本机与 CI 两边都 ✅ 的第一个**） |
 | 4 | `audiobookbay.js` | ✅ 9 条结果（**两边都 ✅**）+ 15 集成 + 11 单测；本项目**第一个带惰性 `resolve_magnet`** 的 provider |
 | 5 | `therarbg.js` | ✅ 39 条结果（两边都出结果；CI 那轮 403，属机房 IP 被拦）+ 18 集成 + 7 单测；第二个 `resolve_magnet` |
-| 6 | `1337x.js` | ⛔ **已调查，当前不可抓取 → 跳过**，见下面专门小节 |
+| 6 | `limetorrents.js` | ✅ 40 条结果（本机 ✅ 45 行 / CI ⛔403）+ 10 集成 + 9 单测；第一个**带真分页**的 HTML provider |
+| 7 | `1337x.js` | ⛔ **已调查，当前不可抓取 → 跳过**，见下面专门小节 |
 | — | 俄站（rutor 等，**编码**要专门验） | ⏭️ **下一个**：还没有 fixture，得先抓一个 |
 
 ### ⛔ `1337x.js` —— 2026-10-09 调查完毕，**跳过**
@@ -270,6 +273,8 @@ probe 用 `rows.count == 0` 把事实钉住）。
 | `linuxtracker.js` 的列索引 | 主表里夹着 19 个 td 的「展开描述行」，列含义不同 → 这些结果的 size/seeders 落在错误列上 | **照抄**（否则与 Node 版对不上） |
 | `audiobookbay.js` 的 size/date | `infoText.split('\n')` 想按行切字段，但页面靠 `<br />` 分隔，而 **cheerio 的 `.text()` 不给 `<br>` 补换行**（探针 `info.first_text` 实证：整段挤成一行）→ size 恒 `null`；又因 `else if`，date 被赋成整段垃圾串（`Date.parse` → NaN → `null`）。**两个站上真实存在的字段全丢** | **照抄**（属「数据缺失 / 纯显示」；要修得两版一起改：按字段名切分，`src/lib/normalize.js` 的 `parseSize` 本来就能吃 `19.24 GBs`） |
 | `therarbg.js` 的 `categoryFromRaw` | `switch` 只列了 `Anime/Apps/Books/Games/Movies/Music/XXX/Tv` 八个**精确**拼写，站上大量分类（`E-books`、`Other`、`TV`…）一律落 `Other` —— 实测 fixture 第 3 行站上写 `E-books`，归一化后变成 `Other` | **照抄**（分类只是给前端的粗粒度提示；要修该拉全量分类表，不是改一行） |
+| `limetorrents.js` 的 `categoryFromRaw` | 同一个毛病，而且更彻底 —— `switch` 只认 `TV`/`Movie`/`Music`/`App`/`E-book`/`Anime`/`Games`，而站上写的是 `TV shows`/`E-books`/`Applications`（探针 `datecell.texts` 实证）→ **40 条结果全落 `Other`** | **照抄**（同上；测试里连“整页没有一个非 Other 的分类”都钉住了） |
+| `limetorrents.js` 的日期 | 站上会把相对日期截断成 `1 Year+`，而 `normalize.parseDate` 只认带 `ago` 的写法 → **大部分结果没有日期**（`dateText` 显示 `—`）；只有 `9 months ago` 这类才认（而且是相对今天算的） | **照抄**（要修该把 `1 Year+` 映射成「约一年前」，属两版同步的活） |
 
 口径：**功能性 bug（死链）就修，纯显示问题先照抄** —— 三条都在代码注释里写明了理由。
 - HTML fixture 现状：
@@ -284,13 +289,14 @@ probe 用 `rows.count == 0` 把事实钉住）。
 | `audiobookbay-detail.html` | ✅ 真实详情页（179KB / 1277 个 td）。`<td>Info Hash:</td>` 后面那格就是 40 位 hash；它也是 `resolve_magnet` 唯一的测试输入 |
 | `therarbg-ubuntu.html` | ✅ 真实结果页，39 个 `tr.list-entry`（但**40** 个名称链接 —— 第 28 行多一个 IMDb 徽章）。size/date 在 `data-order` 里，文本里只有给人看的形式 |
 | `therarbg-detail.html` | ✅ 真实详情页（150KB，`a[href^="magnet:?"]` 只有 1 条，848 字符、"&amp;" 编码）。同时是「长属性的实体解码」的对照样本 |
+| `limetorrents-ubuntu.html` | ✅ 真实结果页，41 行含表头（第一行是 `<tr><th>`）。⚠️ 页面别处也有 `td:nth-child(2)` / `td.tdseed`（旁边速度榜的 `6572 KB/Sec`）—— 所以格子真值只能看 `rows.first_3_rows`（按行取） |
 
 **C 组（基础设施，可穿插）**：`src/lib/scraper.js` 的 `createProvider` 工厂 + `runMirrors` 镜像回退 ——
 搬完 3~5 个 provider、看清共性后再定抽象。
-**截至 2026-10-10 已搬 10 个**，三类共性全都有实例了：
-镜像回退（`rutor` / `audiobookbay` / `therarbg`，各自的 `search_with` 逐字复刻 `runMirrors`）、
-翻页（`rutor` 的 0/1 起始差异）、磁力惰性解析（`audiobookbay` / `therarbg` 的 `resolve_magnet`
-+ `MagnetOutcome`，已因此从 provider 提到 `lib.rs`）。
+**截至 2026-10-10 已搬 11 个**，三类共性全都有实例了：
+镜像回退（`rutor` / `audiobookbay` / `therarbg` / `limetorrents`，各自的 `search_with` 逐字复刻 `runMirrors`）、
+翻页（`rutor` 的 0/1 起始差异、`limetorrents` 的真分页 URL）、
+磁力惰性解析（`audiobookbay` / `therarbg` 的 `resolve_magnet` + `MagnetOutcome`，已因此从 provider 提到 `lib.rs`）。
 → **随时可以定 `Provider` trait 了**，再拖就是重复代码在同一形状上多抄几遍。
 
 ### 🧱 HTML provider 的四条铁律（写自 `dom.rs` 与历次对照的实测）
@@ -329,13 +335,16 @@ probe 用 `rows.count == 0` 把事实钉住）。
   **必须带 `--edition 2021`**（独立运行时默认 2015，结果会不一致）。
 - ⚠️ **不要用「行宽 ≤ 100」代替 rustfmt**：它默认 `fn_call_width = 60`，
   多参数宏/函数调用即使整行不到 100 也会被拆行（`assert_eq!(a, b, "msg")` 是重灾区）。
-- ⚠️ **没有 `cargo check`，签名错误只能靠 CI 发现**（一次往返 ~1.5 分钟）。已踩过的两类：
+- ⚠️ **没有 `cargo check`，签名错误只能靠 CI 发现**（一次往返 ~1.5 分钟）。已踩过的三类：
   1. **turbofish 泛型个数**：`bt-core` 的 `post_json<T, B>` 是两个泛型参数，
      `post_json::<Value>(...)` 会报 E0107。→ 改成在绑定上标注：
      `let resp: JsonResponse<Value> = http.post_json(url, &body, None).await;`
   2. **`and_then` 的闭包签名**：`extract_info_hash` 收的是 `Option<&str>` 而不是 `&str`，
      不能直接 `and_then(extract_info_hash)`，要么 `.or_else(|| f(x.as_deref()))`，
      要么写 `|s| ...` 闭包。
+  3. **`"#` 会把 raw string 提前结束**：测试里造 HTML 片段习惯写 `r#"…"#`，
+     而内容里只要出现 `="#`（如 `bgcolor="#F4F4F4"`）字符串就在那里断了，
+     报一堆 `prefix \`name\` is unknown`。→ 用 `r##"…"##`。
   提交前顺手核对一遍要调用的每个函数的真实签名，比等 CI 便宜。
 
 ### 🧩 provider 移植配方（照着 tpb / knaben 抄）
