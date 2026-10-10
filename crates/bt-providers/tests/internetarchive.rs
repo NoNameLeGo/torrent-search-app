@@ -20,12 +20,7 @@ use serde_json::Value;
 
 const FIXTURE: &str = "internetarchive-ubuntu.synthetic.json";
 
-fn fixture(name: &str) -> String {
-    let p = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../test/fixtures")
-        .join(name);
-    std::fs::read_to_string(&p).unwrap_or_else(|e| panic!("读不到 fixture {}: {e}", p.display()))
-}
+use common::fixture;
 
 /// 把"这份 fixture 不是逐字节快照"钉进测试 —— 谁想换成完整真响应，
 /// 必须先删掉 `_synthetic` 标记并把文件名去掉 `.synthetic`，于是不可能"忘了这件事"。

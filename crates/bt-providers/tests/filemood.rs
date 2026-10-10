@@ -12,12 +12,7 @@ mod common;
 use bt_core::http::HttpClient;
 use bt_providers::filemood;
 
-fn fixture(name: &str) -> String {
-    let p = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../test/fixtures")
-        .join(name);
-    std::fs::read_to_string(&p).unwrap_or_else(|e| panic!("读不到 fixture {}: {e}", p.display()))
-}
+use common::fixture;
 
 /// `table > tbody > tr` 共 65 行，其中含 `a.btn-success` 的 20 行是数据行，
 /// 且 20 行全部抠得出 infoHash —— 两个数字都由 cheerio 侧交叉验证。

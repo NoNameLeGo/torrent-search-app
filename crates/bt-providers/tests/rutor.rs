@@ -19,12 +19,7 @@ use bt_core::http::HttpClient;
 use bt_providers::rutor;
 use chrono::{Local, TimeZone};
 
-fn fixture(name: &str) -> String {
-    let p = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../test/fixtures")
-        .join(name);
-    std::fs::read_to_string(&p).unwrap_or_else(|e| panic!("读不到 fixture {}: {e}", p.display()))
-}
+use common::fixture;
 
 /// `div#index > table > tbody > tr` 共 101 行，第一行是表头 → **100 条数据行**。
 /// 101 与 100 两个数字都由 cheerio 侧交叉验证。

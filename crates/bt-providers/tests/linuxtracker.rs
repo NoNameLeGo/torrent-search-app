@@ -16,12 +16,7 @@ use bt_core::normalize::format_date;
 use bt_providers::linuxtracker;
 use chrono::{Local, TimeZone};
 
-fn fixture(name: &str) -> String {
-    let p = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../test/fixtures")
-        .join(name);
-    std::fs::read_to_string(&p).unwrap_or_else(|e| panic!("读不到 fixture {}: {e}", p.display()))
-}
+use common::fixture;
 
 /// fixture 里 `td.lista a[href*="torrent-details"]` 共 43 条，
 /// 其中主表行 33 条（`href^="index.php"`），名字非空的 18 条 —— 都由 cheerio 侧交叉验证过。

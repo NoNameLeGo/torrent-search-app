@@ -2,6 +2,7 @@
 //!
 //! provider 把端点指向它，于是测试能在 **CI 里完全不碰外网** 地跑完
 //! 「解析 fixture / 空结果 / HTTP 错误 / 非 JSON 正文」等路径。
+//! 另有 [`fixture`] —— 读 `test/fixtures/` 里那份真实快照。
 #![allow(dead_code)]
 
 use std::sync::{Arc, Mutex};
@@ -9,6 +10,20 @@ use std::time::Duration;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
+
+/// 读一份 fixture（`test/fixtures/<name>`，相对 crate 根往上两级）。
+///
+/// 原来 9 个 provider 测试文件里各有一份逐字节相同的拷贝（6 行 × 9），
+/// 2026-10-10 收到这里。
+///
+/// fixture **永久保留在仓库里**，不随「边搬边删」删掉 —— 它是 golden 数据源。
+/// 注意读的是**原始字符串**，要不要 `serde_json::from_str` 由调用方决定。
+pub fn fixture(name: &str) -> String {
+    let p = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../test/fixtures")
+        .join(name);
+    std::fs::read_to_string(&p).unwrap_or_else(|e| panic!("读不到 fixture {}: {e}", p.display()))
+}
 
 /// 起一个只服务一次请求的服务，响应体固定为 `body`；返回可直接当端点用的 base url。
 ///

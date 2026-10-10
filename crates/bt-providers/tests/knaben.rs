@@ -12,12 +12,7 @@ use bt_core::http::HttpClient;
 use bt_providers::knaben;
 use serde_json::{json, Value};
 
-fn fixture(name: &str) -> String {
-    let p = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../test/fixtures")
-        .join(name);
-    std::fs::read_to_string(&p).unwrap_or_else(|e| panic!("读不到 fixture {}: {e}", p.display()))
-}
+use common::fixture;
 
 // ---- 真实 fixture ---------------------------------------------------------
 
