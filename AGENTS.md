@@ -441,8 +441,11 @@ workflow 文件坏掉时**它自己不跑**，所以要另一条无关的 workfl
    GIT_SSL_NO_VERIFY=true git push -u origin probes/scratch
    scripts/gh-retry.sh workflow run html-probes.yml --ref probes/scratch   # 20 秒左右
    git fetch origin probes/scratch
-   git checkout origin/probes/scratch -- test/fixtures/html-probes.expected.json
+   git checkout origin/probes/scratch -- test/fixtures/    # 整个目录：fixture + probe 清单 + 真值
    ```
+
+   ⚠️ **先把这三个文件带回 `feat/rust` 再删临时分支**（`git checkout feat/rust` 会把临时分支上
+   独有、而 feat/rust 上还没提交的文件删掉；2026-10-10 实测踩过，靠 reflog 才找回来）。
 
 3. 回 `feat/rust`，把 fixture + probe + 真值 + provider + 测试**一次推完** → 一次就绿
 4. 删临时分支（本地 + 远程）：`git branch -D probes/scratch && git push origin :probes/scratch`

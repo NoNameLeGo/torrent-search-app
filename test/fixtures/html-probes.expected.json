@@ -450,5 +450,52 @@
       "1",
       "2"
     ]
+  },
+  "torrent9-ubuntu.html": {
+    "rows.count": 3,
+    "rows.first_3_rows": [
+      [
+        "Ubuntu Ultimate Edition 1.4 DVD",
+        "30/08/2018",
+        "1.9Go",
+        "3",
+        "3"
+      ],
+      [
+        "Super Ubuntu 2008.09",
+        "30/08/2018",
+        "872.0Mo",
+        "6",
+        "1"
+      ],
+      [
+        "Ubuntu 10.04 Desktop (32 bits)",
+        "30/08/2018",
+        "700.4Mo",
+        "9",
+        "2"
+      ]
+    ],
+    "names.count_nonempty_texts": 3,
+    "names.first_3_texts": [
+      "Ubuntu Ultimate Edition 1.4 DVD",
+      "Super Ubuntu 2008.09",
+      "Ubuntu 10.04 Desktop (32 bits)"
+    ],
+    "names.attrs_first_3": [
+      "/torrent/49542/ubuntu-ultimate-edition-1-4-dvd",
+      "/torrent/49504/super-ubuntu-2008-09",
+      "/torrent/48951/ubuntu-10-04-desktop-32-bits"
+    ]
+  },
+  "torrent9-detail.html": {
+    "h1.count": 1,
+    "h1.first_text": "Ubuntu Ultimate Edition 1.4 DVD",
+    "magnet.count": 2,
+    "magnet.first_href": "magnet:?xt=urn:btih:FEBD9A2CB755EC82E6E7A015A8DC497FDE9DD507&tr=udp://eddie4.nl:6969/announce&tr=udp://shadowshq.yi.org:6969/announce&tr=udp://tracker.leechers-paradise.org:6969/announce&tr=udp://tracker.pirateparty.gr:6969/announce&tr=udp://tracker.coppersurfer.tk:6969/announce&tr=udp://tracker.coppersurfer.tk:80/announce&tr=udp://9.rarbg.com:2800/announce&tr=udp://9.rarbg.me:2780/announce&tr=udp://9.rarbg.to:2710/announce&tr=udp://p4p.arenabg.com:1337/announce&tr=udp://public.popcorn-tracker.org:6969/announce&tr=udp://tracker.vanitycore.co:6969/announce&tr=udp://open.stealth.si:80/announce&tr=udp://tracker.zer0day.to:1337/announce&tr=udp://tracker.opentrackr.org:1337/announce&tr=udp://tracker.internetwarriors.net:1337/announce&tr=udp://ipv4.tracker.harry.lu:80/announce&tr=udp://explodie.org:6969/announce&tr=http://inferno.demonoid.ph:3389/announce",
+    "magnet.hrefs": [
+      "magnet:?xt=urn:btih:FEBD9A2CB755EC82E6E7A015A8DC497FDE9DD507&tr=udp://eddie4.nl:6969/announce&tr=udp://shadowshq.yi.org:6969/announce&tr=udp://tracker.leechers-paradise.org:6969/announce&tr=udp://tracker.pirateparty.gr:6969/announce&tr=udp://tracker.coppersurfer.tk:6969/announce&tr=udp://tracker.coppersurfer.tk:80/announce&tr=udp://9.rarbg.com:2800/announce&tr=udp://9.rarbg.me:2780/announce&tr=udp://9.rarbg.to:2710/announce&tr=udp://p4p.arenabg.com:1337/announce&tr=udp://public.popcorn-tracker.org:6969/announce&tr=udp://tracker.vanitycore.co:6969/announce&tr=udp://open.stealth.si:80/announce&tr=udp://tracker.zer0day.to:1337/announce&tr=udp://tracker.opentrackr.org:1337/announce&tr=udp://tracker.internetwarriors.net:1337/announce&tr=udp://ipv4.tracker.harry.lu:80/announce&tr=udp://explodie.org:6969/announce&tr=http://inferno.demonoid.ph:3389/announce",
+      "magnet:?xt=urn:btih:FEBD9A2CB755EC82E6E7A015A8DC497FDE9DD507&tr=udp://eddie4.nl:6969/announce&tr=udp://shadowshq.yi.org:6969/announce&tr=udp://tracker.leechers-paradise.org:6969/announce&tr=udp://tracker.pirateparty.gr:6969/announce&tr=udp://tracker.coppersurfer.tk:6969/announce&tr=udp://tracker.coppersurfer.tk:80/announce&tr=udp://9.rarbg.com:2800/announce&tr=udp://9.rarbg.me:2780/announce&tr=udp://9.rarbg.to:2710/announce&tr=udp://p4p.arenabg.com:1337/announce&tr=udp://public.popcorn-tracker.org:6969/announce&tr=udp://tracker.vanitycore.co:6969/announce&tr=udp://open.stealth.si:80/announce&tr=udp://tracker.zer0day.to:1337/announce&tr=udp://tracker.opentrackr.org:1337/announce&tr=udp://tracker.internetwarriors.net:1337/announce&tr=udp://ipv4.tracker.harry.lu:80/announce&tr=udp://explodie.org:6969/announce&tr=http://inferno.demonoid.ph:3389/announce"
+    ]
   }
 }

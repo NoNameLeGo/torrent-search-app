@@ -480,6 +480,77 @@
           "limit": 3
         }
       ]
+    },
+    {
+      "file": "torrent9-ubuntu.html",
+      "note": "真实结果页（2026-10-10 快照，关键词 ubuntu → **只有 3 条**）。第一行是表头（`<tr><th>`）；数据行 5 个 td：名称链接、日期、大小、seed、leech —— 但 **JS 只取第 1 格的名称与详情链接，其余全丢**（它宁可点击时去详情页拿，见 provider 文件头）。名称文本要跨 `<h3>` 与 `<span class='blue'>` 拼出来，正好验证 text() 的后代拼接。",
+      "probes": [
+        {
+          "id": "rows.count",
+          "op": "count",
+          "selector": "table > tbody > tr"
+        },
+        {
+          "id": "rows.first_3_rows",
+          "op": "row_cells",
+          "selector": "table > tbody > tr",
+          "closest": "tr",
+          "within": "td",
+          "limit": 3
+        },
+        {
+          "id": "names.count_nonempty_texts",
+          "op": "count_nonempty_texts",
+          "selector": "td:nth-child(1) > a"
+        },
+        {
+          "id": "names.first_3_texts",
+          "op": "texts",
+          "selector": "td:nth-child(1) > a",
+          "limit": 3
+        },
+        {
+          "id": "names.attrs_first_3",
+          "op": "attrs",
+          "selector": "td:nth-child(1) > a",
+          "attr": "href",
+          "limit": 3
+        }
+      ]
+    },
+    {
+      "file": "torrent9-detail.html",
+      "note": "真实详情页（2026-10-10 快照，名称为 `div.movie-section h1`；磁力链在源码里是**裸 `&`**（不是 `&amp;`），所以这条 probe 验证的不是实体解码而是引号内的原始值。页面上有 2 条，内容一模一样，JS 取 .first()。",
+      "probes": [
+        {
+          "id": "h1.count",
+          "op": "count",
+          "selector": "div.movie-section h1"
+        },
+        {
+          "id": "h1.first_text",
+          "op": "text_first",
+          "selector": "div.movie-section h1"
+        },
+        {
+          "id": "magnet.count",
+          "op": "count",
+          "selector": "a[href^=\"magnet:?\"]"
+        },
+        {
+          "id": "magnet.first_href",
+          "op": "attr_first",
+          "selector": "a[href^=\"magnet:?\"]",
+          "attr": "href"
+        },
+        {
+          "id": "magnet.hrefs",
+          "op": "attrs",
+          "selector": "a[href^=\"magnet:?\"]",
+          "attr": "href",
+          "limit": 2
+        }
+      ]
     }
   ]
 }
