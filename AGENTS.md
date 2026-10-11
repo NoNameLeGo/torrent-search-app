@@ -201,35 +201,42 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 | 4 | ~~`yts.js`~~ | ✅ 11 tests |
 | 5 | ~~`internetarchive.js`~~ | ✅ 14 tests（fixture 是合成的，见进度表上方说明） |
 
-**← 下次开工：按探活表挑「两边都 ✅」的继续搬（`audiobookbay` 36 行 ✅ 已搬完、`dmhy` CI 10 行、`nyaa` CI 2 行）。
-`rutor` 已搬完，顺带把「俄站编码」验清楚了：**它是 UTF-8，不是 win1251**。
-`1337x.js` 已调查完毕、判定当前不可抓取，**跳过**（见 B 组进度表下的专门小节）。**
+**← 下次开工（2026-10-11 更新）**：`audiobookbay`…`nyaa` 9 个 + **`megapeer`（B 组第 11 个）**都已搬完。
+⭐ 本机能抓到的候选早已用完；剩下站点的 fixture 靠 CI 抓（`fetch-fixture.yml`），
+探针链路现在支持 **per-fixture 编码声明**（条目里的 `encoding` 字段，megapeer 是第一个 windows-1251）。
 
-**← 再下一个（2026-10-10 更新）**：`audiobookbay`…`nyaa` 共 9 个 HTML provider 都已搬完。
-⭐ **本机能抓到的候选已经用完了**（本机能探通的基本都搬了）。
-剩下的本机都不通，但 **CI 能通**，已经有工具了：
+**候选状态（2026-10-11）**：
+
+| 候选 | 状态 |
+|---|---|
+| `dmhy` | ⏸️ **暂缓** —— CI 抓取连试 3 次全部 60s 超时（0 字节；主页也一样）；agent 沙箱直连也 `fetch failed`。站点自己挂了/在维护，**不是**「本机不通但 CI 通」那一类。过些天再试 |
+| `zeromagnet`（CI 29 行） | ⏭️ **下一个** |
+| `xxxtracker`（CI 1 行） | 排队 |
+| `sukebei` / `nekobt` | 排队（域名是死是活待确认） |
+
+抓 fixture 的姿势（本机不通的站点，`zeromagnet` 即为例）：
 
 ```bash
 scripts/gh-retry.sh workflow run fetch-fixture.yml --ref feat/rust \
-  -f url='https://dmhy.org/topics/list?keyword=ubuntu' \
-  -f path='test/fixtures/dmhy-ubuntu.html'
+  -f url='https://9mag.net/search?q=ubuntu' \
+  -f path='test/fixtures/zeromagnet-ubuntu.html'
 # 20 秒后 pull 回来，按「探针流程」继续
 ```
 
-候选：`dmhy`（CI 10 行）、`nyaa` 已搬、`megapeer`（CI 14 行，俄站→编码要验）、
-`zeromagnet`（CI 29 行）、`xxxtracker`（CI 1 行）、`sukebei` / `nekobt`（域名是死是活待确认）。
-
-**B 组（HTML 抓取，需引入 `scraper` crate 对标 cheerio）** —— ✅ 地基 + 4 个 provider 完成
+**B 组（HTML 抓取，需引入 `scraper` crate 对标 cheerio）** —— ✅ 地基 + 11 个 provider 完成
 
 - ✅ `crates/bt-core/src/dom.rs`：cheerio 的替代层（`scraper` 0.27 = html5ever + selectors）
   语义对照表写在文件头；自带 11 条单元测试
-- ✅ 选择器等价性对照机制：`test/fixtures/html-probes.json`（**102 条 probe / 13 个 fixture**）+
+- ✅ 选择器等价性对照机制：`test/fixtures/html-probes.json`（**115 条 probe / 15 个 fixture**）+
   `scripts/html-probes.cjs`（cheerio 侧，真值来源）+ `crates/bt-core/tests/dom_probes.rs`（Rust 侧）
   + `test/fixtures/html-probes.expected.json`（真值，cheerio 1.2.0 生成）
   ⚠️ **别给大页面加 `text_first` on `html`**（整页 text 拼接的超长单行）—— 实测会让 CI 日志
   从那一行起被截断，后面的 probe 真值全拿不到（2026-10-10 在 therarbg 上踩过）。
   整页拼接的语义已有 rutor / audiobookbay 两条覆盖，不必每个 fixture 都加。
-- ✅ `linuxtracker.js` + `filemood.js` + `rutor.js` + `audiobookbay.js` + `therarbg.js` + `limetorrents.js` + `torrent9.js` + `oxtorrent.js` + `nyaa.js` 九个 HTML provider 落地，全部离线可测
+  ⚠️ **非 UTF-8 站点**（megapeer=windows-1251）：条目里加 `"encoding": "windows-1251"` ——
+  cheerio 侧走 `TextDecoder(label)`、Rust 侧走 `encoding_rs::Encoding::for_label(label)`；
+  fixture 存**原始字节**（别转码），两个解码器对同一标签必须给出一致文本。
+- ✅ `linuxtracker.js` + `filemood.js` + `rutor.js` + `audiobookbay.js` + `therarbg.js` + `limetorrents.js` + `torrent9.js` + `oxtorrent.js` + `nyaa.js` + `megapeer.js` 十个 HTML provider 落地，全部离线可测
 
 **B 组进度**
 
@@ -246,7 +253,38 @@ scripts/gh-retry.sh workflow run fetch-fixture.yml --ref feat/rust \
 | 8 | `oxtorrent.js` | ✅ 3 条结果（本机 ✅ 3 行 / CI ⛔403）+ 12 集成 + 4 单测；无表头行；错误串是 `no_results` |
 | 9 | `nyaa.js` | ✅ 1 条结果（CI ✅ 2 行，**本机不通 → fixture 由 CI 抓**）+ 8 集成 + 6 单测；⚠️ 三种上游 bug（见下） |
 | 10 | `1337x.js` | ⛔ **已调查，当前不可抓取 → 跳过**，见下面专门小节 |
-| — | 俄站（rutor 等，**编码**要专门验） | ⏭️ **下一个**：还没有 fixture，得先抓一个 |
+| 11 | `megapeer.js` | ✅ 50 条结果（**CI ✅ 50 条、charset 解码实测通过**）+ 18 集成 + 10 单测；**第一个 windows-1251 站点**、两处有意 divergence（编码 / 5-td 列语义），见下面专门小节 |
+| — | 俄站编码 | ✅ 已验清：`rutor` 是 UTF-8（`getWin1251()` 名误导）；**`megapeer` 真的是 windows-1251**（响应头带 charset） |
+
+### 🔤 `megapeer.js`（B 组第 11 个）—— 第一个 windows-1251 站点，两处有意 divergence（2026-10-11）
+
+**1. 编码：Rust 修了 JS 的乱码 bug（有意，不是回归）**
+
+- 站点响应字节是 **windows-1251**（响应头确实带 `charset=windows-1251`，2026-10-11 CI 冒烟实测）
+- **JS 版是坏的**：axios 1.7.x 对文本响应一律 `buffer.toString('utf8')`（源码写死，不读 charset）
+  → 所有西里尔标题变 `U+FFFD`。Rust 的 reqwest `res.text()` 读 Content-Type 的 charset
+  （encoding_rs）→ 正确解出俄语
+- 判断依据：这是**数据级**错误（且「照抄乱码」反而要在 Rust 里刻意写 lossy 才能复现）→ 修
+- 测试钉住：`divergence_js_style_utf8_decoding_would_mangle_the_cyrillic`（同时展示
+  `from_utf8_lossy` 的 � 版与正确解码版的对照）
+
+**2. 5-td 行的列语义：JS 固定列索引取错（有意修）**
+
+- 50 行里 **7 行多一格评论数**（恒在 td3）：`[日期][名称][评论][大小][peers]`；其余 43 行是
+  `[日期][名称(colspan=2)][大小][peers]`
+- JS 的 `td:nth-child(3)` 当 size、`td:nth-child(4) > font` 当 peers → **5-td 行的 size 变成评论数、peers 落空**
+- Rust 改成「**倒数第 2 格 = size、最后一格 = peers**」（两种行都对；rutor 的「按内容找 size」是同类问题的另一种解法）
+- 探针（`sizes.texts_first_5` 等）就是修正后的语义；`divergence_5td_row_takes_real_size_not_the_comment_count` 钉住
+
+**基础设施（服务非 UTF-8 站点，后续别的编码站点直接用）**：
+
+- `html-probes.json` 条目新增可选 `encoding`；`html-probes.cjs` 用 Node 内置 `TextDecoder`（零依赖）
+- `tests/common/mod.rs`：新增 `fixture_bytes()`（原始字节）+ `oneshot_bytes()` / `oneshot_capture_bytes()`
+  （Content-Type 可指定 —— 带 `charset=windows-1251` 发给本地服务，走 reqwest 真解码路径）
+- live_smoke 新增 `smoke_megapeer_checks_real_world_charset_decoding`（实测结果见上）
+
+⚠️ **push 前跑一遍 rustfmt 能省一轮 CI**：本机 `.rustup` toolchain 里的 `rustfmt.exe` 一直可用
+（见 CLAUDE.md），`--edition 2021 --check <files>` 后再推 —— 这次就是靠它做到 fmt 门从不红。
 
 ### ⛔ `1337x.js` —— 2026-10-09 调查完毕，**跳过**
 
@@ -296,6 +334,8 @@ probe 用 `rows.count == 0` 把事实钉住）。
 | `torrent9.js` 的数据白扔 | 结果表第 2~5 格就摆着 `30/08/2018` / `1.9Go` / `3` / `3`，详情页也有 `Poids du torrent`（大小）、`Date d'ajout`（日期）、`Catégories`；但 `searchOn` 只传 `name` + `detailUrl`，`resolveMagnet` 只回 `{magnet, infoHash}` —— **其余字段全丢**，卡片上除名字外全是 `—` | **照抄**（属「数据没用上」；要修就是让 search 直接读那四格，或让 resolve 顺手补全字段） |
 | `torrent9.js` 的 `parseDetail` | 它抽出的 `size`/`seeders`/`leechers`/`date`/`category` **没有任何调用方用到**（`resolveMagnet` 只要 magnet + hash）→ JS 里的死代码，连带 `categoryFromRaw` 也只服务于它 | **不搬**（Rust 侧只实现可达路径；文件头写了哪一天要补就照 JS 补） |
 | `oxtorrent.js` 的数据白扔 | 与 torrent9 同一个毛病：同行就有 `700.4 MB` / `9` / `2`，第 1 格还带 `<i class="Logiciels">`（法语分类，本该映成 `Apps`）—— `searchOne` 只传 `name` + `detailUrl`，全不要 | **照抄**（探针 `cat_classes.attrs_first_3` 把「分类其实拿得到」这个事实钉住了） |
+| `megapeer.js` 的编码 | axios 对文本响应一律 `toString('utf8')`（不读 charset），而站点是 **windows-1251** → 全部西里尔标题变替换字符（数据级损坏） | **修掉**（reqwest 按 charset 解码）+ divergence 测试；见下面 megapeer 专门小节 |
+| `megapeer.js` 的列索引 | 50 行里 7 行多一格评论数（恒在 td3）→ `td:nth-child(3)` 当 size 在那些行取到评论数、`td:nth-child(4)` 的 peers 落空 | **修掉**（「倒数第 2 格 = size、最后一格 = peers」）+ divergence 测试 |
 | `nyaa.js` 的列索引 | 名字那格带 `colspan="2"`（评论列被并掉），一行只有 **8 个 td**，而 JS 按 9 列读 `tds.eq(2..5)` → 实际落到 Link/Size/Date/Seeders：`sizeText` 恒 `—`、`dateText` 恒 `—`、**`seeders` 变成日期串里的 2009**（实测 JS 真给这个数） | **照抄**（测试把 `seeders = Some(2009)` 都钉住了，免得以后有人以为 Rust 写错） |
 | `nyaa.js` 的磁力 | `nameCell.find('a[href^="magnet:"]')` 在**名字格**里找，而磁力在 `tds.eq(2)`（Link 格）→ **magnet 恒 `null`、`needsMagnet` 恒 true**；而 `nyaa.js` **又没有 `resolveMagnet`**，于是前端「获取磁力」会打到 `/api/magnet` → 无 resolver → 回退到已死的 1337x → 报错。**结论：nyaa 现在拿不到磁力** | **照抄**（真要修：把搜索范围改成整行 + 补一个 `resolveMagnet`，两版一起改） |
 
@@ -475,6 +515,10 @@ workflow 文件坏掉时**它自己不跑**，所以要另一条无关的 workfl
 
 **1. 加 probe**：往 `test/fixtures/html-probes.json` 里加这个 fixture 的条目，
 选择器就拄 JS 里那几条（`rows.count` / `row_cells` 的整行 / 每个用到的格子各一条）。
+
+⚠️ **站点不是 UTF-8 时**（如 megapeer=windows-1251），条目里加 `"encoding": "windows-1251"`：
+cheerio 侧走 `TextDecoder(label)`、Rust 侧走 `encoding_rs`，**同一标签两侧必须解出一致文本**；
+fixture 一律存原始字节，不要转码。
 
 **2. 在临时分支上把真值跑出来**（别在 feat/rust 上先推，那样 rust.yml 必红一次）：
 
