@@ -30,6 +30,7 @@ pub mod torrentscsv;
 pub mod tpb;
 pub mod value;
 pub mod yts;
+pub mod zeromagnet;
 
 use bt_core::TorrentResult;
 

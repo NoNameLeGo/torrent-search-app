@@ -786,6 +786,82 @@
           "selector": "a[href^=\"magnet:\"]"
         }
       ]
+    },
+    {
+      "file": "zeromagnet-ubuntu.html",
+      "note": "真实结果页（2026-10-11 由 CI 抓取，关键词 ubuntu → 29 条，**无表头行**）。名称被 `<mark>` 包住关键词（高亮）→ 文本必须拼接后代；`td:nth-child(2)` 的 meta 列里明明有 size/日期（`6.2GB` / `2026-08-07`），JS 全丢（只取 name+链接，与 oxtorrent/torrent9 同款）。详情链接是短 ID 形式 `/!xxxx`。",
+      "probes": [
+        {
+          "id": "rows.count",
+          "op": "count",
+          "selector": "table.file-list > tbody > tr"
+        },
+        {
+          "id": "rows.first_3_rows",
+          "op": "row_cells",
+          "selector": "table.file-list > tbody > tr",
+          "closest": "tr",
+          "within": "td",
+          "limit": 3
+        },
+        {
+          "id": "names.count_nonempty_texts",
+          "op": "count_nonempty_texts",
+          "selector": "table.file-list tbody tr td:nth-child(1) > a"
+        },
+        {
+          "id": "names.first_3_texts",
+          "op": "texts",
+          "selector": "table.file-list tbody tr td:nth-child(1) > a",
+          "limit": 3
+        },
+        {
+          "id": "names.attrs_first_3",
+          "op": "attrs",
+          "selector": "table.file-list tbody tr td:nth-child(1) > a",
+          "attr": "href",
+          "limit": 3
+        },
+        {
+          "id": "meta_sizes.texts_first_3",
+          "op": "texts",
+          "selector": "table.file-list tbody tr td:nth-child(2) > div:nth-child(1)",
+          "limit": 3
+        },
+        {
+          "id": "meta_dates.texts_first_3",
+          "op": "texts",
+          "selector": "table.file-list tbody tr td:nth-child(2) > div.result-date",
+          "limit": 3
+        },
+        {
+          "id": "magnets.count",
+          "op": "count",
+          "selector": "input#input-magnet"
+        }
+      ]
+    },
+    {
+      "file": "zeromagnet-detail.html",
+      "note": "真实详情页（2026-10-11 由 CI 抓取）。磁力在 `input#input-magnet` 的 **value 属性**里（195 字符，源码里是 &amp; 形式）；页面上另有一条 `a[href^=\"magnet:\"]`（复制按钮）指向同一条，JS 只认 input。",
+      "probes": [
+        {
+          "id": "magnet_inputs.count",
+          "op": "count",
+          "selector": "input#input-magnet"
+        },
+        {
+          "id": "magnet_inputs.first_value",
+          "op": "attr_first",
+          "selector": "input#input-magnet",
+          "attr": "value"
+        },
+        {
+          "id": "magnet_links.count",
+          "op": "count",
+          "selector": "a[href^=\"magnet:\"]"
+        }
+      ]
     }
   ]
 }

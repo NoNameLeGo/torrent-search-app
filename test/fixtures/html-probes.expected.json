@@ -647,5 +647,49 @@
     "magnet_links.count": 1,
     "magnet_links.first_href": "magnet:?xt=urn:btih:50b225ff7c72835068d71720ad789fa589f4179b&dn=30-nochej-s-bivshim_30-notti-con-il-mio-ex-2025-bdrip-1080p&tr=udp://tracker.dler.org:6969/announce&tr=udp://tracker.opentrackr.org:1337",
     "all_magnets.count": 1
+  },
+  "zeromagnet-ubuntu.html": {
+    "rows.count": 29,
+    "rows.first_3_rows": [
+      [
+        "ubuntu-24.04.4-desktop-amd64.iso",
+        "6.2GB2026-08-07"
+      ],
+      [
+        "ubuntu-22.04.5-desktop-amd64.iso",
+        "4.44GB2025-08-08"
+      ],
+      [
+        "ubuntu-23.04-desktop-amd64.iso",
+        "4.59GB2025-06-17"
+      ]
+    ],
+    "names.count_nonempty_texts": 29,
+    "names.first_3_texts": [
+      "ubuntu-24.04.4-desktop-amd64.iso",
+      "ubuntu-22.04.5-desktop-amd64.iso",
+      "ubuntu-23.04-desktop-amd64.iso"
+    ],
+    "names.attrs_first_3": [
+      "/!lFvU",
+      "/!k2Z1",
+      "/!jPJ7"
+    ],
+    "meta_sizes.texts_first_3": [
+      "6.2GB",
+      "4.44GB",
+      "4.59GB"
+    ],
+    "meta_dates.texts_first_3": [
+      "2026-08-07",
+      "2025-08-08",
+      "2025-06-17"
+    ],
+    "magnets.count": 0
+  },
+  "zeromagnet-detail.html": {
+    "magnet_inputs.count": 1,
+    "magnet_inputs.first_value": "magnet:?xt=urn:btih:01c137287d6f0ed05a56742dae794f632c79ff3d&dn=ubuntu-24.04.4-desktop-amd64.iso&tr=https%3A%2F%2Ftorrent.ubuntu.com%2Fannounce&tr=https%3A%2F%2Fipv6.torrent.ubuntu.com%2Fannounce",
+    "magnet_links.count": 1
   }
 }
