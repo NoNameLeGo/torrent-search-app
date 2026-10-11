@@ -14,7 +14,7 @@
 //! 对应 workflow：`.github/workflows/live-smoke.yml`（仅 `workflow_dispatch`，允许失败）。
 
 use bt_core::http::{HttpClient, JsonResponse};
-use bt_providers::{internetarchive, knaben, torrentscsv, tpb, yts, SearchOutcome};
+use bt_providers::{internetarchive, knaben, megapeer, torrentscsv, tpb, yts, SearchOutcome};
 use serde_json::Value;
 
 fn live() -> bool {
@@ -129,4 +129,55 @@ async fn dump_internetarchive_raw_shape() {
             serde_json::to_string_pretty(&root).unwrap_or_else(|_| "<打印失败>".to_string())
         ),
     }
+}
+
+/// MegaPeer —— HTML 组里第一个需要联网验证**编码**的站点。
+///
+/// 离线测试已经证明「响应头带 charset 时能解对 windows-1251」；
+/// 这条回答的是那个前提在真实站点上成不成立：**响应头到底带不带
+/// `charset=windows-1251`**。带了 → reqwest 解出正常的西里尔文本；
+/// 没带 → reqwest 退 utf8，标题会全变 U+FFFD，这条就会红。
+#[tokio::test]
+async fn smoke_megapeer_checks_real_world_charset_decoding() {
+    if !live() {
+        eprintln!("[smoke] 跳过：未设置 BT_LIVE_SMOKE=1（离线测试不碰外网）");
+        return;
+    }
+
+    let http = HttpClient::new();
+    let out = megapeer::search(&http, "1080p", 1).await;
+
+    println!(
+        "[smoke] megapeer: results={} error={:?}",
+        out.results.len(),
+        out.error
+    );
+
+    let Some(first) = out.results.first() else {
+        // 0 结果不等于解析回归（站点可能挡机房 IP）—— 打 NOTE 不炸，
+        // 「0 条且无错误」的判定逻辑在 smoke_the_json_group 里是给 JSON 组的。
+        println!(
+            "[smoke] NOTE: megapeer 没返回结果（error={:?}）—— 站点状态问题，不算解析回归",
+            out.error
+        );
+        return;
+    };
+
+    println!("[smoke] megapeer first.name = {}", first.name);
+    println!("[smoke] megapeer first.size_text = {}", first.size_text);
+
+    let has_cyrillic = first
+        .name
+        .chars()
+        .any(|c| ('\u{0400}'..='\u{04FF}').contains(&c));
+    assert!(
+        has_cyrillic,
+        "标题里没有西里尔字母 —— 站点可能不再发 charset=windows-1251，或改了编码: {}",
+        first.name
+    );
+    assert!(
+        !first.name.contains('\u{FFFD}'),
+        "标题里有替换字符（utf8 硬解码的痕迹）: {}",
+        first.name
+    );
 }

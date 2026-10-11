@@ -81,7 +81,13 @@ const out = {};
 
 for (const fixture of spec.fixtures) {
   const file = path.join(ROOT, 'test', 'fixtures', fixture.file);
-  const html = fs.readFileSync(file, 'utf8');
+  // 默认与原来逐字节一致（utf8）。非 UTF-8 站点（megapeer=windows-1251）由条目里的
+  // `encoding` 字段声明 —— 用 Node 内置的 TextDecoder，零依赖。
+  // ⚠️ Rust 侧（dom_probes.rs）用 encoding_rs 解同一份字节，两个解码器必须给出一致的文本。
+  const buf = fs.readFileSync(file);
+  const html = fixture.encoding
+    ? new TextDecoder(fixture.encoding).decode(buf)
+    : buf.toString('utf8');
   const $ = cheerio.load(html);
   out[fixture.file] = {};
   for (const probe of fixture.probes) {

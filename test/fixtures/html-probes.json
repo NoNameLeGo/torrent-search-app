@@ -696,6 +696,96 @@
           "limit": 3
         }
       ]
+    },
+    {
+      "file": "megapeer-1080p.html",
+      "encoding": "windows-1251",
+      "note": "真实结果页（2026-10-11 由 CI 抓取，关键词 1080p → 50 条）。⚠️ 本站是 windows-1251（meta 声明 + 字节实测）：条目里用 encoding 声明，cheerio 侧走 TextDecoder、Rust 侧走 encoding_rs，两个解码器必须给出同一文本。⚠️ 行有两种形状：43 行 4-td、7 行 5-td（多一格评论数，恒在 td3）——JS 按固定列索引取，会把 5-td 行的评论数当 size、peers 落空；Rust 侧改成「倒数第 2 格 = size、最后一格 = peers」，下面的 probe 就是修正后的语义。名称那一格两种行都在 td2，JS 原选择器不变。",
+      "probes": [
+        {
+          "id": "rows.count",
+          "op": "count",
+          "selector": "div#index > table > tbody > tr.table_fon"
+        },
+        {
+          "id": "rows.first_3_rows",
+          "op": "row_cells",
+          "selector": "div#index > table > tbody > tr.table_fon",
+          "closest": "tr",
+          "within": "td",
+          "limit": 3
+        },
+        {
+          "id": "names.count_nonempty_texts",
+          "op": "count_nonempty_texts",
+          "selector": "tr.table_fon td:nth-child(2) > a:nth-child(2)"
+        },
+        {
+          "id": "names.first_3_texts",
+          "op": "texts",
+          "selector": "tr.table_fon td:nth-child(2) > a:nth-child(2)",
+          "limit": 3
+        },
+        {
+          "id": "names.attrs_first_3",
+          "op": "attrs",
+          "selector": "tr.table_fon td:nth-child(2) > a:nth-child(2)",
+          "attr": "href",
+          "limit": 3
+        },
+        {
+          "id": "sizes.texts_first_5",
+          "op": "texts",
+          "selector": "tr.table_fon td:nth-last-child(2)",
+          "limit": 5
+        },
+        {
+          "id": "seeds.texts_first_5",
+          "op": "texts",
+          "selector": "tr.table_fon td:last-child > font:nth-child(2)",
+          "limit": 5
+        },
+        {
+          "id": "leeches.texts_first_5",
+          "op": "texts",
+          "selector": "tr.table_fon td:last-child > font:nth-child(4)",
+          "limit": 5
+        },
+        {
+          "id": "dates.texts_first_3",
+          "op": "texts",
+          "selector": "tr.table_fon td:nth-child(1)",
+          "limit": 3
+        },
+        {
+          "id": "magnets.count",
+          "op": "count",
+          "selector": "tr.table_fon a[href^=\"magnet:\"]"
+        }
+      ]
+    },
+    {
+      "file": "megapeer-detail.html",
+      "encoding": "windows-1251",
+      "note": "真实详情页（2026-10-11 由 CI 抓取）。`a[href^=\"magnet:?xt=\"]` 只有 1 条；href 在源码里是 &amp; 形式（两侧都应解码成 &）。同样是 windows-1251。",
+      "probes": [
+        {
+          "id": "magnet_links.count",
+          "op": "count",
+          "selector": "a[href^=\"magnet:?xt=\"]"
+        },
+        {
+          "id": "magnet_links.first_href",
+          "op": "attr_first",
+          "selector": "a[href^=\"magnet:?xt=\"]",
+          "attr": "href"
+        },
+        {
+          "id": "all_magnets.count",
+          "op": "count",
+          "selector": "a[href^=\"magnet:\"]"
+        }
+      ]
     }
   ]
 }

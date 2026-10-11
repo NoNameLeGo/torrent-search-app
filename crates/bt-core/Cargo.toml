@@ -27,5 +27,8 @@ serde_json = "1"
 # 日期测试要现算「本地时区零点」的期望值（`parse_date` 对月名格式就是按本地算的），
 # 所以得在 dev 里也声明一遍 chrono。
 chrono = "0.4"
+# dom_probes.rs 读非 UTF-8 的 fixture（megapeer 是 windows-1251）时要按
+# html-probes.json 里声明的 encoding 解码，cheerio 真值侧（TextDecoder）也是同一套标签。
+encoding_rs = "0.8"
 # 起本地一次性 HTTP 服务，让 http 层能在 CI 里无网络验证成功/失败/超时三条路径
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "time"] }

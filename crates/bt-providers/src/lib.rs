@@ -20,6 +20,7 @@ pub mod internetarchive;
 pub mod knaben;
 pub mod limetorrents;
 pub mod linuxtracker;
+pub mod megapeer;
 pub mod nyaa;
 pub mod oxtorrent;
 pub mod rutor;

@@ -31,6 +31,29 @@ fn read(path: &Path) -> String {
     std::fs::read_to_string(path).unwrap_or_else(|e| panic!("读不到 {}: {e}", path.display()))
 }
 
+/// 读 fixture 并按 cheerio 侧（`scripts/html-probes.cjs`）的规则解码。
+///
+/// 默认按 UTF-8（与 JS 侧 `buf.toString('utf8')` 对有效 UTF-8 等价）；
+/// 条目里声明 `encoding` 的（megapeer=windows-1251）用 encoding_rs 解码 ——
+/// **必须与 JS 侧 `TextDecoder(label)` 的选择一致**，否则两边文本对不上。
+fn read_fixture(path: &Path, encoding: Option<&str>) -> String {
+    let bytes = std::fs::read(path).unwrap_or_else(|e| panic!("读不到 {}: {e}", path.display()));
+    match encoding {
+        None => String::from_utf8(bytes).unwrap_or_else(|e| {
+            panic!(
+                "{} 不是有效 UTF-8（该在条目里声明 encoding 吗）: {e}",
+                path.display()
+            )
+        }),
+        Some(label) => {
+            let enc = encoding_rs::Encoding::for_label(label.as_bytes())
+                .unwrap_or_else(|| panic!("未知的编码标签: {label}"));
+            let (text, _, _) = enc.decode(&bytes);
+            text.into_owned()
+        }
+    }
+}
+
 /// 与 `scripts/html-probes.cjs` 的 `runProbe()` 一一对应。改一边必须改另一边。
 fn run_probe(dom: &Dom, p: &Value) -> Value {
     let op = p["op"].as_str().unwrap_or("");
@@ -103,7 +126,7 @@ fn run_all(spec: &Value, fixtures_dir: &Path) -> Value {
 
     for fixture in spec["fixtures"].as_array().expect("fixtures 该是数组") {
         let file = fixture["file"].as_str().expect("fixture 缺少 file");
-        let html = read(&fixtures_dir.join(file));
+        let html = read_fixture(&fixtures_dir.join(file), fixture["encoding"].as_str());
         let dom = Dom::parse(&html);
 
         let mut probes = Map::new();

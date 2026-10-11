@@ -25,6 +25,19 @@ pub fn fixture(name: &str) -> String {
     std::fs::read_to_string(&p).unwrap_or_else(|e| panic!("读不到 fixture {}: {e}", p.display()))
 }
 
+/// 读一份 fixture 的**原始字节**。
+///
+/// 给非 UTF-8 站点用（`megapeer` 是 windows-1251）：[`fixture`] 走 `read_to_string`，
+/// 碰到非法 UTF-8 直接失败；这类 fixture 必须原样取字节，再让「该解码的人」去解码 ——
+/// 测试里把它塞进 [`oneshot_bytes`] 并带 `charset=…` 响应头，
+/// reqwest 就会按那个编码解 —— 与真实站点同一条路径。
+pub fn fixture_bytes(name: &str) -> Vec<u8> {
+    let p = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../test/fixtures")
+        .join(name);
+    std::fs::read(&p).unwrap_or_else(|e| panic!("读不到 fixture {}: {e}", p.display()))
+}
+
 /// 起一个只服务一次请求的服务，响应体固定为 `body`；返回可直接当端点用的 base url。
 ///
 /// 需要检查**请求长什么样**（比如 POST 的 JSON body）时用 [`oneshot_capture`]。
@@ -37,9 +50,26 @@ pub async fn oneshot(status: u16, body: &str) -> String {
 /// 用途：钉住请求契约 —— 比如 knaben 的 POST body 必须和 JS 版逐字段一致，
 /// 服务端只认那些 snake_case 名字，写错了在真实环境才炸。
 pub async fn oneshot_capture(status: u16, body: &str) -> (String, Arc<Mutex<String>>) {
+    oneshot_capture_bytes(status, "application/json", body.as_bytes()).await
+}
+
+/// 同 [`oneshot`]，但 **Content-Type 可指定、body 是原始字节**。
+///
+/// `megapeer`（windows-1251）测试要用：真实站点响应头带 `charset=windows-1251`，
+/// `reqwest` 的 `res.text()` 按它解码 —— 这里用同样的头，把解码路径也测进去。
+pub async fn oneshot_bytes(status: u16, content_type: &str, body: &[u8]) -> String {
+    oneshot_capture_bytes(status, content_type, body).await.0
+}
+
+/// [`oneshot_capture`] 的字节版：Content-Type 可指定，另外交出原始请求文本。
+pub async fn oneshot_capture_bytes(
+    status: u16,
+    content_type: &str,
+    body: &[u8],
+) -> (String, Arc<Mutex<String>>) {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
-    let body = body.to_string();
+    let body = body.to_vec();
     let seen: Arc<Mutex<String>> = Arc::new(Mutex::new(String::new()));
     let seen_out = Arc::clone(&seen);
 
@@ -79,12 +109,12 @@ pub async fn oneshot_capture(status: u16, body: &str) -> (String, Arc<Mutex<Stri
         *seen.lock().unwrap() = String::from_utf8_lossy(&raw).into_owned();
 
         let head = format!(
-            "HTTP/1.1 {status} X\r\nContent-Type: application/json\r\n\
+            "HTTP/1.1 {status} X\r\nContent-Type: {content_type}\r\n\
              Content-Length: {}\r\nConnection: close\r\n\r\n",
             body.len()
         );
         let _ = sock.write_all(head.as_bytes()).await;
-        let _ = sock.write_all(body.as_bytes()).await;
+        let _ = sock.write_all(&body).await;
         let _ = sock.flush().await;
     });
 
