@@ -29,18 +29,18 @@ npm run test:watch
 test/
   run.js                  ← 主入口，测试 TPB + Knaben + LinuxTracker + FileMood
   normalize.test.js       ← normalize.js 单元测试
-  fixtures/               ← 真实 HTML/JSON 快照
+  fixtures/               ← 真实 HTML/JSON 快照（**金标准**，Rust 侧测试直接读它们）
     tpb-ubuntu.json       ← TPB API 响应 (100 results)
     tpb-empty.json        ← TPB 限流时的纯文本正文（不是 JSON，用来测解析失败路径）
-    knaben-ubuntu.json    ← Knaben API 响应 (5 results)
-    torrentscsv-ubuntu.json ← TorrentsCSV API 响应 (25 results)，2026-10-08 抓
-    yts-matrix.json       ← YTS API 响应 (2 部电影 / 7 个种子)，2026-10-08 抓
+    knaben-ubuntu.json    ← Knaben API 响应
+    torrentscsv-ubuntu.json / yts-matrix.json ← 2026-10-08 本机抓
     internetarchive-ubuntu.synthetic.json ← ⚠️ **合成**的（archive.org 本机 DNS 被污染抓不到）
     html-probes.json      ← 选择器语义对照的 probe 清单（cheerio vs scraper，两侧读同一份）
-    html-probes.expected.json ← cheerio 侧跑出来的真值（cheerio 1.2.0，2026-10-08）
-    linuxtracker-linux.html ← LinuxTracker HTML (18 results)
-    filemood-ubuntu.html  ← FileMood HTML (20 results)
-    1337x-ubuntu.html     ← ⚠️ 不是结果页：FingerprintJS 反爬跳转页（1.1KB）；该域名 2026-10-09 已停放
+    html-probes.expected.json ← cheerio 侧真值（**由 CI 自动生成并提交**，别手改）
+    1337x-ubuntu.html     ← ⚠️ 不是结果页：FingerprintJS 反爬跳转页；该域名 2026-10-09 已停放
+    # HTML 组（B 组 11 个站）每站 1~2 份：结果页 + 详情页（detail 后缀）
+    # 例：rutor-ubuntu.html / audiobookbay-detail.html / megapeer-1080p.html（windows-1251）…
+    # ⚠️ 完整清单以 `ls test/fixtures/` 为准 —— 本节只列代表性文件，别追平全量
 ```
 
 **fixture 永久保留**：即使对应 provider 已迁到 Rust，`test/fixtures/` 也不删 ——
@@ -71,11 +71,23 @@ Rust 侧有一条 `fixture_is_still_marked_as_synthetic` 测试钉着它 ——
 ⚠️ 写 HTML 测试的两个坑（都已实测）：
 裸 `<tr>`/`<td>` 片段会被解析器丢掉（要包 `<table>`）；类名匹配**区分大小写**。
 
-### 抓新 fixture 的姿势（本机可用）
+⚠️ **非 UTF-8 站点**（如 megapeer 是 windows-1251）：条目里加 `"encoding": "windows-1251"`，
+cheerio 侧走 `TextDecoder(label)`、Rust 侧走 `encoding_rs`；fixture 存**原始字节**（别转码）。
+
+### 抓新 fixture 的姿势
+
+**本机可直接访问的站**（用 curl 绕开本机那个坏代理）：
 
 ```bash
-# 必须绕开本机那个坏代理
 curl -s --noproxy "*" --max-time 25 "https://<api-url>" -o test/fixtures/<provider>-<query>.json
+```
+
+**本机探不通、但 CI 能通的站**（nyaa / megapeer / zeromagnet / …）——用 `fetch-fixture.yml` 让 CI 抓：
+
+```bash
+scripts/gh-retry.sh workflow run fetch-fixture.yml --ref feat/rust \
+  -f url='<结果页 / 详情页 URL>' -f path='test/fixtures/<site>-<query>.html'
+# 20 秒后 git pull --rebase 取回；⚠️ 先 head -c 300 看内容（挑战页/停放页也是 200）
 ```
 
 **期望值别手抄**：写个临时脚本 require `src/lib/normalize.js`，把同一份 fixture 喂进去，

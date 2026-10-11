@@ -20,7 +20,9 @@ Electron mode: `npm run electron` (picks a free port automatically, no collision
 
 **注**：本机的 `CARGO_HOME`（`D:\Vibe-Coding\.cargo`）已被清理，`cargo` 已不在 PATH 上；
 `RUSTUP_HOME`（`D:\Vibe-Coding\.rustup`）的 toolchain 还在但缺 shim。
-**结论：本地跑不了 cargo，Rust 的一切都必须走 CI。**
+**结论：本地跑不了 cargo（编译/测试一律走 CI）；但 toolchain 里的 `rustfmt.exe` 可以独立跑** ——
+改完 `.rs` 后 `rustfmt --edition 2021 --check <files>` 一遍再推，能省掉 fmt 门的 CI 往返
+（路径与用法见 `CLAUDE.md`「Rust tooling on this machine」；2026-10-11 起实战使用）。
 
 | 场景 | workflow | 触发 |
 |---|---|---|
@@ -35,6 +37,10 @@ Electron mode: `npm run electron` (picks a free port automatically, no collision
 
 本项目**推倒重开、用 Rust 重写**，在 `feat/rust` 上进行，长期长成主分支。
 `main` 上的 Node/Express + Electron/Tauri 实现继续可用；Rust 版每搬完一块就替代一块。
+
+**📊 进度快照（2026-10-11）**：**16 个 provider 已搬**（5 JSON + 11 HTML），
+CI **338 passed / 0 failed**（clippy + fmt 均为硬门）；探针 **126 条 / 17 fixture**；
+下一个候选 `xxxtracker`（`dmhy` 暂缓）。逐项见下面「移植进度」表。
 
 ### 范围决策（2026-10-08 用户拍板，5 条 · 别再反复问）
 
@@ -88,7 +94,7 @@ crates/bt-core/         领域类型 + 归一化 + HTTP 公共层 + HTML 解析�
   src/http.rs           ← src/lib/http.js 的移植（契约：永不返回 Err）
   tests/http.rs         ← 自起本地一次性 HTTP 服务，全程无外网
   src/dom.rs            ← cheerio 的替代层（scraper 0.27 = html5ever + selectors）
-  tests/dom_probes.rs   ← 选择器语义对照：与 cheerio 真值（102 条 probe）逐条比对
+  tests/dom_probes.rs   ← 选择器语义对照：与 cheerio 真值（126 条 probe）逐条比对
 crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方式  src/lib.rs            SearchOutcome { results, error, has_more }
                         （暂不引入 Provider trait，等 3~5 个再定抽象）
   src/value.rs          Value → NumOrText / String / min 的公共转换（含 v2nt_nonzero）
@@ -106,9 +112,12 @@ crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方
   src/torrent9.rs       ← src/providers/torrent9.js（HTML，法站；只取名字+详情链接，其余四格 JS 丢掉）
   src/oxtorrent.rs      ← src/providers/oxtorrent.js（HTML，法站；同上，错误串是 no_results）
   src/nyaa.rs           ← src/providers/nyaa.js（HTML；fixture 是 CI 抓的；⚠️ JS 列索引全错位）
+  src/megapeer.rs       ← src/providers/megapeer.js（HTML；**windows-1251**，首个非 UTF-8 站点）
+  src/zeromagnet.rs     ← src/providers/zeromagnet.js（HTML；名称被 <mark> 拆开；磁力在 input 的 value 属性）
   tests/common/mod.rs   本地一次性 HTTP 服务 + fixture 加载（provider 测试公用）
-                        oneshot() 只要响应；oneshot_capture() 另交出原始请求，用于钉请求契约
-  tests/{tpb,knaben,torrentscsv,yts,internetarchive}.rs   各自的离线测试
+                        oneshot() 只要响应；oneshot_bytes() 可带 charset 头与原始字节（非 UTF-8 fixture 用）；
+                        oneshot_capture() 另交出原始请求，用于钉请求契约
+  tests/*.rs            每个 provider 一份离线测试（16 个）+ live_smoke.rs
   tests/live_smoke.rs   联网冒烟；**默认跳过**，只有 BT_LIVE_SMOKE=1 才打外网
 
 （待建）crates/bt-torznab/ · bt-downloaders/ · bt-app/
@@ -125,7 +134,7 @@ crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方
 | `src/providers/torrentscsv.js`（32 行） | `torrentscsv.rs` | 真 fixture 首末条 + query 编码契约 + falsy 日期，**9 passed** | **待删** |
 | `src/providers/yts.js`（55 行） | `yts.rs` | 真 fixture 三条结果 + 请求 URL 契约 + 缺省值 + 两条跳过规则，**11 passed** | **待删** |
 | `src/providers/internetarchive.js`（58 行） | `internetarchive.rs` | **合成** fixture（见下）+ 分类映射 + item_size 三态 + `no_docs` 错误语义，**14 passed** | **待删** |
-| `src/lib/scraper.js`（HTML 解析底座） | `crates/bt-core/src/dom.rs` | cheerio 语义对照层 + 11 条单测 + 47 条 probe 与 cheerio 1.2.0 真值逐条比对（`dom_probes` **通过**） | 保留(对照) |
+| `src/lib/scraper.js`（HTML 解析底座） | `crates/bt-core/src/dom.rs` | cheerio 语义对照层 + 11 条单测 + **126 条 probe** 与 cheerio 1.2.0 真值逐条比对（`dom_probes` **通过**） | 保留(对照) |
 | `src/providers/linuxtracker.js`（95 行） | `linuxtracker.rs` | 真 fixture：43 候选 → 18 条结果（三个数字都由 cheerio 交叉验证）+ 11 条集成 + 8 条单测 | **待删** |
 | `src/providers/filemood.js`（74 行） | `filemood.rs` | 真 fixture：65 行 → 20 条数据行（cheerio 交叉验证）+ 11 条集成 + 11 条单测 | **待删** |
 | `src/providers/rutor.js`（99 行） | `rutor.rs` | 真 fixture：101 行（含表头）→ 100 条（cheerio 交叉验证）+ 13 条集成 + 13 条单测 | **待删** |
@@ -135,9 +144,11 @@ crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方
 | `src/providers/torrent9.js`（126 行） | `torrent9.rs` | 真 fixture：3 条结果（只有名字！）+ 详情页磁力 + 11 条集成 + 5 条单测（含「缺 h1 就不给磁力」的守卫） | **待删** |
 | `src/providers/oxtorrent.js`（61 行） | `oxtorrent.rs` | 真 fixture：3 条结果（**无表头行**）+ 详情页磁力 + 12 条集成 + 4 条单测 | **待删** |
 | `src/providers/nyaa.js`（64 行） | `nyaa.rs` | 真 fixture（**CI 抓的**）：1 条结果 + 8 条集成 + 6 条单测（把三处上游 bug 钉住） | **待删** |
+| `src/providers/megapeer.js`（87 行） | `megapeer.rs` | 真 fixture（**CI 抓的**）：50 条结果（**windows-1251**）+ 详情页磁力 + 18 条集成 + 10 条单测（两处 divergence：编码 / 5-td 列语义） | **待删** |
+| `src/providers/zeromagnet.js`（60 行） | `zeromagnet.rs` | 真 fixture（**CI 抓的**）：29 条结果（无表头）+ 详情页磁力（`input#input-magnet` 的 value）+ 14 条集成 + 4 条单测 | **待删** |
 
-（另有 `bt-providers` 的 78 条单元测试（测 `src/value.rs` + `linuxtracker.rs` + `filemood.rs` + `rutor.rs` + `audiobookbay.rs` + `therarbg.rs` + `limetorrents.rs` + `torrent9.rs` + `oxtorrent.rs` + `nyaa.rs`）；
-`tests/live_smoke.rs` 2 条默认跳过。合计 **295 passed / 0 failed**。）
+（另有 `bt-providers` 的 92 条单元测试（测 `src/value.rs` + `linuxtracker.rs` + `filemood.rs` + `rutor.rs` + `audiobookbay.rs` + `therarbg.rs` + `limetorrents.rs` + `torrent9.rs` + `oxtorrent.rs` + `nyaa.rs` + `megapeer.rs` + `zeromagnet.rs`）；
+`tests/live_smoke.rs` 3 条默认跳过。合计 **338 passed / 0 failed**（2026-10-11 CI）。）
 
 ⚠️ `test/fixtures/internetarchive-ubuntu.synthetic.json`（文件名带 `.synthetic`）：
 `docs[0..2]` 是 2026-10-08 从 CI 冒烟日志取回的**真实 doc**，`docs[3..]` 是手工构造的边界样本；
@@ -242,7 +253,7 @@ scripts/gh-retry.sh workflow run fetch-fixture.yml --ref feat/rust \
 
 | # | provider | 状态 |
 |---|---|---|
-| 0 | 地基（`dom.rs` + 选择器对照机制） | ✅ 102 条 probe 与 cheerio 1.2.0 逐条一致 |
+| 0 | 地基（`dom.rs` + 选择器对照机制） | ✅ **126 条 probe** 与 cheerio 1.2.0 逐条一致 |
 | 1 | `linuxtracker.js` | ✅ 18 条结果 + 11 集成 + 8 单测 |
 | 2 | `filemood.js` | ✅ 20 条结果 + 11 集成 + 11 单测 |
 | 3 | `rutor.js` | ✅ 100 条结果 + 13 集成 + 13 单测（**本机与 CI 两边都 ✅ 的第一个**） |
@@ -591,9 +602,10 @@ fixture 一律存原始字节，不要转码。
 | `yts` | 24 条 | ✅ |
 | `internetarchive` | 97~98 条 | ✅ 顺带拿到真实字段形态（见进度表上方） |
 | `tpb` | 403 | ⚠️ 机房 IP 被限流，非代码问题 |
+| `megapeer` | 50 条 | ✅ 2026-10-11 加入（独立 test）；标题西里尔完好 → 真实 `charset=windows-1251` 头实锤 |
 
 以后跑冒烟时，拿这些数字做对比：**数量级突然掉到 0 或个位数**才是真信号。
-（2026-10-09 复跑：knaben 300 / torrentscsv 25 / yts 24 / internetarchive 96 / tpb 403，0 问题 —— 与基线一致。）
+（2026-10-11 复跑：knaben 300 / torrentscsv 25 / yts 24 / internetarchive 95 / tpb 403 / megapeer 50，0 问题 —— 与基线一致。）
 
 ### 🔍 provider 探活：全部 40 个引擎，`scripts/provider-health.mjs`
 

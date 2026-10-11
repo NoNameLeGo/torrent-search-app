@@ -4,6 +4,10 @@
 > - 原仓库：`https://github.com/prajwalch/TorrentSearch`（Android / Kotlin 实现）
 > - 当前项目：`D:\Vibe-Coding\torrent-search-app`（Node.js / Electron Web 实现）
 > - 生成时间：2026-07-11
+>
+> ⚠️ **本文件描述的是 Node 版（`main` 发布线）的引擎覆盖情况，仍然成立**；
+> 2026-10-08 起项目在用 Rust 重写（`feat/rust` 分支），**Rust 侧的移植进度见 `AGENTS.md`**
+> （「📊 进度快照」+「移植进度」表）——那是另一条线的口径，别与本文件混用。
 
 ## 结论
 
