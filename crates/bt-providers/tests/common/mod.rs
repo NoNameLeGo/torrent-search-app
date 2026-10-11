@@ -70,6 +70,9 @@ pub async fn oneshot_capture_bytes(
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     let body = body.to_vec();
+    // ⚠️ `tokio::spawn` 的任务要求 'static —— body / content_type 都要先变成
+    // 拥有所有权的值，否则借用会「逃出函数」（E0521）。
+    let content_type = content_type.to_string();
     let seen: Arc<Mutex<String>> = Arc::new(Mutex::new(String::new()));
     let seen_out = Arc::clone(&seen);
 
