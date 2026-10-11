@@ -229,7 +229,9 @@ mod tests {
             // 名字存在但 href 是空的
             "<tr><td class=\"result-title\"><a href=\"\">n</a></td>\
              <td class=\"result-meta\"></td></tr>",
-            row("ok-1.iso", "/!ok")
+            // 正常行：手写而不是过 row()（它的名字是带 <mark> 前缀的 suffix 语义，直接断言会串）
+            "<tr><td class=\"result-title\"><a href=\"/!ok\">ok-1.iso</a></td>\
+             <td class=\"result-meta\"></td></tr>"
         );
         let out = parse_page(&rows);
 
