@@ -143,18 +143,27 @@ fn parse_row(dom: &Dom, row: ElementRef<'_>, base: &str) -> Option<TorrentResult
         format!("{base}{href}")
     };
 
-    let cell_text = |sel: &str| {
-        dom.find(row, sel)
-            .first()
-            .map(|e| text_trim(*e))
-            .unwrap_or_default()
-    };
-
-    let size = cell_text(SIZE_CELL);
-    let seeders = cell_text(SEED_FONT);
-    let leechers = cell_text(LEECH_FONT);
+    let size = dom
+        .find(row, SIZE_CELL)
+        .first()
+        .map(|e| text_trim(*e))
+        .unwrap_or_default();
+    let seeders = dom
+        .find(row, SEED_FONT)
+        .first()
+        .map(|e| text_trim(*e))
+        .unwrap_or_default();
+    let leechers = dom
+        .find(row, LEECH_FONT)
+        .first()
+        .map(|e| text_trim(*e))
+        .unwrap_or_default();
     // JS: `$li.find('td:nth-child(1)').first().text().trim()` → ruDate
-    let date_raw = cell_text(DATE_CELL);
+    let date_raw = dom
+        .find(row, DATE_CELL)
+        .first()
+        .map(|e| text_trim(*e))
+        .unwrap_or_default();
 
     Some(normalize(&RawResult {
         provider: "megapeer".to_string(),
@@ -321,7 +330,15 @@ mod tests {
         let rows = format!(
             "{}{}",
             row("11 Окт 26", "a", "/torrent/1/a", "9.62 GB", "1", "17", None),
-            row("11 Окт 26", "b", "/torrent/2/b", "34.62 GB", "26", "101", Some("3")),
+            row(
+                "11 Окт 26",
+                "b",
+                "/torrent/2/b",
+                "34.62 GB",
+                "26",
+                "101",
+                Some("3")
+            ),
         );
         let out = parse_page(&rows);
 

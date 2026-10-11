@@ -60,9 +60,10 @@ async fn first_row_fields_match_the_normalized_js_pipeline() {
 
     assert_eq!(r.provider, "megapeer");
     assert_eq!(r.name, FIRST_NAME);
+    let expected_detail = format!("{base}{FIRST_DETAIL_HREF}");
     assert_eq!(
         r.detail_url.as_deref(),
-        Some(format!("{base}{FIRST_DETAIL_HREF}").as_str()),
+        Some(expected_detail.as_str()),
         "detail_url 由 base + href 拼出（别把线上域名写死在断言里）"
     );
     assert_eq!(r.id, format!("megapeer:{FIRST_NAME}"));
@@ -133,7 +134,8 @@ async fn last_row_keeps_the_cyrillic_name_and_the_u2019_apostrophe() {
 #[tokio::test]
 async fn divergence_js_style_utf8_decoding_would_mangle_the_cyrillic() {
     // JS（axios 1.7.x）对文本响应一律 `buffer.toString('utf8')` —— 等效于：
-    let lossy = String::from_utf8_lossy(&common::fixture_bytes("megapeer-1080p.html"));
+    let bytes = common::fixture_bytes("megapeer-1080p.html");
+    let lossy = String::from_utf8_lossy(&bytes);
     assert!(
         lossy.contains('\u{FFFD}'),
         "win1251 字节按 utf8 解必然产生替换字符 —— 这就是 JS 版标题的样子"
@@ -178,7 +180,11 @@ async fn request_url_matches_the_js_contract() {
 /// 没有行 → `no_results_parsed`（这一站用 `_parsed` 后缀，与 oxtorrent 不同）。
 #[tokio::test]
 async fn page_without_rows_reports_no_results_parsed() {
-    let url = common::oneshot(200, "<div id=\"index\"><table><tbody></tbody></table></div>").await;
+    let url = common::oneshot(
+        200,
+        "<div id=\"index\"><table><tbody></tbody></table></div>",
+    )
+    .await;
 
     let out = megapeer::search_at(&HttpClient::new(), &url, "nonexistent-xyz").await;
 
