@@ -201,17 +201,17 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 | 4 | ~~`yts.js`~~ | ✅ 11 tests |
 | 5 | ~~`internetarchive.js`~~ | ✅ 14 tests（fixture 是合成的，见进度表上方说明） |
 
-**← 下次开工（2026-10-11 更新）**：`audiobookbay`…`nyaa` 9 个 + **`megapeer`（B 组第 11 个）**都已搬完。
+**← 下次开工（2026-10-11 更新）**：`audiobookbay`…`nyaa` 9 个 + **`megapeer`（第 11 个）** + **`zeromagnet`（第 12 个）**都已搬完。
 ⭐ 本机能抓到的候选早已用完；剩下站点的 fixture 靠 CI 抓（`fetch-fixture.yml`），
-探针链路现在支持 **per-fixture 编码声明**（条目里的 `encoding` 字段，megapeer 是第一个 windows-1251）。
+探针链路支持 **per-fixture 编码声明**（条目里的 `encoding` 字段，megapeer 是第一个 windows-1251）。
 
 **候选状态（2026-10-11）**：
 
 | 候选 | 状态 |
 |---|---|
 | `dmhy` | ⏸️ **暂缓** —— CI 抓取连试 3 次全部 60s 超时（0 字节；主页也一样）；agent 沙箱直连也 `fetch failed`。站点自己挂了/在维护，**不是**「本机不通但 CI 通」那一类。过些天再试 |
-| `zeromagnet`（CI 29 行） | ⏭️ **下一个** |
-| `xxxtracker`（CI 1 行） | 排队 |
+| `zeromagnet`（CI 29 行） | ✅ 已搬完（B 组第 12 个，2026-10-11） |
+| `xxxtracker`（CI 1 行） | ⏭️ **下一个** |
 | `sukebei` / `nekobt` | 排队（域名是死是活待确认） |
 
 抓 fixture 的姿势（本机不通的站点，`zeromagnet` 即为例）：
@@ -227,7 +227,7 @@ scripts/gh-retry.sh workflow run fetch-fixture.yml --ref feat/rust \
 
 - ✅ `crates/bt-core/src/dom.rs`：cheerio 的替代层（`scraper` 0.27 = html5ever + selectors）
   语义对照表写在文件头；自带 11 条单元测试
-- ✅ 选择器等价性对照机制：`test/fixtures/html-probes.json`（**115 条 probe / 15 个 fixture**）+
+- ✅ 选择器等价性对照机制：`test/fixtures/html-probes.json`（**126 条 probe / 17 个 fixture**）+
   `scripts/html-probes.cjs`（cheerio 侧，真值来源）+ `crates/bt-core/tests/dom_probes.rs`（Rust 侧）
   + `test/fixtures/html-probes.expected.json`（真值，cheerio 1.2.0 生成）
   ⚠️ **别给大页面加 `text_first` on `html`**（整页 text 拼接的超长单行）—— 实测会让 CI 日志
@@ -236,7 +236,7 @@ scripts/gh-retry.sh workflow run fetch-fixture.yml --ref feat/rust \
   ⚠️ **非 UTF-8 站点**（megapeer=windows-1251）：条目里加 `"encoding": "windows-1251"` ——
   cheerio 侧走 `TextDecoder(label)`、Rust 侧走 `encoding_rs::Encoding::for_label(label)`；
   fixture 存**原始字节**（别转码），两个解码器对同一标签必须给出一致文本。
-- ✅ `linuxtracker.js` + `filemood.js` + `rutor.js` + `audiobookbay.js` + `therarbg.js` + `limetorrents.js` + `torrent9.js` + `oxtorrent.js` + `nyaa.js` + `megapeer.js` 十个 HTML provider 落地，全部离线可测
+- ✅ `linuxtracker.js` + `filemood.js` + `rutor.js` + `audiobookbay.js` + `therarbg.js` + `limetorrents.js` + `torrent9.js` + `oxtorrent.js` + `nyaa.js` + `megapeer.js` + `zeromagnet.js` 十一个 HTML provider 落地，全部离线可测
 
 **B 组进度**
 
@@ -254,6 +254,7 @@ scripts/gh-retry.sh workflow run fetch-fixture.yml --ref feat/rust \
 | 9 | `nyaa.js` | ✅ 1 条结果（CI ✅ 2 行，**本机不通 → fixture 由 CI 抓**）+ 8 集成 + 6 单测；⚠️ 三种上游 bug（见下） |
 | 10 | `1337x.js` | ⛔ **已调查，当前不可抓取 → 跳过**，见下面专门小节 |
 | 11 | `megapeer.js` | ✅ 50 条结果（**CI ✅ 50 条、charset 解码实测通过**）+ 18 集成 + 10 单测；**第一个 windows-1251 站点**、两处有意 divergence（编码 / 5-td 列语义），见下面专门小节 |
+| 12 | `zeromagnet.js` | ✅ 29 条结果（CI ✅29，fixture 由 CI 抓）+ 14 集成 + 4 单测；⚠️ 名称被 `<mark>` 拆开→拼接；meta 列（6.2GB/日期）白扔（照抄）；磁力在详情页 `input#input-magnet` 的 **value 属性** |
 | — | 俄站编码 | ✅ 已验清：`rutor` 是 UTF-8（`getWin1251()` 名误导）；**`megapeer` 真的是 windows-1251**（响应头带 charset） |
 
 ### 🔤 `megapeer.js`（B 组第 11 个）—— 第一个 windows-1251 站点，两处有意 divergence（2026-10-11）
@@ -336,6 +337,7 @@ probe 用 `rows.count == 0` 把事实钉住）。
 | `oxtorrent.js` 的数据白扔 | 与 torrent9 同一个毛病：同行就有 `700.4 MB` / `9` / `2`，第 1 格还带 `<i class="Logiciels">`（法语分类，本该映成 `Apps`）—— `searchOne` 只传 `name` + `detailUrl`，全不要 | **照抄**（探针 `cat_classes.attrs_first_3` 把「分类其实拿得到」这个事实钉住了） |
 | `megapeer.js` 的编码 | axios 对文本响应一律 `toString('utf8')`（不读 charset），而站点是 **windows-1251** → 全部西里尔标题变替换字符（数据级损坏） | **修掉**（reqwest 按 charset 解码）+ divergence 测试；见下面 megapeer 专门小节 |
 | `megapeer.js` 的列索引 | 50 行里 7 行多一格评论数（恒在 td3）→ `td:nth-child(3)` 当 size 在那些行取到评论数、`td:nth-child(4)` 的 peers 落空 | **修掉**（「倒数第 2 格 = size、最后一格 = peers」）+ divergence 测试 |
+| `zeromagnet.js` 的数据白扔 | `td:nth-child(2)` 的 `result-meta` 里就有 `6.2GB` / `2026-08-07`，JS 只传 `name`/`detailUrl`/`category:'Porn'`，全丢（探针 `meta_sizes`/`meta_dates` 把「拿得到却不用」钉住） | **照抄**（与 oxtorrent/torrent9 同款毛病） |
 | `nyaa.js` 的列索引 | 名字那格带 `colspan="2"`（评论列被并掉），一行只有 **8 个 td**，而 JS 按 9 列读 `tds.eq(2..5)` → 实际落到 Link/Size/Date/Seeders：`sizeText` 恒 `—`、`dateText` 恒 `—`、**`seeders` 变成日期串里的 2009**（实测 JS 真给这个数） | **照抄**（测试把 `seeders = Some(2009)` 都钉住了，免得以后有人以为 Rust 写错） |
 | `nyaa.js` 的磁力 | `nameCell.find('a[href^="magnet:"]')` 在**名字格**里找，而磁力在 `tds.eq(2)`（Link 格）→ **magnet 恒 `null`、`needsMagnet` 恒 true**；而 `nyaa.js` **又没有 `resolveMagnet`**，于是前端「获取磁力」会打到 `/api/magnet` → 无 resolver → 回退到已死的 1337x → 报错。**结论：nyaa 现在拿不到磁力** | **照抄**（真要修：把搜索范围改成整行 + 补一个 `resolveMagnet`，两版一起改） |
 
