@@ -354,7 +354,10 @@ mod tests {
         let rows = format!(
             "{}{}{}",
             row("11 Окт 26", "", "/torrent/1/x", "1 GB", "1", "0", None),
-            "<tr class=\"table_fon\"><td>11 Окт 26</td><td><a>no href</a></td><td>1 GB</td><td>x</td></tr>",
+            // 名称链接存在但没有 href（走 JS 的 `if (!nameHref) return null` 分支）
+            "<tr class=\"table_fon\"><td>11 Окт 26</td>\
+             <td><a href=\"/download/1\"><img></a><a>no href</a></td>\
+             <td>1 GB</td><td>x</td></tr>",
             row("11 Окт 26", "ok", "/torrent/2/x", "1 GB", "1", "0", None)
         );
         let out = parse_page(&rows);
@@ -403,8 +406,11 @@ mod tests {
     /// peers 缺失（没有两个 font）时不硬凑。
     #[test]
     fn rows_without_fonts_have_no_peers() {
+        // ⚠️ td2 里必须还是「下载 a + 名称 a」两个 <a>（真实结构），
+        // 否则 `a:nth-child(2)` 取不到名称链接，整行会被跳过（不是本测试的点）。
         let rows = "<tr class=\"table_fon\"><td>11 Окт 26</td>\
-                    <td><a href=\"/t/1\">n</a></td>\
+                    <td><a href=\"/download/1\"><img src=\"/pic/d_small.gif\" alt=\"D\"></a>\
+                      <a href=\"/t/1\" class=\"url\">n</a></td>\
                     <td align=\"right\">1 GB</td>\
                     <td align=\"center\">nothing</td></tr>";
         let out = parse_page(rows);
