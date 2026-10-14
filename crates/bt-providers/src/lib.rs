@@ -13,11 +13,11 @@
 //!
 //! - ✅ [`run_mirrors`]：镜像回退的公共实现（2026-10-11 从 10 份逐字副本里提上来）
 //! - ✅ [`MagnetOutcome`]：惰性磁力解析的返回形状（6 个 provider 在用）
-//! - ⏸️ **仍不引入 `Provider` trait** —— 这批 provider 之间的差异是「站点名」而不是
-//!   「行为」，那是 helper 的活，不是 trait 的活（trait 会给 16 家各写一个 impl，比原来还啰嗦）。
-//!   trait 真正被需要是在 `bt-app` 要**并发遍历异构 provider 列表**时；而 `resolve_magnet`
-//!   只有 6/16 家有（**可选能力**），到那时才能看清怎么表达。现在定必然定错。
-//!   详见 `docs/BT_APP_DESIGN.md` §3.1。
+//! - ⏳ **`Provider` trait：M2 再建** —— 现阶段（16 个 provider）的差异是「站点名」而不是
+//!   「行为」，一个 `run_mirrors` helper 就够。但 M2 的聚合层要**并发遍历异构的 provider
+//!   列表**、D17 要给 Torznab 留口子、`resolve_magnet` 只 6/16 家有（**可选能力** =
+//!   trait 默认方法）—— 那时才该建。形状与反方意见见 `docs/ROADMAP.md` §2.4。
+//!   ⚠️ 旧的 `docs/BT_APP_DESIGN.md` 已删（其「先做 HTTP/WebView」的前提被推翻）。
 //!
 //! ## 约定（对齐 JS 版）
 //! - 每个 provider 暴露一个 `async fn search(http, query, page) -> SearchOutcome`

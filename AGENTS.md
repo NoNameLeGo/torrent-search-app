@@ -40,45 +40,49 @@ Electron mode: `npm run electron` (picks a free port automatically, no collision
 
 **📊 进度快照（2026-10-11）**：**16 个 provider 已搬**（5 JSON + 11 HTML），
 CI **338 passed / 0 failed**（clippy + fmt 均为硬门）；探针 **126 条 / 17 fixture**；
-**聚合层（`bt-app`/`bt-torznab`/`bt-downloaders`）仍为 0%**（待搬 JS 约 1071 行）。
+**聚合层 / UI / 下载器 = 0%**（核心与 UI 都还没开始）。
 
-✅ **2026-10-11 用户拍板两件事（别再反复问）**：
-1. **下一件做 `bt-app` 聚合层**，provider 降为后置 —— 阶段一的收益（内存 / 体积、
-   去掉 89MB sidecar）**全部由聚合层决定**，与 provider 数量无关；而剩余 24 个站点里
-   5 个已确认死亡（`eztv` 451 ／ `1337x`·`blueroms`·`torrentdatabase`·`uindex` Cloudflare）、
-   约 8 个两边环境都不通、真正可搬的只有 5~6 个 D 档站。
-2. **切 `main` 的门 = 「聚合层跑通」**（口径 C）—— **不再要求「40 个引擎齐」**，
-   也**不把差分门当硬门**（见下面 Q4 行）。
-👉 **方案见 `docs/BT_APP_DESIGN.md`（草案，仍待拍板 D1/D2/D4~D7）。**
+🔴 **2026-10-11 目标重订 —— 动手前先读 `docs/ROADMAP.md`。**
+那一轮追问推翻了旧路线的隐含假设（「能搜到东西」就是目标），结论是：
+**真正的目标 = 「小、快、原生的桌面成品」，搜索只是载体** →
+**跳过 WebView 中间态，直接上 Slint；核心做成库，不写 HTTP/SSE。**
+⇒ **旧 Q2（复用 `public/` 前端）与 Q6（WebView↔Rust 通信）双双作废。**
+当前里程碑 = **M1 验 Slint 风险**（唯一的一票否决项），见 `docs/AGENT_HANDBOOK.md` §1。
 
-### 范围决策（2026-10-08 用户拍板，5 条 · 别再反复问）
+### 范围决策
+
+⚠️ **2026-10-11 已重订。canonical 登记在 `docs/ROADMAP.md` §5（用 D 编号）。**
+下表是 2026-10-08 的**旧编号 Q**，保留只为翻历史时对得上 —— **其中 Q2 / Q6 已作废**。
 
 | # | 问题 | 决定 |
 |---|---|---|
-| Q1 | 产品形态 | **只做桌面原生应用；浏览器 / 手机访问模式最终放弃**（过渡期它作为副产品先留着） |
-| Q2 | UI 方案 | **先不动 UI**：复用现有 `public/` 前端把核心跑通；核心稳定后再实测 Slint 原生可不可行 |
-| Q3 | 平台 | **暂时 Windows-only**（但代码里别写死平台相关的东西） |
-| Q4 | 切换时机 | **2026-10-11 拍板（口径 C）：门 = 「聚合层跑通」**。**不做「40 个引擎齐」的硬要求**（5 个引擎已确认死亡，按字面执行这条分支永远合不回去），**也不把差分门当硬门** —— 差分（`docs/BT_APP_DESIGN.md` §6 的 G1/G2）降为**自选验证工具**。UI 之后补 |
-| Q5 | 站点改版怎么发现 | **CI 默认只跑离线 fixture**（稳定的门）；另加一条 `workflow_dispatch` **手动触发的联网冒烟**，允许失败 |
-| **Q6** | **WebView ↔ Rust 怎么通信** 🔴 **未决** | 原文只说「Tauri 壳直接跑 Rust 核心」，**没说 WebView 怎么跟它说话** —— 而这正是 `public/ 一行不改` 能否成立的前提。候选 **A = 同源 axum 服务**（实测前端全是**相对 URL** `/api/*`、零绝对地址 → `public/` 真能一行不改，且端到端差分才做得到）；**B = Tauri IPC**（所有 `fetch`/`EventSource` 必须改，SSE 要自己造）。**建议 A**，见 `docs/BT_APP_DESIGN.md` §2（该文里编号为 **D1**） |
+| Q1 | 产品形态 | **只做桌面原生应用；浏览器 / 手机访问模式放弃**（沿用，见 D2） |
+| ~~Q2~~ | ~~UI 方案~~ | ❌ **已作废（2026-10-11）**：原「先不动 UI、复用 `public/` 前端」被推翻 → **直接上 Slint**（`docs/ROADMAP.md` **D8**） |
+| Q3 | 平台 | **暂时 Windows-only**（但代码里别写死平台相关的东西）—— 沿用 |
+| Q4 | 切换时机 | **门 = 「聚合层跑通」**（口径 C）。**不做「40 个引擎齐」的硬要求**（5 个引擎已确认死亡，按字面执行这条分支永远合不回去），**也不把差分门当硬门** —— 差分（G1，见 `docs/AGENT_HANDBOOK.md` §6）降为**自选验证工具** |
+| Q5 | 站点改版怎么发现 | **CI 默认只跑离线 fixture**（稳定的门）；另加一条 `workflow_dispatch` **手动触发的联网冒烟**，允许失败 —— 沿用 |
+| ~~Q6~~ | ~~WebView ↔ Rust 怎么通信~~ | ❌ **已作废（2026-10-11）** —— **没有 WebView 就没有这个问题**（`docs/ROADMAP.md` **D9**：核心是库，Slint 进程内直调；不写 HTTP、不写 SSE） |
 
-### 两阶段路线（由上述决策推导，有异议就说）
+### 路线（2026-10-11 重订 —— 取代旧的「阶段一 / 阶段二」）
 
-**阶段一（当前）—— Rust 核心 + 复用现有 WebView 前端**
+**canonical 在 `docs/ROADMAP.md` §3。** 一句话版：
 
-- 补齐 `bt-providers` / `bt-torznab` / `bt-downloaders` / `bt-app`（聚合 + 8 路并发 + SSE）
-- 壳：Tauri 壳**直接跑 Rust 核心**，干掉现在那个 89MB 的 node sidecar
-- `public/` **一行不改** —— 阶段一结束时用户看到的界面和现在一样，但内存/体积大幅下降
-- 技术验收点：Rust 版的搜索结果必须和 Node 版**逐字段一致**
+```
+M0 ✅ run_mirrors 提取（净 −73 行）
+M1 ⬅️ 验 Slint 风险（#13548：中文标题 + 高亮 + 换行 → parley panic）—— 唯一的一票否决项
+M2 聚合层 + Provider trait          M3 bt-downloaders（4 客户端）
+M4 bt-app Slint MVP                 M5 引擎体检 → 砍掉死的
+M6 差分验证（必须早于删 Node）       M7 打包 + GitHub Release
+```
 
-**阶段二（阶段一稳了再启动，现阶段不要做）**
+**三条硬约束，别调换**：**M1 必须最先**（Slint 挂了，M2 的架构就得重做）；**M6 必须早于删 Node**（否则「逐字段一致」永远无法再验）；**M5 早于补引擎**（现在没有理由盲搬）。
 
-- 决定是否上 Slint 原生 UI
-- 上：删 `public/` + Tauri 壳，并正式丢掉浏览器访问
-- 不上：就停在阶段一（那终局就是「Rust 核心 + WebView」，与 Q1「桌面原生」有出入，届时再议）
+**旧路线为什么被推翻**：它假设「能搜到东西」是目标，于是「复用 WebView 前端」看起来最省事。
+但真实目标是**成品属性**（小 / 快 / 原生），而 WebView 路线**给不出那个成品**，还要多写一层
+终局用不上的 HTTP + SSE（Slint 是进程内直调）。详见 `docs/ROADMAP.md` §0。
 
 **Slint 探针结论（留档）** —— `spike/slint-ui` 分支与 `slint-spike.yml` 已于 2026-10-09 删除，
-结论必须留着，否则阶段二要重新踩一遍。要用时重建成本约 500 行。
+结论必须留着，否则 M1 要重新踩一遍。**重建成本约 500 行** —— 步骤、及格线、Plan B 见 `docs/AGENT_HANDBOOK.md` §1。
 
 - 产物体积是硬卖点：**6.7MB 自包含 exe，零运行时依赖**（对照 Electron 便携版 360MB / Tauri + node sidecar 89MB）
 - ⚠️ `@markdown()` **会把插值转义**（官方原文 "Any text passed as an argument to the macro will be escaped"），
@@ -183,17 +187,17 @@ IPv6 落在 `2a03:2880:face:b00c` 黑洞前缀，直连 / 代理 / DoH / 中转�
 4. 唯一红线不变：**不允许两套实现长期漂移**。所以每搬完一块，必须在下面的
    「移植进度」表里标注该 JS 的状态（`待删` / `保留(对照)` / `已删`）。
 
-**为什么放宽**：阶段一（Q4B）的技术验收点是「Rust 版结果与 Node 版**逐字段一致**」，
-Node 源码在这个阶段是**验证工具**而不是待清垃圾。提前删掉 = 亲手毁掉对照物。
+**为什么放宽**：验收点之一是「Rust 版结果与 Node 版**逐字段一致**」（= M6 的差分，见
+`docs/ROADMAP.md` §3），Node 源码在这里是**验证工具**而不是待清垃圾。提前删掉 = 亲手毁掉对照物。
 
-**待删清单（阶段一收尾 / 阶段二启动时批量处理）**：
+**待删清单（收尾时批量处理 —— "何时可删"以下表为准）**：
 
 | 路径 | 为何现在留着 | 何时可删 |
 |---|---|---|
 | `src/providers/tpb.js`、`knaben.js`、`torrentscsv.js`、`yts.js`、`internetarchive.js`、`linuxtracker.js`、`filemood.js`、`rutor.js`、`audiobookbay.js`、`therarbg.js`、`limetorrents.js`、`torrent9.js`、`oxtorrent.js`、`nyaa.js` ✅已移植 | `test/run.js` 仍在跑 tpb/knaben/linuxtracker/filemood/rutor；离线对照要用 | `bt-app` 接通对应 provider + Node 测试块删除后 |
 | `src/providers/*.js`（其余 28 个） | 尚未移植，是逐行对照的参照物 | 各自移植完成后按上条判断 |
 | `src/lib/`、`server.js`、`test/run.js` | 聚合层尚未移植，本分支上 Node 版仍需可跑 | **聚合层跑通**（= 切 `main` 的门，口径 C）之后 |
-| `public/` | 阶段一的前端本体（`public/` 一行不改） | **阶段二**确认上 Slint 后 |
+| `public/` | Node 版的前端本体（D8 直接上 Slint，**不再有"阶段二"**；Slint 版能用后它就无用） | **M6 差分验证做完**（与 Node 版一起删，D18） |
 | `electron/`、`scripts/`、`package.json`、`start.bat`/`stop.bat`、`.eslintrc.json`、`.prettierrc`、`build.yml`/`release.yml`/`tauri-build.yml` | Rust 版尚未能取代旧 Shell 发版 | Rust 版能独立发版后 |
 
 **已删（已做）**：构建产物 + 依赖缓存（`node_modules`、`src-tauri/target`、`src-tauri/binaries`）→ 省 1.35GB
@@ -222,15 +226,16 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 | 4 | ~~`yts.js`~~ | ✅ 11 tests |
 | 5 | ~~`internetarchive.js`~~ | ✅ 14 tests（fixture 是合成的，见进度表上方说明） |
 
-**⛳ 下次开工 = 做 `bt-app` 聚合层（2026-10-11 用户拍板，方向已改）**
+**⛳ 下次开工 = M1：验 Slint 风险（2026-10-11 重订）**
 
-原计划「继续搬 provider 直到 40 个齐」**已废止**。理由：剩余 24 个站点里 5 个确认死亡、
-约 8 个两边环境都不通、真正可搬的只有 5~6 个 D 档站；而阶段一的收益（内存 / 体积 /
-去掉 89MB sidecar）**全部由聚合层决定**。
+原计划「继续搬 provider 直到 40 个齐」**已废止**（D13：剩余 24 个站点里 5 个确认死亡、
+约 8 个两边环境都不通；而且「引擎多」只是感觉，不是需求）。
+旧路线「阶段一 = 核心 + WebView」**也已作废**（D8/D9）—— 真正的目标是「小快原生的成品」。
 
-**下一件：`bt-app`** —— axum 同源服务（复用现有 `/api/*` 契约）+ `/api/search/stream`
-的 SSE + 8 路并发聚合，再补 `bt-downloaders` / `bt-torznab`。
-方案与待拍板项见 `docs/BT_APP_DESIGN.md`；**provider 线后置**，不再是主推进方向。
+**下一件：M1 —— 验 Slint #13548**（中文标题 + 关键词高亮 + 自动换行会不会 panic）。
+6 条及格线、必须遵守的 4 个坑、以及验不过时的 Plan B，全在 `docs/AGENT_HANDBOOK.md` §1。
+**它是唯一能一票否决整个架构选择的东西，所以排在最前。** 通过后才进 M2（聚合层 + `Provider` trait）。
+**provider 线后置**，不再是主推进方向。
 
 **进度存档（2026-10-11）**：`audiobookbay`…`nyaa` 9 个 + **`megapeer`（第 11 个）**
 + **`zeromagnet`（第 12 个）**都已搬完。⭐ 本机能抓到的候选早已用完；剩下站点的
@@ -406,12 +411,14 @@ probe 用 `rows.count == 0` 把事实钉住）。
 → ✅ **2026-10-11 已提取 `run_mirrors`**：10 份逐字副本（`audiobookbay` / `filemood` / `limetorrents` /
 `linuxtracker` / `megapeer` / `oxtorrent` / `rutor` / `therarbg` / `torrent9` / `zeromagnet`）
 合并成 `bt-providers::run_mirrors`，**净 −73 行**（`+77 / −150`，11 个文件）。
-⏸️ **`Provider` trait 仍不建** —— 这 10 份的差异是「**站点名**」而不是「行为」，那是 helper 的活；
-trait 等 `bt-app` 要**并发遍历异构列表**时再定（`resolve_magnet` 只 6/16 家有，是**可选能力**，
-现在设计必然定错）。理由见 `crates/bt-providers/src/lib.rs` 模块头 + `docs/BT_APP_DESIGN.md` §3.1。
+✅ **`Provider` trait 现在该建了（M2）** —— 时机变了：当时那 10 份的差异只是「站点名」，
+一个 helper 就够（`run_mirrors` 已提取）；**但现在出现了三个真实消费者**：
+① 聚合层要**并发遍历异构 provider 列表** ② D17 要给 Torznab 留口子
+③ `resolve_magnet` 只 6/16 家有 → 正是 trait **默认方法**要表达的可选能力。
+形状与反方意见见 `docs/ROADMAP.md` §2.4。
 ⚠️ 顺带记一处 **有意 divergence**：JS 的 `runMirrors` 是**并行**（`Promise.allSettled`），
 Rust 侧是**顺序** `await`（最坏 `n × 10s`）—— 以前只在 `filemood` / `linuxtracker` 两处注释里提过，
-现在统一写在 `run_mirrors` 的文档注释里（要不要改成并行 = 设计草案的 **D2**，待拍板）。
+现在统一写在 `run_mirrors` 的文档注释里（要不要改成并行 = `docs/ROADMAP.md` 的小项默认值 **d1：保持顺序**，想改就说）。
 
 ### 🧱 HTML provider 的四条铁律（写自 `dom.rs` 与历次对照的实测）
 
@@ -510,7 +517,7 @@ Rust 侧是**顺序** `await`（最坏 `n × 10s`）—— 以前只在 `filemoo
 | **D. 自己代码编译不过 / 单测片段写错** | 6 | `error[E0107] expected 2 generic arguments`、`error[E0308] &str vs String`、`error: prefix \`x\` is unknown`、3 次 dom.rs 单测（裸 `<tr>`/`<td>` 片段被解析器丢掉） | 本机没 cargo，签名/泛型靠 CI 发现；测试里随手塞不合法表格标签 | 见「本机三道门」+ 「HTML provider 铁律 #1」 |
 | **E. `cargo fmt --check`** | 2 | `Diff in crates/...` | 本地没跑 rustfmt，或跑了没看退出码 | 见「本机三道门」第 1 条 —— **必须用 `&&` 串，不能用 `;`** |
 | **F. 打包 / 发版** | 14 | EPERM×5（npm cleanup 删不掉被进程锁住的 `@tauri-apps`/`@electron` 原生二进制）、GH_TOKEN×2（electron-builder 想自动 publish）、E0593×2（`src-tauri` closure 参数个数）、NSIS 配置不合法×1、`未找到 electron 运行时`×1、`cat docs/RELEASE_ARTIFACTS.md: No such file`×1、pwsh `working directory` 不存在×1、无日志无说明×1 | 基本上是**同一台 Windows runner 上的文件锁 / 上游 schema 变动 / 分支上缺文件**，跟被测代码无关 | EPERM：不要在同一 job 里先 `npm ci` 再就地删 node_modules（已修）；GH_TOKEN：别让 electron-builder 自动 publish，改 artifact 上传（已修）；引用文件前先 `test -f` |
-| **G. Slint spike** | 1 | `Cannot convert string to styled-text`（build.rs 挂了） | spike 分支已删，结论留在阶段二说明里 | 阶段二重建 Slint 时别再踩 |
+| **G. Slint spike** | 1 | `Cannot convert string to styled-text`（build.rs 挂了） | spike 分支已删，结论留在「Slint 探针结论（留档）」 | M1 重建 Slint 时别再踩 |
 
 （组合：A15 + B~E22（Rust 门禁）+ F14 + G1 = 51；Rust 那一组 22 次里
 **没有一次是环境问题**。）
