@@ -80,27 +80,33 @@ Seven workflows, split by shell and trigger:
 
 Since 2026-10-08 the project is being **rewritten from scratch in Rust** on the `feat/rust` branch, which is intended to eventually become `main`. The Node side is untouched and keeps working until each piece is replaced.
 
-**Scope decisions (2026-10-08, settled — full table in `AGENTS.md`):**
+**Scope decisions.** ⚠️ **Re-scoped 2026-10-11** — the full register now lives in `docs/ROADMAP.md` §5 (D-numbers). The Q-numbers below are the 2026-10-08 set; **Q2 and Q6 are superseded**.
 
 | # | Decision |
 |---|---|
-| Q1 | Desktop-native only. **Browser/mobile access is being dropped** (kept as a free by-product during the transition). |
-| Q2 | **Don't touch the UI yet** — reuse the existing `public/` frontend to get the core working; evaluate Slint native once the core is stable. |
+| Q1 | Desktop-native only. **Browser/mobile access is dropped** (= D2). |
+| ~~Q2~~ | ~~Don't touch the UI yet — reuse `public/`~~ ❌ **superseded**: go **straight to Slint** (D8). |
 | Q3 | Windows-only for now, but don't hardcode platform specifics. |
-| Q4 | **Switch `main` once the core is done** (providers + aggregation); UI comes later. |
+| Q4 | **Switch `main` when the aggregation layer runs** (gate = 聚合层跑通, D5). Not "40 engines done", and the diff harness is *not* a hard gate. |
 | Q5 | CI runs **offline fixtures only** (the stable gate). A manual `workflow_dispatch` online smoke test exists (`live-smoke.yml`) and is deliberately **off** every push/PR gate — allow-failure means "not a gate", not `continue-on-error`. Fixtures are a 2026-07 snapshot, so green does **not** mean scraping still works. |
+| ~~Q6~~ | ~~WebView ↔ Rust transport~~ ❌ **superseded** — no WebView, so no transport question (D9). |
+
+**New (2026-10-11):** D7 goal = the small/fast/native **artifact** (search is the vehicle) · D8 go straight to Slint · D9 the core is a **library** (no HTTP, no SSE) · D13 probe engine liveness **before** porting more · D16 all four download clients · D17 Torznab deferred (leave an abstraction hook only) · D18 keep the Node version until the diff (M6) is done.
+
+**Start here:** `docs/ROADMAP.md` (goals / architecture / milestones M1–M7 / risks) and **`docs/AGENT_HANDBOOK.md`** (how to do each milestone, the 3 local gates, the do-not-touch list).
 
 **Plan (re-scoped 2026-10-11 — see `docs/ROADMAP.md`).** The old "Phase 1 = Rust core + the existing WebView frontend, Phase 2 = reconsider Slint" plan is **dead**. The goal turned out to be *the artifact itself* (small / fast / native), which a WebView can never deliver — so we go **straight to Slint**, and the core becomes a **library** (no HTTP, no SSE; Slint calls it in-process). Milestones are **M1..M7** in `docs/ROADMAP.md` §3. The `spike/slint-ui` branch **was deleted on 2026-10-09**, but its conclusions are archived in `AGENTS.md` ("Slint 探针结论（留档）") and **must be read before touching Slint** — especially the still-unverified blocker there (Slint #13548: Chinese title + keyword highlight + auto-wrap → parley panic), which is milestone **M1**.
 
 ```
-Cargo.toml              workspace root (members = ["crates/*"], exclude = ["src-tauri"])
+Cargo.toml              workspace root (members = ["crates/*"], exclude = ["src-tauri"] — src-tauri exists only on `feat/tauri`, not on `feat/rust`)
 crates/bt-core/         domain types + normalize + shared HTTP layer
   src/normalize.rs      port of src/lib/normalize.js (semantically equivalent)
   tests/normalize.rs    assertions from test/normalize.test.js, ported verbatim
   src/http.rs           port of src/lib/http.js — never returns Err, mirrors the JS contract
   tests/http.rs         spins up a throwaway local HTTP server; needs no network
 crates/bt-providers/    one file per site, mirroring src/providers/*.js
-  src/lib.rs            SearchOutcome { results, error, has_more } (no Provider trait yet)
+  src/lib.rs            SearchOutcome { results, error, has_more } + MagnetOutcome + run_mirrors
+                        (Provider trait comes in **M2** — see docs/ROADMAP.md §2.4)
   src/value.rs          shared Value -> NumOrText / String / min conversions (+ v2nt_nonzero)
   src/tpb.rs            port of src/providers/tpb.js (GET, apibay)
   src/knaben.rs         port of src/providers/knaben.js (POST, official JSON API)
@@ -122,14 +128,15 @@ crates/bt-providers/    one file per site, mirroring src/providers/*.js
                         oneshot() = response only; oneshot_bytes() = custom charset header + raw bytes;
                         oneshot_capture() = also hands back the raw request
   tests/*.rs            one offline test file per provider (16 today) + live_smoke.rs
-(pending)  crates/bt-torznab/ · bt-downloaders/ · bt-app/
+(pending)  crates/bt-downloaders/ (4 clients) · crates/bt-app/ (**the Slint app — the only UI**)
+           bt-torznab is **not built** this round (D17: leave an abstraction hook only)
 ```
 
 **Porting a provider (recipe, copy tpb/knaben/torrentscsv/yts):** read the JS, write `src/<name>.rs` with a payload struct (if it's a POST) + `search()` + `search_at(http, api, query)` (the latter is what makes offline tests possible), then `tests/<name>.rs` with field-by-field assertions. **Don't hand-write the expected values** — feed the same fixture through `src/lib/normalize.js` with a throwaway Node script and copy its output into the assertions; that is what makes "same as the Node version" verifiable. Pin any deliberate divergence as a named `divergence_*` test.
 
 Known pitfalls when guessing expected values (all three have already cost a CI round): `dateText` defaults to `"—"`, not `""`; JS treats `0` as falsy, so `x ? Number(x) : null` means `created_unix: 0` yields no date (use `value::v2nt_nonzero`, but note the *string* `"0"` is truthy); array fields like `categoryId` take the **min**, not the first element.
 
-**Order for the remaining providers (2026-10-11):** 16 ports are done (5 JSON + 11 HTML); the next candidate is `xxxtracker` (thin fixture, 1 row on CI). `dmhy` is paused — the site itself is down (three CI fetches timed out at 60s); `sukebei` / `nekobt` come after. Full candidate table and per-provider progress live in `AGENTS.md`.
+**The provider line is deferred (2026-10-11, D13).** 16 ports are done (5 JSON + 11 HTML). Do **not** keep porting by default — the goal is the artifact, not engine count. Run `provider-health.yml` to see which engines are actually still alive, cut the dead ones, and only then decide whether more are worth it. `xxxtracker` / `dmhy` / `sukebei` / `nekobt` remain unported but are **not** the next step (that is **M1**, the Slint risk test). Full candidate table and per-provider progress live in `AGENTS.md`.
 
 **HTML providers (worked path, from `linuxtracker`):** parse with `bt_core::dom` (the cheerio-compatible layer over `scraper`). **Ask the page structure via the probe harness instead of guessing from the HTML** — add probes to `test/fixtures/html-probes.json`, run `.github/workflows/html-probes.yml` to get cheerio's ground truth, and only then write the provider. Two things bit us there: cheerio's `.map()` flattens arrays (use `.toArray().map()`), and bare `<tr>`/`<td>` snippets are dropped by the HTML parser (wrap them in `<table>`).
 
@@ -139,7 +146,7 @@ Upstream bugs found while porting: `linuxtracker`'s `detailUrl` misses a slash (
 
 **Deleting the old JS — function-level, not file-level (revised 2026-10-08).** Do *not* mechanically delete `<provider>.js` as soon as its Rust port lands. Delete only once that function is fully usable from Rust (wired into `bt-app`), and never when the JS is still the reference for an accepted equivalence check. Anything kept for now must be logged in the "待删清单" table in `AGENTS.md` and deleted in a batch at the end of a phase. The one hard rule that survives: two implementations must never be allowed to drift, so every ported file's status (`待删` / `保留(对照)` / `已删`) goes in the progress table.
 
-**Next step:** the "✅ in both environments" picks are done (`audiobookbay`, `nyaa`), plus `megapeer` (2026-10-11, the first **windows-1251** site) and `zeromagnet` (2026-10-11 — 29 rows with no header row, names split by `<mark>` so child text must be concatenated, magnet lives in `input#input-magnet`'s **value attribute**, and the meta columns hold `6.2GB` / dates that the JS drops — copied as-is). `dmhy` is **paused** — a CI fixture fetch timed out three times (60s, 0 bytes received; the homepage too), so the site itself is down or under maintenance, not just unreachable from this machine. Next candidate: `xxxtracker`, then `sukebei` / `nekobt`.
+**Latest ports (2026-10-11):** the "✅ in both environments" picks are done (`audiobookbay`, `nyaa`), plus `megapeer` (the first **windows-1251** site) and `zeromagnet` (29 rows with no header row, names split by `<mark>` so child text must be concatenated, magnet lives in `input#input-magnet`'s **value attribute**, and the meta columns hold `6.2GB` / dates that the JS drops — copied as-is). `dmhy` is **paused** — a CI fixture fetch timed out three times (60s, 0 bytes; the homepage too), so the site itself is down, not just unreachable from this machine. Porting more is **deferred** (D13) — see the note above; the next milestone is **M1**, not another provider.
 
 **`megapeer.js` (done, 2026-10-11) — first windows-1251 site, ported with two deliberate divergences.** The site serves windows-1251 bytes with a matching `charset=windows-1251` response header (verified live by CI smoke). JS axios hard-decodes text as utf8 (`buffer.toString('utf8')` — it ignores the charset), so **every Cyrillic title became `U+FFFD`**; Rust's reqwest honours the header's charset via encoding_rs and decodes correctly — deliberately *not* copied, because it is a data-level bug (pinned by `divergence_js_style_utf8_decoding_would_mangle_the_cyrillic`). Second: result rows come in two shapes (43× 4-td, 7× 5-td with a comment cell at td3) and JS's fixed indices (`td:nth-child(3)` as size, `td:nth-child(4) > font` as peers) grab the comment count and leave peers empty on 5-td rows — the port uses "second-to-last cell = size, last cell = peers" instead (pinned by `divergence_5td_row_takes_real_size_not_the_comment_count`). Infrastructure added: per-fixture `encoding` in `html-probes.json` (TextDecoder on the JS side, encoding_rs on the Rust side), `fixture_bytes()` + `oneshot_bytes()` in `tests/common` (the charset header travels to reqwest, same as production), and a live-smoke test.
 

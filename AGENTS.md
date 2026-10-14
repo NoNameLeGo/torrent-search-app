@@ -40,7 +40,7 @@ Electron mode: `npm run electron` (picks a free port automatically, no collision
 
 **📊 进度快照（2026-10-11）**：**16 个 provider 已搬**（5 JSON + 11 HTML），
 CI **338 passed / 0 failed**（clippy + fmt 均为硬门）；探针 **126 条 / 17 fixture**；
-**聚合层 / UI / 下载器 = 0%**（核心与 UI 都还没开始）。
+**聚合层 / Slint UI / 下载器 = 0%**（provider 核心已有 16 个家底，这三块还没动手）。
 
 🔴 **2026-10-11 目标重订 —— 动手前先读 `docs/ROADMAP.md`。**
 那一轮追问推翻了旧路线的隐含假设（「能搜到东西」就是目标），结论是：
@@ -98,10 +98,11 @@ M6 差分验证（必须早于删 Node）       M7 打包 + GitHub Release
   **没有 `wrap` 属性**；高亮色是烘进 markup 的，**切主题必须整体重建模型**
 
 ⚠️ **过渡期千万别做的事**：不要为了"干净"提前删 `public/` 或 `src/providers/`。
-两者合计才 460KB，却是逐行对照的参照物；删了等于凭记忆重写。
+两者合计约 390KB，却是差分验证（M6）的对照物；删了等于凭记忆重写。
 
 ```
-Cargo.toml              workspace 根（members = ["crates/*"]，exclude = ["src-tauri"]）
+Cargo.toml              workspace 根（members = ["crates/*"]，exclude = ["src-tauri"]
+                        — ⚠️ src-tauri 只在 feat/tauri 分支上，feat/rust 没有它）
 crates/bt-core/         领域类型 + 归一化 + HTTP 公共层 + HTML 解析层
   src/normalize.rs      ← src/lib/normalize.js 的语义等价移植
   tests/normalize.rs    ← test/normalize.test.js 的断言原样搬来
@@ -110,7 +111,7 @@ crates/bt-core/         领域类型 + 归一化 + HTTP 公共层 + HTML 解析�
   src/dom.rs            ← cheerio 的替代层（scraper 0.27 = html5ever + selectors）
   tests/dom_probes.rs   ← 选择器语义对照：与 cheerio 真值（126 条 probe）逐条比对
 crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方式  src/lib.rs            SearchOutcome { results, error, has_more }
-                        （暂不引入 Provider trait，等 3~5 个再定抽象）
+                        （**聚合调度也放这里**；`Provider` trait 在 **M2** 建，见 `docs/ROADMAP.md` §2.4）
   src/value.rs          Value → NumOrText / String / min 的公共转换（含 v2nt_nonzero）
   src/tpb.rs            ← src/providers/tpb.js（GET，apibay）
   src/knaben.rs         ← src/providers/knaben.js（POST，官方 JSON API）
@@ -134,7 +135,8 @@ crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方
   tests/*.rs            每个 provider 一份离线测试（16 个）+ live_smoke.rs
   tests/live_smoke.rs   联网冒烟；**默认跳过**，只有 BT_LIVE_SMOKE=1 才打外网
 
-（待建）crates/bt-torznab/ · bt-downloaders/ · bt-app/
+（待建）`crates/bt-downloaders/`（4 客户端）· `crates/bt-app/`（**Slint 应用 —— 唯一的 UI**）
+⚠️ `bt-torznab` **本期不建**（D17：只留抽象口子）；旧的 `docs/BT_APP_DESIGN.md` 已删
 ```
 
 **移植进度**：
@@ -200,7 +202,9 @@ IPv6 落在 `2a03:2880:face:b00c` 黑洞前缀，直连 / 代理 / DoH / 中转�
 | `public/` | Node 版的前端本体（D8 直接上 Slint，**不再有"阶段二"**；Slint 版能用后它就无用） | **M6 差分验证做完**（与 Node 版一起删，D18） |
 | `electron/`、`scripts/`、`package.json`、`start.bat`/`stop.bat`、`.eslintrc.json`、`.prettierrc`、`build.yml`/`release.yml`/`tauri-build.yml` | Rust 版尚未能取代旧 Shell 发版 | Rust 版能独立发版后 |
 
-**已删（已做）**：构建产物 + 依赖缓存（`node_modules`、`src-tauri/target`、`src-tauri/binaries`）→ 省 1.35GB
+**已删（已做）**：构建产物 + 依赖缓存（`node_modules`、`src-tauri/target`、`src-tauri/binaries`）→ 省 1.35GB；
+`public/app.js`（**1634 行 / 69KB 死代码**，2026-10-11 —— `index.html` 只加载 `js/main.js`，
+`build-frontend.js` 也只读 `public/js/*.js`，全仓零功能性引用；已同步到 main + feat/tauri）
 
 **永久保留**：`test/fixtures/`（迁进 Rust 测试后也不删，是 golden 数据源）、
 `LICENSE`、`SEARCH_ENGINE_PORT_COVERAGE.md`
@@ -248,7 +252,7 @@ fixture 靠 CI 抓（`fetch-fixture.yml`），探针链路支持 **per-fixture �
 |---|---|
 | `dmhy` | ⏸️ **暂缓** —— CI 抓取连试 3 次全部 60s 超时（0 字节；主页也一样）；agent 沙箱直连也 `fetch failed`。站点自己挂了/在维护，**不是**「本机不通但 CI 通」那一类。过些天再试 |
 | `zeromagnet`（CI 29 行） | ✅ 已搬完（2026-10-11） |
-| `xxxtracker`（CI 1 行） | ⏭️ provider 线最前，但 **聚合层优先**（2026-10-11 拍板：先做 `bt-app`） |
+| `xxxtracker`（CI 1 行） | ⏸️ provider 线最前，但 **provider 线整体后置**（D13：先摸存活再砍；当前里程碑是 **M1 验 Slint**，不是再搬一个） |
 | `sukebei` / `nekobt` | 排队（域名是死是活待确认） |
 
 ⚠️ **B 组序号口径**：序号把 `#0 地基` 与 `#10 1337x（跳过）` 都算进去了，
@@ -1045,6 +1049,7 @@ percent-encode，个别老旧下载工具会拿到编码串或问号名，这是
 以下从编码者角度梳理的优化项，已全部收口：
 
 1. ✅ **`public/app.js` 1634 行单体巨石** — 已拆为 7 个 ES 模块：`js/state.js`、`js/render.js`、`js/actions.js`、`js/history.js`、`js/settings.js`、`js/utils.js`、`js/main.js`。
+   ⚠️ **该文件本身已于 2026-10-11 删除**（拆完一直留着，见上面「已删（已做）」）。
 2. ✅ **Provider 解析逻辑重复** — 新建 `src/lib/scraper.js`：`createProvider()` 工厂 + `scrapeRows()` 辅助，已迁移 eztv/torrentkitty/torrentdownload。
 3. ✅ **请求速率控制** — `src/providers/index.js`：`asyncPool()` 限制 8 并发，替代 `Promise.all` 无限制请求。
 4. ✅ **`PROVIDER_LABEL` 初始态不完整** — 已预填充全部 42 个引擎名称，消除首屏 raw id 闪现。
@@ -1085,10 +1090,13 @@ git push origin feat/tauri     # push FIRST
 git worktree remove <tmp>      # clean up AFTER push confirmed
 ```
 
-⚠️ **`feat/tauri` 的 `public/app.js` 整体落后于 `main`，不是「另一个修好的版本」。**
-它是多客户端改造**之前**的 qB-only 版本（`state.qb` / `autoDetectQB()` / `#qb-url` 系列 DOM）。
-往那边找 bug 修复会白跑一趟；反过来，从 `main` 同步下载相关功能到 `feat/tauri` 时，
-要连带把整套多客户端改造（含下面的 6 处修名）一起带过去，不能只摘单个提交。
+⚠️ **`public/app.js` 已于 2026-10-11 从三个分支全部删除**（1634 行死代码，见「已删（已做）」）。
+下面这一段**只作为历史背景**保留（解释当初为什么会存在两份 app.js）—— 文件已经没了，别再去同步它。
+
+> ~~`feat/tauri` 的 `public/app.js` 整体落后于 `main`，不是「另一个修好的版本」。~~
+> ~~它是多客户端改造**之前**的 qB-only 版本（`state.qb` / `autoDetectQB()` / `#qb-url` 系列 DOM）。~~
+> ~~往那边找 bug 修复会白跑一趟；反过来，从 `main` 同步下载相关功能到 `feat/tauri` 时，
+> 要连带把整套多客户端改造（含下面的 6 处修名）一起带过去，不能只摘单个提交。~~
 
 **~~Known recurring conflict — `PROVIDER_LABEL` / `loadProviders`~~ 已消解（2026-08-10）:**
 两分支曾在这里分叉——`main` 是只含 ~4 项的静态字面量，`feat/tauri` 是 `PROVIDER_LABEL = {}`
@@ -1098,11 +1106,15 @@ git worktree remove <tmp>      # clean up AFTER push confirmed
 若日后再在此处分叉：解冲突时取 incoming（`main`）逻辑，**但务必保留那行动态填充**，
 丢了它会让所有徽章/状态栏显示名退化成 provider 原始 id。
 
-## Next steps（下一步）
+## 历史：Node / Electron 时代的收尾记录（⚠️ **不是当前计划**）
+
+> 当前计划 = 本节上方「📌 下一步计划」（下一个里程碑是 **M1**）+ `docs/ROADMAP.md` §3。
+> 下面这一段记录的是 **Rust 重写之前** Node/Electron 那条线的收尾工作，保留只为查历史。
 
 ### ✅ 已完成：多客户端下载器同步到 `feat/tauri`
 
-`main` 和 `feat/tauri` 两分支的 `public/app.js` 现已完全一致，均支持：
+⚠️ **以下描述的是 Node 版（`public/app.js` 已于 2026-10-11 删除，见「已删（已做）」）。**
+当时 `main` 和 `feat/tauri` 两分支的 `public/app.js` 完全一致，均支持：
 - **四种下载器**：qBittorrent / Transmission / aria2·Motrix / Gopeed
 - **统一状态**：`state.dl`（单键 `'dl'`，body 形状 `{kind,url,user,pass,token,magnet}`）
 - **核心函数**：`DL_CLIENTS`、`dlLabel()`、`sendToClient()`、`autoDetectDownloader()`、`batchSendToClient()`
