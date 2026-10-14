@@ -101,28 +101,9 @@ pub async fn search(http: &HttpClient, query: &str, _page: u32) -> SearchOutcome
     search_with(http, DOMAINS, query).await
 }
 
-/// 复刻 `src/lib/mirrors.js` 的 `runMirrors`（单域名时就是"只有一个尝试"）：
-///
-/// - JS 是**并行**请求所有镜像、按**声明顺序**取第一个**结果非空**的（`allSettled`）
-/// - 全部为空 → `error = "<name> unreachable (<各镜像错误用 '; ' 拼接>)"`，
-///   **带 provider 前缀**；注意这里会丢掉"单条错误"的原文
-/// - 因此「页面正常但没有结果」在这个 provider 里也算**错误**，不是空结果
-///
-/// ⚠️ 通用版（多镜像 + 并行）留到 C 组统一做；现在只有一个域名，顺序执行等价。
+/// 多镜像回退统一走 [`crate::run_mirrors`]（JS 传的 name 是 `'linuxtracker'`）。
 pub async fn search_with(http: &HttpClient, bases: &[&str], query: &str) -> SearchOutcome {
-    let mut errs: Vec<String> = Vec::new();
-
-    for base in bases {
-        let outcome = search_at(http, base, query).await;
-        if !outcome.results.is_empty() {
-            return SearchOutcome::ok(outcome.results);
-        }
-        if let Some(e) = outcome.error {
-            errs.push(e);
-        }
-    }
-
-    SearchOutcome::err(format!("linuxtracker unreachable ({})", errs.join("; ")))
+    crate::run_mirrors("linuxtracker", bases, |b| search_at(http, b, query)).await
 }
 
 /// 用**指定基址**搜索（供离线测试指向本地一次性 HTTP 服务）。

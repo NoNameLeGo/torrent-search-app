@@ -144,19 +144,7 @@ pub async fn search_with(
     query: &str,
     page0: u32,
 ) -> SearchOutcome {
-    let mut errs: Vec<String> = Vec::new();
-
-    for base in bases {
-        let outcome = search_at(http, base, query, page0).await;
-        if !outcome.results.is_empty() {
-            return SearchOutcome::ok(outcome.results);
-        }
-        if let Some(e) = outcome.error {
-            errs.push(e);
-        }
-    }
-
-    SearchOutcome::err(format!("Rutor unreachable ({})", errs.join("; ")))
+    crate::run_mirrors("Rutor", bases, |b| search_at(http, b, query, page0)).await
 }
 
 /// 用**指定基址**搜索（供离线测试指向本地一次性 HTTP 服务）。

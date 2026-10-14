@@ -146,19 +146,7 @@ pub async fn search_with(
     query: &str,
     page: u32,
 ) -> SearchOutcome {
-    let mut errs: Vec<String> = Vec::new();
-
-    for base in bases {
-        let outcome = search_at(http, base, query, page).await;
-        if !outcome.results.is_empty() {
-            return SearchOutcome::ok(outcome.results);
-        }
-        if let Some(e) = outcome.error {
-            errs.push(e);
-        }
-    }
-
-    SearchOutcome::err(format!("LimeTorrents unreachable ({})", errs.join("; ")))
+    crate::run_mirrors("LimeTorrents", bases, |b| search_at(http, b, query, page)).await
 }
 
 /// `/search/<category>/<query>/date/<page>/` —— 中间那段分类固定 `all`。

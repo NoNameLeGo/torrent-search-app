@@ -57,19 +57,7 @@ pub async fn search(http: &HttpClient, query: &str, _page: u32) -> SearchOutcome
 ///
 /// ⚠️ JS 传的 name 是 **`'ZeroMagnet'`** —— 错误串必须逐字一致。
 pub async fn search_with(http: &HttpClient, bases: &[&str], query: &str) -> SearchOutcome {
-    let mut errs: Vec<String> = Vec::new();
-
-    for base in bases {
-        let outcome = search_at(http, base, query).await;
-        if !outcome.results.is_empty() {
-            return SearchOutcome::ok(outcome.results);
-        }
-        if let Some(e) = outcome.error {
-            errs.push(e);
-        }
-    }
-
-    SearchOutcome::err(format!("ZeroMagnet unreachable ({})", errs.join("; ")))
+    crate::run_mirrors("ZeroMagnet", bases, |b| search_at(http, b, query)).await
 }
 
 /// 用**指定基址**搜索（供离线测试指向本地一次性 HTTP 服务）。

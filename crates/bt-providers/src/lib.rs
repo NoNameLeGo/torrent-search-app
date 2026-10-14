@@ -3,10 +3,21 @@
 //! 各站点 provider 的集合，一文件一站（对齐 `src/providers/*.js` 的组织方式）。
 //!
 //! ## 现状
-//! `tpb`、`knaben`、`torrentscsv`、`yts`、`internetarchive`（纯 JSON 组，A 组已齐）；
-//! `nyaa`、`torrent9`、`oxtorrent`、`linuxtracker`、`filemood`、`rutor`、`audiobookbay`、`therarbg`、`limetorrents`（HTML 组，B 组进行中）。
-//! **暂时不引入 `Provider` trait** —— 等 HTML 组落地后，
-//! 看清楚它们真正的共性（镜像回退、翻页、磁力惰性解析…）再定抽象，现在定容易定错。
+//! 已搬 **16 个站点**（对齐 `src/providers/*.js`）：
+//!
+//! - **JSON 组（5）**：`tpb`、`knaben`、`torrentscsv`、`yts`、`internetarchive`
+//! - **HTML 组（11）**：`linuxtracker`、`filemood`、`rutor`、`audiobookbay`、`therarbg`、
+//!   `limetorrents`、`torrent9`、`oxtorrent`、`nyaa`、`megapeer`、`zeromagnet`
+//!
+//! ## 抽象：已提取的共用件 + 仍未建的 trait
+//!
+//! - ✅ [`run_mirrors`]：镜像回退的公共实现（2026-10-11 从 10 份逐字副本里提上来）
+//! - ✅ [`MagnetOutcome`]：惰性磁力解析的返回形状（6 个 provider 在用）
+//! - ⏸️ **仍不引入 `Provider` trait** —— 这批 provider 之间的差异是「站点名」而不是
+//!   「行为」，那是 helper 的活，不是 trait 的活（trait 会给 16 家各写一个 impl，比原来还啰嗦）。
+//!   trait 真正被需要是在 `bt-app` 要**并发遍历异构 provider 列表**时；而 `resolve_magnet`
+//!   只有 6/16 家有（**可选能力**），到那时才能看清怎么表达。现在定必然定错。
+//!   详见 `docs/BT_APP_DESIGN.md` §3.1。
 //!
 //! ## 约定（对齐 JS 版）
 //! - 每个 provider 暴露一个 `async fn search(http, query, page) -> SearchOutcome`
@@ -33,6 +44,7 @@ pub mod yts;
 pub mod zeromagnet;
 
 use bt_core::TorrentResult;
+use std::future::Future;
 
 /// provider 的搜索结果。字段名沿用 JS 版：`results` / `error` / `hasMore`。
 #[derive(Debug, Clone, PartialEq)]
@@ -60,6 +72,55 @@ impl SearchOutcome {
             has_more: false,
         }
     }
+}
+
+/// 复刻 `src/lib/mirrors.js` 的 `runMirrors`：逐个尝试镜像，取第一个
+/// **结果非空**的；全都拿不到结果时，把各次尝试的错误拼成
+/// `"<name> unreachable (<err1>; <err2>)"`。
+///
+/// 2026-10-11 从 10 个 provider 里提上来（`audiobookbay` / `filemood` /
+/// `limetorrents` / `linuxtracker` / `megapeer` / `oxtorrent` / `rutor` /
+/// `therarbg` / `torrent9` / `zeromagnet`）——十份副本逐字相同，只有站点名不同。
+///
+/// `name` 必须与 JS 逐字一致（`'audiobookbay'` 全小写、`'OxTorrent'` 驼峰……），
+/// 因为错误串要能对齐 JS 版；各 provider 的测试钉住了这一点。
+///
+/// ## ⚠️ 有意 divergence：这里是**顺序**，JS 是**并行**
+///
+/// JS 用 `Promise.allSettled` 并行请求所有镜像，再按声明顺序取第一个非空的。
+/// 这里逐个 `await`，最坏延迟 ≈ `bases.len() × 10s`（`http.js` 的超时）。
+///
+/// 选顺序是因为它更容易推理，且与提取之前各 provider 的实现一致（纯重构，无行为变化）。
+/// 域名多于一个时值得改成并行 —— 但那时**两版必须一起改**，否则就是行为漂移。
+///
+/// 另外注意 JS 的 `errs` 会先过一遍 `filter(Boolean)`：**没有错误文本的尝试不占位**。
+/// 「页面正常但没结果」在走这条路径的 provider 里算**错误**，不是空结果。
+///
+/// ## ⚠️ 别把签名里的 `'a` 「简化」掉
+///
+/// 写成 `F: Fn(&str) -> Fut`（隐式 HRTB）会编译失败：
+/// `lifetime may not live long enough ... return type of closure contains a lifetime`
+/// —— 因为闭包返回的 future 借用了传进去的那个 `&str`。
+/// 必须让闭包参数与 `bases` 共用同一个 `'a`（2026-10-11 用独立 std-only 片段实测过：
+/// 当前写法 ✅、去掉 `'a` 的写法 ❌）。
+pub async fn run_mirrors<'a, F, Fut>(name: &str, bases: &'a [&'a str], attempt: F) -> SearchOutcome
+where
+    F: Fn(&'a str) -> Fut,
+    Fut: Future<Output = SearchOutcome>,
+{
+    let mut errs: Vec<String> = Vec::new();
+
+    for base in bases {
+        let outcome = attempt(*base).await;
+        if !outcome.results.is_empty() {
+            return SearchOutcome::ok(outcome.results);
+        }
+        if let Some(e) = outcome.error {
+            errs.push(e);
+        }
+    }
+
+    SearchOutcome::err(format!("{name} unreachable ({})", errs.join("; ")))
 }
 
 /// `resolve_magnet` 的返回形状，字段名对齐 JS（`magnet` / `infoHash` / `error`）。
