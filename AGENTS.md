@@ -42,11 +42,14 @@ Electron mode: `npm run electron` (picks a free port automatically, no collision
 CI **338 passed / 0 failed**（clippy + fmt 均为硬门）；探针 **126 条 / 17 fixture**；
 **聚合层（`bt-app`/`bt-torznab`/`bt-downloaders`）仍为 0%**（待搬 JS 约 1071 行）。
 
-⚠️ **「providers 全搬完再动聚合层」这个顺序建议翻过来** —— 剩余 24 个站点里 5 个已确认
-死亡（`eztv` 451 ／ `1337x`·`blueroms`·`torrentdatabase`·`uindex` Cloudflare），
-约 8 个两边环境都不通，真正可搬的只有 5~6 个 D 档站；
-而阶段一的收益（内存 / 体积、去掉 89MB sidecar）**全部由聚合层决定**。
-👉 **方案见 `docs/BT_APP_DESIGN.md`（草案，待拍板 D1~D7）。**
+✅ **2026-10-11 用户拍板两件事（别再反复问）**：
+1. **下一件做 `bt-app` 聚合层**，provider 降为后置 —— 阶段一的收益（内存 / 体积、
+   去掉 89MB sidecar）**全部由聚合层决定**，与 provider 数量无关；而剩余 24 个站点里
+   5 个已确认死亡（`eztv` 451 ／ `1337x`·`blueroms`·`torrentdatabase`·`uindex` Cloudflare）、
+   约 8 个两边环境都不通、真正可搬的只有 5~6 个 D 档站。
+2. **切 `main` 的门 = 「聚合层跑通」**（口径 C）—— **不再要求「40 个引擎齐」**，
+   也**不把差分门当硬门**（见下面 Q4 行）。
+👉 **方案见 `docs/BT_APP_DESIGN.md`（草案，仍待拍板 D1/D2/D4~D7）。**
 
 ### 范围决策（2026-10-08 用户拍板，5 条 · 别再反复问）
 
@@ -55,9 +58,9 @@ CI **338 passed / 0 failed**（clippy + fmt 均为硬门）；探针 **126 条 /
 | Q1 | 产品形态 | **只做桌面原生应用；浏览器 / 手机访问模式最终放弃**（过渡期它作为副产品先留着） |
 | Q2 | UI 方案 | **先不动 UI**：复用现有 `public/` 前端把核心跑通；核心稳定后再实测 Slint 原生可不可行 |
 | Q3 | 平台 | **暂时 Windows-only**（但代码里别写死平台相关的东西） |
-| Q4 | 切换时机 | **核心齐了就切 `main`**（providers + 聚合层），UI 之后补。**2026-10-11 细化**：门是「**能用的**引擎搬完 + 聚合层跑通 + 差分门全绿」，**不是**「40 个引擎齐」—— 5 个引擎已确认死，按字面执行这条分支永远合不回去 |
+| Q4 | 切换时机 | **2026-10-11 拍板（口径 C）：门 = 「聚合层跑通」**。**不做「40 个引擎齐」的硬要求**（5 个引擎已确认死亡，按字面执行这条分支永远合不回去），**也不把差分门当硬门** —— 差分（`docs/BT_APP_DESIGN.md` §6 的 G1/G2）降为**自选验证工具**。UI 之后补 |
 | Q5 | 站点改版怎么发现 | **CI 默认只跑离线 fixture**（稳定的门）；另加一条 `workflow_dispatch` **手动触发的联网冒烟**，允许失败 |
-| **Q6** | **WebView ↔ Rust 怎么通信** 🔴 **未决** | 原文只说「Tauri 壳直接跑 Rust 核心」，**没说 WebView 怎么跟它说话** —— 而这正是 `public/ 一行不改` 能否成立的前提。候选 **A = 同源 axum 服务**（实测前端全是**相对 URL** `/api/*`、零绝对地址 → `public/` 真能一行不改，且端到端差分才做得到）；**B = Tauri IPC**（所有 `fetch`/`EventSource` 必须改，SSE 要自己造）。**建议 A**，见 `docs/BT_APP_DESIGN.md` §2 |
+| **Q6** | **WebView ↔ Rust 怎么通信** 🔴 **未决** | 原文只说「Tauri 壳直接跑 Rust 核心」，**没说 WebView 怎么跟它说话** —— 而这正是 `public/ 一行不改` 能否成立的前提。候选 **A = 同源 axum 服务**（实测前端全是**相对 URL** `/api/*`、零绝对地址 → `public/` 真能一行不改，且端到端差分才做得到）；**B = Tauri IPC**（所有 `fetch`/`EventSource` 必须改，SSE 要自己造）。**建议 A**，见 `docs/BT_APP_DESIGN.md` §2（该文里编号为 **D1**） |
 
 ### 两阶段路线（由上述决策推导，有异议就说）
 
@@ -189,7 +192,7 @@ Node 源码在这个阶段是**验证工具**而不是待清垃圾。提前删�
 |---|---|---|
 | `src/providers/tpb.js`、`knaben.js`、`torrentscsv.js`、`yts.js`、`internetarchive.js`、`linuxtracker.js`、`filemood.js`、`rutor.js`、`audiobookbay.js`、`therarbg.js`、`limetorrents.js`、`torrent9.js`、`oxtorrent.js`、`nyaa.js` ✅已移植 | `test/run.js` 仍在跑 tpb/knaben/linuxtracker/filemood/rutor；离线对照要用 | `bt-app` 接通对应 provider + Node 测试块删除后 |
 | `src/providers/*.js`（其余 28 个） | 尚未移植，是逐行对照的参照物 | 各自移植完成后按上条判断 |
-| `src/lib/`、`server.js`、`test/run.js` | 聚合层尚未移植，本分支上 Node 版仍需可跑 | provider + 聚合全搬完 |
+| `src/lib/`、`server.js`、`test/run.js` | 聚合层尚未移植，本分支上 Node 版仍需可跑 | **聚合层跑通**（= 切 `main` 的门，口径 C）之后 |
 | `public/` | 阶段一的前端本体（`public/` 一行不改） | **阶段二**确认上 Slint 后 |
 | `electron/`、`scripts/`、`package.json`、`start.bat`/`stop.bat`、`.eslintrc.json`、`.prettierrc`、`build.yml`/`release.yml`/`tauri-build.yml` | Rust 版尚未能取代旧 Shell 发版 | Rust 版能独立发版后 |
 
@@ -201,7 +204,7 @@ Node 源码在这个阶段是**验证工具**而不是待清垃圾。提前删�
 ⚠️ 反过来也要守：**别提前删还没搬的源码**。`src/providers/` + `public/` 一共才 460KB，
 却是逐行对照的参照物；删了等于凭记忆重写。
 
-### 📌 下一步计划（2026-10-08 用户定，**下次开工按这个走**）
+### 📌 下一步计划（2026-10-08 用户定，**2026-10-11 改向**）
 
 用户口径：**Q2 选 A → B，先只记录，不动手。**
 
@@ -219,9 +222,20 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 | 4 | ~~`yts.js`~~ | ✅ 11 tests |
 | 5 | ~~`internetarchive.js`~~ | ✅ 14 tests（fixture 是合成的，见进度表上方说明） |
 
-**← 下次开工（2026-10-11 更新）**：`audiobookbay`…`nyaa` 9 个 + **`megapeer`（第 11 个）** + **`zeromagnet`（第 12 个）**都已搬完。
-⭐ 本机能抓到的候选早已用完；剩下站点的 fixture 靠 CI 抓（`fetch-fixture.yml`），
-探针链路支持 **per-fixture 编码声明**（条目里的 `encoding` 字段，megapeer 是第一个 windows-1251）。
+**⛳ 下次开工 = 做 `bt-app` 聚合层（2026-10-11 用户拍板，方向已改）**
+
+原计划「继续搬 provider 直到 40 个齐」**已废止**。理由：剩余 24 个站点里 5 个确认死亡、
+约 8 个两边环境都不通、真正可搬的只有 5~6 个 D 档站；而阶段一的收益（内存 / 体积 /
+去掉 89MB sidecar）**全部由聚合层决定**。
+
+**下一件：`bt-app`** —— axum 同源服务（复用现有 `/api/*` 契约）+ `/api/search/stream`
+的 SSE + 8 路并发聚合，再补 `bt-downloaders` / `bt-torznab`。
+方案与待拍板项见 `docs/BT_APP_DESIGN.md`；**provider 线后置**，不再是主推进方向。
+
+**进度存档（2026-10-11）**：`audiobookbay`…`nyaa` 9 个 + **`megapeer`（第 11 个）**
++ **`zeromagnet`（第 12 个）**都已搬完。⭐ 本机能抓到的候选早已用完；剩下站点的
+fixture 靠 CI 抓（`fetch-fixture.yml`），探针链路支持 **per-fixture 编码声明**
+（条目里的 `encoding` 字段，megapeer 是第一个 windows-1251）。
 
 **候选状态（2026-10-11）**：
 
@@ -229,7 +243,7 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 |---|---|
 | `dmhy` | ⏸️ **暂缓** —— CI 抓取连试 3 次全部 60s 超时（0 字节；主页也一样）；agent 沙箱直连也 `fetch failed`。站点自己挂了/在维护，**不是**「本机不通但 CI 通」那一类。过些天再试 |
 | `zeromagnet`（CI 29 行） | ✅ 已搬完（2026-10-11） |
-| `xxxtracker`（CI 1 行） | ⏭️ 排在 provider 线最前，但**建议先做聚合层**（见 `docs/BT_APP_DESIGN.md` §7） |
+| `xxxtracker`（CI 1 行） | ⏭️ provider 线最前，但 **聚合层优先**（2026-10-11 拍板：先做 `bt-app`） |
 | `sukebei` / `nekobt` | 排队（域名是死是活待确认） |
 
 ⚠️ **B 组序号口径**：序号把 `#0 地基` 与 `#10 1337x（跳过）` 都算进去了，
@@ -397,7 +411,7 @@ trait 等 `bt-app` 要**并发遍历异构列表**时再定（`resolve_magnet` �
 现在设计必然定错）。理由见 `crates/bt-providers/src/lib.rs` 模块头 + `docs/BT_APP_DESIGN.md` §3.1。
 ⚠️ 顺带记一处 **有意 divergence**：JS 的 `runMirrors` 是**并行**（`Promise.allSettled`），
 Rust 侧是**顺序** `await`（最坏 `n × 10s`）—— 以前只在 `filemood` / `linuxtracker` 两处注释里提过，
-现在统一写在 `run_mirrors` 的文档注释里（待定 Q7：要不要改成并行）。
+现在统一写在 `run_mirrors` 的文档注释里（要不要改成并行 = 设计草案的 **D2**，待拍板）。
 
 ### 🧱 HTML provider 的四条铁律（写自 `dom.rs` 与历次对照的实测）
 
