@@ -40,7 +40,13 @@ Electron mode: `npm run electron` (picks a free port automatically, no collision
 
 **📊 进度快照（2026-10-11）**：**16 个 provider 已搬**（5 JSON + 11 HTML），
 CI **338 passed / 0 failed**（clippy + fmt 均为硬门）；探针 **126 条 / 17 fixture**；
-下一个候选 `xxxtracker`（`dmhy` 暂缓）。逐项见下面「移植进度」表。
+**聚合层（`bt-app`/`bt-torznab`/`bt-downloaders`）仍为 0%**（待搬 JS 约 1071 行）。
+
+⚠️ **「providers 全搬完再动聚合层」这个顺序建议翻过来** —— 剩余 24 个站点里 5 个已确认
+死亡（`eztv` 451 ／ `1337x`·`blueroms`·`torrentdatabase`·`uindex` Cloudflare），
+约 8 个两边环境都不通，真正可搬的只有 5~6 个 D 档站；
+而阶段一的收益（内存 / 体积、去掉 89MB sidecar）**全部由聚合层决定**。
+👉 **方案见 `docs/BT_APP_DESIGN.md`（草案，待拍板 D1~D7）。**
 
 ### 范围决策（2026-10-08 用户拍板，5 条 · 别再反复问）
 
@@ -49,8 +55,9 @@ CI **338 passed / 0 failed**（clippy + fmt 均为硬门）；探针 **126 条 /
 | Q1 | 产品形态 | **只做桌面原生应用；浏览器 / 手机访问模式最终放弃**（过渡期它作为副产品先留着） |
 | Q2 | UI 方案 | **先不动 UI**：复用现有 `public/` 前端把核心跑通；核心稳定后再实测 Slint 原生可不可行 |
 | Q3 | 平台 | **暂时 Windows-only**（但代码里别写死平台相关的东西） |
-| Q4 | 切换时机 | **核心齐了就切 `main`**（providers + 聚合层），UI 之后补 |
+| Q4 | 切换时机 | **核心齐了就切 `main`**（providers + 聚合层），UI 之后补。**2026-10-11 细化**：门是「**能用的**引擎搬完 + 聚合层跑通 + 差分门全绿」，**不是**「40 个引擎齐」—— 5 个引擎已确认死，按字面执行这条分支永远合不回去 |
 | Q5 | 站点改版怎么发现 | **CI 默认只跑离线 fixture**（稳定的门）；另加一条 `workflow_dispatch` **手动触发的联网冒烟**，允许失败 |
+| **Q6** | **WebView ↔ Rust 怎么通信** 🔴 **未决** | 原文只说「Tauri 壳直接跑 Rust 核心」，**没说 WebView 怎么跟它说话** —— 而这正是 `public/ 一行不改` 能否成立的前提。候选 **A = 同源 axum 服务**（实测前端全是**相对 URL** `/api/*`、零绝对地址 → `public/` 真能一行不改，且端到端差分才做得到）；**B = Tauri IPC**（所有 `fetch`/`EventSource` 必须改，SSE 要自己造）。**建议 A**，见 `docs/BT_APP_DESIGN.md` §2 |
 
 ### 两阶段路线（由上述决策推导，有异议就说）
 
@@ -221,9 +228,13 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 | 候选 | 状态 |
 |---|---|
 | `dmhy` | ⏸️ **暂缓** —— CI 抓取连试 3 次全部 60s 超时（0 字节；主页也一样）；agent 沙箱直连也 `fetch failed`。站点自己挂了/在维护，**不是**「本机不通但 CI 通」那一类。过些天再试 |
-| `zeromagnet`（CI 29 行） | ✅ 已搬完（B 组第 12 个，2026-10-11） |
-| `xxxtracker`（CI 1 行） | ⏭️ **下一个** |
+| `zeromagnet`（CI 29 行） | ✅ 已搬完（2026-10-11） |
+| `xxxtracker`（CI 1 行） | ⏭️ 排在 provider 线最前，但**建议先做聚合层**（见 `docs/BT_APP_DESIGN.md` §7） |
 | `sukebei` / `nekobt` | 排队（域名是死是活待确认） |
+
+⚠️ **B 组序号口径**：序号把 `#0 地基` 与 `#10 1337x（跳过）` 都算进去了，
+所以「B 组第 12 个」= `zeromagnet` = **第 11 个真搬的 HTML provider**（commit message 里也是这个口径）。
+**别把序号当数量**：HTML 侧实际只搬了 11 个，全仓合计 16 个。
 
 抓 fixture 的姿势（本机不通的站点，`zeromagnet` 即为例）：
 
@@ -378,7 +389,15 @@ probe 用 `rows.count == 0` 把事实钉住）。
 镜像回退（`rutor` / `audiobookbay` / `therarbg` / `limetorrents` / `torrent9` / `oxtorrent`，各自的 `search_with` 逐字复刻 `runMirrors`）、
 翻页（`rutor` 的 0/1 起始差异、`limetorrents` 的真分页 URL、`nyaa` 的**不** coerce）、
 磁力惰性解析（`audiobookbay` / `therarbg` / `torrent9` / `oxtorrent` 的 `resolve_magnet` + `MagnetOutcome`，已因此从 provider 提到 `lib.rs`）。
-→ **随时可以定 `Provider` trait 了**，再拖就是重复代码在同一形状上多抄几遍。
+→ ✅ **2026-10-11 已提取 `run_mirrors`**：10 份逐字副本（`audiobookbay` / `filemood` / `limetorrents` /
+`linuxtracker` / `megapeer` / `oxtorrent` / `rutor` / `therarbg` / `torrent9` / `zeromagnet`）
+合并成 `bt-providers::run_mirrors`，**净 −73 行**（`+77 / −150`，11 个文件）。
+⏸️ **`Provider` trait 仍不建** —— 这 10 份的差异是「**站点名**」而不是「行为」，那是 helper 的活；
+trait 等 `bt-app` 要**并发遍历异构列表**时再定（`resolve_magnet` 只 6/16 家有，是**可选能力**，
+现在设计必然定错）。理由见 `crates/bt-providers/src/lib.rs` 模块头 + `docs/BT_APP_DESIGN.md` §3.1。
+⚠️ 顺带记一处 **有意 divergence**：JS 的 `runMirrors` 是**并行**（`Promise.allSettled`），
+Rust 侧是**顺序** `await`（最坏 `n × 10s`）—— 以前只在 `filemood` / `linuxtracker` 两处注释里提过，
+现在统一写在 `run_mirrors` 的文档注释里（待定 Q7：要不要改成并行）。
 
 ### 🧱 HTML provider 的四条铁律（写自 `dom.rs` 与历次对照的实测）
 
@@ -459,8 +478,10 @@ probe 用 `rows.count == 0` 把事实钉住）。
 9. `runMirrors` 的真实语义要读 `src/lib/mirrors.js`（**不是**"出错就换下一个"）：
    并行请求、按声明顺序取第一个**结果非空**的；全空时错误被包成
    `"<name> unreachable (<err1>; <err2>)"`。所以「页面正常但没结果」算**错误**。
+   **Rust 侧直接调 `bt_providers::run_mirrors`**，别自己再抄一遍循环；
+   注意它是**顺序** `await`（有意 divergence，最坏 `n × 10s`），语义说明在该函数的文档注释里。
 10. 移植中发现的上游 bug：**功能性 bug（死链）就修并单列 divergence 测试；
-    纯显示问题先照抄**。已发现的三条登记在上面的「🐞 移植中发现的上游 bug」。
+    纯显示问题先照抄**。已发现的若干条登记在上面的「🐞 移植中发现的上游 bug」。
 
 ## 🔴 CI 失败模式总账（2026-07-10 ~ 2026-10-10，223 个 run / **51 次失败**）
 

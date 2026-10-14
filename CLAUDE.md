@@ -27,7 +27,7 @@ npm run build:portable  # manual Electron portable build → dist/portable/
 ## Architecture
 
 ```
-public/               static frontend (index.html, app.js, styles.css) — vanilla JS, no build step
+public/               static frontend (index.html + js/*.js ES modules, styles.css, ambient.js) — vanilla JS
 server.js             Express entry; exports { app, start }. Auto-listens only when run directly.
 electron/main.js      Electron shell — require('./server').start(port); close = full process exit
 src-tauri/            Tauri v2 Rust shell (feat/tauri branch)
