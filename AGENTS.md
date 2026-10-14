@@ -483,6 +483,11 @@ git branch feat/tauri refs/remotes/local/feat/tauri
 4. **tag 纪律**：用 `git tag -a` 打注释 tag，`git push origin <tag>` 并确认远程
    后再算完成；打 tag 前先跑 `npm run release:check`（检查 feat/tauri 分支、
    release.yml/tauri-build.yml 是否存在、工作区是否干净）。
+   ⚠️ **不要创建与分支同名的 tag**（如 `feat/tauri`）—— 短名 ref 解析会被 tag 抢走，
+   `git rev-parse` / `cat-file` / `git describe` 全都会指向**另一个提交**，
+   连带 `release:check` 查错 ref、文档里的 `git worktree add <tmp> feat/tauri` 检出错误提交。
+   2026-10-11 实测踩到（那个 tag 指向 main 线旧提交 `bd289f5`）：已删除（本地+远程），
+   并在 `scripts/release-check.js` 里统一改用完整 ref。发版 tag 一律 `v*`。
 5. **依赖安装用 `npm ci`**（严格按 lockfile + tarball 完整性校验）；在残缺的
    node_modules 上 `npm install` 会打地鼠（本仓库曾出现 axios/express 缺失、
    asynckit/debug/iconv-lite 文件级损坏）。`npm install <pkg>` 会把传递依赖

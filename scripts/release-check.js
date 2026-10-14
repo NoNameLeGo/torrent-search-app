@@ -30,6 +30,16 @@ function gitFileExists(rev, path) {
   }
 }
 
+// ⚠️ 一律用**完整 ref**（`refs/heads/…`），不要用短名。
+// 短名一旦撞上同名 tag，git 会警告 `refname 'feat/tauri' is ambiguous`，
+// 而本文件里那几处会**静默解析到 tag**（不是分支）。
+// 2026-10-11 实测踩过：仓库里曾存在一个名为 `feat/tauri` 的 tag，
+// 于是下面 3 项检查全都在查**另一个提交**的树 ——
+// `feat/tauri=✗` 是假阴性（只因 `main` 上也有该文件才没让预检变红）；
+// 同时 AGENTS.md 记录的同步流程 `git worktree add <tmp> feat/tauri`
+// 也会检出错误提交。tag 已删，这里再钉死一层，防止同类再犯。
+const FEAT = 'refs/heads/feat/tauri';
+
 let failed = false;
 function check(ok, msg) {
   console.log(`${ok ? '✓' : '✗'} ${msg}`);
@@ -43,17 +53,17 @@ const branch = gitOut(['rev-parse', '--abbrev-ref', 'HEAD']);
 check(!!branch, `当前分支：${branch || '(无)'}`);
 
 // 2) feat/tauri 分支存在（release 双构建依赖，建议从 feat/tauri 打 tag）
-const hasFeat = !!gitOut(['rev-parse', '--verify', '--quiet', 'feat/tauri']);
+const hasFeat = !!gitOut(['rev-parse', '--verify', '--quiet', FEAT]);
 check(hasFeat, 'feat/tauri 分支存在');
 
 // 3) release.yml 存在（main 或 feat/tauri 上均可）
 const relMain = gitFileExists('main', '.github/workflows/release.yml');
-const relFeat = hasFeat && gitFileExists('feat/tauri', '.github/workflows/release.yml');
+const relFeat = hasFeat && gitFileExists(FEAT, '.github/workflows/release.yml');
 check(relMain || relFeat, `release.yml 存在（main=${relMain ? '✓' : '✗'} feat/tauri=${relFeat ? '✓' : '✗'}）`);
 
 // 4) tauri-build.yml 存在（Tauri 双构建另一半）
 const tbMain = gitFileExists('main', '.github/workflows/tauri-build.yml');
-const tbFeat = hasFeat && gitFileExists('feat/tauri', '.github/workflows/tauri-build.yml');
+const tbFeat = hasFeat && gitFileExists(FEAT, '.github/workflows/tauri-build.yml');
 check(tbMain || tbFeat, `tauri-build.yml 存在（main=${tbMain ? '✓' : '✗'} feat/tauri=${tbFeat ? '✓' : '✗'}）`);
 
 // 5) 工作区干净（打 tag 前不应有未提交改动）
