@@ -37,6 +37,17 @@ jobs:
       - name: cargo test
         run: cargo test --workspace
 
+      # M4：bt-app 的**全链路**自检（无网、无人、无窗口）。
+      # 光靠 `cargo test` 证明不了「窗口真能渲染、接线真通」——M4 就在这儿漏过一个
+      # tokio 运行时的 panic（回调里裸用 `tokio::spawn`），编译/单测/clippy 全绿。
+      # `SLINT_BACKEND=winit-software` 是 M1 验证过的无 GPU 后端（runner 没有 GPU）。
+      # 自检自己会在失败时 exit 1，所以这一步是硬门。
+      - name: bt-app 全链路自检
+        env:
+          SLINT_BACKEND: winit-software
+          RUST_BACKTRACE: "1"
+        run: cargo run -p bt-app --bin bt-search -- --selftest
+
       # 首轮先不做 -D warnings，避免被 lint 噪音挡住"移植是否等价"这个主要信号。
       # 稳定下来后再收紧。
       - name: cargo clippy

@@ -22,7 +22,10 @@ bt-downloaders = { path = "../bt-downloaders" }
 slint = "1.18"
 # 网络 IO 必须有运行时；Slint 的 UI 是单线程的 —— 两者靠
 # `slint::invoke_from_event_loop` 接起来（见 src/main.rs 的线程模型说明）。
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }
+# ⚠️ `net` 不能少：`runtime()` 用 `.enable_all()` 打开 **IO driver**，
+# 而 IO driver 由 `net` 特性把门 —— 少了它 reqwest 会在运行期报
+# "IO driver not enabled"（编译期不报）。这是 2026-10-16 补自检时发现的第二个坑。
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "net"] }
 
 [build-dependencies]
 slint-build = "1.18"

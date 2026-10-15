@@ -30,6 +30,7 @@
 //! - 行号 = `AppState.rows` 的下标；`.slint` 的按钮把行号回传（`push-row(int)`）。
 
 mod highlight;
+mod selftest;
 mod ui_model;
 
 slint::include_modules!();
@@ -56,14 +57,56 @@ use ui_model::{AppState, ChipData, RowData, Tone};
 
 /// 静态注册表（16 家）。⚠️ 将来 Torznab 的动态 provider 要并进这里 ——
 /// `aggregate` 只认 `&[Box<dyn Provider>]`，不关心编译期还是运行期来的。
+static REGISTRY: OnceLock<Vec<Box<dyn Provider>>> = OnceLock::new();
+
 fn registry() -> &'static [Box<dyn Provider>] {
-    static REGISTRY: OnceLock<Vec<Box<dyn Provider>>> = OnceLock::new();
     REGISTRY.get_or_init(provider_registry::registry)
+}
+
+/// **只有 `--selftest` 用**：把注册表换成假的（离线、确定性）。
+///
+/// `OnceLock::set` 在已经初始化过之后会失败 —— 这里刻意忽略返回值：
+/// 真实运行时**不允许**被替换掉（那会变成安全漏洞/行为漂移），
+/// 所以「换不动」才是正确行为。
+fn install_registry(providers: Vec<Box<dyn Provider>>) {
+    let _ = REGISTRY.set(providers);
 }
 
 fn http() -> &'static HttpClient {
     static HTTP: OnceLock<HttpClient> = OnceLock::new();
     HTTP.get_or_init(HttpClient::new)
+}
+
+/// tokio 运行时。
+///
+/// ## 🔴 这个函数是 M4 自查抓出来的一个**运行期 panic** 的修复
+///
+/// Slint 的事件循环线程**不在**任何 tokio 运行时上下文里。所以在回调里直接写
+/// `tokio::spawn` 会在**第一次搜索时 panic**：
+/// `there is no reactor running, must be called from the context of a Tokio 1.x runtime`。
+/// **编译期发现不了**，CI 全绿也发现不了 —— 只有真跑起来才会炸。
+///
+/// 修法：自己持有运行时，用 [`spawn`] 而不是裸 `tokio::spawn`。
+///
+/// ⚠️ `enable_all()` 需要 tokio 的 `net` 特性才会打开 **IO driver**；
+/// 少了它 reqwest 会在运行期报 "IO driver not enabled"（编译期同样不报）。
+fn runtime() -> &'static tokio::runtime::Runtime {
+    static RT: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
+    RT.get_or_init(|| {
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            // 起不来就没法工作；这是启动期的环境性失败，不是可恢复的运行期路径。
+            .expect("构建 tokio 运行时失败")
+    })
+}
+
+/// 把任务丢到运行时上（替代裸 `tokio::spawn`）。
+fn spawn<F>(f: F)
+where
+    F: std::future::Future<Output = ()> + Send + 'static,
+{
+    runtime().spawn(f);
 }
 
 // ---------------------------------------------------------------------------
@@ -198,7 +241,7 @@ fn start_search(ui: &AppWindow, query: String) {
     }
 
     let q = query.clone();
-    tokio::spawn(async move {
+    spawn(async move {
         // ⚠️ `registry()` / `http()` 都是 'static，所以这里不用把任何东西 move 进来；
         // 真需要 move 的只有 query 与 Weak 句柄（都是 Send）。
         let _ = aggregate::search_stream(
@@ -317,7 +360,7 @@ fn push_row(ui: &AppWindow, idx: i32) {
     });
 
     let weak = ui.as_weak();
-    tokio::spawn(async move {
+    spawn(async move {
         let idx = plan.idx;
 
         // 第 1 步：需要就先惰性解析磁力
@@ -469,7 +512,7 @@ fn detect_downloader(ui: &AppWindow) {
         sync_small(ui, &st);
     });
 
-    tokio::spawn(async move {
+    spawn(async move {
         let hit = downloaders::detect().await;
         let _ = slint::invoke_from_event_loop(move || {
             let Some(ui) = weak.upgrade() else { return };
@@ -505,9 +548,11 @@ fn detect_downloader(ui: &AppWindow) {
 // 入口
 // ---------------------------------------------------------------------------
 
-fn main() -> Result<(), slint::PlatformError> {
-    let ui = AppWindow::new()?;
-
+/// 把窗口的初始状态与**全部回调**接上。
+///
+/// ⚠️ 抽成函数是**必须的**，不是整洁癖：`--selftest` 必须走**同一条**接线，
+/// 否则它验的就不是真程序（测了个平行的实现，等于没测）。
+fn wire(ui: &AppWindow) {
     // 让 .slint 的初始模型指向 thread-local 里那个（空的）模型 ——
     // 否则 `rows` 是另一个空模型，后面 push 的行不会显示出来。
     STATE.with(|s| {
@@ -563,6 +608,20 @@ fn main() -> Result<(), slint::PlatformError> {
             }
         });
     }
+}
 
+fn main() -> Result<(), slint::PlatformError> {
+    // `--selftest`：无网、无人、无窗口的**全链路**真跑（见 selftest.rs）。
+    // 退出码 0 = 通过，1 = 失败 —— 这一步是 `rust.yml` 的硬门。
+    if std::env::args().any(|a| a == "--selftest") {
+        let ok = selftest::run()?;
+        if !ok {
+            std::process::exit(1);
+        }
+        return Ok(());
+    }
+
+    let ui = AppWindow::new()?;
+    wire(&ui);
     ui.run()
 }
