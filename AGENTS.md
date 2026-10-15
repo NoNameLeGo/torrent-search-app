@@ -30,6 +30,7 @@ Electron mode: `npm run electron` (picks a free port automatically, no collision
 | Electron 安装包 + portable | `build.yml` | push `main`、`v*` tag |
 | Electron + Tauri 统一发版 | `release.yml` | `v*` tag |
 | Tauri 编译校验 | `tauri-build.yml` | push `feat/tauri` |
+| Slint spike / M1 自检 | `slint-spike.yml` | push `spike/slint-ui`、PR 改 `spike/**` ⚠️ 要手动触发得先同步到 `main` |
 
 **已知可回收空间**：`src-tauri/target` 约 1.1GB（`cargo clean` 即可，但本机已无 cargo）。
 
@@ -47,7 +48,7 @@ CI **338 passed / 0 failed**（clippy + fmt 均为硬门）；探针 **126 条 /
 **真正的目标 = 「小、快、原生的桌面成品」，搜索只是载体** →
 **跳过 WebView 中间态，直接上 Slint；核心做成库，不写 HTTP/SSE。**
 ⇒ **旧 Q2（复用 `public/` 前端）与 Q6（WebView↔Rust 通信）双双作废。**
-当前里程碑 = **M1 验 Slint 风险**（唯一的一票否决项），见 `docs/AGENT_HANDBOOK.md` §1。
+当前里程碑 = **M2 聚合层 + `Provider` trait**（M1 已于 2026-10-16 通过，见「Slint 探针结论」）。
 
 ### 范围决策
 
@@ -69,8 +70,8 @@ CI **338 passed / 0 failed**（clippy + fmt 均为硬门）；探针 **126 条 /
 
 ```
 M0 ✅ run_mirrors 提取（净 −73 行）
-M1 ⬅️ 验 Slint 风险（#13548：中文标题 + 高亮 + 换行 → parley panic）—— 唯一的一票否决项
-M2 聚合层 + Provider trait          M3 bt-downloaders（4 客户端）
+M1 ✅ 验 Slint 风险（#13548）—— **未复现，Slint 可用**（2026-10-16，见下面「Slint 探针结论」）
+M2 ⬅️ 聚合层 + Provider trait        M3 bt-downloaders（4 客户端）
 M4 bt-app Slint MVP                 M5 引擎体检 → 砍掉死的
 M6 差分验证（必须早于删 Node）       M7 打包 + GitHub Release
 ```
@@ -83,6 +84,40 @@ M6 差分验证（必须早于删 Node）       M7 打包 + GitHub Release
 
 **Slint 探针结论（留档）** —— `spike/slint-ui` 分支与 `slint-spike.yml` 已于 2026-10-09 删除，
 结论必须留着，否则 M1 要重新踩一遍。**重建成本约 500 行** —— 步骤、及格线、Plan B 见 `docs/AGENT_HANDBOOK.md` §1。
+
+### ✅ M1 实测结论（2026-10-16）—— **#13548 未复现，Slint 可用**
+
+CI run `38774543781`（branch `spike/slint-ui`，绿）。六条及格线逐条判定：
+
+| # | 及格线 | 结果 |
+|---|---|---|
+| 1 | 200 条中文标题 + 高亮 + 自动换行全部渲染、不 panic | ✅ **布局覆盖 200/200**，全程未 panic |
+| 2 | 关键词落在**第 2 行**也 OK | ✅ 构造覆盖（前缀 50..=109 逐字扫过软换行边界），未 panic |
+| 3 | 关键词**正好压在换行边界**也 OK | ✅ 同上，扫描步长 1 个汉字 |
+| 4 | 西里尔（真实素材） | ✅ **布局覆盖 50/50**，未 panic |
+| 5 | 实测自包含 exe 体积 | ⚠️ **14.5 MB**（15,200,768 字节）—— 见下「体积对不上」 |
+| 6 | `ListView` 虚拟化生效 | ✅ 2000 条 → **实测实例化 9 个** |
+
+- 环境：slint **1.18.1**（2026-10-16 查 crates.io，**这就是最新版**，没有已修复的更新版）/ parley 0.11.1 / `SLINT_BACKEND=winit-software`（CI runner 无 GPU，femtovg 会挂）
+- 方式：`slint-spike.exe --selftest` —— 真开窗口、真滚动、真渲染；判定 = **进程跑到底**
+- ⚠️ **口径**：及格线 2/3 是**构造覆盖**（Rust 侧拿不到字体度量，无法反查行号），
+  **不是**「实测关键词在第 2 行」。实测的是「这些情形会不会 panic」。
+- 重建方式：代码从 git 悬空对象原样找回（`7d204f9` / `beaea27` / `74dde45` / `e50510c`，没被 gc）；
+  新增的是 `src/m1.rs` 的 `--selftest` 与 workflow 的「真跑」步骤。
+
+🔴 **最大的坑（第一轮就是这样被骗过去的）：只靠事件循环重绘 = 根本没重绘。**
+第一版自检 440 步只花 **0.38s**（≈0.86ms/步）—— 全窗口 1180×800 的软件重绘不可能这么快。
+`ListView` 的**实例化**确实发生了（行高固定 80px，建实例不需要量文本），所以「覆盖 200/200」是真的；
+但 **parley 的 #13548 panic 发生在绘制期的文本布局里**，没重绘 = 没测到，那一轮的「绿」什么都证明不了。
+**解法：每步调 `Window::take_snapshot()` 强制一次同步重绘**（它会重新渲染整个场景）。
+本轮 580 次强制重绘全部成功。**以后凡是验 Slint 渲染路径，必须用这条，别信定时器。**
+
+⚠️ **体积对不上 —— 旧数字「6.7MB」作废。** 同一条 `cargo build --release --locked` 这次实测
+**14.5 MB**，是留档值的 **2.2×**，原因未查明（Rust 版本 / 依赖增长？`[profile.release]` 只有
+`opt-level = 2`，**没开 lto、没 strip**）。S1/R2 的账要按 14.5MB 重算；真要压体积，先试
+`lto = true` + `strip = true` + `opt-level = "z"` 再报数（本轮**没有**调 profile，报的是原始基线）。
+
+（以下为 2026-10-07 spike 的原始留档，坑仍然有效）
 
 - 产物体积是硬卖点：**6.7MB 自包含 exe，零运行时依赖**（对照 Electron 便携版 360MB / Tauri + node sidecar 89MB）
 - ⚠️ `@markdown()` **会把插值转义**（官方原文 "Any text passed as an argument to the macro will be escaped"），
@@ -230,15 +265,20 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 | 4 | ~~`yts.js`~~ | ✅ 11 tests |
 | 5 | ~~`internetarchive.js`~~ | ✅ 14 tests（fixture 是合成的，见进度表上方说明） |
 
-**⛳ 下次开工 = M1：验 Slint 风险（2026-10-11 重订）**
+**⛳ 下次开工 = M2：聚合层 + `Provider` trait（M1 已于 2026-10-16 通过）**
 
 原计划「继续搬 provider 直到 40 个齐」**已废止**（D13：剩余 24 个站点里 5 个确认死亡、
 约 8 个两边环境都不通；而且「引擎多」只是感觉，不是需求）。
 旧路线「阶段一 = 核心 + WebView」**也已作废**（D8/D9）—— 真正的目标是「小快原生的成品」。
 
-**下一件：M1 —— 验 Slint #13548**（中文标题 + 关键词高亮 + 自动换行会不会 panic）。
-6 条及格线、必须遵守的 4 个坑、以及验不过时的 Plan B，全在 `docs/AGENT_HANDBOOK.md` §1。
-**它是唯一能一票否决整个架构选择的东西，所以排在最前。** 通过后才进 M2（聚合层 + `Provider` trait）。
+**✅ M1 已完成（2026-10-16）：Slint #13548 未复现。**
+六条及格线全部判定通过（覆盖率 + 580 次强制同步重绘 + 实测体积），
+结论与踩坑记录见本文件上面的「Slint 探针结论（留档）」。
+⇒ **架构不必重做**，`docs/ROADMAP.md` 的三条硬约束里「M1 必须最先」这条已经兑现。
+
+**下一件：M2 —— 聚合层（`bt_providers::aggregate`）+ `Provider` trait。**
+要复刻的 3 条 JS 语义、验收标准、以及 `onSettle` 那条最容易写错的点，
+全在 `docs/AGENT_HANDBOOK.md` §2；trait 形状与理由在 `docs/ROADMAP.md` §2.4。
 **provider 线后置**，不再是主推进方向。
 
 **进度存档（2026-10-11）**：`audiobookbay`…`nyaa` 9 个 + **`megapeer`（第 11 个）**
@@ -551,8 +591,9 @@ workflow 文件坏掉时**它自己不跑**，所以要另一条无关的 workfl
 - 触发：push / PR 改动 `.github/workflows/**` 或 `scripts/check-workflows.py`（也可手动触发）
 - 检查：每个 `*.yml` ① 体积 ≥ 200 字节（抓空壳）② 能 YAML 解析 ③ 有 `on:` 与 `jobs:`
   ④ 每个 job 有 `runs-on` 或 `uses`（没装 pyyaml 就退化成字符串级检查）
-- ⚠️ **这个文件在 `feat/rust` 上有，`main` 上还没有**（新 workflow 要同时放两个分支，
-  见「同步 features」一节）。下次动 `main` 时把它和 `scripts/check-workflows.py` 一并带过去
+- ⚠️ **`ci-guard.yml` 与 `scripts/check-workflows.py` 现在已经两个分支都有了**（2026-10-16 实测
+  `git ls-tree main .github/workflows/` 与 `git ls-tree main scripts/` 均在列）——
+  旧笔记说「main 上还没有、下次动 main 时带过去」**已过期**，别再重复搬一遍
 
 ### 🐢 探针流程（2026-10-10 改造：CI 自己提交真值，中间不再必红）
 
