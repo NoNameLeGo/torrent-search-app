@@ -1,0 +1,124 @@
+name: Slint Spike (M1 风险验证)
+
+# M1 —— 验 Slint #13548：中文标题 + 关键词高亮 + 自动换行会不会让 parley panic。
+#
+# ⚠️ 与 2026-10-07 那版的关键区别：**旧版只编译、从不运行**，
+#    所以「编译通过」被误当成「渲染没问题」，#13548 一直没被实测。
+#    这一版多了一步：真的把 spike 跑起来（`--selftest`），
+#    真的把 200 条中文标题逐条滚过去，真的走 parley 的文本布局。
+#
+# 背景：用户机器 C:/D: 两盘均 90%+ 占用，明确要求「不要在本地新增构建环境」，
+# 因此 Rust 的一切编译与运行都在 CI 里，本机只下载产物。
+#
+# 只构建 + 自检，不发版。
+on:
+  push:
+    branches: [spike/slint-ui]
+  pull_request:
+    paths:
+      - 'spike/**'
+      - '.github/workflows/slint-spike.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # CI 的 Windows runner 没有 GPU，femtovg（OpenGL）会挂；
+  # winit-software = 真窗口 + 软件渲染器，既不需要 GPU，又走完整的事件循环与渲染路径。
+  SLINT_BACKEND: winit-software
+  RUST_BACKTRACE: '1'
+
+jobs:
+  m1:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v5
+
+      - name: 前置检查 —— spike 目录在不在
+        # 本 workflow 也放在 main 上（为了能 workflow_dispatch），但 main 上没有 spike/。
+        # 手动触发必须指定 ref；否则在这里就明确报错，
+        # 而不是等到 cargo 抛一句难懂的「couldn't find Cargo.toml」。
+        shell: pwsh
+        run: |
+          if (-not (Test-Path spike/slint-ui/Cargo.toml)) {
+            Write-Host "::error::当前 ref 上没有 spike/slint-ui/。手动触发请指定 ref："
+            Write-Host "::error::  gh workflow run slint-spike.yml --ref spike/slint-ui"
+            exit 1
+          }
+
+      - name: 安装 Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust 缓存
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './spike/slint-ui -> target'
+
+      - name: 打印锁定的 slint / parley 版本
+        working-directory: spike/slint-ui
+        shell: pwsh
+        run: |
+          Write-Host "=== Cargo.lock 里锁定的版本 ==="
+          foreach ($p in @('slint', 'i-slint-core', 'parley', 'swash')) {
+            $m = Select-String -Path Cargo.lock -Pattern ("name = `"$p`"") -Context 0,1
+            if ($m) { Write-Host ("  {0,-16} {1}" -f $p, ($m[0].Context.PostContext -join '').Trim()) }
+          }
+
+      - name: cargo build --release --locked
+        working-directory: spike/slint-ui
+        # --locked：Cargo.lock 已入库（568 个包，2026-10-07 首次 CI 成功时由 Artifacts 取回）。
+        # 要加依赖时：改 Cargo.toml → 临时去掉 --locked 推一次 → 取回新 lock 提交 → 恢复 --locked。
+        run: cargo build --release --locked
+
+      - name: 报告体积（及格线 5）
+        working-directory: spike/slint-ui
+        shell: pwsh
+        run: |
+          $f = Get-Item target\release\slint-spike.exe
+          Write-Host ("[m1][5] 自包含 exe = {0} 字节 = {1} MB" -f $f.Length, [math]::Round($f.Length/1MB, 2))
+          Write-Host "[m1][5] 对照：Electron 便携版 360MB / Tauri + node sidecar 89MB / 旧 spike 实测 6.7MB"
+
+      - name: M1 自检（**真跑渲染**，及格线 1/2/3/4/6）
+        working-directory: spike/slint-ui
+        shell: pwsh
+        timeout-minutes: 10
+        run: |
+          # 用 cmd 重定向：比 PowerShell 的 2>&1 管道稳，能原样保留 panic 输出的顺序
+          cmd /c "target\release\slint-spike.exe --selftest > m1-selftest.log 2>&1"
+          $code = $LASTEXITCODE
+          Write-Host "===== m1-selftest 原始输出 ====="
+          Get-Content m1-selftest.log | ForEach-Object { Write-Host $_ }
+          Write-Host "===== /m1-selftest ====="
+          Write-Host "[m1] selftest 退出码 = $code"
+          if ($code -ne 0) {
+            Write-Host "::error::M1 自检失败（退出码 $code）。退出码含义：101 = 进程 panic（若正文含 'is not a char boundary' 即为 Slint #13548 复现）；2 = 仪器失效（没能强制重绘，本轮没测到绘制期文本布局，结论无效）"
+            exit $code
+          }
+
+      - name: 上传自检日志（失败也要拿到，panic 栈在里面）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m1-selftest-log
+          path: spike/slint-ui/m1-selftest.log
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: 上传 exe（自包含，双击即用；也用于人工复验）
+        uses: actions/upload-artifact@v4
+        with:
+          name: slint-spike-windows-x64
+          path: spike/slint-ui/target/release/slint-spike.exe
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: 顺便把生成的 Cargo.lock 带出来
+        uses: actions/upload-artifact@v4
+        with:
+          name: slint-spike-cargo-lock
+          path: spike/slint-ui/Cargo.lock
+          if-no-files-found: warn
+          retention-days: 30

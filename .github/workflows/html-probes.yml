@@ -1,23 +1,30 @@
 name: HTML probes (cheerio oracle)
 
-# 生成「选择器语义对照」的真值 —— 用真 cheerio 跑一遍 probe 清单。
+# 生成「选择器语义对照」的真值 —— 用真 cheerio 跑一遍 probe 清单，
+# **由 CI 自己提交回 `test/fixtures/html-probes.expected.json`**。
 #
-# 为什么需要它：移植 37 个 HTML provider 之前必须确认 `scraper` 的选择器/取值语义
+# 为什么需要它：移植 HTML provider 之前必须确认 `scraper` 的选择器/取值语义
 # 与 cheerio 一致（`text()` 拼接、属性实体解码、组合器的匹配范围…）。
 # 本机没有 node_modules（用户要求不在本地装构建环境），所以真值只能在 CI 生成。
 #
-# 用法：Actions → 这个 workflow → Run workflow → 选分支 **feat/rust**
-#       → 日志里会打印 JSON（`node scripts/html-probes.cjs`）
-#       → 存成 `test/fixtures/html-probes.expected.json` 提交
-#         （之后 crates/bt-core/tests/dom_probes.rs 就会逐条比对）
+# 为什么让它自己 commit（2026-10-10 改）：
+# 以前是把日志里的 JSON 手抠出来再提交，于是流程天然是「先推 fixture+probe
+# （此时 expected.json 还是旧的 → rust.yml 必红一次）→ 再推真值」。
+# 那个红灯在总账里出现了 7 次，而且抠日志很脆（超长单行会把日志截断，
+# therarbg 那次后面的真值全丢）。现在 CI 直接写文件 + 提交，人只负责 pull。
 #
-# 它不联网、不跑 Rust，只装一个 cheerio，几秒就完。手动触发，不在任何 push 门上。
+# 用法（推荐「临时分支」流程，见 AGENTS.md「探针两步流程」）：
+#   gh workflow run html-probes.yml --ref <带新 probe 的分支>
+#   git fetch origin <分支> && git checkout origin/<分支> -- test/fixtures/html-probes.expected.json
+#
+# 它不联网、只装一个 cheerio，几秒就完。手动触发，不在任何 push 门上。
 
 on:
   workflow_dispatch:
 
+# 要把真值提交回去，必须给写权限
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   probes:
@@ -50,6 +57,36 @@ jobs:
         if: hashFiles('test/fixtures/html-probes.json') != ''
         run: node -e "console.log('cheerio', require('cheerio/package.json').version)"
 
-      - name: 跑探针（把输出复制到 html-probes.expected.json）
+      - name: 生成真值（直接写进 expected.json）
+        if: hashFiles('test/fixtures/html-probes.json') != ''
+        run: node scripts/html-probes.cjs test/fixtures/html-probes.expected.json
+
+      - name: 真值没变就到此为止
+        if: hashFiles('test/fixtures/html-probes.json') != ''
+        id: diff
+        shell: bash
+        run: |
+          git status --short test/fixtures/html-probes.expected.json
+          if git diff --quiet -- test/fixtures/html-probes.expected.json; then
+            echo "::notice::真值和仓库里的一致，没什么要提交的。"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 提交回触发这次运行的 ref
+        if: steps.diff.outputs.changed == 'true'
+        shell: bash
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add test/fixtures/html-probes.expected.json
+          git commit -m "test(probes): 重新生成 cheerio 真值（CI 自动提交）"
+          # 用 HEAD:<ref> 明确推回触发运行的那个分支（checkout 可能是游离头）
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+          echo "::notice::真值已提交到 ${GITHUB_REF_NAME} —— 记得 git fetch + checkout 这个文件"
+
+      # 兜底：万一提交失败（分支保护之类），日志里还有一份可抠
+      - name: 把真值也打进日志（备份）
         if: hashFiles('test/fixtures/html-probes.json') != ''
         run: node scripts/html-probes.cjs
