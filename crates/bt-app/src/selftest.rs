@@ -28,7 +28,9 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use bt_core::{HttpClient, TorrentResult};
+// ⚠️ `HttpClient` 在 `bt_core::http` 下，**不在** crate 根（首轮 CI 的 E0432 就是这个）。
+use bt_core::http::HttpClient;
+use bt_core::TorrentResult;
 use bt_providers::{BoxFuture, MagnetOutcome, Provider, SearchOutcome, NO_RESOLVER};
 use slint::{ComponentHandle, Timer, TimerMode};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -123,6 +125,9 @@ impl Provider for Fake {
             if can {
                 MagnetOutcome {
                     magnet: Some(RESOLVED_MAGNET.to_string()),
+                    // ⚠️ MagnetOutcome 有**三个**字段（`therarbg` 那边 info_hash 恒为 None）；
+                    // 少写一个就是 E0063（首轮 CI 踩了）。
+                    info_hash: None,
                     error: None,
                 }
             } else {
@@ -290,6 +295,10 @@ pub fn run() -> Result<bool, slint::PlatformError> {
 
     let ui_weak = ui.as_weak();
     let rep = Rc::clone(&report);
+    // ⚠️ 闭包 `move` 会**吃掉**这两个句柄，而循环跑完还要读它们 ——
+    // 所以必须各克隆一份给闭包（E0382：`Rc`/`Arc` 都不是 `Copy`）。
+    let ui_idx = Rc::clone(&ui_search_idx);
+    let seen_in = Arc::clone(&seen);
     let timer = Timer::default();
     timer.start(TimerMode::Repeated, TICK, move || {
         let Some(ui) = ui_weak.upgrade() else {
@@ -339,7 +348,7 @@ pub fn run() -> Result<bool, slint::PlatformError> {
                     });
                     match lazy {
                         Some(i) => {
-                            ui_search_idx.set(i as i32);
+                            ui_idx.set(i as i32);
                             phase.set(2);
                             ui.invoke_push_row(i as i32);
                         }
@@ -354,7 +363,7 @@ pub fn run() -> Result<bool, slint::PlatformError> {
             }
             // 2：等推送真打到桩上（登录 + add 两次请求）
             _ => {
-                if seen.lock().unwrap().len() >= 2 {
+                if seen_in.lock().unwrap().len() >= 2 {
                     let mut r = rep.borrow_mut();
                     r.done = true;
                     r.reason = "ok".to_string();
