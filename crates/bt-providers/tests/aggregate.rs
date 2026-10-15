@@ -339,6 +339,31 @@ async fn semantic_2_pool_settles_before_starting_the_next() {
 
     assert_eq!(started, N, "每个任务都该被启动一次");
     assert_eq!(settled, N, "每个任务都该回调一次（不多不少）");
+
+    // 顺带把两个载荷也用上（它们之前只被当成占位符）：
+    // 任务必须**按声明顺序**启动；settle 是对 0..N 的一个排列。
+    let starts: Vec<usize> = log
+        .iter()
+        .filter_map(|e| match e {
+            Ev::Start(i) => Some(*i),
+            Ev::Settle(_) => None,
+        })
+        .collect();
+    assert_eq!(starts, (0..N).collect::<Vec<_>>(), "任务按声明顺序启动");
+
+    let mut settles: Vec<usize> = log
+        .iter()
+        .filter_map(|e| match e {
+            Ev::Settle(i) => Some(*i),
+            Ev::Start(_) => None,
+        })
+        .collect();
+    settles.sort_unstable();
+    assert_eq!(
+        settles,
+        (0..N).collect::<Vec<_>>(),
+        "每个任务恰好 settle 一次"
+    );
 }
 
 #[tokio::test]
@@ -454,6 +479,45 @@ async fn search_reports_has_more_through_the_whole_pipeline() {
     let out2 = search(&HttpClient::new(), &registry, "q", args(None, 2, false)).await;
     assert_eq!(out2.providers.len(), 1);
     assert_eq!(out2.providers[0].0, "page");
+}
+
+/// ⚠️ **`Option<bool>` 的存在理由，走整条流水线再钉一遍。**
+///
+/// 上面 [`semantic_3_aggregate_has_more_truth_table`] 是单元级；
+/// 这里证明「provider 明确否决」能**穿过 `search()` 一路影响到聚合结果**。
+/// ——`has_more: bool` 的话，本用例最后一条断言会失败（会错判成 `true`）。
+#[tokio::test]
+async fn a_paginated_provider_can_explicitly_veto_has_more() {
+    // 两家都 paginated、都有结果、都没表态 → 按 paginated 猜「有下一页」
+    let registry = reg(vec![
+        Fake::new("p1").paginated().hits(2),
+        Fake::new("p2").paginated().hits(2),
+    ]);
+    let out = search(&HttpClient::new(), &registry, "q", args(None, 1, false)).await;
+    assert!(out.has_more, "都没表态 + 都 paginated → 猜有下一页");
+
+    // 只有一家明确否决：`some()` 语义下 p2 还没表态 → 整体仍是 true
+    let registry = reg(vec![
+        Fake::new("p1").paginated().hits(2).stating_has_more(false),
+        Fake::new("p2").paginated().hits(2),
+    ]);
+    let out = search(&HttpClient::new(), &registry, "q", args(None, 1, false)).await;
+    assert!(out.has_more, "p2 没表态且 paginated → 整体仍有下一页");
+
+    // 两家都明确否决 → **必须听 provider 的**
+    let registry = reg(vec![
+        Fake::new("p1").paginated().hits(2).stating_has_more(false),
+        Fake::new("p2").paginated().hits(2).stating_has_more(false),
+    ]);
+    let out = search(&HttpClient::new(), &registry, "q", args(None, 1, false)).await;
+    assert!(
+        !out.has_more,
+        "两家 paginated 的 provider 都明确说「没有下一页」——必须听它们的。\
+         若 `has_more` 是 `bool`，这里会被错判成 true（这正是改成 Option<bool> 的原因）"
+    );
+
+    // 明确表态也要能透传进每站状态（UI 状态栏会读它）
+    assert_eq!(status_of(&out, "p1").has_more, Some(false));
 }
 
 // ---------------------------------------------------------------------------

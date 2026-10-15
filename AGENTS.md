@@ -40,8 +40,8 @@ Electron mode: `npm run electron` (picks a free port automatically, no collision
 `main` 上的 Node/Express + Electron/Tauri 实现继续可用；Rust 版每搬完一块就替代一块。
 
 **📊 进度快照（2026-10-11）**：**16 个 provider 已搬**（5 JSON + 11 HTML），
-CI **338 passed / 0 failed**（clippy + fmt 均为硬门）；探针 **126 条 / 17 fixture**；
-**聚合层 / Slint UI / 下载器 = 0%**（provider 核心已有 16 个家底，这三块还没动手）。
+CI **347 passed / 0 failed**（clippy + fmt 均为硬门）；探针 **126 条 / 17 fixture**；
+**聚合层 = 100%（M2 已完），Slint UI / 下载器 = 0%**（provider 核心已有 16 个家底）。
 
 🔴 **2026-10-11 目标重订 —— 动手前先读 `docs/ROADMAP.md`。**
 那一轮追问推翻了旧路线的隐含假设（「能搜到东西」就是目标），结论是：
@@ -71,9 +71,10 @@ CI **338 passed / 0 failed**（clippy + fmt 均为硬门）；探针 **126 条 /
 ```
 M0 ✅ run_mirrors 提取（净 −73 行）
 M1 ✅ 验 Slint 风险（#13548）—— **未复现，Slint 可用**（2026-10-16，见下面「Slint 探针结论」）
-M2 ⬅️ 聚合层 + Provider trait        M3 bt-downloaders（4 客户端）
-M4 bt-app Slint MVP                 M5 引擎体检 → 砍掉死的
-M6 差分验证（必须早于删 Node）       M7 打包 + GitHub Release
+M2 ✅ 聚合层 + Provider trait（2026-10-16，347 tests；**D5「聚合层跑通」的门已满足**）
+M3 ⬅️ bt-downloaders（4 客户端）    M4 bt-app Slint MVP
+M5 引擎体检 → 砍掉死的              M6 差分验证（必须早于删 Node）
+M7 打包 + GitHub Release
 ```
 
 **三条硬约束，别调换**：**M1 必须最先**（Slint 挂了，M2 的架构就得重做）；**M6 必须早于删 Node**（否则「逐字段一致」永远无法再验）；**M5 早于补引擎**（现在没有理由盲搬）。
@@ -305,12 +306,26 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 结论与踩坑记录见本文件上面的「Slint 探针结论（留档）」。
 ⇒ **架构不必重做**，`docs/ROADMAP.md` 的三条硬约束里「M1 必须最先」这条已经兑现。
 
-**下一件：M2 —— 聚合层（`bt_providers::aggregate`）+ `Provider` trait。**
-要复刻的 3 条 JS 语义、验收标准、以及 `onSettle` 那条最容易写错的点，
-全在 `docs/AGENT_HANDBOOK.md` §2；trait 形状与理由在 `docs/ROADMAP.md` §2.4。
-**provider 线后置**，不再是主推进方向。
+**✅ M2 已完成（2026-10-16）—— 聚合层 + `Provider` trait 落地，CI 347 tests / 0 failed。**
+三条 JS 语义逐条复刻并有独立验收（语义① 三条过滤 + `?providers=` 三个边界；
+语义② **先回调再起下一个**（事件序钉死）+ 单站失败隔离 + 每站单独计时；
+语义③ 真值表 8 条 + 端到端「paginated 的 provider 也能明确否决 has_more」）。
+🔴 **D5 说的「切 `main` 的门 = 聚合层跑通」到此已经满足** —— 换不换、什么时候换是你拍板；
+配套清单（merge 而非 reset、给 `rust.yml` 触发加 `main`、一个文件都不删）见本文件「🌿 分支现状」。
 
-### 🔜 M2 开工前勘明（2026-10-16）—— **代码一行未写，直接接着写即可**
+**下一件：M3 —— `bt-downloaders`（D16：四个客户端都要）。**
+四个客户端（qB / Transmission / aria2·Motrix / Gopeed）的 `push` / `test` / `detect`
+对着 `src/lib/downloaders.js` 移植，验收 = 4 家都有**离线**测试（照 `tests/` 那套
+本地一次性 HTTP 服务的套路），认证失败 / 连不上 / 非 JSON 正文三条失败路径各有用例。
+两个已修过的坑（qB 登录判定别 string-match、URL 校验只放行 http/https）写在
+`docs/AGENT_HANDBOOK.md` §3.2，**别退回去**。
+**provider 线仍然后置**（D13），不是主推进方向。
+
+### 📌 M2 开工前勘明（2026-10-16）—— **已执行完毕，留档备查**
+
+> ⚠️ 下面是**开工前**的勘明，代码已按它写完（commit `b91546d`）。
+> 保留它是为了：① 那几条「推翻了既有文档」的结论需要出处；② ⑨ 里两条待定还挂着。
+> 与最终实现的差异只有一处：⑧ 里说宏「可选重复」有风险 → 实际写成**两条宏臂**。
 
 勘察方式：读 `src/providers/index.js`（271 行，**唯一真值来源**）+ 现有 Rust 基座。
 下面每条都是**实测/实读**的，不是回忆。

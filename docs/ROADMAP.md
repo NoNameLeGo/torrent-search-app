@@ -145,8 +145,8 @@ pub trait Provider: Send + Sync {
 |---|---|---|---|
 | **M0** | `run_mirrors` 提取（消 10 份副本，净 −73 行） | CI 绿 | ✅ **已完成** |
 | **M1** | **Slint 风险验证**（#13548 + 体积 + 虚拟化） | 见 `AGENT_HANDBOOK.md` §1 的 6 条及格线 | ✅ **已完成（2026-10-16，#13548 未复现）** |
-| **M2** | 聚合层（`aggregate` 模块）+ `Provider` trait | 与 JS 的 3 条语义逐条一致 + CI 测试 | ⬅️ **当前** |
-| **M3** | `bt-downloaders`（4 个客户端） | 4 家的 push / test / detect 都有离线测试 | ⬜ |
+| **M2** | 聚合层（`aggregate` 模块）+ `Provider` trait | 与 JS 的 3 条语义逐条一致 + CI 测试 | ✅ **已完成（2026-10-16，347 tests / 9 条新验收）** |
+| **M3** | `bt-downloaders`（4 个客户端） | 4 家的 push / test / detect 都有离线测试 | ⬅️ **当前** |
 | **M4** | `bt-app` Slint MVP | S6 全链路手工走通 | ⬜ |
 | **M5** | 引擎体检 → 砍掉死的 | 产出一张「谁还活着」的表 + 砍完的注册表 | ⬜ |
 | **M6** | **差分验证**（与 Node 逐字段比对） | 差异全部命中白名单 | ⬜ |
