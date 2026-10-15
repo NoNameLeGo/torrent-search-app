@@ -40,8 +40,8 @@ Electron mode: `npm run electron` (picks a free port automatically, no collision
 `main` 上的 Node/Express + Electron/Tauri 实现继续可用；Rust 版每搬完一块就替代一块。
 
 **📊 进度快照（2026-10-11）**：**16 个 provider 已搬**（5 JSON + 11 HTML），
-CI **347 passed / 0 failed**（clippy + fmt 均为硬门）；探针 **126 条 / 17 fixture**；
-**聚合层 = 100%（M2 已完），Slint UI / 下载器 = 0%**（provider 核心已有 16 个家底）。
+CI **382 passed / 0 failed**（clippy + fmt 均为硬门）；探针 **126 条 / 17 fixture**；
+**聚合层 = 100%（M2）、下载器 = 100%（M3），Slint UI = 0%**（provider 核心已有 16 个家底）。
 
 🔴 **2026-10-11 目标重订 —— 动手前先读 `docs/ROADMAP.md`。**
 那一轮追问推翻了旧路线的隐含假设（「能搜到东西」就是目标），结论是：
@@ -72,9 +72,9 @@ CI **347 passed / 0 failed**（clippy + fmt 均为硬门）；探针 **126 条 /
 M0 ✅ run_mirrors 提取（净 −73 行）
 M1 ✅ 验 Slint 风险（#13548）—— **未复现，Slint 可用**（2026-10-16，见下面「Slint 探针结论」）
 M2 ✅ 聚合层 + Provider trait（2026-10-16，347 tests；**D5「聚合层跑通」的门已满足**）
-M3 ⬅️ bt-downloaders（4 客户端）    M4 bt-app Slint MVP
-M5 引擎体检 → 砍掉死的              M6 差分验证（必须早于删 Node）
-M7 打包 + GitHub Release
+M3 ✅ bt-downloaders（2026-10-16，4 客户端 / 34 条离线测试）
+M4 ⬅️ bt-app Slint MVP              M5 引擎体检 → 砍掉死的
+M6 差分验证（必须早于删 Node）       M7 打包 + GitHub Release
 ```
 
 **三条硬约束，别调换**：**M1 必须最先**（Slint 挂了，M2 的架构就得重做）；**M6 必须早于删 Node**（否则「逐字段一致」永远无法再验）；**M5 早于补引擎**（现在没有理由盲搬）。
@@ -313,12 +313,27 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 🔴 **D5 说的「切 `main` 的门 = 聚合层跑通」到此已经满足** —— 换不换、什么时候换是你拍板；
 配套清单（merge 而非 reset、给 `rust.yml` 触发加 `main`、一个文件都不删）见本文件「🌿 分支现状」。
 
-**下一件：M3 —— `bt-downloaders`（D16：四个客户端都要）。**
-四个客户端（qB / Transmission / aria2·Motrix / Gopeed）的 `push` / `test` / `detect`
-对着 `src/lib/downloaders.js` 移植，验收 = 4 家都有**离线**测试（照 `tests/` 那套
-本地一次性 HTTP 服务的套路），认证失败 / 连不上 / 非 JSON 正文三条失败路径各有用例。
-两个已修过的坑（qB 登录判定别 string-match、URL 校验只放行 http/https）写在
-`docs/AGENT_HANDBOOK.md` §3.2，**别退回去**。
+**✅ M3 已完成（2026-10-16）—— `bt-downloaders` 落地，4 客户端 / 34 条离线测试，CI 382 tests。**
+`crates/bt-downloaders`：qBittorrent / Transmission / aria2·Motrix / Gopeed，
+对 `src/lib/downloaders.js` 移植。**刻意不依赖 bt-core**（那层是抓第三方页面的，
+这层是本机受信下载器：Basic Auth / 会话 cookie / JSON-RPC / 409 重试 / 失败靠 `Err`）。
+两个手册点名的坑各有用例钉住：**qB 的 SID 要在全部 set-cookie 里找**（+只把 403 当凭证错）、
+**`safeHttpUrl` 只放行 http/https**（放库里 + push/test 内部各再查一次）。
+另外三处照抄容易改错的：axios 对非 2xx 会抛而 reqwest 不会（**必须自己查状态码**）、
+axios 把解析不了的正文退化成字符串 ⇒「2xx + 非 JSON」算**成功**（软检查）、
+JS 真值语义（`aria2` 的 `error: 0/""/false` 都是假）。详见 commit `c3fe36a`。
+
+**下一件：M4 —— `bt-app`（Slint MVP，**唯一的 UI**）。**
+目标 = 手册 S6「搜索 → 结果列表 → 磁力 → 推送下载器」全链路手工走通。
+现成的地基：`bt-providers::aggregate`（8 路并发 + `search_stream` 每站回调）、
+`bt-downloaders`（四个客户端 + `detect`）、`bt-core`（normalize / http / dom）。
+⚠️ **线程模型是这一层最容易写错的地方**（`docs/ROADMAP.md` §2.2）：网络 IO 在 tokio 上跑、
+Slint 的 UI 是单线程的 ⇒ 后台任务**不能直接改 UI 属性**，必须
+`slint::invoke_from_event_loop(...)` 把更新跨回 UI 线程；而且要**每站一回来就更新**，
+别「等全部跑完再一次性填」—— 那会让 8 路并发的体验完全暴露给用户。
+Slint 的踩坑清单（`styled-text` / 别在 `init` 写全局属性 / 切主题要重建模型 /
+CI 上必须 `SLINT_BACKEND=winit-software`）见本文件「Slint 探针结论」与
+`spike/slint-ui`（M1 的 spike，**可以直接抄它的窗口与模型写法**）。
 **provider 线仍然后置**（D13），不是主推进方向。
 
 ### 📌 M2 开工前勘明（2026-10-16）—— **已执行完毕，留档备查**

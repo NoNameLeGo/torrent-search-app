@@ -103,7 +103,8 @@ Sections there that matter right now:
   M2 landed 2026-10-16. Read this section before touching `main`.
 - **「📌 M2 开工前勘明（2026-10-16）」**: kept as the audit trail for the three findings that
   **overrode existing docs** (`has_more` must be `Option<bool>`; the `onSettle` story was wrong;
-  `"no resolver"` not `no_resolver`). M2 itself is **done** — next milestone is **M3**.
+  `"no resolver"` not `no_resolver`). M2 is **done** (2026-10-16) and so is **M3**
+  (`bt-downloaders`, 4 clients) — the next milestone is **M4** (the Slint app).
 
 **Plan (re-scoped 2026-10-11 — see `docs/ROADMAP.md`).** The old "Phase 1 = Rust core + the existing WebView frontend, Phase 2 = reconsider Slint" plan is **dead**. The goal turned out to be *the artifact itself* (small / fast / native), which a WebView can never deliver — so we go **straight to Slint**, and the core becomes a **library** (no HTTP, no SSE; Slint calls it in-process). Milestones are **M1..M7** in `docs/ROADMAP.md` §3.
 
@@ -140,7 +141,15 @@ crates/bt-providers/    one file per site, mirroring src/providers/*.js
                         oneshot() = response only; oneshot_bytes() = custom charset header + raw bytes;
                         oneshot_capture() = also hands back the raw request
   tests/*.rs            one offline test file per provider (16 today) + live_smoke.rs
-(pending)  crates/bt-downloaders/ (4 clients) · crates/bt-app/ (**the Slint app — the only UI**)
+crates/bt-downloaders/  the 4 download clients (qB / Transmission / aria2·Motrix / Gopeed),
+                        ported from src/lib/downloaders.js; **deliberately does NOT use bt-core**
+                        (that layer is for scraping third-party pages with never-throw; this one is
+                        for trusted local clients: Basic Auth, session cookie, JSON-RPC, 409 retry,
+                        failures as Err). Errors are `Result<_, String>` — the opposite convention.
+                        ⚠️ axios throws on non-2xx but reqwest does NOT → every "axios would throw"
+                        site must check the status itself; and a non-JSON 2xx body counts as SUCCESS
+                        (the JS success checks are soft: `data && data.result && …`).
+(pending)  crates/bt-app/ (**the Slint app — the only UI** · M4)
            bt-torznab is **not built** this round (D17: leave an abstraction hook only)
 ```
 
@@ -158,7 +167,7 @@ Upstream bugs found while porting: `linuxtracker`'s `detailUrl` misses a slash (
 
 **Deleting the old JS — function-level, not file-level (revised 2026-10-08).** Do *not* mechanically delete `<provider>.js` as soon as its Rust port lands. Delete only once that function is fully usable from Rust (wired into `bt-app`), and never when the JS is still the reference for an accepted equivalence check. Anything kept for now must be logged in the "待删清单" table in `AGENTS.md` and deleted in a batch at the end of a phase. The one hard rule that survives: two implementations must never be allowed to drift, so every ported file's status (`待删` / `保留(对照)` / `已删`) goes in the progress table.
 
-**Latest ports (2026-10-11):** the "✅ in both environments" picks are done (`audiobookbay`, `nyaa`), plus `megapeer` (the first **windows-1251** site) and `zeromagnet` (29 rows with no header row, names split by `<mark>` so child text must be concatenated, magnet lives in `input#input-magnet`'s **value attribute**, and the meta columns hold `6.2GB` / dates that the JS drops — copied as-is). `dmhy` is **paused** — a CI fixture fetch timed out three times (60s, 0 bytes; the homepage too), so the site itself is down, not just unreachable from this machine. Porting more is **deferred** (D13) — see the note above; the next milestone is **M1**, not another provider.
+**Latest ports (2026-10-11):** the "✅ in both environments" picks are done (`audiobookbay`, `nyaa`), plus `megapeer` (the first **windows-1251** site) and `zeromagnet` (29 rows with no header row, names split by `<mark>` so child text must be concatenated, magnet lives in `input#input-magnet`'s **value attribute**, and the meta columns hold `6.2GB` / dates that the JS drops — copied as-is). `dmhy` is **paused** — a CI fixture fetch timed out three times (60s, 0 bytes; the homepage too), so the site itself is down, not just unreachable from this machine. Porting more is **deferred** (D13) — see the note above; the next milestone is **M4** (the Slint app), not another provider.
 
 **`megapeer.js` (done, 2026-10-11) — first windows-1251 site, ported with two deliberate divergences.** The site serves windows-1251 bytes with a matching `charset=windows-1251` response header (verified live by CI smoke). JS axios hard-decodes text as utf8 (`buffer.toString('utf8')` — it ignores the charset), so **every Cyrillic title became `U+FFFD`**; Rust's reqwest honours the header's charset via encoding_rs and decodes correctly — deliberately *not* copied, because it is a data-level bug (pinned by `divergence_js_style_utf8_decoding_would_mangle_the_cyrillic`). Second: result rows come in two shapes (43× 4-td, 7× 5-td with a comment cell at td3) and JS's fixed indices (`td:nth-child(3)` as size, `td:nth-child(4) > font` as peers) grab the comment count and leave peers empty on 5-td rows — the port uses "second-to-last cell = size, last cell = peers" instead (pinned by `divergence_5td_row_takes_real_size_not_the_comment_count`). Infrastructure added: per-fixture `encoding` in `html-probes.json` (TextDecoder on the JS side, encoding_rs on the Rust side), `fixture_bytes()` + `oneshot_bytes()` in `tests/common` (the charset header travels to reqwest, same as production), and a live-smoke test.
 
