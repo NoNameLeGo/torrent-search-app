@@ -212,6 +212,12 @@ struct Runner {
     cjk_covered: usize,
     cyr_covered: usize,
     scroll_worked: bool,
+    /// 每步强制同步重绘成功的次数（`Window::take_snapshot` 返回 Ok 即证明真的重绘过）
+    snaps_ok: usize,
+    /// 快照尺寸，用来证明拿到的是一张真缓冲，不是 1×1 占位
+    snap_size: (u32, u32),
+    /// 首次失败原因（后端不支持 take_snapshot 时记下来）
+    snaps_err: Option<String>,
 }
 
 impl Runner {
@@ -235,8 +241,14 @@ impl Runner {
         self.seen.borrow().iter().filter(|b| **b).count()
     }
 
-    /// 发一次滚动事件。位置取窗口列表区正中（1180×800，列表在工具条下方）。
-    fn scroll(&self) {
+    /// 发一次滚动事件，然后**强制一次同步重绘**。
+    ///
+    /// ⚠️ 为什么必须强制：第一版只靠定时器 + 事件循环重绘，结果 440 步只花了 0.38s
+    /// （≈0.86ms/步）—— 全窗口软件重绘不可能这么快，说明**根本没重绘**。
+    /// 实例化确实发生了（`ListView` 行高固定 80px，建实例不需要量文本），
+    /// 但 parley 的文本布局是在**绘制**时才算的 —— 所以那一轮的「绿」其实没测到
+    /// #13548。`take_snapshot()` 会重新渲染整个场景，于是每步都真走一次文本布局。
+    fn scroll_and_paint(&mut self) {
         let ev = WindowEvent::PointerScrolled {
             position: LogicalPosition::new(600.0_f32, 420.0_f32),
             delta_x: 0.0,
@@ -244,6 +256,23 @@ impl Runner {
         };
         if let Err(e) = self.ui.window().dispatch_event_with_result(ev) {
             eprintln!("[m1][WARN] 滚动事件派发失败：{e}");
+        }
+
+        match self.ui.window().take_snapshot() {
+            Ok(buf) => {
+                self.snaps_ok += 1;
+                self.snap_size = (buf.width(), buf.height());
+            }
+            Err(e) => {
+                if self.snaps_err.is_none() {
+                    eprintln!(
+                        "[m1][WARN] take_snapshot 不可用（{e}）→ 退回 request_redraw()；\
+                         「每步都真重绘」的保证不成立，本轮结论只能当参考"
+                    );
+                    self.snaps_err = Some(e.to_string());
+                }
+                self.ui.window().request_redraw();
+            }
         }
     }
 
@@ -287,7 +316,7 @@ impl Runner {
     fn scroll_step(&mut self, next: Phase) {
         let total = self.seen.borrow().len();
 
-        self.scroll();
+        self.scroll_and_paint();
 
         let live = self.live.get();
         if live == self.last_live {
@@ -305,16 +334,17 @@ impl Runner {
             println!("[m1] 滚动方向无反馈，翻转方向重试（dir = {}）", self.dir);
         }
 
-        // 每步一行：出 panic 时，上一行就是「滚到哪、覆盖到哪」
+        // 每步一行：出 panic 时，上一行就是「滚到哪、覆盖到哪、重绘了几次」
         println!(
-            "[m1][{}] step {}/{}  dir {:+.0}  覆盖 {}/{}  累计实例 {}",
+            "[m1][{}] step {}/{}  dir {:+.0}  覆盖 {}/{}  累计实例 {}  强制重绘 {}",
             self.phase.label(),
             self.step + 1,
             self.budget,
             self.dir,
             self.covered(),
             total,
-            live
+            live,
+            self.snaps_ok
         );
 
         self.step += 1;
@@ -388,7 +418,20 @@ impl Runner {
                  及格线 1/4 的覆盖是**不完整**的，别当成通过。"
             );
         }
-        let all = cjk_ok && cyr_ok && self.scroll_worked;
+        // 仪器有效性：没强制重绘成功 = 这轮根本没走到 parley 的绘制期文本布局，
+        // 那么「没 panic」什么也证明不了。这种情况必须**红**，不许绿着骗过去。
+        let instrument_ok = self.snaps_ok > 0;
+        println!(
+            "[m1][paint] 每步强制同步重绘（take_snapshot）成功 {} 次，快照 {}x{}{}",
+            self.snaps_ok,
+            self.snap_size.0,
+            self.snap_size.1,
+            match &self.snaps_err {
+                Some(e) => format!("（失败原因：{e}）"),
+                None => String::new(),
+            }
+        );
+        let all = cjk_ok && cyr_ok && self.scroll_worked && instrument_ok;
         println!(
             "[m1] VERDICT: {}",
             if all {
@@ -398,7 +441,18 @@ impl Runner {
             }
         );
         println!("[m1] ==========================================");
+
         let _ = slint::quit_event_loop();
+
+        // 仪器失效要红：没走到绘制期就没测到 #13548，绿着出去等于骗人。
+        // 退出码 2 = 「测了但没测到」，与 101（panic，= 复现了 bug）区分开。
+        if !instrument_ok {
+            eprintln!(
+                "[m1][FATAL] 强制重绘 0 次 —— 本轮没有真正走到 parley 的绘制期文本布局，\
+                 M1 结论**无效**。请改用 request_redraw + 等待事件循环，或换后端。"
+            );
+            std::process::exit(2);
+        }
     }
 }
 
@@ -465,6 +519,9 @@ pub fn run() -> Result<(), slint::PlatformError> {
         cjk_covered: 0,
         cyr_covered: 0,
         scroll_worked: false,
+        snaps_ok: 0,
+        snap_size: (0, 0),
+        snaps_err: None,
     }));
 
     // 事件循环跑在 ui 上；Runner 也用同一个强引用，两边看的是同一个组件

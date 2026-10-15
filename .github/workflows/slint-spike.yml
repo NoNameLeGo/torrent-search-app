@@ -82,7 +82,7 @@ jobs:
           Write-Host "===== /m1-selftest ====="
           Write-Host "[m1] selftest 退出码 = $code"
           if ($code -ne 0) {
-            Write-Host "::error::M1 自检失败（退出码 $code）—— 上方找 [m1][PANIC]，若正文含 'is not a char boundary' 即为 Slint #13548 复现"
+            Write-Host "::error::M1 自检失败（退出码 $code）。退出码含义：101 = 进程 panic（若正文含 'is not a char boundary' 即为 Slint #13548 复现）；2 = 仪器失效（没能强制重绘，本轮没测到绘制期文本布局，结论无效）"
             exit $code
           }
 
