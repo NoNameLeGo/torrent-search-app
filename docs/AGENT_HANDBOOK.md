@@ -143,8 +143,19 @@ if (page > 1 && !p.paginated && !p.demo) return false;  // 第 2 页起：丢掉
 
 **② 并发池 `asyncPool(tasks, 8, onSettle)`**
 - 上限 **8**（`MAX_CONCURRENT`；注释写明是「够灌满管道，又不至于像 DDoS」）
-- ⚠️ **`onSettle` 必须在下一个任务开始前调用** —— 这是「谁先回来先显示谁」的**唯一**原因。若写成「全部 `join_all` 再一起 emit」，**8 路并发的体验就没了**（用户会觉得变慢）。**这是本层最容易写错、且错了不明显的一条。**
-- 单个 provider 失败**不影响其他**（`runProvider` 内部 try/catch）
+- ⚠️ **「谁先回来先显示谁」的真实机制 —— 2026-10-16 勘明后更正**：
+  `asyncPool` 的 `onSettle` 参数**在现有代码里从来没被传过**（两个调用点
+  `search()` / `searchStream()` 都只传了 2 个参数，它是死参数）。流式效果实际来自
+  **每个 task 自己链上的 `.then(...)`**：provider 一 resolve 就立刻写
+  `perProvider[p.id]` / `allResults.push(...)` / 调 `onProvider(...)`，与池子推进无关。
+  ⇒ **验收要钉的是「某个 provider 一返回就上报（不等慢的那些）」**；池子那层单独钉
+  「同时在飞 ≤ 8」。两层都测，但别把机制说反。
+- 仍然成立：写成「全部 `join_all` 再一次性 emit」就没有流式了 —— 这点没变。
+- 另：JS `asyncPool` 返回的 `Promise.all(results)`（**按任务顺序**的数组）在两个调用点
+  都被丢弃 ⇒ Rust 侧不为这个没人用的返回值加复杂度，但要写明是**有意省略**。
+- 单个 provider 失败**不影响其他**（`runProvider` 内部 try/catch；
+  ⚠️ Rust 侧同一路径由 `SearchOutcome.error` 覆盖 —— provider 契约是永不 panic，
+  见 `AGENTS.md` 的「M2 开工前勘明」⑨ 第 1 条）
 - 每个 provider **单独计时** `ms`
 
 **③ 聚合 hasMore**

@@ -111,6 +111,12 @@ Slint UI ──callback──▶ bt-app (Rust)
 → 建议形状（**待你在评审时确认**）：
 
 ```rust
+// ⚠️ 这是 2026-10-11 的**草案**。2026-10-16 开工前勘明后有两处修订，见下：
+//   1) `async fn` → **boxed future**：AFIT 让 trait **不能做 trait object**，
+//      而 D17 的 Torznab 口子要插入**带状态**的 provider（URL + API key）
+//      ⇒ 必须是 `Box<dyn Provider>`。详见 `AGENTS.md`「M2 开工前勘明」⑧。
+//   2) `"no_resolver"` → **`"no resolver"`**：核对 `server.js`，JS 的 404 文案是
+//      带空格的 `no resolver`，且它是**端点级**行为（不是 provider 返回值）。
 pub trait Provider: Send + Sync {
     fn id(&self) -> &'static str;
     fn name(&self) -> &'static str;
@@ -119,10 +125,15 @@ pub trait Provider: Send + Sync {
     async fn search(&self, q: &str, page: u32) -> SearchOutcome;
     /// 默认：不支持惰性解析磁力（照抄 JS —— 没有 resolver 就是没有）
     async fn resolve_magnet(&self, _url: &str) -> MagnetOutcome {
-        MagnetOutcome::err("no_resolver")
+        MagnetOutcome::err("no resolver")
     }
 }
 ```
+
+⚠️ **另有一处必须改的既有类型**：`SearchOutcome.has_more` 现在是 `bool`，
+但 JS 里 `hasMore` 可能是 `undefined`（provider 没表态），而 `undefined` 与显式 `false`
+在 `aggregateHasMore` 里走**不同**分支 ⇒ 得改成 **`Option<bool>`**。
+爆炸半径实测 = `lib.rs` 3 行、测试 0 处、66 个 `SearchOutcome::ok/err` 调用点不受影响。
 
 ⚠️ **注意**：引入 trait 会让 16 个 provider 各加一个 impl，**代码量是净增**。这不是为了省行数，是为了让聚合层和 Torznab 接口成立。如果评审时你认为不值，替代方案是「注册表存函数指针 struct」—— 但那样 `resolve_magnet` 的可选性会难看。
 

@@ -95,7 +95,18 @@ Since 2026-10-08 the project is being **rewritten from scratch in Rust** on the 
 
 **Start here:** `docs/ROADMAP.md` (goals / architecture / milestones M1–M7 / risks) and **`docs/AGENT_HANDBOOK.md`** (how to do each milestone, the 3 local gates, the do-not-touch list).
 
-**Plan (re-scoped 2026-10-11 — see `docs/ROADMAP.md`).** The old "Phase 1 = Rust core + the existing WebView frontend, Phase 2 = reconsider Slint" plan is **dead**. The goal turned out to be *the artifact itself* (small / fast / native), which a WebView can never deliver — so we go **straight to Slint**, and the core becomes a **library** (no HTTP, no SSE; Slint calls it in-process). Milestones are **M1..M7** in `docs/ROADMAP.md` §3. The `spike/slint-ui` branch **was deleted on 2026-10-09**, but its conclusions are archived in `AGENTS.md` ("Slint 探针结论（留档）") and **must be read before touching Slint** — especially the still-unverified blocker there (Slint #13548: Chinese title + keyword highlight + auto-wrap → parley panic), which is milestone **M1**.
+⚠️ **`AGENTS.md` is ~110KB and often too large to be auto-loaded — read it on demand.**
+Two sections there are **mandatory reading** right now:
+- **「Slint 探针结论（留档）」→ M1 实测结论（2026-10-16）**: M1 **PASSED** (#13548 not reproduced).
+  Also records the trap that faked a green run ("timer-driven redraw never redrew").
+- **「M2 开工前勘明（2026-10-16）」**: everything needed to start M2 without re-deriving it —
+  the JS truth source line map, `has_more` must become `Option<bool>`, the corrected
+  `onSettle` story, `"no resolver"` (not `no_resolver`), the `providers="  "` edge case,
+  the 16-provider id/name/flag table, and the settled design.
+
+**Plan (re-scoped 2026-10-11 — see `docs/ROADMAP.md`).** The old "Phase 1 = Rust core + the existing WebView frontend, Phase 2 = reconsider Slint" plan is **dead**. The goal turned out to be *the artifact itself* (small / fast / native), which a WebView can never deliver — so we go **straight to Slint**, and the core becomes a **library** (no HTTP, no SSE; Slint calls it in-process). Milestones are **M1..M7** in `docs/ROADMAP.md` §3.
+
+**M1 is DONE (2026-10-16) — Slint #13548 was NOT reproduced** (200 CJK titles + 50 Cyrillic, 580 forced synchronous repaints, no panic). So the Slint architecture stands. The `spike/slint-ui` branch and `slint-spike.yml` were **rebuilt** (the 2026-10-09 deletion was undone from dangling git objects — the old code was still in `.git`); the spike's `--selftest` is the CI gate. Conclusions + the two traps are in `AGENTS.md` ("Slint 探针结论（留档）").
 
 ```
 Cargo.toml              workspace root (members = ["crates/*"], exclude = ["src-tauri"] — src-tauri exists only on `feat/tauri`, not on `feat/rust`)

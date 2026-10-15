@@ -306,6 +306,109 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 全在 `docs/AGENT_HANDBOOK.md` §2；trait 形状与理由在 `docs/ROADMAP.md` §2.4。
 **provider 线后置**，不再是主推进方向。
 
+### 🔜 M2 开工前勘明（2026-10-16）—— **代码一行未写，直接接着写即可**
+
+勘察方式：读 `src/providers/index.js`（271 行，**唯一真值来源**）+ 现有 Rust 基座。
+下面每条都是**实测/实读**的，不是回忆。
+
+**① 真值来源与三条语义的位置**（`src/providers/index.js`）
+| 语义 | 行 | 备注 |
+|---|---|---|
+| `resolveTargets` 三条过滤 | 147–158 | 第 3 条：`page > 1 && !p.paginated && !p.demo` |
+| `runProvider`（计时 + 隔离） | 163–183 | 注意 catch 分支**没有 `hasMore` 键** |
+| `asyncPool` | 204–219 | ⚠️ 见下面第 ③ 条 |
+| `aggregateHasMore` | 190–198 | 三行判断，`typeof s.hasMore === 'boolean'` 是分水岭 |
+| `MAX_CONCURRENT = 8` | 223 | |
+
+**② 🔴 `has_more` 必须是 `Option<bool>`** —— 这是本轮最重要的发现
+- Rust 现状：`SearchOutcome.has_more: bool`，而**全仓只有 3 处**引用它
+  （`lib.rs` 的字段声明 + `ok()`/`err()` 两个构造），**16 个 provider 没有一个设过 `true`**
+  —— 它是个死字段。爆炸半径实测 = 改 3 行，**测试里 0 处引用**，`SearchOutcome::ok/err`
+  的 66 个调用点全都不受影响（构造器不收这个参数）。
+- JS 侧：只有 `demo.js` 显式返回 `hasMore`；其余 16 家是 `undefined`。
+- 而 `aggregateHasMore` 里 **`undefined` 与显式 `false` 走不同分支**：
+  前者回退到 `!!p.paginated`，后者是 provider 的明确否决。
+  ⇒ 用 `bool` 会在「provider 说 false 但它是 paginated」时给出**错的** `hasMore`。
+  ⇒ **`Option<bool>`：`None` = 没表态。**
+
+**③ ⚠️ 章节 §2.1② 的「onSettle 是唯一原因」说法要更正**
+`asyncPool(tasks, limit, onSettle)` 的 **`onSettle` 参数在两个调用点都没被传**
+（都只传 2 个参数，是死参数）。流式的真实来源是每个 task 自己链上的
+`.then(...)`：provider 一 resolve 就立刻写 `perProvider` / `allResults` / 调 `onProvider`。
+⇒ 验收测试钉「**provider 一返回就上报，不等慢的**」；池子那层单独钉「同时在飞 ≤ 8」。
+
+**④ JS 的「没有 resolver」不是 `no_resolver`**
+`server.js` 里是 **HTTP 404 + `{ error: 'no resolver' }`**（**有空格**）——
+它是**端点级**行为，不是 provider 返回值。ROADMAP §2.4 草案写的 `no_resolver` 与 JS 不符。
+⇒ Rust 侧没有 HTTP 层，收敛成 trait 默认方法的返回值，字符串**取 JS 原文 `"no resolver"`**。
+
+**⑤ `providers` 参数的边界比想象中怪**（`?providers=a,b`）
+| 输入 | JS 结果 |
+|---|---|
+| `null` / `""` | `wanted = null` → **全都要**（空串是 falsy） |
+| `"  "`（纯空白） | `wanted = []` → **一个都不查**（不是"全都要"！） |
+| `"a,,b"` | `["a","b"]` |
+
+**⑥ 崩溃路径的形状**：JS catch 分支的 status 是
+`{ status:'error', count:0, error: e.message || 'crash', ms }` —— **没有 `hasMore` 键**
+⇒ Rust `has_more: None`、`error: Some("crash")`（JS 的兜底串就是 `'crash'`）。
+
+**⑦ 16 家已搬站点的 id / name / 旗标（逐字核对过，`module.exports` 在 JS 文件末尾）**
+
+| id | name | paginated | browseable | resolve_magnet |
+|---|---|---|---|---|
+| `tpb` | The Pirate Bay | | | |
+| `nyaa` | NYAA | ✅ | | |
+| `yts` | YTS | | ✅ | |
+| `knaben` | Knaben | | | |
+| `torrentscsv` | TorrentsCSV | | | |
+| `limetorrents` | LimeTorrents | ✅ | | |
+| `therarbg` | TheRarBg | | | ✅ |
+| `rutor` | Rutor | ✅ | | |
+| `torrent9` | Torrent9 | | | ✅ |
+| `zeromagnet` | ZeroMagnet | | | ✅ |
+| `oxtorrent` | OxTorrent | | | ✅ |
+| `audiobookbay` | AudioBookBay | | | ✅ |
+| `filemood` | FileMood | | | |
+| `internetarchive` | InternetArchive | | | |
+| `linuxtracker` | LinuxTracker | | | |
+| `megapeer` | MegaPeer | | | ✅ |
+
+⚠️ **注册表顺序** = JS `REGISTRY` 里这 16 个的相对顺序（`1337x` 等未搬的要跳过、
+但**别重排**）——UI 显示顺序就是它。详见 `src/providers/index.js:79-121`。
+
+**⑧ 设计定案（可以直接照这个写，但有两条待定，见下）**
+- `Provider` trait：`Provider: Send + Sync`，方法用 **boxed future**
+  （`Pin<Box<dyn Future + 'a>>`）而不是 `async fn in trait` —— **因为 AFIT 让 trait
+  不能做 trait object**，而 D17 要留的 Torznab 口子正是「运行时插入带状态的
+  provider（URL + API key）」⇒ 必须是 `Box<dyn Provider>`。**不加 `Send`**（与
+  `run_mirrors` 的 `Fut` 约束一致，聚合用 `FuturesUnordered` 在**当前任务**上驱动）。
+- 模块：`aggregate.rs`（三条语义 + 池）、`registry.rs`（16 家 impl + `registry()`）。
+  ⚠️ 16 家的 impl 集中放 `registry.rs`、**不改 16 个 provider 文件** —— 理由：
+  本机无 `cargo check`，新代码放新文件能把编译风险圈在"不会弄坏已有 16 个测试"里。
+- 依赖：`bt-providers` 需新增 **`futures = "0.3"`**（`FuturesUnordered` / `StreamExt`）。
+  `tokio` 只需留在 `[dev-dependencies]`（聚合层本身不需要运行时）。
+  实测：`futures` 目前**不是**任何 crate 的依赖；根 `Cargo.lock` 未入库，CI 会现场生成。
+- 状态形状：`ProviderStatus { status: ProviderState, count, error, has_more, ms }`，
+  `ProviderState` 是 enum 但带 `as_str()` 回 `"ok"/"error"`（M6 差分要用）。
+- 返回：`providers` 用 **`Vec<(String, ProviderStatus)>` 而不是 map** —— JS 的
+  `perProvider` 是对象，**key 顺序 = provider 完成顺序**（`asyncPool` 按谁先 resolve 落库）。
+  用 `BTreeMap` 会把这个顺序丢掉。`ms` 用 `Instant::elapsed().as_millis()`。
+
+**⑨ 两条待定（下次开工先拍）**
+1. **要不要 `catch_unwind` 兜住 provider 的 panic？** JS 的 `try/catch` 连
+   "抛异常"也兜；Rust 的 provider 契约是「永不 panic」，所以 `SearchOutcome.error`
+   已经覆盖了**错误**路径。但若某个 provider 违约 panic，Rust 会**带走整个聚合**
+   （JS 不会）。加它需要 `AssertUnwindSafe(...).catch_unwind()`，而本机无 cargo、
+   没法验证这个 API 组合 ⇒ **建议下一轮单独做、单独测**，别和主体混在一起。
+2. `Provider` trait 是否要暴露 `enabled()`？JS 的 `resolveTargets` 第一条就是
+   `if (!p.enabled ...)`，但 REGISTRY 里 16 家全是 `true`，用户级开关走 `wanted`。
+   建议**建模**（默认 `true`），否则第 1 条语义少一个分支、测不全。
+
+⚠️ **本次会话到此为止（用户 5h 限额）**：M2 **代码未写**，工作区干净，
+上面 ⑧ 的定案可以直接落笔。下次开工：写 `Cargo.toml` + `lib.rs`（`Option<bool>` + trait）
++ `aggregate.rs` + `registry.rs` + `tests/aggregate.rs`，然后 `rustfmt --check` 后推 CI。
+
 **进度存档（2026-10-11）**：`audiobookbay`…`nyaa` 9 个 + **`megapeer`（第 11 个）**
 + **`zeromagnet`（第 12 个）**都已搬完。⭐ 本机能抓到的候选早已用完；剩下站点的
 fixture 靠 CI 抓（`fetch-fixture.yml`），探针链路支持 **per-fixture 编码声明**
