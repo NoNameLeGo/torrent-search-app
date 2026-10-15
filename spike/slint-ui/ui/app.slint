@@ -1,0 +1,227 @@
+// Slint spike — BT 聚合搜索 UI 可行性验证
+// 验证四件事：
+//   1. StyledText 中文关键词高亮（用 slint::StyledText::from_markdown，不是 @markdown）
+//   2. ListView 在 2000 条中文卡片下是否真虚拟化（按「重置计数 → 滚动 → 刷新计数」测）
+//   3. CJK 字体：default-font-family 是否生效（顶部可实时改字体名，不用重编译）
+//   4. ⚠️ 已知 bug 压力测试：Slint #13548 —— 内联样式跨换行 + 换行后是多字节字符时，
+//      parley 会 panic（"not a char boundary"）。中文标题 + max-lines:2 正好命中最坏情况。
+
+import { ListView, LineEdit, Button, Switch } from "std-widgets.slint";
+
+export struct TorrentCard {
+    // M1 自检用：卡片序号。实例化回调把它带回 Rust，于是
+    // 「200 条里到底哪几条真被布局过」是**实测**，不是靠滚动偏移推断。
+    idx: int,
+    // 关键：类型必须是 styled-text，不是 string。
+    // string -> styled-text 没有隐式转换，而 @markdown() 会把插值内容整体转义
+    // （官方文档："Any text passed as an argument to the macro will be escaped"），
+    // 所以 markup 只能由 Rust 侧 StyledText::from_markdown() 构造。
+    title-markup: styled-text,
+    title-plain: string,
+    meta: string,
+    source: string,
+    cat: string,
+    seeds: int,
+}
+
+export global Theme {
+    in-out property <bool> dark: true;
+
+    // Catppuccin 官方色板：dark = Mocha，light = Latte。全部取自官方 token，不自己造色。
+    out property <color> bg:       dark ? #1e1e2e : #dce0e8;  // Mocha base     / Latte crust
+    out property <color> card:     dark ? #313244 : #eff1f5;  // Mocha surface0 / Latte base
+    out property <color> text:     dark ? #cdd6f4 : #4c4f69;  // text
+    out property <color> sub:      dark ? #9399b2 : #8c8fa1;  // overlay2
+    out property <color> accent:   dark ? #89b4fa : #1e66f5;  // blue
+    out property <color> surface1: dark ? #45475a : #ccd0da;  // surface1 / surface0
+    out property <color> hl:       dark ? #f9e2af : #df8e1d;  // yellow（高亮色，Rust 侧读它生成 markup）
+}
+
+component CardWidget inherits Rectangle {
+    in property <TorrentCard> item;
+    in property <bool> styled: true;
+
+    // 计数走 callback 而不是写全局属性 —— 写全局会形成属性依赖环，
+    // 之前那版「已实例化 2628 个 / 共 200 条」就是这么来的。
+    // 回传 idx：M1 自检据此统计「被布局过的卡片去重集合」。
+    callback counted(int);
+    init => { self.counted(self.item.idx); }
+
+    height: 80px;
+    background: Theme.card;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: Theme.surface1;
+
+    HorizontalLayout {
+        padding: 10px;
+        spacing: 10px;
+
+        Rectangle {
+            width: 60px;
+            background: Theme.surface1;
+            border-radius: 6px;
+
+            VerticalLayout {
+                alignment: center;
+                spacing: 2px;
+
+                Text {
+                    text: "\{item.seeds}";
+                    color: Theme.accent;
+                    font-size: 17px;
+                    font-weight: 700;
+                    horizontal-alignment: center;
+                }
+                Text {
+                    text: "seeds";
+                    color: Theme.sub;
+                    font-size: 10px;
+                    horizontal-alignment: center;
+                }
+            }
+        }
+
+        VerticalLayout {
+            spacing: 4px;
+            alignment: center;
+
+            if styled : StyledText {
+                text: item.title-markup;
+                default-color: Theme.text;
+                default-font-size: 15px;
+                max-lines: 2;
+            }
+
+            if !styled : Text {
+                text: item.title-plain;
+                color: Theme.text;
+                font-size: 15px;
+                wrap: no-wrap;
+                overflow: elide;
+            }
+
+            HorizontalLayout {
+                alignment: start;
+                spacing: 6px;
+
+                Text { text: item.meta;   color: Theme.sub;    font-size: 12px; }
+                Text { text: "·";         color: Theme.sub;    font-size: 12px; }
+                Text { text: item.source; color: Theme.accent; font-size: 12px; }
+                Text { text: "·";         color: Theme.sub;    font-size: 12px; }
+                Text { text: item.cat;    color: Theme.sub;    font-size: 12px; }
+            }
+        }
+    }
+}
+
+export component MainWindow inherits Window {
+    in property <[TorrentCard]> cards;
+    in-out property <string> query: "1080p";
+    in-out property <string> font-family: "Microsoft YaHei";
+    in-out property <bool> styled: true;
+    in-out property <int> count-shown: 0;
+    in-out property <int> total: 0;
+
+    callback requery(string);
+    callback resize-list(int);
+    callback toggle-theme();
+    callback card-instantiated(int);
+    callback reset-count();
+    callback refresh-count();
+
+    title: "Slint spike — BT 聚合搜索";
+    width: 1180px;
+    height: 800px;
+    background: Theme.bg;
+    default-font-family: font-family;
+    default-font-size: 14px;
+
+    VerticalLayout {
+        padding: 12px;
+        spacing: 10px;
+
+        // ---- 工具条 ----
+        HorizontalLayout {
+            spacing: 8px;
+
+            LineEdit {
+                horizontal-stretch: 1;
+                placeholder-text: "关键词（输入即重算高亮）";
+                text <=> root.query;
+                accepted(t) => { root.requery(t); }
+                edited(t) => { root.requery(t); }
+            }
+
+            LineEdit {
+                width: 200px;
+                placeholder-text: "字体名（Microsoft YaHei / SimSun）";
+                text <=> root.font-family;
+            }
+
+            Switch {
+                text: "StyledText 高亮";
+                checked <=> root.styled;
+            }
+
+            Button {
+                text: "切换主题";
+                clicked => { root.toggle-theme(); }
+            }
+        }
+
+        // ---- 条数 / 诊断条 ----
+        HorizontalLayout {
+            spacing: 6px;
+
+            Text {
+                text: "条数：";
+                color: Theme.sub;
+                vertical-alignment: center;
+            }
+            Button { text: "20";   clicked => { root.resize-list(20); } }
+            Button { text: "200";  clicked => { root.resize-list(200); } }
+            Button { text: "2000"; clicked => { root.resize-list(2000); } }
+
+            Text {
+                text: "|";
+                color: Theme.surface1;
+                vertical-alignment: center;
+            }
+
+            Button {
+                text: "重置计数";
+                clicked => { root.reset-count(); }
+            }
+            Button {
+                text: "刷新计数";
+                clicked => { root.refresh-count(); }
+            }
+
+            Text {
+                text: "共 \{root.total} 条   实测实例化 \{root.count-shown} 个卡片";
+                color: Theme.sub;
+                vertical-alignment: center;
+            }
+
+            Rectangle { horizontal-stretch: 1; background: transparent; }
+
+            Text {
+                text: "字体 \{root.font-family}";
+                color: Theme.sub;
+                vertical-alignment: center;
+            }
+        }
+
+        // ---- 结果列表 ----
+        ListView {
+            vertical-stretch: 1;
+
+            for card in root.cards : CardWidget {
+                item: card;
+                styled: root.styled;
+                counted(idx) => { root.card-instantiated(idx); }
+            }
+        }
+    }
+}

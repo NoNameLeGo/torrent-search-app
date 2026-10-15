@@ -1,0 +1,17 @@
+[package]
+name = "slint-spike"
+version = "0.0.1"
+edition = "2021"
+publish = false
+description = "Slint spike — 验证 StyledText 关键词高亮 / ListView 虚拟化 / CJK 字体"
+
+[workspace]
+
+[dependencies]
+slint = "1.18"
+
+[build-dependencies]
+slint-build = "1.18"
+
+[profile.release]
+opt-level = 2
