@@ -83,10 +83,14 @@ M6 差分验证（必须早于删 Node）       M7 打包 + GitHub Release
 | 分支 | 角色 | 状态 |
 |---|---|---|
 | `main` | **发版线**（Node/Express + Electron） | ⚠️ **尚未切换**，见下 |
-| `legacy/node-electron` | `main` 的存档分支（建于 `e81584d`） | 半废弃保留；主线上移后旧线不会丢 |
+| `legacy/node-electron` | `main` 的存档分支 —— **维护规则：始终指向 `main` 的当前 tip**（切 `main` 之前必须再同步一次） | 半废弃保留；主线上移后旧线不会丢 |
 | `feat/rust` | **Rust 主线**（当前开发分支） | 16 provider + M1 结论 |
-| `feat/tauri` | Tauri 壳（Node backend + node sidecar） | 旧线，仍可发版 |
+| `feat/tauri` | Tauri 壳（Node backend + node sidecar） | 旧线，仍可发版。⚠️ 只有 3 条 workflow（build / release / tauri-build）—— 它**从没**同步过较新的那些（ci-guard / live-smoke / html-probes / provider-health / fetch-fixture / rust）。**这不是 bug**：实测这 3 条都不引用 `scripts/`，所以不存在 main 那种「workflow 在、脚本不在」的坏链 |
 | `spike/slint-ui` | M1 的 spike（`--selftest` + `slint-spike.yml`） | 一次性；**代码不在 `feat/rust` 上**，别去那儿找 |
+
+**同步状态（2026-10-16 实测）**：5 条分支（`main` / `feat/rust` / `feat/tauri` / `spike/slint-ui` / `legacy/node-electron`）
+本地与 `origin` **逐一比对全部一致**，工作区干净。⚠️ `main` 与 `feat/tauri` 本地**没配 upstream 跟踪**
+（`git branch -vv` 里 upstream 为空）—— 推它们要显式 `git push origin <branch>`，别指望裸 `git push`。
 
 ⚠️ **「把 `main` 换成 Rust 线」这件事 2026-10-16 讨论过，结论是「等 M2 之后」**：
 - 门是 **D5 = 「聚合层跑通」**，而 M2 是 0%；换完 `main`，用户下载到的仍是 Electron 版
