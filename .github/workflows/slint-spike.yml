@@ -37,6 +37,18 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v5
 
+      - name: 前置检查 —— spike 目录在不在
+        # 本 workflow 也放在 main 上（为了能 workflow_dispatch），但 main 上没有 spike/。
+        # 手动触发必须指定 ref；否则在这里就明确报错，
+        # 而不是等到 cargo 抛一句难懂的「couldn't find Cargo.toml」。
+        shell: pwsh
+        run: |
+          if (-not (Test-Path spike/slint-ui/Cargo.toml)) {
+            Write-Host "::error::当前 ref 上没有 spike/slint-ui/。手动触发请指定 ref："
+            Write-Host "::error::  gh workflow run slint-spike.yml --ref spike/slint-ui"
+            exit 1
+          }
+
       - name: 安装 Rust stable
         uses: dtolnay/rust-toolchain@stable
 
