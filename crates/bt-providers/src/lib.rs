@@ -9,15 +9,14 @@
 //! - **HTML 组（11）**：`linuxtracker`、`filemood`、`rutor`、`audiobookbay`、`therarbg`、
 //!   `limetorrents`、`torrent9`、`oxtorrent`、`nyaa`、`megapeer`、`zeromagnet`
 //!
-//! ## 抽象：已提取的共用件 + 仍未建的 trait
+//! ## 抽象：已提取的共用件 + [`Provider`] trait
 //!
 //! - ✅ [`run_mirrors`]：镜像回退的公共实现（2026-10-11 从 10 份逐字副本里提上来）
 //! - ✅ [`MagnetOutcome`]：惰性磁力解析的返回形状（6 个 provider 在用）
-//! - ⏳ **`Provider` trait：M2 再建** —— 现阶段（16 个 provider）的差异是「站点名」而不是
-//!   「行为」，一个 `run_mirrors` helper 就够。但 M2 的聚合层要**并发遍历异构的 provider
-//!   列表**、D17 要给 Torznab 留口子、`resolve_magnet` 只 6/16 家有（**可选能力** =
-//!   trait 默认方法）—— 那时才该建。形状与反方意见见 `docs/ROADMAP.md` §2.4。
-//!   ⚠️ 旧的 `docs/BT_APP_DESIGN.md` 已删（其「先做 HTTP/WebView」的前提被推翻）。
+//! - ✅ **`Provider` trait + 聚合层（M2，2026-10-16）** —— 见 [`aggregate`] 与 [`registry`]。
+//!   引入它的三个真实消费者：① 聚合层要并发遍历异构 provider 列表；
+//!   ② D17 要给 Torznab 留「运行时插入」的口子；③ `resolve_magnet` 只有 6/16 家有
+//!   （**可选能力 = trait 默认方法**）。⚠️ 代码量因此**净增**，这不是为了省行数。
 //!
 //! ## 约定（对齐 JS 版）
 //! - 每个 provider 暴露一个 `async fn search(http, query, page) -> SearchOutcome`
@@ -25,6 +24,7 @@
 //! - **永不 panic、永不返回 Err**：失败一律落在 `SearchOutcome::error`
 //! - 结果必须过 `bt_core::normalize::normalize()` 再返回
 
+pub mod aggregate;
 pub mod audiobookbay;
 pub mod filemood;
 pub mod internetarchive;
@@ -34,6 +34,7 @@ pub mod linuxtracker;
 pub mod megapeer;
 pub mod nyaa;
 pub mod oxtorrent;
+pub mod registry;
 pub mod rutor;
 pub mod therarbg;
 pub mod torrent9;
@@ -43,24 +44,37 @@ pub mod value;
 pub mod yts;
 pub mod zeromagnet;
 
+use bt_core::http::HttpClient;
 use bt_core::TorrentResult;
 use std::future::Future;
+use std::pin::Pin;
 
 /// provider 的搜索结果。字段名沿用 JS 版：`results` / `error` / `hasMore`。
 #[derive(Debug, Clone, PartialEq)]
 pub struct SearchOutcome {
     pub results: Vec<TorrentResult>,
     pub error: Option<String>,
-    pub has_more: bool,
+    /// ⚠️ **`Option<bool>`，不是 `bool`** —— 对齐 JS：provider **不表态**时是 `undefined`。
+    ///
+    /// 而 `undefined` 与显式 `false` 在聚合层的 `aggregateHasMore`
+    /// （`src/providers/index.js:190-198`）里走**不同分支**：
+    /// `undefined` → 回退到 `!!p.paginated`；`false` → provider 的**明确否决**。
+    /// 若用 `bool`，「provider 说 false、但它其实是 paginated」时聚合层会给出错的
+    /// `has_more` —— 这正是 M2 勘明时发现、必须改掉的地方。
+    ///
+    /// 16 个已搬 provider 一律留 `None`（与 JS 一致：那边也只有 `demo.js` 会显式返回它）。
+    pub has_more: Option<bool>,
 }
 
 impl SearchOutcome {
     /// 正常返回（**无结果也算正常**，`error` 保持 `None`）。
+    ///
+    /// `has_more` 留 `None` = 「provider 没表态」，不是「没有下一页」。
     pub fn ok(results: Vec<TorrentResult>) -> Self {
         Self {
             results,
             error: None,
-            has_more: false,
+            has_more: None,
         }
     }
 
@@ -69,7 +83,7 @@ impl SearchOutcome {
         Self {
             results: Vec::new(),
             error: Some(msg.into()),
-            has_more: false,
+            has_more: None,
         }
     }
 }
@@ -150,4 +164,146 @@ impl MagnetOutcome {
             error: Some(msg.into()),
         }
     }
+}
+
+// ===========================================================================
+// M2（2026-10-16）：Provider trait + 聚合层的公共类型
+// ===========================================================================
+
+/// `Provider::search` / `resolve_magnet` 返回的 future。
+///
+/// ## 为什么是 boxed future，而不是 `async fn` in trait（AFIT）
+///
+/// AFIT 会让 trait **不能做 trait object**（`dyn Provider` 不成立）。而 D17 要留的
+/// Torznab 口子恰恰是「**运行时**插入一个非编译期固定的 provider」——那种 provider
+/// 带着自己的状态（URL + API key），必须是 `Box<dyn Provider>`。
+/// `docs/ROADMAP.md` §2.4 的草案写的是 `async fn`，2026-10-16 开工勘明后改成这个形状。
+///
+/// 代价是每次调用一次装箱分配 —— 相对于一次网络往返可以忽略。
+///
+/// ## ⚠️ 刻意**不加** `Send`
+///
+/// 与 [`run_mirrors`] 的 `Fut` 约束保持一致。聚合层用 `FuturesUnordered` 在
+/// **当前任务**上驱动，不需要 `Send`。将来若要改成 `tokio::spawn`，给这里加
+/// `+ Send` 即可（一次机械改动，但那时也意味着 provider 的 future 必须全部 Send，
+/// 需要逐个确认 —— 别顺手加）。
+pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
+
+/// 「这个 provider 没有惰性磁力解析能力」的错误串。
+///
+/// ⚠️ **与 JS 的对照**：JS 里这**不是** provider 的返回值，而是 `/api/magnet`
+/// 端点在找不到 resolver 时的 **HTTP 404 + `{ error: 'no resolver' }`**
+/// —— 注意**中间有空格**（`docs/ROADMAP.md` §2.4 早期草案写的 `no_resolver` 是错的）。
+/// Rust 侧没有 HTTP 层，于是把它收敛成 trait 默认方法的返回值；字符串取 JS 原文，
+/// 这样万一它冒到界面上，两边文案一致。
+pub const NO_RESOLVER: &str = "no resolver";
+
+/// 一个搜索源。
+///
+/// `Send + Sync` 是为了让 `Box<dyn Provider>` 能放进 `Arc` 之类跨线程的东西里
+/// —— 聚合层现在在单任务上驱动、用不到，但 Torznab 的动态 provider 会是长期存活的
+/// 配置对象，先把约束摆正比事后补要便宜。
+pub trait Provider: Send + Sync {
+    /// 稳定 id，**与 JS 逐字一致** —— `?providers=` 过滤与每站状态的 key 都用它。
+    fn id(&self) -> &'static str;
+
+    /// 展示名，**与 JS 逐字一致**（UI 状态栏用）。
+    fn name(&self) -> &'static str;
+
+    /// 对齐 JS `REGISTRY` 里的 `enabled` 字段（16 个已搬站点全是 `true`）。
+    ///
+    /// ⚠️ 别和用户级开关搞混：**用户选哪几家走
+    /// [`aggregate::SearchArgs::providers`]**，不是这个。
+    fn enabled(&self) -> bool {
+        true
+    }
+
+    /// 它的 `search` 真的会消费 `page` 吗（见 `docs/AGENT_HANDBOOK.md` §2.1①）。
+    /// 不消费的引擎翻到第 2 页只会返回同一批结果，再被去重掉 —— 所以要被筛掉。
+    fn paginated(&self) -> bool {
+        false
+    }
+
+    /// 无关键词也能查（latest / trending）。
+    fn browseable(&self) -> bool {
+        false
+    }
+
+    /// 对齐 JS 的 `p.demo`：离线假数据、无关键词也能查、且 `page` 对它有效。
+    ///
+    /// JS 里只有 `demo.js` 一家，Rust 侧暂无。**但语义必须建模** ——
+    /// `resolveTargets` 第 3 条是 `page > 1 && !paginated && !demo`，
+    /// 少一个分支那条语义就测不全。
+    fn demo(&self) -> bool {
+        false
+    }
+
+    /// 查一页。
+    ///
+    /// **契约：永不 panic、永不返回 `Err`** —— 失败一律落在 [`SearchOutcome::error`]。
+    fn search<'a>(
+        &'a self,
+        http: &'a HttpClient,
+        query: &'a str,
+        page: u32,
+    ) -> BoxFuture<'a, SearchOutcome>;
+
+    /// **可选能力**：16 家里只有 6 家能惰性解析磁力（`audiobookbay` / `megapeer` /
+    /// `oxtorrent` / `therarbg` / `torrent9` / `zeromagnet`）。没有的就是没有 —— 照抄 JS。
+    ///
+    /// 这正是用 **trait 默认方法**表达「可选能力」的地方，也是当初决定引入 trait
+    /// 的理由之一。
+    fn resolve_magnet<'a>(
+        &'a self,
+        _http: &'a HttpClient,
+        _url: &'a str,
+    ) -> BoxFuture<'a, MagnetOutcome> {
+        Box::pin(async { MagnetOutcome::err(NO_RESOLVER) })
+    }
+}
+
+/// 每站状态里的 `status` 字段。JS 用的是字符串 `'ok' | 'error'`；这边用 enum
+/// （Rust 里更顺手），但**必须能还原成 JS 的字符串** —— M6 差分要用。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProviderState {
+    Ok,
+    Error,
+}
+
+impl ProviderState {
+    /// 与 JS 逐字一致的小写串。
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ProviderState::Ok => "ok",
+            ProviderState::Error => "error",
+        }
+    }
+}
+
+/// 每站状态 —— **形状照抄 JS**（`src/providers/index.js` 的 `runProvider`）：
+/// `{ status, count, error, hasMore, ms }`。UI 的状态栏按这个渲染。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProviderStatus {
+    pub status: ProviderState,
+    pub count: usize,
+    pub error: Option<String>,
+    /// ⚠️ **`Option<bool>`，不是 `bool`** —— 见 [`SearchOutcome::has_more`] 的说明：
+    /// `None` = provider 没表态（JS 的 `undefined`），与显式 `false` 走不同分支。
+    ///
+    /// 另外注意 JS 的 **catch 分支根本没有这个 key**（崩溃时也是 `undefined`）
+    /// ⇒ 崩溃路径同样填 `None`。
+    pub has_more: Option<bool>,
+    /// 单个 provider 自己的耗时（毫秒），照 JS 的 `Date.now() - startedAt`。
+    pub ms: u64,
+}
+
+/// 流式回调的载荷：JS 的 `onProvider({ id, name, results, status })`。
+///
+/// `id` / `name` 用 `String` 是为了让回调不背生命周期（它们在 JS 里就是普通字符串）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProviderReport {
+    pub id: String,
+    pub name: String,
+    pub results: Vec<TorrentResult>,
+    pub status: ProviderStatus,
 }
