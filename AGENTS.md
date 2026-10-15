@@ -40,8 +40,9 @@ Electron mode: `npm run electron` (picks a free port automatically, no collision
 `main` 上的 Node/Express + Electron/Tauri 实现继续可用；Rust 版每搬完一块就替代一块。
 
 **📊 进度快照（2026-10-11）**：**16 个 provider 已搬**（5 JSON + 11 HTML），
-CI **382 passed / 0 failed**（clippy + fmt 均为硬门）；探针 **126 条 / 17 fixture**；
-**聚合层 = 100%（M2）、下载器 = 100%（M3），Slint UI = 0%**（provider 核心已有 16 个家底）。
+CI **397 passed / 0 failed**（clippy + fmt 均为硬门）；探针 **126 条 / 17 fixture**；
+**聚合层 = 100%（M2）、下载器 = 100%（M3）、UI = 第一部分（M4 进行中：能编译 + 映射层有回归，
+`--selftest` 未做）**（provider 核心已有 16 个家底）。
 
 🔴 **2026-10-11 目标重订 —— 动手前先读 `docs/ROADMAP.md`。**
 那一轮追问推翻了旧路线的隐含假设（「能搜到东西」就是目标），结论是：
@@ -73,8 +74,9 @@ M0 ✅ run_mirrors 提取（净 −73 行）
 M1 ✅ 验 Slint 风险（#13548）—— **未复现，Slint 可用**（2026-10-16，见下面「Slint 探针结论」）
 M2 ✅ 聚合层 + Provider trait（2026-10-16，347 tests；**D5「聚合层跑通」的门已满足**）
 M3 ✅ bt-downloaders（2026-10-16，4 客户端 / 34 条离线测试）
-M4 ⬅️ bt-app Slint MVP              M5 引擎体检 → 砍掉死的
-M6 差分验证（必须早于删 Node）       M7 打包 + GitHub Release
+M4 ⬅️ bt-app Slint MVP（**进行中**：UI + 接线 + 映射层已落地，`--selftest` 待做）
+M5 引擎体检 → 砍掉死的              M6 差分验证（必须早于删 Node）
+M7 打包 + GitHub Release
 ```
 
 **三条硬约束，别调换**：**M1 必须最先**（Slint 挂了，M2 的架构就得重做）；**M6 必须早于删 Node**（否则「逐字段一致」永远无法再验）；**M5 早于补引擎**（现在没有理由盲搬）。
@@ -323,17 +325,46 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 axios 把解析不了的正文退化成字符串 ⇒「2xx + 非 JSON」算**成功**（软检查）、
 JS 真值语义（`aria2` 的 `error: 0/""/false` 都是假）。详见 commit `c3fe36a`。
 
-**下一件：M4 —— `bt-app`（Slint MVP，**唯一的 UI**）。**
-目标 = 手册 S6「搜索 → 结果列表 → 磁力 → 推送下载器」全链路手工走通。
-现成的地基：`bt-providers::aggregate`（8 路并发 + `search_stream` 每站回调）、
-`bt-downloaders`（四个客户端 + `detect`）、`bt-core`（normalize / http / dom）。
-⚠️ **线程模型是这一层最容易写错的地方**（`docs/ROADMAP.md` §2.2）：网络 IO 在 tokio 上跑、
-Slint 的 UI 是单线程的 ⇒ 后台任务**不能直接改 UI 属性**，必须
-`slint::invoke_from_event_loop(...)` 把更新跨回 UI 线程；而且要**每站一回来就更新**，
-别「等全部跑完再一次性填」—— 那会让 8 路并发的体验完全暴露给用户。
-Slint 的踩坑清单（`styled-text` / 别在 `init` 写全局属性 / 切主题要重建模型 /
-CI 上必须 `SLINT_BACKEND=winit-software`）见本文件「Slint 探针结论」与
-`spike/slint-ui`（M1 的 spike，**可以直接抄它的窗口与模型写法**）。
+**🟡 M4 进行中（2026-10-16 第一部分）—— `crates/bt-app` 落地，CI 397 tests / 0 failed。**
+`ui/app.slint`（**唯一的 UI**）+ `src/main.rs`（接线）+ `src/highlight.rs`（从 M1 spike 原样搬来）
++ `src/ui_model.rs`（纯映射层，**不 import slint**，11 条单测）。317→397 条测试里
+新增 15 条，全在 `ui_model` / `highlight` 上 —— GUI 渲染路径 CI 测不了，但那两层的**行为**
+可以，所以特意把它们从接线里拎出来。
+
+**🔴 M4 抓到一个 M2 埋下的真缺陷 —— 这条最值得记：`BoxFuture` 少了 `+ Send`。**
+三层各自 CI 全绿（338 → 382 tests），但第一次把它们**拼起来**就编译失败：
+`future cannot be sent between threads safely`，因为 GUI 必须把搜索丢到 `tokio::spawn`
+（要求 `Future + Send + 'static`），而 M2 把 `BoxFuture` 定义成
+`Pin<Box<dyn Future + 'a>>` —— M2 当时**刻意**不加 `Send`，理由也写在那儿了
+（「聚合层在当前任务上驱动，不需要 Send；将来要改成 tokio::spawn 时再加，那时
+得逐个确认 provider」）。**那个「将来」就是 M4。** 逐个确认的结果：16 家全是
+reqwest + `bt_core::dom`，`async` 体里没有 `Rc`/`RefCell`，所以是**纯放宽、一个
+provider 都没改**；同一个要求传播到四处泛型约束（`BoxFuture` / `run_mirrors` 的
+`F`+`Fut` / `async_pool` 的 `F`+`Fut`+`on_settle` / `search_stream` 的 `on_provider`）。
+**教训：接口级问题只有"拼起来"才会暴露 —— 这正是 M4 早于 M5/M6 的价值。**
+
+**Slint 又踩了两个新坑（都已修，别退回去）：**
+1. **组件内的 `root` 指组件自己，不是窗口。** `ResultCard` 里直接写
+   `root.push-row(...)` 编译不过 —— 必须在组件上开 `callback push(int)`，
+   再在 `ListView` 的实例化处 `push(idx) => { root.push-row(idx); }` 转发。
+2. **`VecModel` 的 `row_count` / `set_row_data` 是 `Model` trait 的方法**，
+   不是固有方法 —— 少 `use slint::Model;` 会报
+   `no method named row_count found for struct Rc<VecModel<..>>`。
+
+**线程模型（`docs/ROADMAP.md` §2.2 点名"最容易写错"）已按要求落实**：
+后台任务绝不直接改 UI 属性（数据装进 `invoke_from_event_loop` 回 UI 线程）；
+后台闭包**不能捕获 `Rc`**（回调要求 `Send + 'static`）⇒ UI 侧可变状态放
+**thread_local**，闭包只捕获「拥有所有权的数据 + `Weak<AppWindow>`」；
+**每站一回来就更新**且列表模型**增量 `push`**（不是整块重建 —— 否则每来一站都会把
+用户的滚动位置顶回去）。回调里用 `as_weak()` 而不是 `clone_strong()`：
+回调存在组件内部，强引用会成环、组件永不释放。
+
+**⏳ M4 还没做完的那一步：`--selftest`。** 目前 CI 只能证明「`.slint` 编译通过 +
+映射层单测通过」，**不能**证明窗口真的渲染正确、全链路真的通。
+下一步 = 照 M1 的套路加 `--selftest`（假 provider + 本地桩下载器，跑通
+搜索→列表→取磁力→推送；必须**强制重绘**才算数，见「Slint 探针结论」里那个
+"timer 驱动的重绘从不重绘"的假绿陷阱），并在 `rust.yml` 里加一步
+`SLINT_BACKEND=winit-software` 跑它。
 **provider 线仍然后置**（D13），不是主推进方向。
 
 ### 📌 M2 开工前勘明（2026-10-16）—— **已执行完毕，留档备查**

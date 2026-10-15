@@ -149,8 +149,25 @@ crates/bt-downloaders/  the 4 download clients (qB / Transmission / aria2·Motri
                         ⚠️ axios throws on non-2xx but reqwest does NOT → every "axios would throw"
                         site must check the status itself; and a non-JSON 2xx body counts as SUCCESS
                         (the JS success checks are soft: `data && data.result && …`).
-(pending)  crates/bt-app/ (**the Slint app — the only UI** · M4)
-           bt-torznab is **not built** this round (D17: leave an abstraction hook only)
+crates/bt-app/          the Slint app (**the only UI**, M4 — in progress). `ui/app.slint` +
+                        `src/main.rs` (wiring) + `src/highlight.rs` (ported from the M1 spike) +
+                        `src/ui_model.rs` (**pure** mapping, does NOT import slint, so it is unit-testable
+                        offline — that is the part of M4 CI can actually regress).
+                        ⚠️ Thread model: network IO on tokio, Slint UI is single-threaded → background tasks
+                        must NEVER touch UI properties; hand data back via `slint::invoke_from_event_loop`.
+                        UI-side mutable state therefore lives in a **thread_local** (the callback requires
+                        `Send + 'static`, so it cannot capture an `Rc`), and the closure captures only owned
+                        data + a `Weak<AppWindow>`. Use `as_weak()` (not `clone_strong()`) in callbacks —
+                        callbacks live inside the component, so a strong ref cycles and never frees it.
+                        Row models are **push-incrementally** updated, never rebuilt wholesale (rebuilding
+                        would reset the user's scroll position on every provider report).
+                        Two new Slint traps: `root` inside a component means *that component*, not the window
+                        (forward via a `callback` + `x(idx) => { root.y(idx); }`); and `VecModel`'s
+                        `row_count`/`set_row_data` are **`Model` trait** methods — `use slint::Model;`.
+                        ⏳ Not done yet: `--selftest` (so CI only proves the .slint compiles + ui_model works,
+                        NOT that the window renders).
+
+bt-torznab is **not built** this round (D17: leave an abstraction hook only)
 ```
 
 **Porting a provider (recipe, copy tpb/knaben/torrentscsv/yts):** read the JS, write `src/<name>.rs` with a payload struct (if it's a POST) + `search()` + `search_at(http, api, query)` (the latter is what makes offline tests possible), then `tests/<name>.rs` with field-by-field assertions. **Don't hand-write the expected values** — feed the same fixture through `src/lib/normalize.js` with a throwaway Node script and copy its output into the assertions; that is what makes "same as the Node version" verifiable. Pin any deliberate divergence as a named `divergence_*` test.
