@@ -119,8 +119,8 @@ impl SearchOutcome {
 /// 当前写法 ✅、去掉 `'a` 的写法 ❌）。
 pub async fn run_mirrors<'a, F, Fut>(name: &str, bases: &'a [&'a str], attempt: F) -> SearchOutcome
 where
-    F: Fn(&'a str) -> Fut,
-    Fut: Future<Output = SearchOutcome>,
+    F: Fn(&'a str) -> Fut + Send,
+    Fut: Future<Output = SearchOutcome> + Send,
 {
     let mut errs: Vec<String> = Vec::new();
 
@@ -181,13 +181,26 @@ impl MagnetOutcome {
 ///
 /// 代价是每次调用一次装箱分配 —— 相对于一次网络往返可以忽略。
 ///
-/// ## ⚠️ 刻意**不加** `Send`
+/// ## `+ Send` 是 M4 逼出来的（2026-10-16 改，原决策在此留档）
 ///
-/// 与 [`run_mirrors`] 的 `Fut` 约束保持一致。聚合层用 `FuturesUnordered` 在
-/// **当前任务**上驱动，不需要 `Send`。将来若要改成 `tokio::spawn`，给这里加
-/// `+ Send` 即可（一次机械改动，但那时也意味着 provider 的 future 必须全部 Send，
-/// 需要逐个确认 —— 别顺手加）。
-pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
+/// M2 当时**刻意不加** `Send`，理由原文：「聚合层用 `FuturesUnordered` 在**当前任务**上
+/// 驱动，不需要 `Send`。将来若要改成 `tokio::spawn`，给这里加 `+ Send` 即可 ——
+/// 那时也意味着 provider 的 future 必须全部 Send，需要逐个确认」。
+///
+/// **那个「将来」就是 M4**：GUI 必须把搜索丢到后台线程，而 `tokio::spawn` 要求
+/// `Future + Send + 'static`。第一次跑 bt-app 的 CI 就报
+/// `future cannot be sent between threads safely`（M4 首轮，`afb44db`）。
+///
+/// 逐个确认的结果：16 家 provider 全是 reqwest + `bt_core::dom`，
+/// `async` 体里没有 `Rc` / `RefCell` / 其它跨 await 的非 Send 持有物 ——
+/// 所以这是一次**纯放宽**，一个 provider 都没改。
+/// 同一轮把三处泛型约束一起跟上：[`run_mirrors`] 的 `F`/`Fut`、
+/// `aggregate::async_pool` 的 `F`/`Fut`/`on_settle`、`aggregate::search_stream` 的
+/// `on_provider`（都是同一个要求的传播）。
+///
+/// ⚠️ 约束也随之收紧：**新增 provider 时不能在 `async` 体里跨 await 持有
+/// `Rc` / `RefCell`** —— 编译器会直接拒绝。这是好事。
+pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
 /// 「这个 provider 没有惰性磁力解析能力」的错误串。
 ///

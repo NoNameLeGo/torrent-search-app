@@ -179,10 +179,16 @@ async fn run_provider<'a>(
 ///
 /// `on_settle` **恰好被调用一次/任务**，顺序 = **完成顺序**
 /// （= JS 写 `perProvider` 的顺序，也就是 `providers` 的 key 顺序）。
-pub async fn async_pool<F, Fut, T>(tasks: Vec<F>, limit: usize, mut on_settle: impl FnMut(T))
+///
+/// ## `Send` 约束（2026-10-16 加，M4 逼出来的）
+///
+/// 与 [`crate::BoxFuture`] 同一件事故的传播：GUI 要把搜索丢到后台线程，
+/// 于是整条链路上的 future 都得 `Send`。`on_settle` 会被跨 await 持有，
+/// 所以它也必须 `Send`。详见 [`crate::BoxFuture`] 的说明。
+pub async fn async_pool<F, Fut, T>(tasks: Vec<F>, limit: usize, mut on_settle: impl FnMut(T) + Send)
 where
-    F: FnOnce() -> Fut,
-    Fut: std::future::Future<Output = T>,
+    F: FnOnce() -> Fut + Send,
+    Fut: std::future::Future<Output = T> + Send,
 {
     // JS 的 limit 不会是 0（常量 8）；这里防一手，免得 limit=0 时一个都不启动。
     let limit = limit.max(1);
@@ -324,7 +330,7 @@ pub async fn search_stream(
     registry: &[Box<dyn Provider>],
     query: &str,
     args: SearchArgs<'_>,
-    mut on_provider: impl FnMut(ProviderReport),
+    mut on_provider: impl FnMut(ProviderReport) + Send,
 ) -> StreamOutcome {
     let targets = resolve_targets(registry, &args);
     let page = args.page;

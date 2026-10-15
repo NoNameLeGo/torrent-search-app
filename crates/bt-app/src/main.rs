@@ -42,7 +42,10 @@ use bt_core::http::HttpClient;
 use bt_downloaders::{self as downloaders, Config, Kind};
 use bt_providers::aggregate::{self, SearchArgs};
 use bt_providers::{registry as provider_registry, Provider};
-use slint::{ComponentHandle, ModelRc, VecModel};
+// ⚠️ `Model` 这个 trait 必须在作用域里：`VecModel` 的 `row_count` / `set_row_data`
+// 是 **trait 方法**而不是固有方法 —— 少了它 CI 报
+// `no method named row_count found for struct Rc<VecModel<..>>`（首轮 CI 就踩了）。
+use slint::{ComponentHandle, Model, ModelRc, VecModel};
 
 use highlight::markup_to_styled;
 use ui_model::{AppState, ChipData, RowData, Tone};
