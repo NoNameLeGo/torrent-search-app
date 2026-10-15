@@ -78,6 +78,31 @@ M6 差分验证（必须早于删 Node）       M7 打包 + GitHub Release
 
 **三条硬约束，别调换**：**M1 必须最先**（Slint 挂了，M2 的架构就得重做）；**M6 必须早于删 Node**（否则「逐字段一致」永远无法再验）；**M5 早于补引擎**（现在没有理由盲搬）。
 
+### 🌿 分支现状（2026-10-16 核对）
+
+| 分支 | 角色 | 状态 |
+|---|---|---|
+| `main` | **发版线**（Node/Express + Electron） | ⚠️ **尚未切换**，见下 |
+| `legacy/node-electron` | `main` 的存档分支（建于 `e81584d`） | 半废弃保留；主线上移后旧线不会丢 |
+| `feat/rust` | **Rust 主线**（当前开发分支） | 16 provider + M1 结论 |
+| `feat/tauri` | Tauri 壳（Node backend + node sidecar） | 旧线，仍可发版 |
+| `spike/slint-ui` | M1 的 spike（`--selftest` + `slint-spike.yml`） | 一次性；**代码不在 `feat/rust` 上**，别去那儿找 |
+
+⚠️ **「把 `main` 换成 Rust 线」这件事 2026-10-16 讨论过，结论是「等 M2 之后」**：
+- 门是 **D5 = 「聚合层跑通」**，而 M2 是 0%；换完 `main`，用户下载到的仍是 Electron 版
+  （`bt-app` 在 M4）—— 收益是管理层面的，不是产品层面的。
+- 真要换时**必做配套**：`rust.yml` 的触发是 `branches: [feat/rust]`，不加上 `main` 的话
+  换完 Rust CI **一条都不会跑**。用 `merge`（不是 `reset --hard`）：两线在 `dec3512` 已分叉，
+  `main` 有 9 个独有提交，且它是已发布分支。
+- ⚠️ **换 `main` 不等于可以删 Node 版**：D18 要求留到 M6 差分验证做完，
+  `public/`、`src/providers/*.js`、`test/fixtures/` 一个都不能提前删（§0.4 禁改清单）。
+
+**2026-10-16 已修**：`main` 上 `provider-health.yml` / `html-probes.yml` 调用的
+`scripts/provider-health.mjs` / `scripts/html-probes.cjs` / `scripts/gh-retry.sh`
+**一直缺失**（两条手动触发的 workflow 在 `main` 上是坏的），已从 `feat/rust` 补齐；
+`slint-spike.yml` 也从 `spike/slint-ui` 同步到了 `main`（手动触发要带 `--ref spike/slint-ui`）。
+⚠️ **`rust.yml` 刻意不在 `main` 上** —— `main` 没有 `Cargo.toml`/`crates/`，放过去只会是必失败的 workflow。
+
 **旧路线为什么被推翻**：它假设「能搜到东西」是目标，于是「复用 WebView 前端」看起来最省事。
 但真实目标是**成品属性**（小 / 快 / 原生），而 WebView 路线**给不出那个成品**，还要多写一层
 终局用不上的 HTTP + SSE（Slint 是进程内直调）。详见 `docs/ROADMAP.md` §0。
