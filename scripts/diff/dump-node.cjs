@@ -52,10 +52,29 @@ async function dumpOne(spec) {
     return { provider: spec.id, fatal: `search 抛异常: ${e.message}` };
   }
 
-  const canon = canonOutcome(spec.id, spec.query, spec.page || 1, raw);
+  // ⚠️ **origin 归一化**（见 canonical.cjs）：从桩**实际记录的** URL 里解析出 origin，
+  // 不手写域名表 —— 手写就成了第二份会漂的表。
+  // 多镜像 provider（rutor/therarbg/limetorrents/torrent9/oxtorrent）会同时打好几个
+  // 域名，这里全都收进来。
+  const origins = [
+    ...new Set(
+      calls
+        .map((u) => {
+          try {
+            return new URL(u).origin;
+          } catch {
+            return null;
+          }
+        })
+        .filter(Boolean),
+    ),
+  ];
+
+  const canon = canonOutcome(spec.id, spec.query, spec.page || 1, raw, origins);
 
   // ⑤ 把"实际打过哪些 URL"也带上：多打一次/打错端点这种事，只看结果看不出来
   canon.fixture_calls = calls;
+  canon.origins_normalized = origins;
   // 全项目的约定是 provider **永不抛**（失败落在 error 里）—— 这里顺带钉一下
   canon.node_names = { exported: Object.keys(mod).sort(), log: log.length };
 

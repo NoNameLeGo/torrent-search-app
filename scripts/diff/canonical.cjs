@@ -58,7 +58,39 @@ function optInt(v) {
   return Number.isFinite(n) ? n : null;
 }
 
-function canonResult(r, provider) {
+/**
+ * **origin 归一化** —— `detail_url` 必须做，否则是**整列假差异**。
+ *
+ * ## 为什么需要它
+ *
+ * 几个 provider 的 `detail_url` 是**用 base 拼出来的**（`join_base(base, href)`）：
+ * `filemood` / `rutor` / `linuxtracker` 至少这三家。
+ * 而两侧喂的 base **本来就不同**：
+ *   · Rust 侧 `search_at(http, base, …)` 的 base 是**本地桩 URL**（`127.0.0.1:port`）
+ *   · Node 侧是**真实域名**（`linuxtracker.org` …）
+ * ⇒ 不归一化的话差异来自 **harness**、不是来自移植。那种假差异比"没有差分"更坏：
+ * 它会淹没真差异、让人开始往白名单里塞东西。
+ *
+ * ## 怎么归一化
+ *
+ * 把**自己这一侧实际用过的 origin**整串换成占位符 `<BASE>`：
+ *   · Node 侧：从桩记录的 `calls` 里解析出来（不手写域名表 —— 那是第二份会漂的表）
+ *   · Rust 侧：就是那个本地 base
+ *
+ * ⚠️ **只对 `detail_url` 做，别碰 `magnet`**：magnet 里的 tracker 是**页面给的**，
+ * 两侧本来就一致；归一化它反而会把真差异洗掉。
+ * ⚠️ 绝对指向别的域名的 URL（`tpb` 的 `thepiratebay.org` 是硬编码的）不会被改动 ——
+ * 那是对的，两侧本来就该一样。
+ */
+function normalizeOrigins(s, origins) {
+  let out = s;
+  for (const o of origins || []) {
+    if (o) out = out.split(o).join('<BASE>');
+  }
+  return out;
+}
+
+function canonResult(r, provider, origins) {
   const row = {
     id: str(r.id),
     name: str(r.name),
@@ -72,7 +104,11 @@ function canonResult(r, provider) {
     info_hash: optStr(r.infoHash),
     provider: str(r.provider === undefined ? provider : r.provider),
     category: optStr(r.category),
-    detail_url: optStr(r.detailUrl),
+    // ⚠️ 唯一做 origin 归一化的字段（见 normalizeOrigins 的说明）
+    detail_url: (() => {
+      const u = optStr(r.detailUrl);
+      return u === null ? null : normalizeOrigins(u, origins);
+    })(),
     files: optInt(r.files),
     needs_magnet: Boolean(r.needsMagnet),
   };
@@ -82,7 +118,7 @@ function canonResult(r, provider) {
   return ordered;
 }
 
-function canonOutcome(provider, query, page, out) {
+function canonOutcome(provider, query, page, out, origins) {
   const o = out || {};
   // ⚠️ `hasMore` 的三种状态必须区分（M2 的发现：JS 的 `undefined` 与显式 `false`
   // 不是一回事）：`undefined`/`null` → Rust `None` → JSON `null`；其余 → bool。
@@ -93,8 +129,8 @@ function canonOutcome(provider, query, page, out) {
     page,
     error: o.error ? String(o.error) : null,
     has_more: hm === undefined || hm === null ? null : Boolean(hm),
-    results: (o.results || []).map((r) => canonResult(r, provider)),
+    results: (o.results || []).map((r) => canonResult(r, provider, origins)),
   };
 }
 
-module.exports = { FIELDS, canonResult, canonOutcome };
+module.exports = { FIELDS, canonResult, canonOutcome, normalizeOrigins };
