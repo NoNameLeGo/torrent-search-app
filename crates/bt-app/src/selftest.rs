@@ -146,34 +146,46 @@ impl Provider for Fake {
     }
 }
 
-fn fake_registry() -> Vec<Box<dyn Provider>> {
+/// 假 provider 的**工厂**（#4：`provider_set()` 每次搜索现造一份）。
+///
+/// ⚠️ 为什么返回工厂而不是实例：`Box<dyn Provider>` **不能 clone**，而动态化要求
+/// "静态的 + 运行期注入的"并进**同一份**集合（见 `AGENTS.md` 遗留清单 #4）。
+/// 这里用**非捕获闭包 + 字面量重建**，所以每次调用都得到状态全新的假 provider ——
+/// 比"长期持有一份、同进程里跑两次会串味"更好。
+fn fake_factories() -> Vec<crate::ProviderFactory> {
     vec![
         // 3 条结果、**不带**磁力、能惰性解析 → 主测路径
-        Box::new(Fake {
-            id: "alpha",
-            name: "Alpha（惰性磁力）",
-            rows: 3,
-            inline_magnet: false,
-            can_resolve: true,
-            fails: false,
+        Box::new(|| {
+            Box::new(Fake {
+                id: "alpha",
+                name: "Alpha（惰性磁力）",
+                rows: 3,
+                inline_magnet: false,
+                can_resolve: true,
+                fails: false,
+            }) as Box<dyn Provider>
         }),
         // 2 条结果、**自带**磁力 → 按钮应直接是「推送到下载器」
-        Box::new(Fake {
-            id: "beta",
-            name: "Beta（自带磁力）",
-            rows: 2,
-            inline_magnet: true,
-            can_resolve: false,
-            fails: false,
+        Box::new(|| {
+            Box::new(Fake {
+                id: "beta",
+                name: "Beta（自带磁力）",
+                rows: 2,
+                inline_magnet: true,
+                can_resolve: false,
+                fails: false,
+            }) as Box<dyn Provider>
         }),
         // 故意失败的一家 → 状态条 ✗，但不能拖垮别家
-        Box::new(Fake {
-            id: "gamma",
-            name: "Gamma（故意失败）",
-            rows: 0,
-            inline_magnet: false,
-            can_resolve: false,
-            fails: true,
+        Box::new(|| {
+            Box::new(Fake {
+                id: "gamma",
+                name: "Gamma（故意失败）",
+                rows: 0,
+                inline_magnet: false,
+                can_resolve: false,
+                fails: true,
+            }) as Box<dyn Provider>
         }),
     ]
 }
@@ -288,7 +300,7 @@ struct Report {
 
 pub fn run() -> Result<bool, slint::PlatformError> {
     let ui = AppWindow::new()?;
-    install_registry(fake_registry());
+    install_registry(fake_factories());
     wire(&ui);
 
     // 桩下载器（跑在 tokio 上）

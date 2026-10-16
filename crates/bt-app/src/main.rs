@@ -56,21 +56,44 @@ use ui_model::{AppState, ChipData, RowData, SortKey, Tone};
 // 进程级共享（都是 Send + Sync，可以安全地被后台任务借）
 // ---------------------------------------------------------------------------
 
-/// 静态注册表（16 家）。⚠️ 将来 Torznab 的动态 provider 要并进这里 ——
-/// `aggregate` 只认 `&[Box<dyn Provider>]`，不关心编译期还是运行期来的。
-static REGISTRY: OnceLock<Vec<Box<dyn Provider>>> = OnceLock::new();
+/// provider 的**工厂**：每次搜索调一遍，得到一个全新的实例。
+///
+/// ⚠️ **为什么是工厂而不是实例集合**（2026-10-16 定，见 AGENTS.md 遗留清单 #4）：
+/// 要把「静态 16 家 + 运行期动态的」（Torznab / demo / 测试注入）并进**同一份**集合，
+/// 就必须**拥有一份拷贝** —— 而 `Box<dyn Provider>` **不能 clone**。
+/// 工厂每次现造，天然解决这件事；而 Torznab 本来就是"从存好的索引器配置**现造**一个
+/// provider"，形态完全吻合。
+pub type ProviderFactory = Box<dyn Fn() -> Box<dyn Provider> + Send + Sync>;
 
-fn registry() -> &'static [Box<dyn Provider>] {
-    REGISTRY.get_or_init(provider_registry::registry)
+thread_local! {
+    /// 运行期注入的 provider 工厂。
+    ///
+    /// ⚠️ 用 `thread_local` 而不是 `static`：注入只发生在 UI 线程（`--selftest` 与
+    /// 真实启动都在主线程），而**集合本体**每次搜索现造、然后 move 进后台任务 ——
+    /// 这里只存"怎么造"。
+    ///
+    /// ⚠️ 也正因为它不是 `OnceLock`，注入**可以重复**（旧版 `OnceLock::set` 第二次
+    /// 会静默失败）。"运行期插入"本就该可重复 —— 那才是 Torznab 要的那个口子。
+    static INJECTED: RefCell<Option<Vec<ProviderFactory>>> = const { RefCell::new(None) };
 }
 
-/// **只有 `--selftest` 用**：把注册表换成假的（离线、确定性）。
+/// **本次搜索要用的 provider 集合** —— 每次现造一份。
 ///
-/// `OnceLock::set` 在已经初始化过之后会失败 —— 这里刻意忽略返回值：
-/// 真实运行时**不允许**被替换掉（那会变成安全漏洞/行为漂移），
-/// 所以「换不动」才是正确行为。
-fn install_registry(providers: Vec<Box<dyn Provider>>) {
-    let _ = REGISTRY.set(providers);
+/// 注入了就用注入的（`--selftest` 要完全离线、确定性），否则用静态注册表那 16 家。
+/// 将来 Torznab 的动态 provider 在这里 `extend` 进来即可（那一步还没做）。
+fn provider_set() -> Vec<Box<dyn Provider>> {
+    INJECTED.with(|slot| match slot.borrow().as_ref() {
+        Some(factories) => factories.iter().map(|f| f()).collect(),
+        None => provider_registry::registry(),
+    })
+}
+
+/// **只有 `--selftest` 用**：把 provider 集合换成假的（离线、确定性）。
+///
+/// 传的是**工厂**：下次 `provider_set()` 现造一套全新的假 provider ——
+/// 状态天然重置，也不会跨用例串味。
+fn install_registry(factories: Vec<ProviderFactory>) {
+    INJECTED.with(|slot| *slot.borrow_mut() = Some(factories));
 }
 
 fn http() -> &'static HttpClient {
@@ -270,13 +293,17 @@ fn start_search(ui: &AppWindow, query: String, page: u32) {
         return;
     }
 
+    // ⚠️ **每次搜索现造一份** provider 集合（#4：这样 Torznab / demo / 测试注入才
+    // 能并进来）。它之后要 **move 进后台任务**，所以筛选必须**先在本线程做完**。
+    let providers = provider_set();
+
     // 目标 = 与聚合层**同一套**筛选逻辑（别在这儿重写一遍）
     let args = SearchArgs {
         providers: picked.as_deref(),
         page,
         browse: false,
     };
-    let targets: Vec<(String, String)> = aggregate::resolve_targets(registry(), &args)
+    let targets: Vec<(String, String)> = aggregate::resolve_targets(&providers, &args)
         .iter()
         .map(|p| (p.id().to_string(), p.name().to_string()))
         .collect();
@@ -285,7 +312,7 @@ fn start_search(ui: &AppWindow, query: String, page: u32) {
     // 否则用户取消勾选后，那一家就从列表里消失了、再也勾不回来。
     // 同样复用 `resolve_targets`（不另写一套"全部启用站点"的筛选）。
     let all: Vec<(String, String)> = aggregate::resolve_targets(
-        registry(),
+        &providers,
         &SearchArgs {
             providers: None,
             page: 1,
@@ -328,11 +355,12 @@ fn start_search(ui: &AppWindow, query: String, page: u32) {
     // ③ `picked` 是 String，异步块要自己持有一份（不能借用 STATE）
     let picked_async = picked.clone();
     spawn(async move {
-        // ⚠️ `registry()` / `http()` 都是 'static，所以这里不用把任何东西 move 进来；
-        // 真需要 move 的只有 query / 筛选项与 Weak 句柄（都是 Send）。
+        // ⚠️ #4 之后 `providers` 是**本地拥有**的一份（由 `provider_set()` 现造），
+        // 跟着 `async move` 一起进来 —— 不再是"靠 'static 借"。`http()` 仍是 'static。
+        // 真需要 move 的：query / 筛选项 / **provider 集合** / Weak 句柄（都是 Send）。
         let outcome = aggregate::search_stream(
             http(),
-            registry(),
+            &providers,
             &q,
             SearchArgs {
                 providers: picked_async.as_deref(),
@@ -507,15 +535,19 @@ fn push_row(ui: &AppWindow, idx: i32) {
     });
 
     let weak = ui.as_weak();
+    // ⚠️ **必须在 `spawn` 之前取**：`provider_set()` 读的是 `thread_local` 的 `INJECTED`
+    // （#4），而 tokio 的后台线程是**另一个线程** —— 在那里调会读到 `None`，
+    // 于是退回静态注册表、`--selftest` 的假 provider 就找不到了。
+    // 旧代码用 `registry()`（`'static`）从哪个线程读都对，这是本次改动**引入的新风险**。
+    let resolve_providers = provider_set();
     spawn(async move {
         let idx = plan.idx;
 
         // 第 1 步：需要就先惰性解析磁力
         let magnet = if plan.need_resolve {
             let url = plan.detail_url.clone().unwrap_or_default();
-            // ⚠️ `Box<dyn Provider>` **不是 Clone**，所以只能借 ——
-            // 借得到是因为 `registry()` 是 'static。
-            let Some(p) = registry().iter().find(|p| p.id() == plan.provider) else {
+            // `Box<dyn Provider>` **不是 Clone**，所以这里只能借（集合已经 move 进来了）。
+            let Some(p) = resolve_providers.iter().find(|p| p.id() == plan.provider) else {
                 finish(&weak, idx, format!("找不到站点 {}", plan.provider));
                 return;
             };
