@@ -180,11 +180,33 @@ pub fn truncate(s: &str, max_chars: usize) -> String {
 }
 
 /// M4 的界面状态机 —— **这一层就是 M4 可被 CI 回归的部分**。
+/// 站点开关的一行（③）。字段与 `.slint` 的 `SiteToggle` 对应。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SiteData {
+    pub id: String,
+    pub name: String,
+    /// 参与搜索吗
+    pub on: bool,
+}
+
+impl SiteData {
+    /// 按钮文案。**字形在 Rust 侧算好** —— `.slint` 里不写条件表达式（少一处语法风险）。
+    pub fn label(&self) -> String {
+        format!("{} {}", if self.on { "✓" } else { "○" }, self.name)
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct AppState {
     /// 权威的行集合。`.slint` 的模型永远是它的镜像；行号 = 下标。
     pub rows: Vec<RowData>,
     pub chips: Vec<ChipData>,
+    /// ① 当前页码（1 起）
+    pub page: u32,
+    /// ① 引擎层回的 `has_more` —— 「下一页」按钮的 enabled 用它
+    pub has_more: bool,
+    /// ③ 站点开关。顺序 = 注册表顺序 = UI 显示顺序
+    pub sites: Vec<SiteData>,
 }
 
 impl AppState {
@@ -197,10 +219,72 @@ impl AppState {
     /// `providers` 是 `(id, name)` 列表，顺序 = UI 显示顺序（来自注册表）。
     pub fn begin_search(&mut self, providers: &[(String, String)]) {
         self.rows.clear();
+        self.has_more = false;
         self.chips = providers
             .iter()
             .map(|(id, name)| pending_chip(id, name))
             .collect();
+    }
+
+    /// ① 换页。页码是 UI 的，`has_more` 要等这一页跑完才知道 ⇒ 先归零
+    /// （否则用户点「下一页」的瞬间按钮还会亮着，能连点）。
+    pub fn set_page(&mut self, page: u32) {
+        self.page = page;
+        self.has_more = false;
+    }
+
+    /// ③ 用注册表补齐站点开关列表：**已知的保留勾选状态**，新出现的默认开。
+    ///
+    /// 「保留已知的」是有意的：注册表将来可能变（加 provider / 动态 Torznab），
+    /// 不该因为一次搜索就把用户已经取消掉的站点又勾回来。
+    pub fn sync_sites(&mut self, providers: &[(String, String)]) {
+        let next = providers
+            .iter()
+            .map(|(id, name)| SiteData {
+                id: id.clone(),
+                name: name.clone(),
+                on: self
+                    .sites
+                    .iter()
+                    .find(|s| &s.id == id)
+                    .map_or(true, |s| s.on),
+            })
+            .collect();
+        self.sites = next;
+    }
+
+    /// ③ 翻转一个站点，返回它现在是否参与。`None` = 没有这个 id。
+    pub fn toggle_site(&mut self, id: &str) -> Option<bool> {
+        let s = self.sites.iter_mut().find(|s| s.id == id)?;
+        s.on = !s.on;
+        Some(s.on)
+    }
+
+    /// ③ 勾选中的站点，逗号分隔 —— 直接喂给 `SearchArgs::providers`。
+    ///
+    /// **全选时返回 `None`**（= 不筛选）：与 JS 同口径，而且少一次逐家比对。
+    pub fn selected_providers(&self) -> Option<String> {
+        let picked: Vec<&str> = self
+            .sites
+            .iter()
+            .filter(|s| s.on)
+            .map(|s| s.id.as_str())
+            .collect();
+        if self.sites.is_empty() || picked.len() == self.sites.len() {
+            None
+        } else {
+            Some(picked.join(","))
+        }
+    }
+
+    /// ③ 一个都没勾 —— **这种情况不发搜索**。
+    ///
+    /// ⚠️ 这里**有意**不沿用引擎层的语义：`SearchArgs::providers` 收到 `""` 会被当成
+    /// 「没筛选」⇒ 打出全部 16 家（那是 M2 按 JS 复制并测过的**引擎**口径，别去改它）。
+    /// 但 UI 层不该让「我把站点全取消勾选」变成「偷偷搜全部」—— 那是反直觉的。
+    /// 所以这一层拦下来，由调用方给一句提示。
+    pub fn none_selected(&self) -> bool {
+        !self.sites.is_empty() && !self.sites.iter().any(|s| s.on)
     }
 
     /// 一站回来了：**追加**它的结果（所以「谁先回来谁先显示」），并更新它的状态条。
@@ -540,5 +624,119 @@ mod tests {
         st.apply_report(&report("nyaa", "NYAA", vec![], Some("boom")), "q", "#fff");
         assert_eq!(st.summary(true), "搜索中… 2/2 家已返回 · 已 1 条");
         assert_eq!(st.summary(false), "共 1 条 · 1 家成功 / 1 家失败");
+    }
+
+    // -----------------------------------------------------------------------
+    // ③ 站点开关
+    // -----------------------------------------------------------------------
+
+    fn three_sites() -> Vec<(String, String)> {
+        vec![
+            ("tpb".to_string(), "The Pirate Bay".to_string()),
+            ("nyaa".to_string(), "NYAA".to_string()),
+            ("yts".to_string(), "YTS".to_string()),
+        ]
+    }
+
+    #[test]
+    fn sites_default_to_all_on_and_labels_carry_the_glyph() {
+        let mut st = AppState::new();
+        st.sync_sites(&three_sites());
+
+        assert_eq!(st.sites.len(), 3);
+        assert!(st.sites.iter().all(|s| s.on));
+        assert_eq!(st.sites[0].label(), "✓ The Pirate Bay");
+        // 全勾 ⇒ `None` = 不筛选（与 JS 同口径，少一次逐家比对）
+        assert_eq!(st.selected_providers(), None);
+        assert!(!st.none_selected());
+    }
+
+    #[test]
+    fn unchecking_one_site_narrows_the_provider_filter() {
+        let mut st = AppState::new();
+        st.sync_sites(&three_sites());
+
+        assert_eq!(
+            st.toggle_site("nyaa"),
+            Some(false),
+            "返回的是**翻转后**的状态"
+        );
+        assert_eq!(st.selected_providers().as_deref(), Some("tpb,yts"));
+        assert!(!st.none_selected());
+        assert_eq!(
+            st.sites.iter().find(|s| s.id == "nyaa").unwrap().label(),
+            "○ NYAA"
+        );
+    }
+
+    /// **这条钉住一个分工**：全不勾时 `selected_providers()` 给出的是 `""`，
+    /// 而引擎层收到 `""` 会当成"没筛选"⇒ 搜全部（那是 M2 按 JS 复制的**引擎**口径）。
+    /// 所以 UI 层**必须**先用 `none_selected()` 拦住 —— 否则用户"全部取消勾选"
+    /// 会变成"偷偷搜全部 16 家"，反直觉。
+    #[test]
+    fn unchecking_every_site_is_not_a_search_for_everything() {
+        let mut st = AppState::new();
+        st.sync_sites(&three_sites());
+        for id in ["tpb", "nyaa", "yts"] {
+            st.toggle_site(id);
+        }
+
+        assert!(st.none_selected(), "UI 层要拦住");
+        assert_eq!(
+            st.selected_providers().as_deref(),
+            Some(""),
+            "引擎层口径：\"\" 等于不筛选 ⇒ 搜全部。所以拦在前面的必须是 none_selected()"
+        );
+    }
+
+    #[test]
+    fn sync_sites_keeps_the_users_choices() {
+        let mut st = AppState::new();
+        st.sync_sites(&three_sites());
+        st.toggle_site("nyaa");
+
+        // 注册表变了：nyaa 还在、多了一家 dmhy
+        st.sync_sites(&vec![
+            ("tpb".to_string(), "The Pirate Bay".to_string()),
+            ("nyaa".to_string(), "NYAA".to_string()),
+            ("dmhy".to_string(), "DMHY".to_string()),
+        ]);
+
+        assert!(
+            !st.sites.iter().find(|s| s.id == "nyaa").unwrap().on,
+            "用户取消过的，不能被下一次搜索重新勾回来"
+        );
+        assert!(
+            st.sites.iter().find(|s| s.id == "dmhy").unwrap().on,
+            "新出现的站点默认勾上"
+        );
+    }
+
+    #[test]
+    fn toggle_unknown_id_is_a_noop() {
+        let mut st = AppState::new();
+        st.sync_sites(&three_sites());
+        assert_eq!(st.toggle_site("nope"), None);
+        assert!(st.sites.iter().all(|s| s.on));
+    }
+
+    // -----------------------------------------------------------------------
+    // ① 分页
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn set_page_and_begin_search_both_clear_has_more() {
+        let mut st = AppState::new();
+
+        st.has_more = true;
+        st.set_page(2);
+        assert_eq!(st.page, 2);
+        assert!(!st.has_more, "换页瞬间先按灭「下一页」，否则能连点");
+
+        // 换页时得先知道"这一页还有没有下一页" —— 所以 begin_search 也要归零，
+        // 结果等这一轮跑完由 `has_more` 重新点亮。
+        st.has_more = true;
+        st.begin_search(&three_sites());
+        assert!(!st.has_more);
     }
 }

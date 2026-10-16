@@ -39,6 +39,15 @@ export struct ProviderChip {
     tone: color,
 }
 
+// 站点开关的一行（③ 用户级站点选择）。
+// ⚠️ 同样：文案（`✓ tpb` / `○ tpb`）与颜色都由 **Rust 侧算好**（`SiteData::label`），
+// 这里只负责显示与点击 —— `.slint` 里不写条件表达式。
+export struct SiteToggle {
+    id: string,
+    label: string,
+    tone: color,
+}
+
 export global Theme {
     // Catppuccin Mocha（与 spike 一致，不自己造色）
     out property <color> bg:       #1e1e2e;
@@ -166,10 +175,27 @@ component ProviderRow inherits Rectangle {
     }
 }
 
+// 一个站点开关。整行就是按钮 —— 比 CheckBox 稳（CheckBox 没在 M1 里验过）。
+component SiteRow inherits Rectangle {
+    in property <SiteToggle> item;
+    // 又是那个坑：组件里的 `root` 不是窗口 ⇒ 必须转发
+    callback toggle(string);
+
+    height: 26px;
+    background: transparent;
+
+    Button {
+        text: item.label;
+        color: item.tone;
+        clicked => { root.toggle(item.id); }
+    }
+}
+
 export component AppWindow inherits Window {
     in-out property <string> query: "";
     in-out property <[ResultRow]> rows;
     in-out property <[ProviderChip]> providers;
+    in-out property <[SiteToggle]> sites;
     in-out property <bool> searching: false;
     in-out property <string> status-text: "就绪";
     in-out property <string> downloader-kind: "qbittorrent";
@@ -178,12 +204,18 @@ export component AppWindow inherits Window {
     in-out property <string> downloader-secret: "";
     in-out property <string> downloader-status: "未配置下载器";
     in-out property <int> total: 0;
+    // ① 分页：当前页码（1 起）+ 引擎层回的 has_more（决定「下一页」能不能点）
+    in-out property <int> page: 1;
+    in-out property <bool> has-more: false;
 
     callback search(string);
     callback push-row(int);
     callback pick-kind(string);
     callback detect-downloader();
     callback save-downloader();
+    // ①③ 新回调
+    callback next-page();
+    callback toggle-site(string);
 
     title: "BT 聚合搜索";
     width: 1180px;
@@ -211,11 +243,19 @@ export component AppWindow inherits Window {
                 enabled: !root.searching;
                 clicked => { root.search(root.query); }
             }
+            // ① 分页。⚠️ `has-more` 来自**引擎层**的 has_more（不是"这页满了"的猜测）——
+            // 各家有自己的回退规则（`paginated()` + 显式表态），`aggregate_has_more` 已经
+            // 按 JS 的口径算好了，UI 只负责显示。
+            Button {
+                text: "第 \{root.page} 页 · 下一页";
+                enabled: !root.searching && root.has-more;
+                clicked => { root.next-page(); }
+            }
             Text {
                 text: root.status-text;
                 color: Theme.sub;
                 vertical-alignment: center;
-                width: 260px;
+                width: 230px;
             }
         }
 
@@ -254,11 +294,11 @@ export component AppWindow inherits Window {
                 text: root.downloader-status;
                 color: Theme.sub;
                 vertical-alignment: center;
-                width: 200px;
+                width: 180px;
             }
         }
 
-        // ---- 主体：结果列表 + 每站状态 ----
+        // ---- 主体：结果列表 + 右侧（站点开关 + 每站状态）----
         HorizontalLayout {
             spacing: 8px;
 
@@ -272,13 +312,29 @@ export component AppWindow inherits Window {
             }
 
             Rectangle {
-                width: 210px;
+                width: 240px;
                 background: Theme.card;
                 border-radius: 6px;
 
                 VerticalLayout {
                     padding: 6px;
                     spacing: 2px;
+
+                    // ③ 站点开关。默认全选；点一下切换。
+                    // 取消到零个时 Rust 侧**不发搜索**（不是"搜全部"）—— 见 ui_model 的注释。
+                    Text {
+                        text: "站点（点击切换）";
+                        color: Theme.sub;
+                        font-size: 11px;
+                    }
+
+                    ListView {
+                        height: 250px;
+                        for s in root.sites : SiteRow {
+                            item: s;
+                            toggle(id) => { root.toggle-site(id); }
+                        }
+                    }
 
                     Text {
                         text: "共 \{root.total} 条";

@@ -190,12 +190,30 @@ fn to_slint_chip(ui: &AppWindow, c: &ChipData) -> ProviderChip {
 }
 
 /// 把状态条与计数（**小**的两块）整块同步给 UI；行则增量 push。
+/// ③ `.slint` 的 `SiteToggle` 要 color，而 `SiteData` 只给 bool —— 在这一层映射
+/// （与 `to_slint_chip` 同一套做法：颜色只在 `.slint` 的 `Theme` 里定义一次）。
+fn to_slint_site(ui: &AppWindow, s: &crate::ui_model::SiteData) -> SiteToggle {
+    let g = ui.global::<Theme>();
+    SiteToggle {
+        id: s.id.clone().into(),
+        label: s.label().into(),
+        tone: if s.on { g.get_ok() } else { g.get_sub() },
+    }
+}
+
 fn sync_small(ui: &AppWindow, st: &UiState) {
     let chips: Vec<ProviderChip> = st.app.chips.iter().map(|c| to_slint_chip(ui, c)).collect();
     ui.set_providers(ModelRc::from(Rc::new(VecModel::from(chips))));
+    // ③ 站点开关（只有 16 行，整块重建模型是安全的 —— 那条「别整块重建」的规矩
+    //    是为 300 行的结果列表定的，重建立刻会重置用户的滚动位置，这里不会）。
+    let sites: Vec<SiteToggle> = st.app.sites.iter().map(|s| to_slint_site(ui, s)).collect();
+    ui.set_sites(ModelRc::from(Rc::new(VecModel::from(sites))));
     ui.set_total(st.app.total() as i32);
     ui.set_searching(st.app.chips.iter().any(|c| c.tone == Tone::Dim));
     ui.set_status_text(st.status.clone().into());
+    // ① 分页
+    ui.set_page(st.app.page as i32);
+    ui.set_has_more(st.app.has_more);
 }
 
 // ---------------------------------------------------------------------------
@@ -203,14 +221,31 @@ fn sync_small(ui: &AppWindow, st: &UiState) {
 // ---------------------------------------------------------------------------
 
 /// 开始一轮搜索。**在 UI 线程调用**。
-fn start_search(ui: &AppWindow, query: String) {
+///
+/// ① `page` 由调用方给：首次搜索是 1，「下一页」是当前页 + 1。
+/// ③ 参与搜索的站点来自 UI 的站点开关；**一个都没勾时直接不发搜索**。
+fn start_search(ui: &AppWindow, query: String, page: u32) {
     let weak = ui.as_weak();
     let accent = accent_hex(ui);
 
+    // ③ 先看用户勾了哪些。`None` = 全勾（不筛选）—— 与 JS 同口径。
+    let (picked, none) = STATE.with(|s| {
+        let st = s.borrow();
+        (st.app.selected_providers(), st.app.none_selected())
+    });
+    if none {
+        STATE.with(|s| {
+            let mut st = s.borrow_mut();
+            st.status = "一个站点都没勾选 —— 至少勾一家再搜".to_string();
+            sync_small(ui, &st);
+        });
+        return;
+    }
+
     // 目标 = 与聚合层**同一套**筛选逻辑（别在这儿重写一遍）
     let args = SearchArgs {
-        providers: None,
-        page: 1,
+        providers: picked.as_deref(),
+        page,
         browse: false,
     };
     let targets: Vec<(String, String)> = aggregate::resolve_targets(registry(), &args)
@@ -218,14 +253,31 @@ fn start_search(ui: &AppWindow, query: String) {
         .map(|p| (p.id().to_string(), p.name().to_string()))
         .collect();
 
+    // ③ 站点开关列表要显示**全部**站点，不是筛选后的那些 ——
+    // 否则用户取消勾选后，那一家就从列表里消失了、再也勾不回来。
+    // 同样复用 `resolve_targets`（不另写一套"全部启用站点"的筛选）。
+    let all: Vec<(String, String)> = aggregate::resolve_targets(
+        registry(),
+        &SearchArgs {
+            providers: None,
+            page: 1,
+            browse: false,
+        },
+    )
+    .iter()
+    .map(|p| (p.id().to_string(), p.name().to_string()))
+    .collect();
+
     STATE.with(|s| {
         let mut st = s.borrow_mut();
         st.app.begin_search(&targets);
+        st.app.set_page(page);
+        st.app.sync_sites(&all);
         st.query = query.clone();
         st.accent = accent.clone();
         // 换一个新模型：整块重建一次是安全的（此时列表本来就是空的）
         st.rows_model = Rc::new(VecModel::from(Vec::new()));
-        st.status = format!("搜索中…（{} 家）", targets.len());
+        st.status = format!("搜索中…（第 {page} 页 · {} 家）", targets.len());
 
         ui.set_rows(ModelRc::from(st.rows_model.clone()));
         sync_small(ui, &st);
@@ -241,16 +293,18 @@ fn start_search(ui: &AppWindow, query: String) {
     }
 
     let q = query.clone();
+    // ③ `picked` 是 String，异步块要自己持有一份（不能借用 STATE）
+    let picked_async = picked.clone();
     spawn(async move {
         // ⚠️ `registry()` / `http()` 都是 'static，所以这里不用把任何东西 move 进来；
-        // 真需要 move 的只有 query 与 Weak 句柄（都是 Send）。
-        let _ = aggregate::search_stream(
+        // 真需要 move 的只有 query / 筛选项与 Weak 句柄（都是 Send）。
+        let outcome = aggregate::search_stream(
             http(),
             registry(),
             &q,
             SearchArgs {
-                providers: None,
-                page: 1,
+                providers: picked_async.as_deref(),
+                page,
                 browse: false,
             },
             |report| {
@@ -275,15 +329,43 @@ fn start_search(ui: &AppWindow, query: String) {
         )
         .await;
 
-        // 收尾：把 searching 关掉、状态行换成最终统计
+        // 收尾：① `has_more` 决定「下一页」亮不亮（它来自**引擎层**，不是"这页满了"的猜测），
+        // 再把 searching 关掉、状态行换成最终统计。
         let _ = slint::invoke_from_event_loop(move || {
             let Some(ui) = weak.upgrade() else { return };
             STATE.with(|s| {
                 let mut st = s.borrow_mut();
+                st.app.has_more = outcome.has_more;
                 st.status = st.app.summary(false);
                 sync_small(&ui, &st);
             });
         });
+    });
+}
+
+/// ③ 点一个站点开关。**在 UI 线程调用** —— 只改状态、发一次同步，不触发搜索。
+///
+/// 不自动重搜是**有意的**：勾选是"下一次搜索的输入"，
+/// 每点一下都重搜 16 家会把站点打爆，而且用户往往要连点好几家。
+fn toggle_site(ui: &AppWindow, id: String) {
+    STATE.with(|s| {
+        let mut st = s.borrow_mut();
+        let Some(on) = st.app.toggle_site(&id) else {
+            return;
+        };
+        let picked = st.app.sites.iter().filter(|s| s.on).count();
+        let total = st.app.sites.len();
+        st.status = if picked == total {
+            format!("已选全部 {total} 家")
+        } else if picked == 0 {
+            "一个站点都没勾选 —— 至少勾一家再搜".to_string()
+        } else {
+            format!(
+                "已选 {picked}/{total} 家{}",
+                if on { "" } else { "（取消了一家）" }
+            )
+        };
+        sync_small(ui, &st);
     });
 }
 
@@ -566,7 +648,34 @@ fn wire(ui: &AppWindow) {
         let weak = ui.as_weak();
         ui.on_search(move |q| {
             if let Some(ui) = weak.upgrade() {
-                start_search(&ui, q.to_string());
+                // ① 新搜索一律从第 1 页开始
+                start_search(&ui, q.to_string(), 1);
+            }
+        });
+    }
+    // ① 下一页：拿**当前** query 与页号 +1 重跑一轮。
+    // ⚠️ 别在这儿自己筛"哪些站能翻页" —— 聚合层的 `resolve_targets` 在 page>1 时
+    // 已经按 JS 的口径筛过了（只留 `paginated()` 的），重写一遍就是两套实现。
+    {
+        let weak = ui.as_weak();
+        ui.on_next_page(move || {
+            let Some(ui) = weak.upgrade() else { return };
+            let (q, next) = STATE.with(|s| {
+                let st = s.borrow();
+                (st.query.clone(), st.app.page + 1)
+            });
+            if q.is_empty() {
+                return;
+            }
+            start_search(&ui, q, next);
+        });
+    }
+    // ③ 站点开关（只改状态，不自动重搜 —— 见 `toggle_site` 的注释）
+    {
+        let weak = ui.as_weak();
+        ui.on_toggle_site(move |id| {
+            if let Some(ui) = weak.upgrade() {
+                toggle_site(&ui, id.to_string());
             }
         });
     }
