@@ -842,6 +842,10 @@ fn apply_indexers(ui: &AppWindow, list: Vec<bt_torznab::IndexerConfig>) {
     };
     ui.set_indexer_status(format!("{}{note}", config_store::describe(&list)).into());
 
+    // 已配清单也要跟上 —— 加/清空/停用都走这里，所以**只在这一处同步**，
+    // 不会出现"状态改了、界面没改"的错位。
+    sync_indexers(ui, &list);
+
     // 加完就把输入框清掉 —— 留着容易让人以为"还没加进去"
     ui.set_indexer_name("".into());
     ui.set_indexer_url("".into());
@@ -850,11 +854,57 @@ fn apply_indexers(ui: &AppWindow, list: Vec<bt_torznab::IndexerConfig>) {
     STATE.with(|s| s.borrow_mut().indexers = list);
 }
 
+/// 索引器清单 → Slint 模型（每行一个「停用 / 启用」）。
+///
+/// ⚠️ 文案（含 ✓/✗ 与"停用"/"启用"）**在这里算好** —— `.slint` 里不写条件表达式
+/// （那条约定见 `app.slint` 里 `Chip` 的注释，是从一次语法风险里学来的）。
+fn sync_indexers(ui: &AppWindow, list: &[bt_torznab::IndexerConfig]) {
+    let rows: Vec<IndexerRow> = list
+        .iter()
+        .map(|c| {
+            let name = if c.name.is_empty() {
+                c.url.as_str()
+            } else {
+                c.name.as_str()
+            };
+            IndexerRow {
+                // 身份 = URL（读配置时没 URL 的条目就被丢了 ⇒ 必然非空）。
+                // 不用下标：`for ix[i] in …` 那种带索引的写法本项目还没用过，
+                // 而"只能靠 CI 验证"的语法不该在没编译器时当首例。
+                id: c.url.clone().into(),
+                label: format!("{} {name}", if c.enabled { "✓" } else { "✗" }).into(),
+                action: if c.enabled { "停用" } else { "启用" }.into(),
+            }
+        })
+        .collect();
+    ui.set_indexers(ModelRc::from(Rc::new(VecModel::from(rows))));
+}
+
+/// 停用 / 启用某个索引器（按 URL 认身份）。
+///
+/// ⚠️ 找不到就返回：界面与状态不同步时（例如刚点完「清空」又点到旧的按钮）
+/// 宁可什么都不做 —— 不能 panic，也不能改错一行。
+fn toggle_indexer(ui: &AppWindow, id: &str) {
+    let mut list = STATE.with(|s| s.borrow().indexers.clone());
+    let Some(i) = list.iter().position(|c| c.url == id) else {
+        return;
+    };
+    list[i].enabled = !list[i].enabled;
+    apply_indexers(ui, list);
+}
+
 /// 加一个索引器（同名**覆盖** —— 改完 key 再点一次是常见动作，不该变成两条）。
 fn add_indexer(ui: &AppWindow) {
     let name = ui.get_indexer_name().to_string();
     let url = ui.get_indexer_url().to_string();
     let key = ui.get_indexer_key().to_string();
+
+    // ⑤ 用户多半是直接粘贴 Jackett/Prowlarr 的整条 "Copy Torznab Feed" 链接，
+    // 那条链接**带着** `?apikey=…` —— 而 `normalize_api_url` 会刻意丢掉整个 query
+    // （忠实复刻 JS），所以只能在**这一层**把 key 抠出来省用户一步。
+    // ⚠️ 在原始串上抠（下面 `url` 会被归一化结果覆盖）。
+    // ⚠️ key 框非空时以用户填的为准 —— 那是显式输入，优先级更高。
+    let key_from_url = bt_torznab::extract_api_key(&url);
 
     if url.trim().is_empty() {
         ui.set_indexer_status("请先填 Torznab 地址".into());
@@ -873,12 +923,17 @@ fn add_indexer(ui: &AppWindow) {
     } else {
         name.trim().to_string()
     };
+    let api_key = if key.trim().is_empty() {
+        key_from_url.unwrap_or_default()
+    } else {
+        key.trim().to_string()
+    };
     let cfg = bt_torznab::IndexerConfig {
         // 空 id ⇒ `TorznabProvider::new` 兜底成 `torznab:<name>`
         id: String::new(),
         name: name.clone(),
         url: url.trim().to_string(),
-        api_key: key.trim().to_string(),
+        api_key,
         enabled: true,
     };
 
@@ -1065,6 +1120,16 @@ fn wire(ui: &AppWindow) {
             }
         });
     }
+    // ⑤ 每个索引器一个「停用 / 启用」—— 之前某个索引器坏了只能把全部清掉重加。
+    // ⚠️ 传进来的是**身份（URL）**：找不到（界面与状态不同步）由 `toggle_indexer` 静默忽略。
+    {
+        let weak = ui.as_weak();
+        ui.on_toggle_indexer(move |id| {
+            if let Some(ui) = weak.upgrade() {
+                toggle_indexer(&ui, id.as_str());
+            }
+        });
+    }
 }
 
 /// #6 打印各引擎的健康度。**纯读**：不开窗口、不写文件。
@@ -1211,6 +1276,8 @@ fn main() -> Result<(), slint::PlatformError> {
     // 启动一次就多出一个 indexers.json —— 落盘只发生在用户点「添加 / 清空」时。
     ui.set_indexer_status(config_store::describe(&indexers).into());
     rebuild_dynamic_factories(&indexers);
+    // ⚠️ 必须在 `indexers` 被 move 进 STATE **之前**同步（下面那行会吃掉它）
+    sync_indexers(&ui, &indexers);
     STATE.with(|s| s.borrow_mut().indexers = indexers);
 
     // ② 载入上次保存的下载器配置。⚠️ 这一步**绝不能拦启动** ——

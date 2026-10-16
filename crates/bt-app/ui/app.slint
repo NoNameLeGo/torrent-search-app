@@ -214,6 +214,22 @@ export struct Chip {
     label: string,
 }
 
+// ⑤ 一行索引器（Torznab）。**文案全由 Rust 算好**（含 ✓/✗ 状态标记与按钮上的
+// "停用"/"启用"）—— 本文件不写条件表达式，少一处语法风险（见上面 Chip 的注释）。
+//
+// ⚠️ `id` 是身份（用 URL —— 没有 URL 的条目在读配置时就被丢掉了，所以它必然非空），
+// 用它而不是**下标**：`for ix[i] in …` 那种带索引的写法本文件还没用过，
+// 而"只能靠 CI 验证"的语法不该在没编译器的时候当首例（这条教训见文件头）。
+//
+// ⚠️ `enabled` 不只是显示：它回到 `Provider::enabled()`，聚合层的 `resolve_targets`
+// 会据此**跳过**该索引器（`crates/bt-providers/src/aggregate.rs` 的 `if !p.enabled()`）。
+// 与 JS 在 `dynamicTorznabProviders()` 创建时就滤掉是等价口径。
+export struct IndexerRow {
+    id: string,
+    label: string,
+    action: string,
+}
+
 component ChipRow inherits Rectangle {
     in property <Chip> item;
     /// 搜索进行中要置灰 —— **不是**美观问题：
@@ -256,6 +272,9 @@ export component AppWindow inherits Window {
     in-out property <string> indexer-url: "";
     in-out property <string> indexer-key: "";
     in-out property <string> indexer-status: "未配置索引器";
+    // 已配的索引器清单（每行一个「停用/启用」）—— 之前只有「添加/清空」，
+    // 某个索引器坏了只能全清重加。
+    in-out property <[IndexerRow]> indexers;
     in-out property <int> total: 0;
     // ① 分页：当前页码（1 起）+ 引擎层回的 has_more（决定「下一页」能不能点）
     in-out property <int> page: 1;
@@ -266,9 +285,10 @@ export component AppWindow inherits Window {
     callback pick-kind(string);
     callback detect-downloader();
     callback save-downloader();
-    // ⑤ 索引器：加一个 / 清空全部
+    // ⑤ 索引器：加一个 / 清空全部 / 停用启用某一个（按 URL 认身份）
     callback add-indexer();
     callback clear-indexers();
+    callback toggle-indexer(string);
     // ①③ 新回调
     callback next-page();
     callback toggle-site(string);
@@ -364,8 +384,7 @@ export component AppWindow inherits Window {
         //
         // 「添加」= 按名字去重后写进 %APPDATA%\bt-search\indexers.json **并立刻生效**
         // （重建动态 provider 工厂，不用重启）。名字留空就用地址当代名。
-        // 「清空」= 全删（含文件）。索引器没有单项删除按钮：那要每行一个 Button +
-        // 一个模型，而这个 MVP 用"同名再添加一次即覆盖"已经够管理。
+        // 「清空」= 全删（含文件）。
         HorizontalLayout {
             spacing: 6px;
             Text { text: "索引器"; color: Theme.sub; vertical-alignment: center; }
@@ -391,6 +410,28 @@ export component AppWindow inherits Window {
                 color: Theme.sub;
                 vertical-alignment: center;
                 width: 240px;
+            }
+        }
+
+        // ---- 已配索引器清单：每个一个「停用 / 启用」----
+        //
+        // 为什么需要：之前只有「添加 / 清空」—— 某个索引器坏了（key 失效 / 站点下线）
+        // 只能把**全部**清掉重加。停用 = 留着配置但先别搜它（`Provider::enabled()`）。
+        //
+        // ⚠️ 文案（含 ✓/✗ 与"停用"/"启用"）**由 Rust 算好** —— 本文件不写条件表达式。
+        HorizontalLayout {
+            spacing: 10px;
+            for ix in root.indexers : HorizontalLayout {
+                spacing: 4px;
+                Text {
+                    text: ix.label;
+                    color: Theme.sub;
+                    vertical-alignment: center;
+                }
+                Button {
+                    text: ix.action;
+                    clicked => { root.toggle-indexer(ix.id); }
+                }
             }
         }
 

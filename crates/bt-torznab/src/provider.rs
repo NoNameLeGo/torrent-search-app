@@ -96,6 +96,32 @@ pub fn normalize_api_url(url: &str) -> String {
     u
 }
 
+/// 从「Copy Torznab Feed」那种整条 URL 里抠出 `apikey`。
+///
+/// ## 为什么这是**应用层的便利**，而不是改 [`normalize_api_url`]
+///
+/// [`normalize_api_url`] 会**刻意**丢掉整个 query —— 那是忠实复刻 JS `normalizeApiUrl`
+/// 的既有行为（差分口径的一部分），改它等于改口径。
+/// 但用户从 Jackett/Prowlarr 复制的链接**带着** `?apikey=…`，丢了就只能手填 ⇒
+/// 这个函数只负责"省一步"，由 UI 在 **key 框空着**的时候调用。
+///
+/// ⚠️ 只认 `apikey`（大小写不敏感）、**不做百分号解码**：那些 key 是字母数字，
+/// 真遇到 `%xx` 的用户会自己填一遍。空值返回 `None` —— "有 key 参数但为空"不是有效 key。
+pub fn extract_api_key(url: &str) -> Option<String> {
+    // 先砍掉 fragment（`#…` 不是 query 的一部分），再取 `?` 之后
+    let q = url.split('#').next()?.split_once('?')?.1;
+    for pair in q.split('&') {
+        // ⚠️ 用 `if let` 而不是 `split_once('=')?` —— 后者遇到一个没有 `=` 的段
+        // （例如 `?apikey=K&flag`）会**整个提前返回 None**，把已经找到的 key 丢掉。
+        if let Some((k, v)) = pair.split_once('=') {
+            if k.eq_ignore_ascii_case("apikey") && !v.is_empty() {
+                return Some(v.to_string());
+            }
+        }
+    }
+    None
+}
+
 /// JS `URLSearchParams` 的序列化：`A-Za-z0-9*-._` 原样，**空格变 `+`**，其余 `%XX`（大写）。
 ///
 /// ⚠️ 这与 `encodeURIComponent` **不同**（那个是空格变 `%20`、且不转义 `!'()~`）。
@@ -448,5 +474,57 @@ mod tests {
         assert!(!provider().paginated());
         assert!(!provider().browseable(), "JS 没给 torznab 设 browseable");
         assert!(!provider().demo());
+    }
+
+    // ---- 从粘贴的 feed URL 抠 apikey（UI 的便利函数，不是 port 行为）----
+
+    #[test]
+    fn extracts_the_api_key_from_a_pasted_feed_url() {
+        // Jackett 的 "Copy Torznab Feed" 就长这样（整条带 apikey）
+        assert_eq!(
+            extract_api_key(
+                "http://host:9117/api/v2.0/indexers/all/results/torznab/api?apikey=abc123&extended=1"
+            ),
+            Some("abc123".to_string())
+        );
+        // 顺序无关、后面还跟着别的参数
+        assert_eq!(
+            extract_api_key("http://h/api?t=search&apikey=K&q=x"),
+            Some("K".to_string())
+        );
+        // 参数名大小写不敏感
+        assert_eq!(
+            extract_api_key("http://h/api?ApiKey=K"),
+            Some("K".to_string())
+        );
+        // 值里带 `=` 也要取全（`split_once('=')` 只切第一个）
+        assert_eq!(
+            extract_api_key("http://h/api?apikey=a=b"),
+            Some("a=b".to_string())
+        );
+    }
+
+    /// ⚠️ 三种"没有有效 key"都要返回 `None` —— **别把空串当 key**：
+    /// 空 key 会让请求变成 `apikey=`，站点回 401，用户看到的是"key 无效"而不是"你没填"。
+    #[test]
+    fn there_is_no_api_key_when_there_is_none() {
+        assert_eq!(extract_api_key("http://h/api"), None, "没有 query");
+        assert_eq!(
+            extract_api_key("http://h/api?extended=1"),
+            None,
+            "没有 apikey"
+        );
+        assert_eq!(extract_api_key("http://h/api?apikey="), None, "key 是空的");
+        // ⚠️ 这一条钉的是实现细节：**遇到没有 `=` 的段不能提前放弃**
+        //（第一版写成 `split_once('=')?` 就会在这里返回 None，把前面找到的 key 丢掉）
+        assert_eq!(
+            extract_api_key("http://h/api?apikey=K&flag"),
+            Some("K".to_string())
+        );
+        // fragment 不算 query
+        assert_eq!(
+            extract_api_key("http://h/api?apikey=K#frag"),
+            Some("K".to_string())
+        );
     }
 }

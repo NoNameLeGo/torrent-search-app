@@ -29,7 +29,8 @@
 
 mod provider;
 pub use provider::{
-    build_search_url, normalize_api_url, to_result, IndexerConfig, TorznabProvider, DEFAULT_TIMEOUT,
+    build_search_url, extract_api_key, normalize_api_url, to_result, IndexerConfig,
+    TorznabProvider, DEFAULT_TIMEOUT,
 };
 
 use roxmltree::Node;
