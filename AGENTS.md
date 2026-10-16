@@ -9,6 +9,10 @@ npm start     # node server.js → http://localhost:3000
 
 Electron mode: `npm run electron` (picks a free port automatically, no collision with a running `npm start`).
 
+> 📌 **接手前先读 [`docs/HANDOVER.md`](docs/HANDOVER.md)** —— 一页的现状快照：
+> `main` 的 tip 与 CI 状态、最新发布、**本机跑不了 cargo / node_modules** 这类硬约束、
+> 还挂着的事、以及「明确不修」的决定（免得重新发现一遍）。
+
 ## 🏗️ 构建约束 — 先读这条（硬规则，2026-10-04 用户明令）
 
 **不要在本机编译任何东西。** 用户原话：「不要在本地新增什么构建环境什么的，我电脑没空间了」。
