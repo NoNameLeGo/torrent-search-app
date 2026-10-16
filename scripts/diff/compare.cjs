@@ -28,6 +28,28 @@ const { FIELDS } = require('./canonical.cjs');
 
 const DEFAULT_WHITELIST = path.join(__dirname, 'whitelist.json');
 
+/**
+ * **非确定性字段**：值取决于「跑的时刻」。
+ *
+ * 有些站点的日期是**相对时间**（页面写「x 分钟前」），provider 用 `Date.now()` 换算
+ * ⇒ 两侧各取一次当前时间，**必然**不同。这类分歧：
+ *   · 不是移植 bug（跟两边代码写得好不好无关）
+ *   · 也**不该进白名单** —— 白名单的语义是「已知的**有意**分歧」，
+ *     而这里的分歧根本不该存在（同一时刻跑两次两边也会不同）
+ *
+ * 🔧 处理：**只比形状、不比精确值** —— `(rust === null) === (node === null)`。
+ * 这样仍然抓得住「一边解析挂了、另一边没挂」（那才是真信号），只是不比数值。
+ *
+ * ⚠️ 进来的门槛：**必须有两次运行值都不同的证据**，且 reason 要写清怎么得到的。
+ * 别因为「懒得查」就把它挪进来 —— 那和往白名单里塞东西是一回事。
+ */
+const NONDETERMINISTIC = {
+  'limetorrents.date':
+    'the limetorrents 页面给的是相对时间，provider 用当前时间换算 ⇒ 两侧各取一次 Date.now()，' +
+    '必然差几百 ms。证据：两次探针跑的值都不同（1768456238650/1768456242896 → ' +
+    '1768456467343/1768456468250）。只比「是不是 null」。',
+};
+
 function parseArgs(argv) {
   const out = { files: [], whitelist: DEFAULT_WHITELIST, only: [] };
   for (let i = 0; i < argv.length; i++) {
@@ -70,6 +92,23 @@ function diffResult(provider, index, a, b, whitelisted) {
   for (const f of FIELDS) {
     const va = a[f];
     const vb = b[f];
+
+    // 非确定性字段：**只比形状**（是不是 null），不比精确值。见 NONDETERMINISTIC。
+    if (NONDETERMINISTIC[key(provider, f)]) {
+      const sameShape = (va === null) === (vb === null);
+      if (sameShape) continue;
+      diffs.push({
+        provider,
+        index,
+        field: f,
+        rust: va,
+        node: vb,
+        whitelisted: false,
+        nondeterministic: true, // 形状都对不上 ⇒ 那是真信号，照样报
+      });
+      continue;
+    }
+
     // JSON 已归一化，直接严格比：NaN/Infinity 在导出时就变成 null 了
     if (Object.is(va, vb)) continue;
     const wl = whitelisted.has(key(provider, f));
