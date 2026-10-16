@@ -74,14 +74,112 @@ const JSON_PROVIDERS = [
 ];
 
 /**
- * HTML provider —— 需要 `cheerio`，所以**只能在 CI 跑**。
+ * HTML provider —— 需要 `cheerio`，所以**只能在 CI 跑**（`npm ci --omit=dev` 装它）。
  *
- * TODO(M6)：每条规则要对着 `crates/bt-providers/tests/<name>.rs` 抄一遍 fixture 名。
- * 现在返回空数组是**有意**的：宁可显式地"还没覆盖"，也不要一份看起来覆盖了、
- * 实际喂错 fixture 的表。
+ * `match` 用**主机名**而不是完整路径，这是有意的：
+ *   · 每个 provider 只会打自己的域名，而每个 provider 又各自拿到**独立的桩实例**
+ *     ⇒ 主机级匹配不会串台，也不用跟着路径改版（这些站路径改得很勤）；
+ *   · 多镜像的（rutor / therarbg / limetorrents / torrent9 / oxtorrent）**几个域名
+ *     都要列全** —— JS 侧是并行打所有镜像、取第一个非空结果，所以桩对**每个**镜像
+ *     都得答得出来。
+ *
+ * ⚠️ `kind: 'html'` 表示桩返回 `{ html }`（而不是 `{ data }`）。
+ * ⚠️ `megapeer` 的 fixture 是 **windows-1251 字节**：桩按 utf8 读文件会得到 U+FFFD —
+ *    这**正是** axios 的行为（它无视 charset 头），所以是**忠实复现**，
+ *    而 Rust 侧认 charset 头解码正确 ⇒ 两边的 name/size 等**本来就该不同**，
+ *    那些差异在 `whitelist.json` 里（有意 divergence）。
+ *
+ * query 与 fixture 名必须与 `crates/bt-providers/tests/dump_rust.rs` 的 `SPECS` 一致。
  */
+const HTML_PROVIDERS = [
+  {
+    id: 'linuxtracker',
+    module: '../../src/providers/linuxtracker.js',
+    query: 'linux',
+    page: 1,
+    rules: [{ match: /linuxtracker\.org/, file: 'linuxtracker-linux.html', kind: 'html' }],
+  },
+  {
+    id: 'filemood',
+    module: '../../src/providers/filemood.js',
+    query: 'ubuntu',
+    page: 1,
+    rules: [{ match: /filemood\.com/, file: 'filemood-ubuntu.html', kind: 'html' }],
+  },
+  {
+    id: 'rutor',
+    module: '../../src/providers/rutor.js',
+    query: 'ubuntu',
+    page: 1,
+    rules: [{ match: /rutor\.(info|is|ru)/, file: 'rutor-ubuntu.html', kind: 'html' }],
+  },
+  {
+    id: 'audiobookbay',
+    module: '../../src/providers/audiobookbay.js',
+    query: 'ubuntu',
+    page: 1,
+    rules: [{ match: /audiobookbay\.lu/, file: 'audiobookbay-ubuntu.html', kind: 'html' }],
+  },
+  {
+    id: 'therarbg',
+    module: '../../src/providers/therarbg.js',
+    query: 'ubuntu',
+    page: 1,
+    rules: [{ match: /therarbg\.(com|to|org)/, file: 'therarbg-ubuntu.html', kind: 'html' }],
+  },
+  {
+    id: 'limetorrents',
+    module: '../../src/providers/limetorrents.js',
+    query: 'ubuntu',
+    page: 1,
+    rules: [{ match: /limetorrents\.(fun|lol|pro)/, file: 'limetorrents-ubuntu.html', kind: 'html' }],
+  },
+  {
+    id: 'torrent9',
+    module: '../../src/providers/torrent9.js',
+    query: 'ubuntu',
+    page: 1,
+    rules: [{ match: /torrent9\.(to|so)/, file: 'torrent9-ubuntu.html', kind: 'html' }],
+  },
+  {
+    id: 'oxtorrent',
+    module: '../../src/providers/oxtorrent.js',
+    query: 'ubuntu',
+    page: 1,
+    rules: [{ match: /oxtorrent\.(co|so)/, file: 'oxtorrent-ubuntu.html', kind: 'html' }],
+  },
+  {
+    id: 'nyaa',
+    module: '../../src/providers/nyaa.js',
+    query: 'ubuntu',
+    page: 1,
+    rules: [{ match: /nyaa\.si/, file: 'nyaa-ubuntu.html', kind: 'html' }],
+  },
+  {
+    id: 'megapeer',
+    module: '../../src/providers/megapeer.js',
+    // ⚠️ 与 Rust 侧一致：megapeer 的 fixture 是 1080p 那批
+    query: '1080p',
+    page: 1,
+    rules: [{ match: /megapeer\.vip/, file: 'megapeer-1080p.html', kind: 'html' }],
+  },
+  {
+    id: 'zeromagnet',
+    module: '../../src/providers/zeromagnet.js',
+    query: 'ubuntu',
+    page: 1,
+    rules: [{ match: /9mag\.net/, file: 'zeromagnet-ubuntu.html', kind: 'html' }],
+  },
+];
+
+/** 全部 16 家。⚠️ 这个数是「已移植」的家数 —— 改了 provider 集合这里要跟着改。 */
+function allProviders() {
+  return [...JSON_PROVIDERS, ...HTML_PROVIDERS];
+}
+
+/** 兼容旧调用点：返回 HTML 那 11 家。 */
 function htmlProviders() {
-  return [];
+  return HTML_PROVIDERS;
 }
 
 /** fixture 是否真的存在 —— 缺了要当场报，别让 provider 拿到一个假的 network error。 */
@@ -91,4 +189,4 @@ function missingFixtures(spec) {
     .filter((f) => !fs.existsSync(path.join(ROOT, 'test', 'fixtures', f)));
 }
 
-module.exports = { JSON_PROVIDERS, htmlProviders, missingFixtures, ROOT };
+module.exports = { JSON_PROVIDERS, HTML_PROVIDERS, allProviders, htmlProviders, missingFixtures, ROOT };

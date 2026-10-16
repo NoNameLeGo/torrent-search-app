@@ -78,7 +78,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node scripts/diff/dump-node.cjs -o .cache/diff/node.json
+          # ⚠️ 暂时 `--json-only`：Rust 侧目前只接了 5 个 JSON provider，而
+          # `dump-node.cjs` 的默认是**全部 16 家**。两边对不上时 compare 会直接判
+          # 「provider 只在 Node 侧存在」⇒ 红。11 家 HTML 接上后**必须摘掉这个开关**，
+          # 否则覆盖面静默缩水（那正是 M6 最不能出的问题）。
+          #
+          # 摘开关时还要一并做两件事（见 AGENTS.md「M6」）：
+          #   ① 这一步之前要装 cheerio（`npm ci --omit=dev`）
+          #   ② **origin 归一化**：`detail_url` 嵌了 base，而两侧喂的 base 不同
+          #      （Rust 是本地桩 URL、Node 是真实域名）⇒ 不归一化就是整列假差异
+          node scripts/diff/dump-node.cjs --json-only -o .cache/diff/node.json
           node scripts/diff/compare.cjs .cache/diff/rust.json .cache/diff/node.json
 
       # 首轮先不做 -D warnings，避免被 lint 噪音挡住"移植是否等价"这个主要信号。

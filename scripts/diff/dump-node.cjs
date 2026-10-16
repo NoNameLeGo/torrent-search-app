@@ -12,14 +12,15 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { JSON_PROVIDERS, htmlProviders, missingFixtures } = require('./fixtures.cjs');
+const { allProviders, missingFixtures } = require('./fixtures.cjs');
 const { install, uninstall } = require('./http-stub.cjs');
 const { canonOutcome } = require('./canonical.cjs');
 
 function parseArgs(argv) {
-  const out = { only: [], output: null };
+  const out = { only: [], output: null, jsonOnly: false };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '-o' || argv[i] === '--out') out.output = argv[++i];
+    else if (argv[i] === '--json-only') out.jsonOnly = true;
     else out.only.push(argv[i]);
   }
   return out;
@@ -64,10 +65,17 @@ async function dumpOne(spec) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const specs = JSON_PROVIDERS.filter((s) => !args.only.length || args.only.includes(s.id));
+
+  // 默认跑**全部 16 家** —— CI 走的就是这条，所以「cheerio 没装」会在 CI 里**响**
+  // （`require 失败: Cannot find module 'cheerio'` → fatal → 非零退出）。
+  // `--json-only` 只给本机用：本机不装 node_modules，11 家 HTML provider 跑不了。
+  const pool = args.jsonOnly
+    ? allProviders().filter((s) => !s.rules.some((r) => r.kind === 'html'))
+    : allProviders();
+  const specs = pool.filter((s) => !args.only.length || args.only.includes(s.id));
 
   if (!specs.length) {
-    console.error(`没有匹配的 provider（可选：${JSON_PROVIDERS.map((s) => s.id).join(' ')}）`);
+    console.error(`没有匹配的 provider（可选：${allProviders().map((s) => s.id).join(' ')}）`);
     process.exit(2);
   }
 
@@ -91,8 +99,8 @@ async function main() {
 
   // 有 fatal 就是 harness 自己的问题（fixture 缺失/require 失败），必须非零退出
   if (out.some((o) => o.fatal)) process.exit(1);
-  if (htmlProviders().length === 0) {
-    console.error('提示：11 个 HTML provider 还没进这份表（需要 cheerio，只能在 CI 跑）—— 见 fixtures.cjs 的 TODO(M6)');
+  if (args.jsonOnly) {
+    console.error('提示：--json-only 只跑了 5 个 JSON provider；CI 里跑的是全部 16 家');
   }
 }
 
