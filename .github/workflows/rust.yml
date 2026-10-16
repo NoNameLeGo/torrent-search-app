@@ -86,34 +86,27 @@ jobs:
         shell: bash
         run: npm ci --omit=dev
 
-      - name: M6 导出 Node 侧并比较
+      - name: M6 导出 Node 侧并比较（全 16 家）
         shell: bash
         run: |
           set -euo pipefail
-          # ⚠️ **`--json-only` 是暂时的、且是「已登记的欠账」，不是设计。**
+          # 🎉 **2026-10-16：门已放开到 16 家全量。**
           #
-          # 2026-10-16 首次全量跑（16 家）抓到 **111 处未命中白名单的差异**，
-          # 集中在 5 家：internetarchive / linuxtracker / rutor / limetorrents / megapeer。
-          # 约一半是 **harness 造的假差异** —— 几家 provider 的 detail_url 用**硬编码
-          # 域名**（不在"本侧 base"里），所以 origin 归一化没盖住它们。
-          # 另一半是**真差异**：size_text 舍入分歧（3.2 vs 3.3 GB）、
-          # Rust 产出了 Node 没有的 date（"2026-10-11" vs "—"）、毫秒级 date 差。
+          # 首次全量跑（同一天早些时候）曾抓到 111 处未命中白名单的差异，
+          # triage 期间门收在 5 家上（`--json-only` + `--only`）。现在那些都清掉了：
+          #   · 约 100 处 = megapeer 的 windows-1251 那条**已知有意 divergence** 的
+          #     连带损伤（俄语月份名被 axios 按 utf8 解坏 ⇒ date 解析不出）⇒ 补白名单
+          #   · 7 处 = harness 造的假差异（origin 处理不对称）⇒ 改**通用剥离**
+          #   · 3 处 = **真移植 bug**：`format_size` 的平局取舍（JS toFixed 平局向上、
+          #     Rust `{:.1}` 平局取偶 ⇒ 3.25 得 3.2 vs 3.3）⇒ 修 bt-core
+          #   · 1 处 = **本质非确定性**（limetorrents 日期用当前时间换算）⇒ 只比形状
           #
-          # 门暂时只留在**已验证零差异的那 5 家 JSON provider** 上：
-          # 这 111 处还没 triage，拿它们当门只会逼人往白名单里塞东西。
-          # 完整清单见 AGENTS.md「M6」。
-          #
-          # 🔴 triage 完成后**必须摘掉这个开关**（`--json-only` 会让 11 家静默退出差分，
-          # 而"覆盖面静默缩水"正是 M6 最不能出的问题）。摘之前先把 origin 处理改成
-          # **通用剥离**（`^https?://[^/]+` → `<BASE>`），否则那批假差异会一直在。
-          node scripts/diff/dump-node.cjs --json-only -o .cache/diff/node.json
-          # `--only` = 本次比的显式作用域（两侧会被裁到同一集合）。
-          # ⚠️ 它**不是**放宽检查：作用域**内**的 provider 仍要求两侧都在，
-          # 少一边照样 fatal。之所以需要它，是因为 triage 期间两侧覆盖面不同
-          # （Rust 已导出 16 家、这里的 Node 只跑 5 家 JSON）——
-          # 而 compare 对「只在一边出现」是判结构性失败的，那是对的，别去改它。
-          node scripts/diff/compare.cjs .cache/diff/rust.json .cache/diff/node.json \
-            --only tpb,knaben,torrentscsv,yts,internetarchive
+          # ⚠️ **别再加回 `--json-only` / `--only`** —— 那会让部分 provider 静默退出
+          # 差分，而"覆盖面静默缩水"正是 M6 最不能出的问题。
+          # 只想看报告、不想让门变红时，用探针：`gh workflow run m6-diff.yml --ref main`
+          # （它只挂 workflow_dispatch，跑的就是这条全量比较）。
+          node scripts/diff/dump-node.cjs -o .cache/diff/node.json
+          node scripts/diff/compare.cjs .cache/diff/rust.json .cache/diff/node.json
 
       # 首轮先不做 -D warnings，避免被 lint 噪音挡住"移植是否等价"这个主要信号。
       # 稳定下来后再收紧。
