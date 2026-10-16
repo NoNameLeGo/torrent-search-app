@@ -29,6 +29,7 @@
 //! - `ui.rows` / `ui.providers`：它的**镜像**，喂给 Slint 渲染。
 //! - 行号 = `AppState.rows` 的下标；`.slint` 的按钮把行号回传（`push-row(int)`）。
 
+mod config_store;
 mod highlight;
 mod selftest;
 mod ui_model;
@@ -578,10 +579,16 @@ fn save_downloader(ui: &AppWindow) {
         pass,
         token,
     };
+    // ② 落盘。⚠️ **失败不致命**：配置在本次会话里照常可用，只是下次要重填 ——
+    // 所以把原因塞进状态栏，而不是弹窗 / 退出。
+    let saved = match config_store::save(kind, &cfg) {
+        Ok(()) => String::new(),
+        Err(e) => format!("（{e}）"),
+    };
     STATE.with(|s| {
         let mut st = s.borrow_mut();
         st.downloader = Some((kind, cfg));
-        st.status = format!("下载器已保存：{}", kind.as_str());
+        st.status = format!("下载器已保存：{}{saved}", kind.as_str());
         sync_small(ui, &st);
     });
 }
@@ -732,5 +739,30 @@ fn main() -> Result<(), slint::PlatformError> {
 
     let ui = AppWindow::new()?;
     wire(&ui);
+
+    // ② 载入上次保存的下载器配置。⚠️ 这一步**绝不能拦启动** ——
+    // 没有配置文件、文件被改坏、APPDATA 取不到，都只是"没配置过"。
+    // 参数 / 环境变量一个都没有 ⇒ 用户重填一次就能继续用。
+    if let Some((kind, cfg)) = config_store::load() {
+        ui.set_downloader_kind(kind.as_str().into());
+        ui.set_downloader_url(cfg.url.clone().into());
+        // ⚠️ 回填时要把 `Config` 拆回**界面上的两个框**：
+        // token 类客户端（aria2 / Gopeed）用"密码 / token"那一个框，用户名框留空 ——
+        // 与 `save_downloader` 的写方向必须**对称**，否则来回存两次会把凭据搬家。
+        let (user, secret) = if downloaders::meta_of(kind).auth == downloaders::Auth::Token {
+            (String::new(), cfg.token.clone())
+        } else {
+            (cfg.user.clone(), cfg.pass.clone())
+        };
+        ui.set_downloader_user(user.into());
+        ui.set_downloader_secret(secret.into());
+        STATE.with(|s| {
+            let mut st = s.borrow_mut();
+            st.downloader = Some((kind, cfg));
+            st.status = format!("已载入上次的下载器配置：{}", kind.as_str());
+            sync_small(&ui, &st);
+        });
+    }
+
     ui.run()
 }
