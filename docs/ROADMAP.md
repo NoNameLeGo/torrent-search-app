@@ -58,19 +58,27 @@
 
 ## 2. 架构
 
-### 2.1 crate 布局（4 个 + 1 个二进制）
+### 2.1 crate 布局（5 个 + 1 个二进制）
 
 ```
 crates/bt-core/         领域类型 / normalize / http / dom / og-meta        ✅ 已有
-crates/bt-providers/    各站点引擎 + 注册表 + **聚合调度**                  ✅ 已有 16 个，待加聚合
-crates/bt-downloaders/  qB / Transmission / aria2·Motrix / Gopeed          ⬜ 新建
-crates/bt-app/          **Slint 应用（二进制）** —— 唯一的 UI               ⬜ 新建
+crates/bt-providers/    各站点引擎 + 注册表 + **聚合调度**                  ✅ 已有 16 个
+crates/bt-downloaders/  qB / Transmission / aria2·Motrix / Gopeed          ✅ 已有（M3，4 家）
+crates/bt-app/          **Slint 应用（二进制）** —— 唯一的 UI               ✅ 已有（M4）
+crates/bt-torznab/      Torznab 索引器（Jackett / Prowlarr / *arr）        🟡 **解析层已完成**；请求层/Provider/接入见 §2.4
 ```
 
-**两处要说明的取舍：**
+**三处要说明的取舍：**
 
 - **聚合调度放 `bt-providers`，不放 `bt-app`。** 它是「并发跑一批 provider 并把结果合起来」，只依赖 provider 的元数据（enabled / paginated / browseable），跟 UI 无关。放这里就能**不依赖 Slint 单独测试** —— 这点很重要，因为本机跑不了 cargo，测试是 CI 上唯一的信号。
-- **不建 `bt-torznab`。** 本期不做（D17），但引擎抽象要留口子（见 §2.4）。
+- **`bt-torznab` 于 2026-10-16 开建**（D17 原本是「本期不做，只留口子」）—— 现在的状态是**解析层已落地**：
+  `parse_items(xml) -> Vec<RawItem>`（`roxmltree`），字段映射逐条抄自 `src/providers/torznab.js`，
+  fixture 在 `test/fixtures/torznab-search.xml` + 校验脚本 `scripts/check-torznab-fixture.py`。
+  ⚠️ **不能用 `bt_core::dom`**：JS 用的是 cheerio 的 `xmlMode: true`，
+  而 html5ever 没有 XML 模式，自闭合的 `<torznab:attr ... />` 会被"打开"成后续兄弟的父节点。
+- **`bt-app` 的动态 provider 追加**（`add_dynamic_factory`）是 Torznab 接入的前提 ——
+  现在 `provider_set()` 只支持"注入**替换**"，没有"追加"。
+
 
 ### 2.2 数据流（全进程内，**没有 HTTP**）
 
@@ -150,7 +158,7 @@ pub trait Provider: Send + Sync {
 | **M4** | `bt-app` Slint MVP | S6 全链路手工走通 | ✅ **已完成（2026-10-16：UI + 接线 + 映射层 + 全链路 `--selftest` 12/12）** |
 | **M5** | 引擎体检 → 砍掉死的 | 产出一张「谁还活着」的表 + 砍完的注册表 | ✅ **已完成（2026-10-16：表有了，结论是「一个都不砍」——单边 403 不足以判死，见 AGENTS.md「provider 探活」）** |
 | **M6** | **差分验证**（与 Node 逐字段比对） | 差异全部命中白名单 | ✅ **已完成（2026-10-16）**：16 家全量、**0 处未豁免差异**、246 处命中白名单（9 条有意 divergence）；过程中抓到 1 个真移植 bug。门已放开到全量 |
-| **M7** | 打包 + GitHub Release | S1/S2 达标，小圈子能下载到 | ⬅️ **当前** |
+| **M7** | 打包 + GitHub Release | S1/S2 达标，小圈子能下载到 | ✅ **已完成（2026-10-16）**：S1 达标（18.0MB，`rust-size.yml` 有 25MB 回归门）；S2 机器断言过（无 MSVC 运行时依赖）；release 已发布（`v0.3.6-beta`，6 个资产）。⚠️ **S2 仍需人工在干净 Windows 上双击一次**（见 §1 的 S2 行） |
 
 **顺序上有三条硬约束，别调换：**
 

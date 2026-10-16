@@ -83,9 +83,21 @@ M6 ✅ 差分验证（2026-10-16 —— **16 家全量、0 处未豁免差异**�
 M7 ✅ 打包 + GitHub Release（2026-10-16 —— **v0.3.6-beta 已发布**，四套产物，Rust 版首次可下载）
 ```
 
-### 🔍 Rust 侧遗留清单（2026-10-16 审计；①②③④ 已在同日晚些时候做掉）
+### 🔍 Rust 侧遗留清单（2026-10-16 审计；A 表 ①②③ ✅ / B 表 ④ ✅）
 
 **结论：七个里程碑全部完成；`crates/` 里没有任何 TODO/FIXME 型欠账。**
+
+⚠️ **本清单的进度在 2026-10-16 晚些时候又推进了一轮**（产品级改进 6 项）：
+
+| # | 改进 | 状态 |
+|---|---|---|
+| 1 | 排序（做种/相关度/体积/日期）+ 分类筛选 | ✅ |
+| 2 | 「一条都没有」说得清原因 + **失败分网络层/站点层** | ✅ 判据是 `bt_core::http::classify_error`（依据 providers 复刻的 axios 错误码，不是猜文案） |
+| 3 | 体积回归门（25MB，`rust-size.yml`） | ✅ |
+| 4 | registry 动态化（`ProviderFactory` + `provider_set()`，每次现造一份） | ✅ 但**只有"注入替换"，没有"追加"** —— Torznab 接入需要追加 |
+| 5 | Torznab | 🟡 **规格 + fixture + 解析层已完成**（`crates/bt-torznab`，`roxmltree`，10 条测试）；剩请求层 / `Provider` 实现 / 动态追加 / UI 配置 |
+| 6 | 引擎腐坏数据化（`health.rs` 落盘 + `--health` + 状态条 ⚠ 标记） | ✅ |
+
 
 **A. 用户能直接感到的三个（产品级）—— ✅ 全部已修**
 
@@ -104,7 +116,7 @@ M7 ✅ 打包 + GitHub Release（2026-10-16 —— **v0.3.6-beta 已发布**，�
 |---|---|---|
 | 4 | **`catch_unwind` 未做** | ✅ **已修**：`run_provider` 用 `AssertUnwindSafe(..).catch_unwind()`，配了 `a_panicking_provider_does_not_take_down_the_others`（去掉它这条会 red，而不是静默通过）。当时"本机没有 `cargo`"的理由**已失效**（M3/M4/M6 证明这条路上本机不编译也能交付） |
 | 5 | **`demo` 引擎缺失** | ⬜ 未做。`Provider::demo()` 建模了、`ProviderInfo.demo` 导出了，但 registry 里没有 demo 引擎 ⇒ 该字段恒 `false`。JS 有 `demo.js`（离线确定性假数据）。**注意它与 6 共用同一堵墙**（见下） |
-| 6 | **Torznab / registry 动态化** | ⬜ 未做 —— **但墙已经摸清了，见下面那段。这是下一个大方向** |
+| 6 | **Torznab / registry 动态化** | 🟡 **registry 动态化已完成**（见上表 #4：工厂 + `provider_set()`）；**Torznab 的解析层也完成了**，剩请求层 / `Provider` 实现 / **动态追加** / UI 配置。墙已摸清（见下），追加路径是下一个具体动作 |
 
 #### 🧱 #4 的墙：`Box<dyn Provider>` **不能 clone** —— ✅ **已按出路 ① 解决（2026-10-16）**
 
