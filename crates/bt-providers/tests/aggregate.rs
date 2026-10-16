@@ -12,7 +12,7 @@
 //! | [`semantic_3_aggregate_has_more_truth_table`] | 语义③ 真值表（含**显式 false vs 没表态**） |
 //! | [`search_reports_has_more_through_the_whole_pipeline`] | ③ 与 ② 串起来 |
 //! | [`search_stream_reports_a_fast_provider_before_a_slow_one_finishes`] | 「谁先回来先显示谁」 |
-//! | [`registry_matches_the_js_registry_order_and_flags`] | 16 家的顺序与旗标 |
+//! | [`registry_matches_the_js_registry_order_and_flags`] | 17 家的顺序与旗标 |
 //! | [`providers_without_a_resolver_return_the_js_404_text`] | trait 默认方法的 `no resolver` |
 
 use std::sync::{Arc, Mutex};
@@ -560,7 +560,9 @@ async fn search_stream_reports_a_fast_provider_before_a_slow_one_finishes() {
 fn registry_matches_the_js_registry_order_and_flags() {
     let list = registry::list();
 
-    // 顺序 = JS REGISTRY 里已搬 16 个的相对顺序（= UI 显示顺序）
+    // 顺序 = JS REGISTRY 里已搬的那些的相对顺序（= UI 显示顺序）
+    // ⚠️ 17 条：16 个站点 + **demo**。JS 的 REGISTRY 里 demo 也是**最后一条**
+    // （`src/providers/index.js:121`），所以这里也放最后。
     let ids: Vec<&str> = list.iter().map(|p| p.id).collect();
     assert_eq!(
         ids,
@@ -581,6 +583,7 @@ fn registry_matches_the_js_registry_order_and_flags() {
             "internetarchive",
             "linuxtracker",
             "megapeer",
+            "demo",
         ]
     );
 
@@ -588,8 +591,18 @@ fn registry_matches_the_js_registry_order_and_flags() {
     let paginated: Vec<&str> = list.iter().filter(|p| p.paginated).map(|p| p.id).collect();
     assert_eq!(paginated, ["nyaa", "limetorrents", "rutor"]);
 
-    // 已搬的 16 家里没有 demo（demo 是 JS 独有）；也没有 browseable 之外的
-    assert!(list.iter().all(|p| p.enabled && !p.demo));
+    // 全部 enabled（JS 的 17 条都是 enabled: true）
+    assert!(list.iter().all(|p| p.enabled));
+
+    // ⚠️ **恰好一家 demo，且它是最后一条** —— JS 里 `demo` 是唯一个 page>1 的豁免分支
+    // （`index.js:155` 的 `page > 1 && !p.paginated && !p.demo`）。
+    // 它也**不是** paginated（JS 没给它设那个旗标），但 browseable。
+    let demos: Vec<&str> = list.iter().filter(|p| p.demo).map(|p| p.id).collect();
+    assert_eq!(demos, ["demo"], "只有 demo 一家是 demo");
+    assert_eq!(ids.last(), Some(&"demo"), "demo 排在最后（照 JS 顺序）");
+    let demo = list.iter().find(|p| p.id == "demo").unwrap();
+    assert!(demo.browseable, "demo 是 browseable 的");
+    assert!(!demo.paginated, "JS 没给 demo 设 paginated —— 别顺手改");
 
     // 名字抽查：与 JS `module.exports` 逐字一致（大小写敏感）
     let name_of = |id: &str| list.iter().find(|p| p.id == id).unwrap().name;
@@ -599,6 +612,7 @@ fn registry_matches_the_js_registry_order_and_flags() {
     assert_eq!(name_of("audiobookbay"), "AudioBookBay");
     assert_eq!(name_of("internetarchive"), "InternetArchive");
     assert_eq!(name_of("zeromagnet"), "ZeroMagnet");
+    assert_eq!(name_of("demo"), "Demo (offline)", "JS demo.js 的 name");
 }
 
 /// 没有 resolver 的那 10 家走 trait 默认方法 —— 错误串必须是 JS 的 404 文案

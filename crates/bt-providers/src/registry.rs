@@ -10,9 +10,10 @@
 //!
 //! ## 顺序 = UI 显示顺序
 //!
-//! 下面 16 条的顺序取自 JS `REGISTRY` 里**已搬的那些**的相对顺序 ——
-//! 未搬的（`1337x` / `anilibria` / … / `demo`）跳过，但**不要重排**。
-//! 对照表在 `AGENTS.md`「M2 开工前勘明」⑦。
+//! 下面 17 条的顺序取自 JS `REGISTRY`（`src/providers/index.js:79-121`）里
+//! **已搬的那些**的相对顺序：16 个站点按 JS 顺序排列，**`demo` 在最后一条**
+//! （JS 里它也是第 121 行的最后一项）。未搬的（`1337x` / `anilibria` / …）跳过，
+//! 但**不要重排**。对照表在 `AGENTS.md`「M2 开工前勘明」⑦。
 
 use bt_core::http::HttpClient;
 
@@ -29,7 +30,7 @@ use crate::{BoxFuture, MagnetOutcome, Provider, SearchOutcome};
 /// macro_rules 对这种形状有歧义风险。两条臂（各写一遍 impl 体）虽然重复 14 行，
 /// 但匹配是确定的 —— 在没有本地编译器的前提下，确定性比省行数重要。
 ///
-/// - 第 1 条臂：**有**惰性磁力解析（6/16 家有：`audiobookbay` / `megapeer` /
+/// - 第 1 条臂：**有**惰性磁力解析（6/17 家有：`audiobookbay` / `megapeer` /
 ///   `oxtorrent` / `therarbg` / `torrent9` / `zeromagnet`），末位写 `magnet`。
 /// - 第 2 条臂：**没有**，末位直接跟旗标（可为空）。
 ///
@@ -149,6 +150,10 @@ site!(MegaPeer, megapeer, "megapeer", "MegaPeer", magnet);
 /// ⚠️ 将来 Torznab 的动态 provider（D17）**不在这里** —— 调用方把
 /// 「这个静态表 + 动态实例」拼起来再交给聚合层；聚合层只认 `&[Box<dyn Provider>]`，
 /// 不关心某个 provider 是编译期固定的还是运行期来的。
+///
+/// ⚠️ `demo` **不用 [`site!`] 宏**：宏生成的是「调 `crate::<mod>::search_at(...)`」那种
+/// 统一形状，而 demo 不碰网络（它自己造数据）。宏的注释里也写了这一条
+/// （「需要带状态的 provider 不走这个宏，另外写 impl」）—— demo 是同类里的另一种。
 pub fn registry() -> Vec<Box<dyn Provider>> {
     vec![
         Box::new(Tpb),
@@ -167,6 +172,8 @@ pub fn registry() -> Vec<Box<dyn Provider>> {
         Box::new(InternetArchive),
         Box::new(LinuxTracker),
         Box::new(MegaPeer),
+        // 最后一条，与 JS REGISTRY 一致（那边的 demo 也是最后一项）
+        Box::new(crate::demo::Demo),
     ]
 }
 

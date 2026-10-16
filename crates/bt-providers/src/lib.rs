@@ -15,7 +15,7 @@
 //! - ✅ [`MagnetOutcome`]：惰性磁力解析的返回形状（6 个 provider 在用）
 //! - ✅ **`Provider` trait + 聚合层（M2，2026-10-16）** —— 见 [`aggregate`] 与 [`registry`]。
 //!   引入它的三个真实消费者：① 聚合层要并发遍历异构 provider 列表；
-//!   ② D17 要给 Torznab 留「运行时插入」的口子；③ `resolve_magnet` 只有 6/16 家有
+//!   ② D17 要给 Torznab 留「运行时插入」的口子；③ `resolve_magnet` 只有 6/17 家有
 //!   （**可选能力 = trait 默认方法**）。⚠️ 代码量因此**净增**，这不是为了省行数。
 //!
 //! ## 约定（对齐 JS 版）
@@ -26,6 +26,7 @@
 
 pub mod aggregate;
 pub mod audiobookbay;
+pub mod demo;
 pub mod filemood;
 pub mod internetarchive;
 pub mod knaben;
@@ -62,7 +63,8 @@ pub struct SearchOutcome {
     /// 若用 `bool`，「provider 说 false、但它其实是 paginated」时聚合层会给出错的
     /// `has_more` —— 这正是 M2 勘明时发现、必须改掉的地方。
     ///
-    /// 16 个已搬 provider 一律留 `None`（与 JS 一致：那边也只有 `demo.js` 会显式返回它）。
+    /// 16 个已搬**站点**一律留 `None`（与 JS 一致：那边也只有 `demo.js` 会显式返回它）。
+    /// ⚠️ `demo`（第 17 家）**会**显式返回 `Some(..)` —— 两边都对得上。
     pub has_more: Option<bool>,
 }
 
@@ -191,9 +193,11 @@ impl MagnetOutcome {
 /// `Future + Send + 'static`。第一次跑 bt-app 的 CI 就报
 /// `future cannot be sent between threads safely`（M4 首轮，`afb44db`）。
 ///
-/// 逐个确认的结果：16 家 provider 全是 reqwest + `bt_core::dom`，
+/// 逐个确认的结果：16 个**站点** provider 全是 reqwest + `bt_core::dom`，
 /// `async` 体里没有 `Rc` / `RefCell` / 其它跨 await 的非 Send 持有物 ——
 /// 所以这是一次**纯放宽**，一个 provider 都没改。
+/// （⚠️ 2026-10-16 补的 `demo` 不碰网络、也不返回 `BoxFuture` 里的非 Send 物，
+/// 是同类结论，但它是第 17 家、不属于「16 个站点」那一批。）
 /// 同一轮把三处泛型约束一起跟上：[`run_mirrors`] 的 `F`/`Fut`、
 /// `aggregate::async_pool` 的 `F`/`Fut`/`on_settle`、`aggregate::search_stream` 的
 /// `on_provider`（都是同一个要求的传播）。
@@ -261,7 +265,7 @@ pub trait Provider: Send + Sync {
         page: u32,
     ) -> BoxFuture<'a, SearchOutcome>;
 
-    /// **可选能力**：16 家里只有 6 家能惰性解析磁力（`audiobookbay` / `megapeer` /
+    /// **可选能力**：17 家里只有 6 家能惰性解析磁力（`audiobookbay` / `megapeer` /
     /// `oxtorrent` / `therarbg` / `torrent9` / `zeromagnet`）。没有的就是没有 —— 照抄 JS。
     ///
     /// 这正是用 **trait 默认方法**表达「可选能力」的地方，也是当初决定引入 trait

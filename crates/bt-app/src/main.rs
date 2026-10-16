@@ -19,7 +19,7 @@
 //!    后台闭包只捕获安全的、拥有所有权的数据。
 //! 3. **每站一回来就更新**，不要「等全部跑完再一次性填」。这正是
 //!    `bt_providers::aggregate::search_stream` 存在的理由：
-//!    16 家并发、慢站不拖累快站，用户先看到先回来的那些。
+//!    17 家并发、慢站不拖累快站，用户先看到先回来的那些。
 //!    ⚠️ 而且列表模型要**增量 push**（[`UiState::rows_model`]），
 //!    否则每来一站就重建模型会把用户的滚动位置顶回去。
 //!
@@ -73,7 +73,7 @@ use ui_model::{AppState, ChipData, RowData, SortKey, Tone};
 /// provider 的**工厂**：每次搜索调一遍，得到一个全新的实例。
 ///
 /// ⚠️ **为什么是工厂而不是实例集合**（2026-10-16 定，见 AGENTS.md 遗留清单 #4）：
-/// 要把「静态 16 家 + 运行期动态的」（Torznab / demo / 测试注入）并进**同一份**集合，
+/// 要把「静态 17 家 + 运行期动态的」（Torznab / demo / 测试注入）并进**同一份**集合，
 /// 就必须**拥有一份拷贝** —— 而 `Box<dyn Provider>` **不能 clone**。
 /// 工厂每次现造，天然解决这件事；而 Torznab 本来就是"从存好的索引器配置**现造**一个
 /// provider"，形态完全吻合。
@@ -93,7 +93,7 @@ thread_local! {
 
 /// **本次搜索要用的 provider 集合** —— 每次现造一份。
 ///
-/// 注入了就用注入的（`--selftest` 要完全离线、确定性），否则用静态注册表那 16 家。
+/// 注入了就用注入的（`--selftest` 要完全离线、确定性），否则用静态注册表那 17 家。
 /// 将来 Torznab 的动态 provider 在这里 `extend` 进来即可（那一步还没做）。
 fn provider_set() -> Vec<Box<dyn Provider>> {
     INJECTED.with(|slot| match slot.borrow().as_ref() {
@@ -438,7 +438,7 @@ fn start_search(ui: &AppWindow, query: String, page: u32) {
 /// ③ 点一个站点开关。**在 UI 线程调用** —— 只改状态、发一次同步，不触发搜索。
 ///
 /// 不自动重搜是**有意的**：勾选是"下一次搜索的输入"，
-/// 每点一下都重搜 16 家会把站点打爆，而且用户往往要连点好几家。
+/// 每点一下都重搜 17 家会把站点打爆，而且用户往往要连点好几家。
 fn toggle_site(ui: &AppWindow, id: String) {
     STATE.with(|s| {
         let mut st = s.borrow_mut();
