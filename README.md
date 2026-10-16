@@ -1,194 +1,114 @@
 # BT 聚合搜索 · Torrent Meta-Search
 
 <p align="center">
-  <img src="./assets/readme/hero.svg" width="100%" alt="torrent-search-app — Desktop BT torrent meta-search with 40+ engines, real-time SSE streaming, and downloader integration">
+  <img src="./assets/readme/hero.svg" width="100%" alt="torrent-search-app — Desktop BT torrent meta-search with parallel engines and downloader integration">
 </p>
 
-一个面向桌面的 **BT 种子聚合搜索引擎**。输入一个关键词，**40+ 个种子站点**并行检索，结果通过 SSE 实时流入、跨站去重合并为一张卡片——不依赖任何第三方服务，全量在本地运行。
+一个面向桌面的 **BT 种子聚合搜索引擎**。输入一个关键词，**多个种子站点并行检索**，
+结果跨站去重、合并成一张卡片。不依赖任何第三方服务，全量在本地运行。
 
-> ⚠️ **本项目由 AI 辅助生成**，参考 [prajwalch/TorrentSearch](https://github.com/prajwalch/TorrentSearch)（Kotlin/Android 原生应用）的多引擎并行聚合思路，重写为 Node/Express 后端 + 原生 JS 前端 + Electron 桌面壳。代码可供学习、修改与再分发，但**不保证完整性与安全性**，使用前请自行审阅。
+> ⚠️ **本项目由 AI 辅助生成**，参考 [prajwalch/TorrentSearch](https://github.com/prajwalch/TorrentSearch)
+> （Kotlin/Android 原生应用）的多引擎并行聚合思路。代码可供学习、修改与再分发，
+> 但**不保证完整性与安全性**，使用前请自行审阅。
 
-> 🦀 **开发状态（2026-10-16 更新）：Rust 重写已完成 M0–M7，`main` 现在就是 Rust 主线。**
-> **[`v0.3.6-beta`](https://github.com/NoNameLeGo/torrent-search-app/releases) 已发布** —— 产物里有
-> **Rust 单文件 exe：18 MB、零运行时依赖**（不装 Node、不装 WebView2、不装 VC++ 运行库）。
-> 旧的 Node/Express + Electron/Tauri 三套**仍在同一份 Release 里继续提供**，Node 版留档在 `legacy/node-electron`。
-> ⚠️ **Rust 版目前只有 16 家引擎**（Node 版 40 家）、无 Torznab、下载器配置不持久化 ⇒
-> **尝鲜合适，暂不适合当日常主力**。选哪个见 [`docs/RELEASE_ARTIFACTS.md`](./docs/RELEASE_ARTIFACTS.md)。
-> - **终局**：Windows 桌面原生应用 —— 单文件、零运行时依赖、启动快、内存低；浏览器 / 手机访问模式已放弃
-> - **路径（2026-10-11 重订）**：**直接上 Slint 原生 UI**，核心做成**库**（进程内直调，不做 HTTP、不做 SSE）。
->   旧的「阶段一 = 复用 WebView 前端」路线**已作废** —— 它给不出「小快原生」这个成品。详见 [`docs/ROADMAP.md`](./docs/ROADMAP.md)
-> - **构建**：全部走 GitHub Actions（维护者机器磁盘吃紧，本地不编译）
-> - **进度（2026-10-16）**：**M0–M7 全部完成** —— 聚合层 / 4 个下载客户端 / Slint 原生 UI /
->   `--selftest` 全链路自检 / 引擎体检（结论「一个都不砍」）/ **16 家 × 15 字段全量差分（0 处未豁免差异）** / 打包发版。
->   剩下的功能缺口（分页已接、站点开关已接；还差配置持久化等）列在
->   [`AGENTS.md`](./AGENTS.md) 的「Rust 侧遗留清单」。
->
-> 贡献者细节见 [`AGENTS.md`](./AGENTS.md) / [`CLAUDE.md`](./CLAUDE.md)。
+---
 
-<br>
+## 下载哪个？
 
-<details open>
-<summary><strong>✨ 核心功能一览</strong></summary>
+三种 Windows 产物都在 [Releases](https://github.com/NoNameLeGo/torrent-search-app/releases)。
+**它们的引擎数量并不相同**，选之前请看清：
 
-| | 功能 | 说明 |
-|---|------|------|
-| 🔍 | **多引擎并发搜索** | 40+ 引擎并发查询（8 路并发控制），单引擎失败不影响其他；SSE 实时流逐引擎显示 ✓/✕ 状态与耗时 |
-| ⚡ | **跨站去重合并** | 同一资源按 infoHash 自动去重，多站命中合并为一张卡片 |
-| 🏷️ | **画质快捷筛选** | 4K / 1080p / 720p / HDR·Dolby 快捷标签，标题命中搜索词黄色**高亮** |
-| 📂 | **内容分类筛选** | 自动归类到 电影 / 剧集 / 动漫 / 游戏 / 软件 / 书籍 / 音乐 → 动态 chips 筛选 |
-| 🔄 | **无限滚动** | IntersectionObserver 触底自动加载下一页 |
-| 📋 | **引擎分组管理** | 综合 / 动漫 / 影视 / 成人 / 其他 / 自定义 分组，一键全选/全不选，选中项持久化；推荐/标准/全部三档预设 |
-| 🎯 | **搜索结果排序** | 相关度（启发式打分）/ 做种数 / 大小 / 时间 + 升/降序 |
-| 📚 | **搜索历史 & 收藏** | 最近搜索下拉（可删/清空）；收藏夹含磁力快照 + 搜索筛选，跨会话可用 |
-| ⬇️ | **多下载器一键推送** | 支持 **qBittorrent / Transmission / aria2·Motrix / Gopeed** 四种下载器；每次启动自动探测本机默认端口 |
-| 📤 | **批量操作** | 勾选多条卡片 → 批量推送 / 批量复制磁力 / 导出 CSV（带 BOM，未解析磁力有提示） |
-| 📄 | **详情预览** | 弹窗聚合：做种/大小/分类/infoHash/磁力 + 各来源详情页外链 |
-| 🧩 | **Torznab 自定义索引器** | 接入 Jackett / Prowlarr / *arr 自建索引器，归入「自定义」分组 |
-| ⌨️ | **键盘快捷键** | Ctrl+K 聚焦搜索、Ctrl+D 推送下载、Ctrl+Shift+F 切换收藏、/ 快速搜索 |
-| 🌓 | **亮色/暗色主题** | Catppuccin Latte（亮色）+ Mocha（暗色），一键切换，偏好持久化 |
-| 📱 | **移动端适配** | 640px 响应式断点，手机浏览器基本可用 |
+| 产物 | 是什么 | 引擎 | 适合 |
+|---|---|---|---|
+| **`BT-Search-Rust-*.exe`** | **Rust 主线**：单文件、**零运行时依赖**、约 18 MB | **17 家** | **尝鲜 / 看体积与速度**；下载器配置会保存 |
+| `BT-Search-Electron-Setup-*.exe` | Node 后端 + Electron 壳（自带 Chromium） | **40 家** + Torznab | **日常主力**（功能最全、最成熟） |
+| `BT-Search-Tauri-Setup-*.exe` | 同一套 Node 后端 + 系统 WebView2 | 40 家 + Torznab | 想要更小体积的 Node 版 |
 
-</details>
+三者的搜索功能与界面**不在一个量级上**：Rust 版是新写的主线（引擎少但干净、无运行时依赖），
+Node 版是多年在用的完整版。逐项差异与选择建议见
+[`docs/RELEASE_ARTIFACTS.md`](./docs/RELEASE_ARTIFACTS.md)。
 
-<br>
+---
 
-## 🚀 开箱即用
+## Rust 版（`main` 主线，2026-10-16 起）
 
-### 桌面应用（推荐）
+**终局形态**：Windows 桌面原生应用 —— 单文件、零运行时依赖、启动快、内存低。
+浏览器 / 手机访问模式**已放弃**（它给不出"小快原生"这个成品）。
 
-前往 [Releases](https://github.com/NoNameLeGo/torrent-search-app/releases) 下载安装包：
+**现在有什么**
 
-- **Electron 版**（`BT-Search-Electron-Setup-*.exe`）— 稳定，开箱即用，推荐日常使用
-- **Tauri 版**（`BT-Search-Tauri-Setup-*.exe`）— 稳定版，体积更小、内存更省
+| | 能力 |
+|---|---|
+| 🔍 | **17 家引擎**并发搜索（16 个移植站点 + 离线 `demo`），每站独立超时、单站失败不影响其他，状态条逐个显示 ✓/✕/耗时 |
+| 🏷️ | **排序**（做种数 / 相关度 / 体积 / 日期，升降序）+ **分类筛选**（chips）+ 关键词高亮 |
+| 📄 | **分页**（"第 N 页 · 下一页"，是否还有下一页由引擎层回答，不是猜的） |
+| 🎛️ | **站点开关**（勾选要搜的站；一个都不勾时拦住不搜，而不是偷偷搜全部） |
+| 🧩 | **Torznab 索引器**：Jackett / Prowlarr / \*arr —— 在界面里填地址与 API key 即可，配置持久化 |
+| ⬇️ | **四种下载器**一键推送：qBittorrent / Transmission / aria2·Motrix / Gopeed，配置持久化 |
+| 🩺 | **失败说得清**：区分"网络层不通"与"站点层拒绝"，并提示该查网络还是换站 |
+| ⚠️ | **引擎腐坏可见**：连续多轮空手的引擎在状态条上打 ⚠（`--health` 可看完整历史） |
 
-两款搜索功能与界面完全一致，**开 = 启动，关 = 净退出**，不留残留进程。
+**还差什么（如实说）**
 
-<details>
-<summary>其他运行方式（便携版 / 开发模式 / 浏览器）</summary>
+- **引擎只有 17 家**（Node 版 40 家）；未移植的 24 家**有意推迟** —— 引擎多 = 启动慢、包大、
+  维护重、失效多，先看存活再决定投不投（见 `docs/ROADMAP.md` 的 D13）
+- **"零运行时依赖"仍是旁证**：CI 断言了 exe 不依赖任何 MSVC 运行时 DLL，但"拷到干净 Windows
+  双击能跑"这条正式判据**只能人工验**，尚未做
+- 无 Torznab 的 `t=caps` 能力探测、无缓存、无收藏 / 搜索历史（Node 版有）
 
-### 免安装便携版
+**架构与文档**：核心是一个**库**（进程内直调，无 HTTP、无 SSE），UI 是 Slint。
+真值对照靠与 Node 版逐字段差分（16 家 × 15 字段，0 处未豁免差异）。
+细节见 [`docs/ROADMAP.md`](./docs/ROADMAP.md) 与 [`AGENTS.md`](./AGENTS.md)。
 
-位于 `dist/portable/torrent-search-app/torrent-search-app.exe`，**直接双击**即用——不写注册表、不落 C 盘、整包剪切即可迁移。体积约 **360MB**（主要含 Chromium 运行时）。
+---
 
-### 开发模式
+## Node 版（仍在维护，功能最全）
+
+`server.js`（Express）+ 原生 JS 前端，被两个桌面壳复用：**Electron**（自带 Chromium）与
+**Tauri**（复用系统 WebView2，体积更小）。所有抓取在本地后端完成，天然规避浏览器 CORS。
+
+| | 能力 |
+|---|---|
+| 🔍 | **40 家引擎** + 离线 `demo` + **Torznab 自定义索引器**（Jackett / Prowlarr / \*arr），8 路并发 |
+| ⚡ | **SSE 实时流**：逐引擎推送状态与结果，慢站不拖累快站；按 infoHash 跨站去重合并 |
+| 🏷️ | 画质快捷筛选 / 内容分类 / 关键词高亮 / **无限滚动** |
+| 📋 | 引擎分组（综合·动漫·影视·成人·其他·自定义）+ 三档预设（推荐 / 标准 / 全部） |
+| 📚 | **搜索历史 & 收藏**（跨会话）、已浏览置灰、**详情预览**（海报 / 描述 / 多站外链） |
+| 📤 | 批量推送 / 批量复制磁力 / **导出 CSV**（防公式注入） |
+| ⬇️ | 四种下载器一键推送 + 启动自动探测本机端口 |
+| ⌨️ | 快捷键（Ctrl+K / Ctrl+D / Ctrl+Shift+F）、亮色暗色主题、移动端响应式 |
+
+**从源码跑（Node 版）**
 
 ```bash
 npm install
-npm run electron    # 开发模式：直接打开桌面窗口（自动选空闲端口）
-npm run dist        # 打包 Windows 安装包 → dist/
+npm run electron     # 桌面窗口（自动选空闲端口）
+npm start            # 或 node server.js → http://localhost:3000
+npm run dist         # 打 Windows 安装包 → dist/
 ```
 
-### 浏览器方式（本地后端）
+> 本仓库**不在本机编译任何东西** —— 编译与打包全部走 GitHub Actions
+> （`.github/workflows/`）。本地只写代码，产物从 Actions Artifacts 或 Releases 下载。
 
-```bash
-npm install
-npm start           # 或 node server.js → http://localhost:3000
-```
+**架构细节**（分层、provider 契约、两个壳的差异、Tauri sidecar 方案）见
+[`CLAUDE.md`](./CLAUDE.md) —— README 不重复那一层。
 
-默认端口 3000，可用 `PORT=8080 node server.js` 覆盖。双击 `start.bat` / `stop.bat` 可一键启停。
-
-</details>
-
-<br>
-
-## 🏗️ 架构
-
-<p align="center">
-  <img src="./assets/readme/architecture.svg" width="100%" alt="torrent-search-app architecture: Browser/Electron → Express Server (SSE) → Provider Pool (40+ engines + Torznab) → External sites + Downloader integration">
-</p>
-
-采用**服务端代理**架构——所有对第三方站点的抓取在 Node 后端完成，前端只与本地 API 通信，天然规避浏览器的跨域（CORS）限制。
-
-**公共层职责：**
-- `src/lib/http.js`：请求封装（UA 轮换）**永不抛异常**，失败返回 `{ error }`
-- `src/lib/normalize.js`：大小解析（`1.2 GB` → 字节）、相对时间（`2 hours ago` → 时间戳）、磁力构造、统一字段到 `TorrentResult`
-- `src/lib/mirrors.js`：镜像回退（`runMirrors`），多个域名并行尝试取首个非空结果
-- `src/lib/scraper.js`：`createProvider()` 工厂 + `scrapeRows()` 辅助，消除 provider 样板代码
-- 前端 `public/js/`：ES 模块化（state / render / actions / history / settings / utils / main）
-- 各引擎模块导出统一接口：`search(query, { page }) → { results, error, hasMore }`
-
-<br>
-
-## 🔍 已集成引擎
-
-源自 [prajwalch/TorrentSearch](https://github.com/prajwalch/TorrentSearch) 的 **40 个内置站点**，加本地 Demo 与 Torznab 自定义索引器。UI 中按分组一键全选 / 全不选。
-
-| 分组 | 引擎 |
-|------|------|
-| **综合** (15) | The Pirate Bay, 1337x, Knaben, Torrents-CSV, BT4G, BTDigg, LimeTorrents, TorrentDownload(s), TorrentDatabase, TorrentKitty, uindex, ZeroMagnet, BitSearch, Internet Archive, FileMood |
-| **动漫/亚洲** (10) | NYAA, AniLibria, AnimeTosho, AniRena, Bangumi Moe, 动漫花园(dmhy), Mikan, SubsPlease, 東京トショカン, NekoBT |
-| **影视/剧集** (7) | EZTV, YTS, TheRARBG, Torrent9, OxTorrent, Rutor, MegaPeer |
-| **成人** (4) | Sukebei, MyPornClub, XXXClub, XXXTracker |
-| **其他** (3) | AudiobookBay（有声书）, BlueROMs（ROM）, LinuxTracker（Linux 发行版） |
-| **自定义** | 用户通过 Torznab（Jackett / Prowlarr / *arr）添加 |
-| **Demo** | 离线演示引擎，生成确定性拟真数据——网络受限时界面可正常演示 |
-
-> 引擎能力差异：`1337x` 磁力在详情页点击惰性解析；翻页引擎从第 2 页起继续，单次返回型引擎只在首页后结束。
-
-<br>
-
-## 🖥️ 桌面应用
-
-**Electron 主进程** (`electron/main.js`)：
-- 启动时自动分配空闲端口
-- 单实例锁（重复双击聚焦已有窗口）
-- 窗口 1280×800、深色背景无白闪
-- 后端在主进程内以 `require('./server').start(port)` 启动，关闭即净退出
-
-**双构建对比：**
-
-| | Electron | Tauri |
-|---|---|---|
-| 定位 | **稳定版**（推荐日常） | **稳定版**（轻量之选），体积更省 |
-| 安装包 | ~70–90MB / 便携版 ~360MB | 显著更小（复用系统 WebView） |
-| 渲染 | 自带 Chromium，各机一致 | 依赖系统 WebView2（Win10+ 已内置） |
-| 构建 | GitHub Actions 自动构建，打 `v*` tag 时发布 | `feat/tauri` 分支，CI 自动出包 |
-
-<br>
+---
 
 ## ⚠️ 说明与边界
 
-- 第三方站点可能因区域 / 网络被屏蔽；状态栏逐引擎显示 ✓/✕
-- 抓取依赖公开页面结构，若目标站点改版需同步更新对应 provider
-- 本工具仅做搜索聚合，不托管、不分发任何版权内容
-- 生产部署建议补充：结果缓存、遵守站点 `robots.txt` 与当地法规（请求速率限制已通过 8 路并发控制实现）
-- **安全提示**：Torznab 配置（含 API Key）存储于本地 `data/torznab.json`，该文件已被 `.gitignore` 忽略，不会入库。若将应用部署为公开服务，请务必限制绑定地址至 `127.0.0.1`，避免暴露后端代理端点。
-- **导出安全**：CSV 导出已防御 Excel/WPS 公式注入（以 `=` `+` `-` `@` 开头的单元格前缀单引号 `'`）。为安全起见，导出的 CSV 仍建议用文本编辑器或受信任的工具打开。
-
-<br>
-
-## 🗺️ 路线图
-
-**已上线：** 画质筛选 / 关键词高亮 / 搜索历史 & 收藏 / 引擎分组 / 批量操作 & 导出 CSV / 详情预览 / SSE 实时流 / 跨站 infoHash 去重 / 内容分类筛选 / 多下载客户端推送 / 安全模式 / 已浏览置灰 / 导出完整性提示 / 推荐引擎预设 / 收藏搜索 / 键盘快捷键 / 亮色主题 / 移动端适配 / 引擎失败详情 / 热门·最新浏览 / 详情海报·描述 / Tauri 转正
-
-**候选（按性价比排序）：**
-
-- [x] **导出完整性提示** 🔵 — 导出 CSV / 批量复制磁力时，未解析的磁力条目当前静默留空/跳过，建议导出前提示「有 N 条磁力未解析，是否先解析」
-- [x] **推荐引擎预设** 🔵 — 41 个引擎默认全开，新用户选择困难。预设「推荐」（8 个高可用引擎）/「标准」（20 个）/「全部」三档。
-- [x] **收藏搜索与筛选** 🔵 — 收藏列表无搜索/筛选，超过 50 条后实用性骤降。
-- [x] **键盘快捷键** 🟡 — 桌面应用缺少快捷键（Ctrl+K 聚焦搜索、Ctrl+D 推送下载、Ctrl+Shift+F 切换收藏视图）。
-- [x] **亮色主题** 🟢 — 全程暗色，白天强光下可用性差，CSS 变量即可实现切换。
-- [x] **移动端响应式** 🟢 — 浏览器模式下手机访问布局破碎，加几个 @media 断点即可基本可用。
-- [x] **引擎失败详情** 🟡 — 状态栏 ✓/✕ 之外，点引擎徽章查看最近失败原因（站点屏蔽 vs 改版），便于判断是否换镜像/等待
-- [x] **Tauri 版转正** 🟢 — 打包流程已建，升为稳定版（轻量之选）
-- [ ] **收藏 & 记录导出 / 导入** 🟢 — 收藏、搜索历史、已浏览记录都只存 localStorage，清缓存即丢；补 export/import 文件
-- [x] **热门 / 最新浏览** 🟡 — 不输关键词也能逛，部分引擎支持后做（当前 Demo + YTS）
-- [x] **更丰富的详情（海报 / 截图）** 🟡 — 依赖各站详情页结构，ROI 一般（通用 og:meta 提取，海报/描述）
-- [ ] **更多下载客户端** 🟡 — 在现有四种基础上扩展（如 Deluge）
-- [ ] **结果缓存** 🟡 — 切换排序/筛选时对已有结果集操作，而非重新请求全部引擎，减少等待和流量。
-
-<br>
-
-<br>
-
-<p align="center">
-  <a href="https://github.com/oil-oil/beautify-github-readme"><img src="./assets/readme/made-with-beautify.svg" width="300" alt="README made with beautify-github-readme"></a>
-</p>
+- 第三方站点可能因区域 / 网络被屏蔽；状态栏逐引擎显示 ✓/✕。抓取依赖公开页面结构，
+  **站点改版就需要更新对应的 provider** —— 这也是 Rust 版做"引擎腐坏可见"的原因。
+- 本工具**只做搜索聚合**，不托管、不分发任何版权内容。生产部署建议补充结果缓存、
+  遵守站点 `robots.txt` 与当地法规。
+- **凭据是明文存储的**：下载器密码 / token 存在 `%APPDATA%\bt-search\config.json`，
+  Torznab API key 存在 `indexers.json`（Node 版是 `data/torznab.json`，已 gitignore）。
+  它们都在你自己机器的用户目录下 —— 写在这里是为了**别让人以为它是加密的**。
+- 若把 Node 版的后端部署成公开服务，请务必只绑定 `127.0.0.1`，避免暴露代理端点。
 
 ## 📄 许可证
 
-本项目以 **GNU General Public License v3.0** 发布。
+**GNU General Public License v3.0**，完整文本见 [LICENSE](./LICENSE)。
 
-> 选用 GPL-3.0 而非 AGPL-3.0：本项目是**本地运行的桌面应用**，不提供公开网络服务。若你将其部署为公开的在线搜索服务，建议改用 **AGPL-3.0**。
-
-完整许可证文本见 [LICENSE](./LICENSE)。
+> 选用 GPL-3.0 而非 AGPL-3.0：本项目是**本地运行的桌面应用**，不提供公开网络服务。
+> 若你要把它部署成公开的在线搜索服务，建议改用 **AGPL-3.0**。
