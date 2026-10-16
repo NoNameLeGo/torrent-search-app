@@ -59,38 +59,34 @@ function optInt(v) {
 }
 
 /**
- * **origin 归一化** —— `detail_url` 必须做，否则是**整列假差异**。
+ * **`detail_url` 的 origin 剥离** —— 两侧**同样**处理，只比路径形状。
  *
- * ## 为什么需要它
+ * ## 血泪史（两版才对）
  *
- * 几个 provider 的 `detail_url` 是**用 base 拼出来的**（`join_base(base, href)`）：
- * `filemood` / `rutor` / `linuxtracker` 至少这三家。
- * 而两侧喂的 base **本来就不同**：
- *   · Rust 侧 `search_at(http, base, …)` 的 base 是**本地桩 URL**（`127.0.0.1:port`）
- *   · Node 侧是**真实域名**（`linuxtracker.org` …）
- * ⇒ 不归一化的话差异来自 **harness**、不是来自移植。那种假差异比"没有差分"更坏：
- * 它会淹没真差异、让人开始往白名单里塞东西。
+ * 第一版按「**本侧实际用过的 origin**」替换：Node 侧从桩记录的 URL 里解析、
+ * Rust 侧就是本地 base。**结果是错的** —— 它**不对称**：
+ *   · `internetarchive` 的 detail_url 用的是**硬编码域名** `https://archive.org`
+ *     ⇒ Node 侧记录了打 archive.org 的请求、于是把它换成了 `<BASE>`；
+ *     Rust 侧的 origin 是本地桩 URL，压根没出现在 detail_url 里 ⇒ 没被换
+ *   · 于是**本来完全一致**的 internetarchive 变成了 7 处差异
+ *     （CI run 38848479670：`https://archive.org/details/x` vs `<BASE>/details/x`）
  *
- * ## 怎么归一化
+ * 正确做法：**通用剥离** —— 开头任何 `scheme://host` 一律换成 `<BASE>`，
+ * 两侧跑同一段逻辑 ⇒ 谁嵌了域名、嵌的是哪个域名都不影响比较。
+ * 这也省掉了「各侧再维护一份域名表」——那是**第三份会漂的表**。
  *
- * 把**自己这一侧实际用过的 origin**整串换成占位符 `<BASE>`：
- *   · Node 侧：从桩记录的 `calls` 里解析出来（不手写域名表 —— 那是第二份会漂的表）
- *   · Rust 侧：就是那个本地 base
- *
- * ⚠️ **只对 `detail_url` 做，别碰 `magnet`**：magnet 里的 tracker 是**页面给的**，
- * 两侧本来就一致；归一化它反而会把真差异洗掉。
- * ⚠️ 绝对指向别的域名的 URL（`tpb` 的 `thepiratebay.org` 是硬编码的）不会被改动 ——
- * 那是对的，两侧本来就该一样。
+ * ⚠️ **代价（有意接受）**：它会盖掉「两侧选中的**镜像域名**不同」这件事。
+ * JS 的多镜像 `runMirrors` 是**并行**的（谁先回谁赢），镜像选择本来就有随机性；
+ * 但这确实等于放弃了对镜像选择的比对。**别当成没看见。**
+ * ⚠️ 只对 `detail_url` 做：`magnet` 里的 tracker 是**页面给的**，两侧本来就一致，
+ * 归一化它反而会把真差异洗掉。
  */
-function normalizeOrigins(s, origins) {
-  let out = s;
-  for (const o of origins || []) {
-    if (o) out = out.split(o).join('<BASE>');
-  }
-  return out;
+function stripOrigin(u) {
+  if (u === null || u === undefined) return null;
+  return String(u).replace(/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^/]*/, '<BASE>');
 }
 
-function canonResult(r, provider, origins) {
+function canonResult(r, provider) {
   const row = {
     id: str(r.id),
     name: str(r.name),
@@ -104,11 +100,8 @@ function canonResult(r, provider, origins) {
     info_hash: optStr(r.infoHash),
     provider: str(r.provider === undefined ? provider : r.provider),
     category: optStr(r.category),
-    // ⚠️ 唯一做 origin 归一化的字段（见 normalizeOrigins 的说明）
-    detail_url: (() => {
-      const u = optStr(r.detailUrl);
-      return u === null ? null : normalizeOrigins(u, origins);
-    })(),
+    // ⚠️ 唯一做 origin 剥离的字段（见 stripOrigin）
+    detail_url: stripOrigin(optStr(r.detailUrl)),
     files: optInt(r.files),
     needs_magnet: Boolean(r.needsMagnet),
   };
@@ -118,7 +111,7 @@ function canonResult(r, provider, origins) {
   return ordered;
 }
 
-function canonOutcome(provider, query, page, out, origins) {
+function canonOutcome(provider, query, page, out) {
   const o = out || {};
   // ⚠️ `hasMore` 的三种状态必须区分（M2 的发现：JS 的 `undefined` 与显式 `false`
   // 不是一回事）：`undefined`/`null` → Rust `None` → JSON `null`；其余 → bool。
@@ -129,8 +122,8 @@ function canonOutcome(provider, query, page, out, origins) {
     page,
     error: o.error ? String(o.error) : null,
     has_more: hm === undefined || hm === null ? null : Boolean(hm),
-    results: (o.results || []).map((r) => canonResult(r, provider, origins)),
+    results: (o.results || []).map((r) => canonResult(r, provider)),
   };
 }
 
-module.exports = { FIELDS, canonResult, canonOutcome, normalizeOrigins };
+module.exports = { FIELDS, canonResult, canonOutcome, stripOrigin };

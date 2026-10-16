@@ -70,7 +70,7 @@ async function dumpOne(spec) {
     ),
   ];
 
-  const canon = canonOutcome(spec.id, spec.query, spec.page || 1, raw, origins);
+  const canon = canonOutcome(spec.id, spec.query, spec.page || 1, raw);
 
   // ⑤ 把"实际打过哪些 URL"也带上：多打一次/打错端点这种事，只看结果看不出来
   canon.fixture_calls = calls;

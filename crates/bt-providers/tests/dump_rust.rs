@@ -138,18 +138,35 @@ async fn run(spec: &Spec, http: &HttpClient, base: &str) -> SearchOutcome {
     }
 }
 
-/// 把自己这一侧实际用过的 base 换成 `<BASE>`（见文件头）。
-fn normalize_origins(s: &str, origins: &[String]) -> String {
-    let mut out = s.to_string();
-    for o in origins {
-        if !o.is_empty() {
-            out = out.replace(o.as_str(), "<BASE>");
+/// **`detail_url` 的 origin 剥离** —— 与 `canonical.cjs` 的 `stripOrigin` **逐字对应**。
+///
+/// 两侧跑同一段逻辑，开头任何 `scheme://host` 一律换成 `<BASE>`。
+///
+/// ⚠️ 第一版是按「**本侧实际用过的 origin**」替换（Rust 用本地 base、Node 从桩记录的
+/// URL 里解析）—— **那是错的，因为它不对称**：`internetarchive` 的 detail_url 用的是
+/// **硬编码域名**，于是 Node 侧把它换成了 `<BASE>`、Rust 侧没换，
+/// **本来完全一致的一家变成了 7 处差异**（CI run 38848479670）。
+fn strip_origin(u: &str) -> String {
+    let b = u.as_bytes();
+    let mut i = 0usize;
+    // scheme: [A-Za-z][A-Za-z0-9+.-]*
+    if i < b.len() && b[i].is_ascii_alphabetic() {
+        i += 1;
+        while i < b.len() && (b[i].is_ascii_alphanumeric() || matches!(b[i], b'+' | b'.' | b'-')) {
+            i += 1;
+        }
+        // 上面的判断只认 ASCII 字节，所以 i 一定落在 char 边界上
+        if u[i..].starts_with("://") {
+            let rest = &u[i + 3..];
+            // `[^/]*` —— 没有斜杠就吃到结尾（`https://x.orgindex.php` → `<BASE>`）
+            let host_len = rest.find('/').unwrap_or(rest.len());
+            return format!("<BASE>{}", &rest[host_len..]);
         }
     }
-    out
+    u.to_string()
 }
 
-fn canon_result(r: &TorrentResult, origins: &[String]) -> Value {
+fn canon_result(r: &TorrentResult) -> Value {
     json!({
         "id": r.id,
         "name": r.name,
@@ -163,14 +180,14 @@ fn canon_result(r: &TorrentResult, origins: &[String]) -> Value {
         "info_hash": r.info_hash,
         "provider": r.provider,
         "category": r.category,
-        // ⚠️ 唯一做 origin 归一化的字段
-        "detail_url": r.detail_url.as_ref().map(|u| normalize_origins(u, origins)),
+        // ⚠️ 唯一做 origin 剥离的字段
+        "detail_url": r.detail_url.as_deref().map(strip_origin),
         "files": r.files,
         "needs_magnet": r.needs_magnet,
     })
 }
 
-fn canon_outcome(spec: &Spec, out: &SearchOutcome, origins: &[String]) -> Value {
+fn canon_outcome(spec: &Spec, out: &SearchOutcome) -> Value {
     json!({
         "provider": spec.id,
         "query": spec.query,
@@ -179,7 +196,7 @@ fn canon_outcome(spec: &Spec, out: &SearchOutcome, origins: &[String]) -> Value 
         // ⚠️ `Option<bool>`：`None` → null、`Some(false)` → false，两者不能混
         //（M2 的发现：JS 里 `undefined` 与显式 `false` 不是一回事）。
         "has_more": out.has_more,
-        "results": out.results.iter().map(|r| canon_result(r, origins)).collect::<Vec<_>>(),
+        "results": out.results.iter().map(canon_result).collect::<Vec<_>>(),
     })
 }
 
@@ -212,9 +229,8 @@ async fn dump_rust() {
             }
         );
 
-        // 这一侧"实际用过的 origin"就是本地 base
-        let origins = vec![base.clone()];
-        all.push(canon_outcome(&spec, &out, &origins));
+        // 这一侧不再需要知道自己的 origin —— 通用剥离（见 strip_origin）
+        all.push(canon_outcome(&spec, &out));
     }
 
     let json = serde_json::to_string_pretty(&Value::Array(all)).expect("序列化失败");
