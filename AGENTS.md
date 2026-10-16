@@ -26,7 +26,7 @@ Electron mode: `npm run electron` (picks a free port automatically, no collision
 
 | 场景 | workflow | 触发 |
 |---|---|---|
-| Rust workspace（编译 + 测试） | `rust.yml` | push `feat/rust`、PR 改 `crates/**` |
+| Rust workspace（编译 + 测试 + bt-app 全链路自检） | `rust.yml` | push `main`/`feat/rust`、PR 改 `crates/**`、手动 |
 | Electron 安装包 + portable | `build.yml` | push `main`、`v*` tag |
 | Electron + Tauri 统一发版 | `release.yml` | `v*` tag |
 | Tauri 编译校验 | `tauri-build.yml` | push `feat/tauri` |
@@ -39,11 +39,12 @@ Electron mode: `npm run electron` (picks a free port automatically, no collision
 本项目**推倒重开、用 Rust 重写**，在 `feat/rust` 上进行，长期长成主分支。
 `main` 上的 Node/Express + Electron/Tauri 实现继续可用；Rust 版每搬完一块就替代一块。
 
-**📊 进度快照（2026-10-11）**：**16 个 provider 已搬**（5 JSON + 11 HTML），
+**📊 进度快照（2026-10-16 —— **`main` 已是 Rust 主线**）**：**16 个 provider 已搬**（5 JSON + 11 HTML），
 CI **397 passed / 0 failed + M4 全链路自检 12/12**（clippy + fmt 均为硬门）；
 探针 **126 条 / 17 fixture**；
-**聚合层 = 100%（M2）、下载器 = 100%（M3）、UI = 100%（M4：能编译 + 映射层单测 + 全链路自检）**
-（provider 核心已有 16 个家底）。
+**聚合层 = 100%（M2）、下载器 = 100%（M3）、UI = 100%（M4）、引擎体检 = 100%（M5，结论「不砍」）**
+⇒ **M6 差分验证是当前唯一剩下的硬骨头**（M7 打包在其后）。
+Node 版整套仍在 `main` 上共存（D18：M6 做完才准删）。
 
 🔴 **2026-10-11 目标重订 —— 动手前先读 `docs/ROADMAP.md`。**
 那一轮追问推翻了旧路线的隐含假设（「能搜到东西」就是目标），结论是：
@@ -76,40 +77,56 @@ M1 ✅ 验 Slint 风险（#13548）—— **未复现，Slint 可用**（2026-10
 M2 ✅ 聚合层 + Provider trait（2026-10-16，347 tests；**D5「聚合层跑通」的门已满足**）
 M3 ✅ bt-downloaders（2026-10-16，4 客户端 / 34 条离线测试）
 M4 ✅ bt-app Slint MVP（2026-10-16，UI + 接线 + 映射层 + **全链路 --selftest 12/12**）
-M5 ⬅️ 引擎体检 → 砍掉死的            M6 差分验证（必须早于删 Node）
-M7 打包 + GitHub Release
+M5 ✅ 引擎体检（2026-10-16 —— **结论是「一个都不砍」**，见「provider 探活」；
+单边 403 不足以判死）
+M6 ⬅️ 差分验证（必须早于删 Node）    M7 打包 + GitHub Release
 ```
 
 **三条硬约束，别调换**：**M1 必须最先**（Slint 挂了，M2 的架构就得重做）；**M6 必须早于删 Node**（否则「逐字段一致」永远无法再验）；**M5 早于补引擎**（现在没有理由盲搬）。
 
-### 🌿 分支现状（2026-10-16 核对）
+### 🌿 分支现状（2026-10-16 —— **`main` 已切换成 Rust 主线**）
 
 | 分支 | 角色 | 状态 |
 |---|---|---|
-| `main` | **发版线**（Node/Express + Electron） | ⚠️ **尚未切换**，见下 |
-| `legacy/node-electron` | `main` 的存档分支 —— **维护规则：始终指向 `main` 的当前 tip**（切 `main` 之前必须再同步一次） | 半废弃保留；主线上移后旧线不会丢 |
-| `feat/rust` | **Rust 主线**（当前开发分支） | 16 provider + M1 结论 |
-| `feat/tauri` | Tauri 壳（Node backend + node sidecar） | 旧线，仍可发版。⚠️ 只有 3 条 workflow（build / release / tauri-build）—— 它**从没**同步过较新的那些（ci-guard / live-smoke / html-probes / provider-health / fetch-fixture / rust）。**这不是 bug**：实测这 3 条都不引用 `scripts/`，所以不存在 main 那种「workflow 在、脚本不在」的坏链 |
-| `spike/slint-ui` | M1 的 spike（`--selftest` + `slint-spike.yml`） | 一次性；**代码不在 `feat/rust` 上**，别去那儿找 |
+| `main` | **Rust 主线**（Node 版原地保留到 M6，D18） | ✅ **2026-10-16 已切**，tip = `7605e7a`（merge commit） |
+| `legacy/node-electron` | Node/Electron 线的存档 | 停在 `9b9461c` = **切换前的最后一个纯 Node main**（就是存档该有的形态） |
+| `feat/rust` | 切换前的 Rust 线；合并后与 `main` 同源 | 保留不删；合并点 = `082712a` |
+| `feat/tauri` | Tauri 壳（Node backend + node sidecar） | 旧线，仍可发版。⚠️ 只有 3 条 workflow（build / release / tauri-build）—— 它**从没**同步过较新的那些（ci-guard / live-smoke / html-probes / provider-health / fetch-fixture / rust）。**这不是 bug**：实测这 3 条都不引用 `scripts/`，所以不存在 main 当年那种「workflow 在、脚本不在」的坏链 |
+| `spike/slint-ui` | M1 的 spike（`--selftest` + `slint-spike.yml`） | 一次性；**代码不在 `main`/`feat/rust` 上**，别去那儿找。它的 workflow 只触发 `spike/slint-ui`（不挂 main）⇒ 不会因缺 `spike/` 目录而变红 |
 
-**同步状态（2026-10-16 实测）**：5 条分支（`main` / `feat/rust` / `feat/tauri` / `spike/slint-ui` / `legacy/node-electron`）
-本地与 `origin` **逐一比对全部一致**，工作区干净。⚠️ `main` 与 `feat/tauri` 本地**没配 upstream 跟踪**
-（`git branch -vv` 里 upstream 为空）—— 推它们要显式 `git push origin <branch>`，别指望裸 `git push`。
+**✅ 切换记录（2026-10-16，全部实测，不是推断）**
 
-⚠️ **「把 `main` 换成 Rust 线」这件事 2026-10-16 讨论过，结论是「等 M2 之后」**：
-- 门是 **D5 = 「聚合层跑通」**，而 M2 是 0%；换完 `main`，用户下载到的仍是 Electron 版
-  （`bt-app` 在 M4）—— 收益是管理层面的，不是产品层面的。
-- 真要换时**必做配套**：`rust.yml` 的触发是 `branches: [feat/rust]`，不加上 `main` 的话
-  换完 Rust CI **一条都不会跑**。用 `merge`（不是 `reset --hard`）：两线在 `dec3512` 已分叉，
-  `main` 有 9 个独有提交，且它是已发布分支。
-- ⚠️ **换 `main` 不等于可以删 Node 版**：D18 要求留到 M6 差分验证做完，
-  `public/`、`src/providers/*.js`、`test/fixtures/` 一个都不能提前删（§0.4 禁改清单）。
+**切之前**（三条独立核过）：
+- `git merge-tree --write-tree main feat/rust` ⇒ **exit 0，零冲突**
+- `main` **没有任何**顶层条目是 `feat/rust` 缺的 ⇒ **不丢文件**；
+  `feat/rust` 只新增三个顶层条目：`.gitattributes`、`Cargo.toml`、`crates/`
+- Node 家当在 `feat/rust` 上完整（`package.json` / `server.js` / `public/` /
+  `electron/` / `build.yml` / `docs/RELEASE_ARTIFACTS.md` 全在）⇒ 合并后仍能出 Electron 包
+- 版本号两边都是 `0.3.5-beta` ⇒ 不打乱发版
+
+**切之后**（`main` = `7605e7a`，三个 workflow **全绿**）：
+- **`Rust (test)` success** —— 触发已加 `main`（前一个提交 `082712a`）。
+  这条是切换的**硬性配套**：不加的话切完 Rust 侧一条 CI 都不跑，
+  而 397 tests + bt-app 全链路自检全靠它把关。
+- **`Build Windows 发行包` success**，真产出 `BT-Search-Electron-Portable.zip`
+  （151,416,455 字节）⇒ **根目录多了 `Cargo.toml` + `crates/` 之后 Electron 打包照旧**。
+  这条之前只是"理论排除"（electron-builder 的 `files` 是白名单、
+  `package.json` 无 `workspaces`、build.yml 不 glob 仓根），**现在是实测**。
+- `CI guard (workflow files)` success
+
+**⚠️ 维护规则改了**：`legacy/node-electron` **不再**跟随 `main` 的 tip ——
+`main` 的含义已经变了，它就该停在 `9b9461c`。原规则（「始终指向 `main` 的当前 tip」）**作废**。
+
+**⚠️ 换 `main` ≠ 可以删 Node 版**：D18 要求留到 M6 差分验证做完，
+`server.js` / `public/` / `src/**` / `electron/` / `test/fixtures/` 一个都不能提前删
+（§0.4 禁改清单）。main 现在是「**Rust 主线 + Node 版共存**」，这是**有意**的中间形态。
 
 **2026-10-16 已修**：`main` 上 `provider-health.yml` / `html-probes.yml` 调用的
 `scripts/provider-health.mjs` / `scripts/html-probes.cjs` / `scripts/gh-retry.sh`
-**一直缺失**（两条手动触发的 workflow 在 `main` 上是坏的），已从 `feat/rust` 补齐；
+**曾一直缺失**（两条手动触发的 workflow 在 `main` 上是坏的），已从 `feat/rust` 补齐；
 `slint-spike.yml` 也从 `spike/slint-ui` 同步到了 `main`（手动触发要带 `--ref spike/slint-ui`）。
-⚠️ **`rust.yml` 刻意不在 `main` 上** —— `main` 没有 `Cargo.toml`/`crates/`，放过去只会是必失败的 workflow。
+⚠️ 2026-10-16 之前 `rust.yml` **刻意不在 `main` 上**（那时 main 没有 `Cargo.toml`/`crates/`，
+放过去只会是必失败的 workflow）—— **这条已经过期**：合并后它就在 main 上，且**必须**在。
 
 **旧路线为什么被推翻**：它假设「能搜到东西」是目标，于是「复用 WebView 前端」看起来最省事。
 但真实目标是**成品属性**（小 / 快 / 原生），而 WebView 路线**给不出那个成品**，还要多写一层
@@ -930,6 +947,47 @@ NODE_TLS_REJECT_UNAUTHORIZED=0 node --use-env-proxy scripts/provider-health.mjs
 **⚠️ 反过来，CI 也不等于用户环境**：CI 是机房 IP，有些站对机房 IP 更凶
 （apibay 对机房 IP 直接 403）。**两边都跑，才是完整答案。**
 
+**2026-10-16（M5）只跑 CI 一侧 —— 目的是「要不要砍引擎」，结论是「一个都不砍」。**
+关键词 `ubuntu`，40 家，12 家有结果。只列**已移植的 16 家**：
+
+| 引擎 | HTTP | 字节 | 行 | 判断 |
+|---|---|---|---|---|
+| `knaben` | 200 | 81522 | 1 | ✅ |
+| `torrentscsv` | 200 | 6106 | 25 | ✅ |
+| `yts` | 200 | 157 | 1 | ✅（「ubuntu」对电影站本就近乎无结果） |
+| `internetarchive` | 200 | 1975 | 1 | ✅ |
+| `linuxtracker` | 200 | 51148 | 26 | ✅ |
+| `audiobookbay` | 200 | 36672 | 36 | ✅ |
+| `megapeer` | 200 | 10552 | 14 | ✅（win1251） |
+| `nyaa` | 200 | 16201 | 2 | ✅ |
+| `rutor` | 200 | 89974 | 111 | ✅（俄站） |
+| `zeromagnet` | 200 | 9008 | 29 | ✅ |
+| `filemood` | 429 | 3322 | 0 | ↪ 限流，**不是死** |
+| `tpb` | 403 | 5660 | 0 | ⛔ 被拦 |
+| `limetorrents` | 403 | 5705 | 0 | ⛔ 被拦 |
+| `torrent9` | 403 | 5708 | 0 | ⛔ 被拦 |
+| `oxtorrent` | 403 | 5653 | 0 | ⛔ 被拦 |
+| `therarbg` | 403 | 5701 | 0 | ⛔ 被拦 |
+
+**🔴 M5 的结论：不砍任何引擎 —— 这张表根本不支持「砍」这个动作。**
+
+那 5 个 403 **形状完全一致**（403 + 5.6~5.7KB 正文）= Cloudflare 一类的 WAF 挑战页，
+而不是「站点没了」；而 CI 是**机房 IP**（上面那条早就写了）。拿机房 IP 的 403 去砍引擎，
+等于把「只是拦机房」的站点当死站删掉 —— 那 5 家里有 4 家
+（`limetorrents` / `torrent9` / `oxtorrent` / `therarbg`）在下面 2026-10-09 的
+**本机**那一侧是可用的。
+
+→ **D13「先探活再砍」的正确姿势是：两边都跑，只有两边都 ❌ 才算死。**
+单边数据（无论哪一边）**都不足以**支撑砍任何东西。这条比那张表本身更值得记。
+
+**顺带三个别的发现**（都**未移植**，按 D13 不主动扩，但记下来）：
+- **`dmhy` 活了**（200 / 49754B / 10 行）—— 它当初是因为 CI 连取三次 fixture 超时被
+  「暂停」的，现在站点自己回来了。要移植它是**可行**的，但那在 D13 之外。
+- **`xxxtracker` 200 / 12615B / 1 行** —— 同样活着。
+- `nekobt` / `mikan` / `mypornclub` / `animetosho` 是 200 + **0 行** ⇒ 选择器可能变了；
+  `anilibria` / `bangumimoe` / `subsplease` 只回 2~55 字节（几乎没有正文）；
+  `sukebei` 连接超时。这些都不在注册表里，不影响当前状态。
+
 **2026-10-09 两个环境各跑一次 —— 结论必须两边合起来看**（同一脚本、同一关键词 `ubuntu`）：
 
 | 引擎 | 本机 | CI | 引擎 | 本机 | CI |
@@ -1032,7 +1090,7 @@ GIT_SSL_NO_VERIFY=true git push origin feat/rust
 |---|---|---|
 | `build.yml` / `release.yml` / `tauri-build.yml` | `main` | 能 |
 | `live-smoke.yml` | `main`（**为能手动触发而特意放的**）+ `feat/rust` | 能（触发时用 `--ref feat/rust` 才检出 Rust 代码） |
-| `rust.yml` | 只在 `feat/rust` | ❌ 不能，只能靠 push 触发 |
+| `rust.yml` | `main` + `feat/rust`（2026-10-16 切 main 后**必须**在 main 上） | 能（`--ref main`） |
 | `html-probes.yml` | `main` + `feat/rust` | 能（选分支 `feat/rust`，生成 cheerio 真值**并自己提交**） |
 | `fetch-fixture.yml` | `main` + `feat/rust` | 能（带 `url`/`path`，让 CI 去抓本机探不通的页面快照，抓完自己提交） |
 | `provider-health.yml` | `main` + `feat/rust` | 能（全部 40 个引擎的联网探活） |
