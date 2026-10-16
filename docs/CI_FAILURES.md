@@ -81,7 +81,7 @@
 **防线**：`.slint` 里**只用 M1 实测过的元素与属性**（这条规矩写在 `app.slint` 文件头，
 是我越界了）。要引入新控件/新属性，**先写进探针 workflow 实测**再进主 UI。
 
-### D. 静默失败（不在 CI 日志里，但代价更大 —— 3 次）
+### D. 静默失败（不在 CI 日志里，但代价更大 —— 已记 7 种）
 
 这一类**不会让 CI 变红**，会让**我以为它绿了**：
 
@@ -90,12 +90,26 @@
 | `git push` 报 `Everything up-to-date` | `feat/tauri` **没有 upstream 跟踪**，裸 `git push` 静默失败 |
 | `git commit` 报 `did not match any file(s) known to git` | 提交消息里的**反引号**被 PowerShell 当转义符（2 次）／**双引号**截断了字符串 |
 | 我读到"CI 全绿" | 上面两个失败之后 `git push` 没做事，**我读的是上一个提交的绿 run** |
+| `Cannot run a document in the middle of a pipeline` | 在 **PowerShell 里跑 bash 脚本**（`scripts/gh-retry.sh`）—— 重试循环空转 25 次，**workflow 触发根本没发生** |
+| `WinError 193: %1 不是有效的 Win32 应用程序` | **Python 在 Windows 上执行 `.sh`** —— 同样是"调了跑不起来的脚本" |
+| `gh run view --json artifacts` 返回**空** | **那个字段根本不存在**（`run view` 没有 `artifacts`）⇒ 我据此报告"产物列表是空的"，差点得出"没有 artifact"的结论（实际 `gh api` 一查就有） |
+| 自查脚本报了 `⚠️ L86: ...` | 输出就在眼前，**我看都没看就提交推送了** ⇒ CI `E0425`。**报了不处理，比不查更糟** |
 
 **防线（都已落地）**：
 1. **提交消息一律走文件**：`git commit -F .cache/commitmsg.txt` —— 不走 shell，就没有引号问题
 2. **推分支显式写 `git push origin <branch>`**（本仓库 `main`/`feat/tauri` 都可能没 upstream）
 3. **别用 `Select-Object -Last 1` 过滤推送/命令输出** —— 出错时最后一行往往是空的
 4. **每步核 `git log` / `git status` / 与远端是否一致**，不拿"CI 绿"当本次改动的证据
+5. **工具要用对执行器**：bash 脚本交给 **bash 执行器**（`ops_bash` + `script_path`），
+   不要从 PowerShell 调 —— 长脚本一律写成 `.sh` 文件再跑
+6. **空结果 ≠ 不存在**：查询返回空时**换一个 API 再问一次**再下结论
+   （`gh run view --json artifacts` 空 → `gh api .../artifacts` 立刻有）
+7. **自查输出必须看，而且要看懂**：更好的做法是把守卫写成**机械的**
+   （脚本判断"该符号的调用是否归零"，不为 0 就 `exit 1` 不提交），不依赖眼睛
+
+> ⚠️ 这一类的共同形状：**失败不报错，只是"什么都没发生"**。
+> 所以判据不能是"命令没报错"，而必须是"**我看到了它做成的证据**"
+> （`git log` 里有那个 sha、artifact 列表里有那个名字）。
 
 ## 三、怎么重跑这份审计
 
@@ -112,3 +126,7 @@ scripts/ci-failure-audit.sh 80      # 参数是"最多看几个 run"
 > **设计几乎没错过；错的全是机械性的。**
 > 断言先跑一遍、Slint 只用验过的属性、删符号就 grep 全部引用、
 > **自查输出必须看**、提交消息走文件、别让输出过滤吃掉退出码。
+
+> 还有一条贯穿全篇的：**这个环境里的失败不报错，只是"什么都没发生"**
+> （push 报 up-to-date、查询返回空、脚本根本没跑起来）。
+> 所以每步都要问一句：**我看到的"成功"，是它做成了的证据，还是它什么都没做？**
