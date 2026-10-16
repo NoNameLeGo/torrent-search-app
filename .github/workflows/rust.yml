@@ -1,10 +1,16 @@
 name: Rust (test)
 
-# Rust 重写主线 —— `feat/rust` 分支。
+# Rust 重写主线。
+#
+# ⚠️ **2026-10-16 切 main**：`main` 已经是 Rust 主线（`feat/rust` 合并进来，
+# 见 AGENTS.md「🌿 分支现状」）。触发**两个都要留**：
+#   · `main` —— **这是切换的硬性配套**：不加的话，切完 main 之后 Rust 侧
+#     一条 CI 都不跑，而 397 条测试 + bt-app 全链路自检全靠它把关；
+#   · `feat/rust` —— 合并后两者同源，留着不至于让旧链接/旧 PR 失效。
 # 本机不开构建（用户磁盘两盘 90%+），一律走 CI：编译 + 跑测试都在这里。
 on:
   push:
-    branches: [feat/rust]
+    branches: [feat/rust, main]
   pull_request:
     paths:
       - 'crates/**'
