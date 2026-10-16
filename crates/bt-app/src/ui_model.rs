@@ -1444,8 +1444,10 @@ mod tests {
     fn a_stale_engine_gets_a_warning_marker() {
         let mut st = AppState::new();
         st.begin_search(&two_providers());
-        // 预先标上"tpb 最近连续空手 5 次"
-        st.stale.insert("tpb".to_string(), 5);
+        // 预先标上「tpb 之前连续空手 4 次」。
+        // ⚠️ `apply_report` 会**先把计数 +1 再用**（本轮也算进去），所以芯片上显示的是 5 ——
+        // 这样它才与 `--health`（把本轮记录算进去）对得上。第一版测试写的是 4，我算错了。
+        st.stale.insert("tpb".to_string(), 4);
 
         st.apply_report(&report("tpb", "TPB", vec![], None), "q", "#fff");
         st.apply_report(
@@ -1456,7 +1458,11 @@ mod tests {
 
         let tpb = st.chips.iter().find(|c| c.id == "tpb").unwrap();
         assert!(tpb.detail.contains('⚠'), "该带警告：{}", tpb.detail);
-        assert!(tpb.detail.contains('5'), "要带上次数：{}", tpb.detail);
+        assert!(
+            tpb.detail.contains('5'),
+            "次数要含本轮（4+1=5）：{}",
+            tpb.detail
+        );
 
         let nyaa = st.chips.iter().find(|c| c.id == "nyaa").unwrap();
         assert!(
@@ -1467,20 +1473,26 @@ mod tests {
     }
 
     /// 没到阈值就不提示 —— 站点偶尔抽风不该被报成故障。
+    ///
+    /// ⚠️ 只插 `STALE_AFTER - 2`：本轮 +1 之后是 `STALE_AFTER - 1`，**仍在阈值下**。
+    /// 插 `STALE_AFTER - 1` 会被本轮顶到正好等于阈值 —— 第一版就是栽在这上面。
     #[test]
     fn a_slightly_stale_engine_is_not_marked() {
         let mut st = AppState::new();
         st.begin_search(&two_providers());
         st.stale
-            .insert("tpb".to_string(), crate::health::STALE_AFTER - 1);
+            .insert("tpb".to_string(), crate::health::STALE_AFTER - 2);
 
         st.apply_report(&report("tpb", "TPB", vec![], None), "q", "#fff");
         let tpb = st.chips.iter().find(|c| c.id == "tpb").unwrap();
         assert!(!tpb.detail.contains('⚠'), "没到阈值：{}", tpb.detail);
     }
 
-    /// 报错的形态是 ✗ + 错误串，**不该**被"连空"文案盖掉 ——
-    /// 那会把"连不上"说成"没结果"，指错方向。
+    /// 报错的形态是 ✗ + 错误串，**不该**被「连空」文案盖掉 ——
+    /// 那会把「连不上」说成「没结果」，指错方向。
+    ///
+    /// ⚠️ 错误串用**短**的：`chip_for` 会 `truncate(.., 18)`，
+    /// 长串（如 `tpb unreachable (ECONNABORTED)`）根本留不下尾部的错误码。
     #[test]
     fn an_erroring_stale_engine_still_shows_its_error() {
         let mut st = AppState::new();
@@ -1488,7 +1500,7 @@ mod tests {
         st.stale.insert("tpb".to_string(), 9);
 
         st.apply_report(
-            &report("tpb", "TPB", vec![], Some("tpb unreachable (ECONNABORTED)")),
+            &report("tpb", "TPB", vec![], Some("ECONNABORTED")),
             "q",
             "#fff",
         );
