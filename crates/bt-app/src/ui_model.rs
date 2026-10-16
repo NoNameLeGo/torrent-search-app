@@ -1233,7 +1233,13 @@ mod tests {
         );
         assert_eq!(st.rows[1].action, RowAction::Done);
         assert_eq!(st.rows[0].magnet, None, "不该落到排到前面的那一行");
-        assert_eq!(st.rows[0].action, RowAction::Ready);
+        // ⚠️ 这一行本来就等着取磁力（`hit(.., None)` 没有磁力 ⇒ `NeedsMagnet`），
+        // 所以“没被动过”的表现是它**停在原来的动作上**，不是 `Ready`。
+        assert_eq!(
+            st.rows[0].action,
+            RowAction::NeedsMagnet,
+            "排到前面那一行不该被写成 Done"
+        );
 
         // 那行被新搜索清掉之后，写回只是静默失效（不 panic、不命中间号）
         st.begin_search(&two_providers());
