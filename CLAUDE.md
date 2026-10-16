@@ -75,6 +75,13 @@ Magnet links: WebView2/Electron won't auto-invoke `magnet:`, so both shells inte
 
 Twelve workflows, split by shell/trigger and by **gate vs probe**. ⚠️ See `AGENTS.md` for the authoritative table.
 
+> 🔴 **CI 红过 9 次 —— 开工前读 [`docs/CI_FAILURES.md`](docs/CI_FAILURES.md)。**
+> 数据是从 Actions 日志拉的真实记录（`scripts/ci-failure-audit.sh`），不是回忆。
+> 一句话结论：**设计几乎没错过，错的全是机械性的** ——
+> 断言靠心算（4/9）、本机没编译器猜 API（3/9）、用了没验过的 Slint 属性（1/9）。
+> 各自的防线都在那篇里；**最省事的一条**：只要断言依赖"某函数内部怎么算"，
+> 就先在本机跑一遍（`node -e` / `python -c`）再写 —— 用过的都没返工。
+
 **Gates** (run on push/PR, must be green):
 
 - **`ci-guard.yml`** — validates the workflow files themselves (`scripts/check-workflows.py`). Runs on any `.github/workflows/**` change.
