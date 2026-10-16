@@ -128,6 +128,26 @@ fn add_dynamic_factory(factory: ProviderFactory) {
     DYNAMIC.with(|slot| slot.borrow_mut().push(factory));
 }
 
+/// 清空所有动态工厂（`--selftest` 与"索引器列表变了 ⇒ 重建"都用）。
+fn clear_dynamic_factories() {
+    DYNAMIC.with(|slot| slot.borrow_mut().clear());
+}
+
+/// **按列表重建**动态工厂：先清空、再逐个加。
+///
+/// ⚠️ 每次**整套重建**，而不是"增删单个工厂"：`DYNAMIC` 里的工厂没有身份标识，
+/// 增量维护迟早会留下**重复 id** —— 而重复 id 会让每站状态条互相覆盖
+/// （`apply_report` 是按 id 找槽位的）。重建的代价是每次几个 `Box::new`，可以忽略。
+fn rebuild_dynamic_factories(list: &[bt_torznab::IndexerConfig]) {
+    clear_dynamic_factories();
+    for cfg in list {
+        let cfg = cfg.clone();
+        add_dynamic_factory(Box::new(move || -> Box<dyn Provider> {
+            Box::new(bt_torznab::TorznabProvider::new(cfg.clone()))
+        }));
+    }
+}
+
 /// **只有 `--selftest` 用**：把 provider 集合换成假的（离线、确定性）。
 ///
 /// 传的是**工厂**：下次 `provider_set()` 现造一套全新的假 provider ——
@@ -192,6 +212,9 @@ struct UiState {
     /// （M1 踩过的坑，见 AGENTS.md）。
     accent: String,
     downloader: Option<(Kind, Config)>,
+    /// ⑤ 用户配的 Torznab 索引器。**权威副本**在这里（UI 只是它的镜像）——
+    /// 加/删都走 [`apply_indexers`]，它同时负责"重建动态工厂 + 落盘 + 更新状态栏"。
+    indexers: Vec<bt_torznab::IndexerConfig>,
     status: String,
 }
 
@@ -207,6 +230,7 @@ thread_local! {
         query: String::new(),
         accent: "#f9e2af".to_string(),
         downloader: None,
+        indexers: Vec::new(),
         status: "就绪".to_string(),
     });
 }
@@ -751,6 +775,77 @@ fn save_downloader(ui: &AppWindow) {
     });
 }
 
+/// ⑤ 索引器变了 ⇒ 三件事一起做：重建动态工厂、落盘、更新状态栏。
+///
+/// ⚠️ 三件事**必须一起做**，否则会出现"界面说配了、实际搜不到"（工厂没重建）
+/// 或"这次能用、重启就没了"（没落盘）这类难查的错位。
+fn apply_indexers(ui: &AppWindow, list: Vec<bt_torznab::IndexerConfig>) {
+    rebuild_dynamic_factories(&list);
+
+    // ⚠️ 落盘失败**不致命**：本次会话照常能用（工厂已经重建），只是重启要重填 ——
+    // 所以把原因塞进状态栏，而不是弹窗 / 退出（与下载器同口径）。
+    let note = match config_store::save_indexers(&list) {
+        Ok(()) => String::new(),
+        Err(e) => format!("（{e}）"),
+    };
+    ui.set_indexer_status(format!("{}{note}", config_store::describe(&list)).into());
+
+    // 加完就把输入框清掉 —— 留着容易让人以为"还没加进去"
+    ui.set_indexer_name("".into());
+    ui.set_indexer_url("".into());
+    ui.set_indexer_key("".into());
+
+    STATE.with(|s| s.borrow_mut().indexers = list);
+}
+
+/// 加一个索引器（同名**覆盖** —— 改完 key 再点一次是常见动作，不该变成两条）。
+fn add_indexer(ui: &AppWindow) {
+    let name = ui.get_indexer_name().to_string();
+    let url = ui.get_indexer_url().to_string();
+    let key = ui.get_indexer_key().to_string();
+
+    if url.trim().is_empty() {
+        ui.set_indexer_status("请先填 Torznab 地址".into());
+        return;
+    }
+    // 与下载器同一个信任边界：只放行 http/https（不合法就别存进配置文件了）
+    if downloaders::safe_http_url(&url).is_none() {
+        ui.set_indexer_status("地址不合法：只接受 http:// 或 https://".into());
+        return;
+    }
+
+    let name = if name.trim().is_empty() {
+        // 名字留空 ⇒ 用地址当代名（比让所有索引器都叫 "Torznab" 有用）
+        url.trim().to_string()
+    } else {
+        name.trim().to_string()
+    };
+    let cfg = bt_torznab::IndexerConfig {
+        // 空 id ⇒ `TorznabProvider::new` 兜底成 `torznab:<name>`
+        id: String::new(),
+        name: name.clone(),
+        url: url.trim().to_string(),
+        api_key: key.trim().to_string(),
+        enabled: true,
+    };
+
+    let mut list = STATE.with(|s| s.borrow().indexers.clone());
+    match list.iter().position(|c| c.name == name) {
+        Some(i) => list[i] = cfg,
+        None => list.push(cfg),
+    }
+    apply_indexers(ui, list);
+}
+
+/// 清空索引器（含文件）。
+///
+/// ⚠️ 没有"单项删除"：那要给每行一个 Button + 一个行模型；而"同名再添加一次即覆盖"
+/// 已经够管理了。真要单个删，改一次 `list.retain(..)` 即可 —— 这里不做是因为
+/// 每多一个控件就多一份"只能靠 CI 验证"的风险（见文件头那条 Slint 教训）。
+fn clear_indexers(ui: &AppWindow) {
+    apply_indexers(ui, Vec::new());
+}
+
 fn detect_downloader(ui: &AppWindow) {
     let weak = ui.as_weak();
     STATE.with(|s| {
@@ -899,6 +994,24 @@ fn wire(ui: &AppWindow) {
             }
         });
     }
+    // ⑤ 索引器：加 / 清空。⚠️ 两个回调都是"改了状态就同步"，没有后台任务 ——
+    // 落盘是毫秒级的小写入，不值得为它开一个 spawn。
+    {
+        let weak = ui.as_weak();
+        ui.on_add_indexer(move || {
+            if let Some(ui) = weak.upgrade() {
+                add_indexer(&ui);
+            }
+        });
+    }
+    {
+        let weak = ui.as_weak();
+        ui.on_clear_indexers(move || {
+            if let Some(ui) = weak.upgrade() {
+                clear_indexers(&ui);
+            }
+        });
+    }
 }
 
 /// #6 打印各引擎的健康度。**纯读**：不开窗口、不写文件。
@@ -1030,11 +1143,11 @@ fn main() -> Result<(), slint::PlatformError> {
     // `thread_local`，在 `spawn` 出来的后台线程里读会读到空的一份。
     // ⚠️ 文件坏了 / 一个都没配 ⇒ 空列表，**不影响启动**（与 config_store 同口径）。
     let indexers = config_store::load_indexers();
-    for cfg in indexers {
-        add_dynamic_factory(Box::new(move || -> Box<dyn Provider> {
-            Box::new(bt_torznab::TorznabProvider::new(cfg.clone()))
-        }));
-    }
+    // ⚠️ 启动这条路**不落盘**：只是把已有的读回来。从没配过索引器的机器不该因为
+    // 启动一次就多出一个 indexers.json —— 落盘只发生在用户点「添加 / 清空」时。
+    ui.set_indexer_status(config_store::describe(&indexers).into());
+    rebuild_dynamic_factories(&indexers);
+    STATE.with(|s| s.borrow_mut().indexers = indexers);
 
     // ② 载入上次保存的下载器配置。⚠️ 这一步**绝不能拦启动** ——
     // 没有配置文件、文件被改坏、APPDATA 取不到，都只是"没配置过"。

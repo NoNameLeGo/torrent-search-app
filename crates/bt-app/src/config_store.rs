@@ -182,6 +182,37 @@ pub fn load_indexers() -> Vec<bt_torznab::IndexerConfig> {
         .collect()
 }
 
+/// 一行人类可读的索引器摘要（UI 状态栏用）。**纯函数**，有单测。
+///
+/// 名字留空就用地址当代名 —— 这只是**给人看的**；id 由 `TorznabProvider::new`
+/// 的兜底（`torznab:<name>`）决定，两者不是一回事。
+pub fn describe(list: &[bt_torznab::IndexerConfig]) -> String {
+    if list.is_empty() {
+        return "未配置索引器（Torznab）".to_string();
+    }
+    let names: Vec<&str> = list
+        .iter()
+        .map(|c| {
+            if c.name.is_empty() {
+                c.url.as_str()
+            } else {
+                c.name.as_str()
+            }
+        })
+        .collect();
+    let off = list.iter().filter(|c| !c.enabled).count();
+    if off == 0 {
+        format!("已配置 {} 个：{}", names.len(), names.join("、"))
+    } else {
+        format!(
+            "已配置 {} 个（{} 个已停用）：{}",
+            names.len(),
+            off,
+            names.join("、")
+        )
+    }
+}
+
 /// 保存索引器配置。返回 `Err(人话)`，调用方**不该**当成致命错误。
 pub fn save_indexers(list: &[bt_torznab::IndexerConfig]) -> Result<(), String> {
     let path = indexers_path().ok_or_else(|| "取不到 %APPDATA%，索引器没保存".to_string())?;
@@ -324,5 +355,33 @@ mod tests {
         // 而且空文件 / 空数组都是合法的「没配过」
         let empty: Vec<StoredIndexer> = serde_json::from_str("[]").unwrap();
         assert!(empty.is_empty());
+    }
+
+    #[test]
+    fn describe_says_what_is_configured() {
+        assert_eq!(describe(&[]), "未配置索引器（Torznab）");
+
+        assert_eq!(describe(&[indexer()]), "已配置 1 个：Jackett");
+
+        // 名字留空 ⇒ 用地址当代名（不然状态栏上是一片空白）
+        let nameless = vec![bt_torznab::IndexerConfig {
+            name: String::new(),
+            ..indexer()
+        }];
+        assert_eq!(describe(&nameless), "已配置 1 个：http://localhost:9117");
+
+        // 多个用顿号连起来；**停用的要说出来**（静默少一家比报错更迷惑）
+        let two = vec![
+            indexer(),
+            bt_torznab::IndexerConfig {
+                name: "Prowlarr".to_string(),
+                enabled: false,
+                ..indexer()
+            },
+        ];
+        assert_eq!(
+            describe(&two),
+            "已配置 2 个（1 个已停用）：Jackett、Prowlarr"
+        );
     }
 }

@@ -243,6 +243,12 @@ export component AppWindow inherits Window {
     in-out property <string> downloader-user: "";
     in-out property <string> downloader-secret: "";
     in-out property <string> downloader-status: "未配置下载器";
+    // ⑤ Torznab 索引器：三个输入 + 一行状态。⚠️ **只用已验证的控件**
+    // （LineEdit / Button / Text）—— `Button` 没有 `color` 那条教训见文件头。
+    in-out property <string> indexer-name: "";
+    in-out property <string> indexer-url: "";
+    in-out property <string> indexer-key: "";
+    in-out property <string> indexer-status: "未配置索引器";
     in-out property <int> total: 0;
     // ① 分页：当前页码（1 起）+ 引擎层回的 has_more（决定「下一页」能不能点）
     in-out property <int> page: 1;
@@ -253,6 +259,9 @@ export component AppWindow inherits Window {
     callback pick-kind(string);
     callback detect-downloader();
     callback save-downloader();
+    // ⑤ 索引器：加一个 / 清空全部
+    callback add-indexer();
+    callback clear-indexers();
     // ①③ 新回调
     callback next-page();
     callback toggle-site(string);
@@ -338,6 +347,40 @@ export component AppWindow inherits Window {
                 color: Theme.sub;
                 vertical-alignment: center;
                 width: 180px;
+            }
+        }
+
+        // ---- 索引器行（⑤ Torznab：Jackett / Prowlarr / *arr）----
+        //
+        // 「添加」= 按名字去重后写进 %APPDATA%\bt-search\indexers.json **并立刻生效**
+        // （重建动态 provider 工厂，不用重启）。名字留空就用地址当代名。
+        // 「清空」= 全删（含文件）。索引器没有单项删除按钮：那要每行一个 Button +
+        // 一个模型，而这个 MVP 用"同名再添加一次即覆盖"已经够管理。
+        HorizontalLayout {
+            spacing: 6px;
+            Text { text: "索引器"; color: Theme.sub; vertical-alignment: center; }
+            LineEdit {
+                width: 120px;
+                placeholder-text: "名字，例 Jackett";
+                text <=> root.indexer-name;
+            }
+            LineEdit {
+                horizontal-stretch: 1;
+                placeholder-text: "Torznab 地址，例 http://localhost:9117";
+                text <=> root.indexer-url;
+            }
+            LineEdit {
+                width: 130px;
+                placeholder-text: "API key";
+                text <=> root.indexer-key;
+            }
+            Button { text: "添加"; clicked => { root.add-indexer(); } }
+            Button { text: "清空"; clicked => { root.clear-indexers(); } }
+            Text {
+                text: root.indexer-status;
+                color: Theme.sub;
+                vertical-alignment: center;
+                width: 240px;
             }
         }
 
