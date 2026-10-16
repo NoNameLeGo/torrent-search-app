@@ -83,7 +83,7 @@ fn read_item(item: Node<'_, '_>) -> RawItem {
     // <torznab:attr name="X" value="Y"> → Y
     let attr = |name: &str| -> Option<String> {
         item.children()
-            .filter(|c| c.is_element() && local_name(*c) == "attr")
+            .filter(|c| c.is_element() && c.tag_name().name() == "attr")
             .find(|c| c.attribute("name") == Some(name))
             .and_then(|c| c.attribute("value"))
             .map(|v| v.to_string())
