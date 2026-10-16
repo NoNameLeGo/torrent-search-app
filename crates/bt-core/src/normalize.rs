@@ -166,10 +166,17 @@ pub fn format_size(bytes: Option<i64>) -> String {
         v /= 1024.0;
         i += 1;
     }
+    // ⚠️ **必须自己取整，不能交给 `{:.1}` / `{:.0}`** —— 两者对**平局**的处理不同：
+    //   · JS `toFixed(f)`：spec 规定两个候选取**较大**的 n ⇒ 平局**向上**（对正数）
+    //   · Rust 的浮点格式化：**平局取偶**
+    // 于是 `v = 3.25`（二进制里精确）会得到 JS `"3.3"` vs Rust `"3.2"`。
+    // 这是 M6 差分在 2026-10-16 抓到的**真移植 bug**（`rutor` 2 处 + `limetorrents` 1 处，
+    // 形态是「差正好 0.1、且总是 Rust 小」）。
+    // `f64::round` 是**平局远离零**，对正数正好等价于 JS 的规则。
     let body = if v >= 100.0 || i == 0 {
-        format!("{v:.0}")
+        format!("{}", v.round())
     } else {
-        format!("{v:.1}")
+        format!("{:.1}", (v * 10.0).round() / 10.0)
     };
     format!("{} {}", body, UNITS[i])
 }
