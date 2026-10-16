@@ -1067,8 +1067,12 @@ mod tests {
 
     #[test]
     fn relevance_scores_multiple_tokens_and_ignores_empty_query() {
-        // 两个词元都命中 ⇒ 300(contain) + 2*200
-        assert_eq!(relevance("ubuntu server iso", "ubuntu server"), 700);
+        // 开头命中(500) + 两个词元都命中(2×200)
+        assert_eq!(relevance("ubuntu server iso", "ubuntu server"), 900);
+        // 只是含有(300) + 两个词元(2×200)
+        assert_eq!(relevance("xubuntu server", "ubuntu server"), 700);
+        // 基础分 0（既不等、也不以它开头、也不含有）+ 一个词元(200)
+        assert_eq!(relevance("ubuntu desktop", "ubuntu server"), 200);
         assert_eq!(relevance("anything", ""), 0, "空查询词 → 0");
         assert_eq!(relevance("anything", "   "), 0, "纯空白 → 0");
     }
@@ -1116,15 +1120,28 @@ mod tests {
             row_at(1, "b", 0, None, Some("剧集")),
         ];
 
+        /// ⚠️ **按 id 查，别按下标断言分类顺序**：`categories()` 是「条数降序、同票按名字」，
+        /// 而中文的"名字序"是**码位序**（剧 U+5267 < 电 U+7535），不是拼音 ——
+        /// 所以「电影」并不在「剧集」前面。按下标写会在换一批数据时莫名其妙地红。
+        fn label_of(chips: &[Chip], id: &str) -> String {
+            chips
+                .iter()
+                .find(|c| c.id == id)
+                .map(|c| c.label.clone())
+                .unwrap_or_else(|| panic!("没有 id={id} 的 chip"))
+        }
+
         let chips = st.cat_chips();
         assert_eq!(chips[0].id, "", "第一个恒为「全部」");
         assert_eq!(chips[0].label, "[全部] 2");
-        assert_eq!(chips[1].label, "电影 1");
+        assert_eq!(label_of(&chips, "电影"), "电影 1");
+        assert_eq!(label_of(&chips, "剧集"), "剧集 1");
 
         st.set_category(Some("电影".to_string()));
         let chips = st.cat_chips();
         assert_eq!(chips[0].label, "全部 2", "不再是选中态");
-        assert_eq!(chips[1].label, "[电影] 1", "选中的带方括号");
+        assert_eq!(label_of(&chips, "电影"), "[电影] 1", "选中的带方括号");
+        assert_eq!(label_of(&chips, "剧集"), "剧集 1", "没选中的不带");
     }
 
     #[test]
