@@ -83,26 +83,69 @@ M6 ✅ 差分验证（2026-10-16 —— **16 家全量、0 处未豁免差异**�
 M7 ✅ 打包 + GitHub Release（2026-10-16 —— **v0.3.6-beta 已发布**，四套产物，Rust 版首次可下载）
 ```
 
-### 🔍 Rust 侧遗留清单（2026-10-16 审计，M0–M7 走完之后）
+### 🔍 Rust 侧遗留清单（2026-10-16 审计；①②③④ 已在同日晚些时候做掉）
 
-**结论：七个里程碑全部完成；`crates/` 里没有任何 TODO/FIXME 型欠账；
-但功能面上有 6 个明确缺口 —— 其中 3 个用户能直接感到。**
+**结论：七个里程碑全部完成；`crates/` 里没有任何 TODO/FIXME 型欠账。**
 
-**A. 用户能直接感到的三个（产品级）**
+**A. 用户能直接感到的三个（产品级）—— ✅ 全部已修**
 
-| # | 缺口 | 证据 | 性质 |
+| # | 缺口 | 证据（修之前） | 怎么修的 |
 |---|---|---|---|
-| 1 | **分页完全没接** | `bt-app/src/main.rs` 两处写死 `page: 1`；`has_more` 在 UI 层**完全没用**（`ui_model.rs` 里只是构造测试夹具时填 `None`） | ⚠️ **能力做完了、UI 没接**：引擎层的分页语义 M2 就建好并测过了（`paginated()` / `browseable()` / `resolve_targets` 第 3 条 / `aggregate_has_more`），JS 版也有翻页 |
-| 2 | **下载器配置不持久化** | `bt-app` 里**没有** `fs::write` / `serde` / 任何配置文件 | 重启要重填。已在 `docs/RELEASE_ARTIFACTS.md` 如实写明 |
-| 3 | **没有用户级站点开关** | `SearchArgs { providers: None }` ⇒ **永远 16 家全打** | ⚠️ 同样是"能力做了没接"：`SearchArgs::providers` + `wanted()` 的语义（含 `"  "` → **零目标**这种边界）M2 就测过了 |
+| 1 | **分页完全没接** | `main.rs` 两处写死 `page: 1`；`has_more` 在 UI 层完全没用 | ✅ `start_search(ui, q, page)` + `next-page` 回调；`has_more` 来自 `StreamOutcome`；UI 加「第 N 页 · 下一页」 |
+| 2 | **下载器配置不持久化** | `bt-app` 里没有 `fs::write`/`serde`/配置文件 | ✅ `src/config_store.rs`：`%APPDATA%\bt-search\config.json`，serde，失败一律不致命 |
+| 3 | **没有用户级站点开关** | `SearchArgs { providers: None }` ⇒ 永远 16 家全打 | ✅ `AppState.sites` + `selected_providers()`；一个都没勾时 **UI 层拦住不搜**（不是搜全部） |
 
-**B. 工程级的三个**
+⚠️ 1 和 3 都是同一类：**"能力做完了、UI 没接"** —— 引擎层的分页语义与 `providers=`
+过滤语义 M2 就建好并测过了，缺的只是 `bt-app` 那一层。
 
-| # | 缺口 | 说明 |
+**B. 工程级 —— 4 已修，5/6 见下**
+
+| # | 缺口 | 状态 |
 |---|---|---|
-| 4 | **`catch_unwind` 未做** | `aggregate.rs` 顶部有明确的"刻意不做"记录：provider 违约 panic 会**带走整轮聚合**（JS 的 `try/catch` 不会）。**⚠️ 当时的理由已经失效** —— 原文是"本机没有 `cargo`，不盲写没验证过的 API 组合"，而 M3/M4/M6 已经证明这条路上本机不编译也能交付（有快速 CI）。⇒ **该做了**，并配一条"违约 panic 的 provider 不掀翻别人"的用例 |
-| 5 | **`demo` 引擎缺失** | `Provider::demo()` 建模了、`ProviderInfo.demo` 导出了，但 registry 里**没有 demo 引擎** ⇒ 该字段恒为 `false`。JS 有 `demo.js`（离线确定性假数据）⇒「无网络也能演示」这个能力缺（内部有 `--selftest`，但那是 app 自己的，不是可选引擎） |
-| 6 | **Torznab 的"口子"比文档读起来浅一层** | 架构上允许（`Box<dyn Provider>` + `install_registry`），但 `registry()` 是**进程级 `OnceLock`（只 set 一次）**，且 `search_stream(http, registry, query, args, cb)` **没有"额外 provider"参数** ⇒ 真接 Torznab 时要**改签名**。**这不是 bug**（D17 明确本期不做），但"口子"要记准是这个深度 |
+| 4 | **`catch_unwind` 未做** | ✅ **已修**：`run_provider` 用 `AssertUnwindSafe(..).catch_unwind()`，配了 `a_panicking_provider_does_not_take_down_the_others`（去掉它这条会 red，而不是静默通过）。当时"本机没有 `cargo`"的理由**已失效**（M3/M4/M6 证明这条路上本机不编译也能交付） |
+| 5 | **`demo` 引擎缺失** | ⬜ 未做。`Provider::demo()` 建模了、`ProviderInfo.demo` 导出了，但 registry 里没有 demo 引擎 ⇒ 该字段恒 `false`。JS 有 `demo.js`（离线确定性假数据）。**注意它与 6 共用同一堵墙**（见下） |
+| 6 | **Torznab / registry 动态化** | ⬜ 未做 —— **但墙已经摸清了，见下面那段。这是下一个大方向** |
+
+#### 🧱 #4 的墙：`Box<dyn Provider>` **不能 clone**（2026-10-16 实测）
+
+想"静态 16 家 + 运行期动态的（Torznab / demo / 测试注入）并成一份集合"时，
+撞到的是这一条 —— **不是 `Send`**（`pub trait Provider: Send + Sync` ✅、
+`Vec<Box<dyn Provider>>` 可以 move 进后台任务 ✅），而是：
+
+```
+aggregate::search_stream(http, registry: &[Box<dyn Provider>], …)   ← 只认**一个**切片
+registry() -> &'static [Box<dyn Provider>]                          ← 静态那份是"借来的"
+```
+两者要进同一个切片 ⇒ 必须**拥有一份拷贝** ⇒ 但 `Box<dyn Provider>` 拷不出来。
+而且 `search_stream` 是在**后台任务里**调的（靠 `registry()` 的 `'static`），
+所以"改成每次现造一份"会连带改那里。
+
+**两条干净的出路（选一条，别发明第三条）：**
+
+**① provider 工厂**（推荐，且与 Torznab 天然吻合）
+```rust
+pub type ProviderFactory = Box<dyn Fn() -> Box<dyn Provider> + Send + Sync>;
+// provider_set() 每次搜索调一遍工厂 ⇒ 得到一份**自己拥有**的集合
+```
+Torznab 本来就是"从存好的索引器配置**现造**一个 provider"，不是长期持有一个。
+⚠️ **代价**：`--selftest` 的 `install_registry(fake_registry())` 要改成返回工厂
+（现在它传的是实例）—— 那 3 个假 provider 得能**重建**。
+
+**② `&[&dyn Provider]`**（把 `aggregate` 的签名从 `&[Box<…>]` 改成 `&[&dyn …]`）
+```rust
+let refs: Vec<&dyn Provider> = statics.iter().chain(dyns.iter()).map(|b| b.as_ref()).collect();
+```
+动态那批由本地 `Vec<Box<…>>` 持有、静态那批是 `'static`，**都能借** ✅
+⚠️ **代价**：`aggregate.rs` + 它的测试（那里到处传 `&[Box<dyn Provider>]`）都要改。
+
+**③ 顺带记一个更小的（不解决动态化，但能立刻做）**：`install_registry` 现在用
+`OnceLock::set` 并且**刻意忽略失败**（第二次静默无效）。要让"注入"可重复
+（Torznab 与测试都需要），它得换成 `thread_local! { static INJECTED: RefCell<...> }` ——
+**但这一步会连带改 `registry()` 的返回类型**（`thread_local` 给不出 `&'static`），
+于是又回到上面那道墙。**所以 ③ 不能单独做**，要跟 ① 或 ② 一起。
+
+**预计规模**：选 ① ⇒ 改 `main.rs`(4 处调用点) + `selftest.rs`(工厂化 3 个假 provider)；
+选 ② ⇒ 再带上 `aggregate.rs` 与它的测试。**半天以内，但必须一次改完**（编译不过会卡住 main）。
 
 **C. 2026-10-16 审计顺手修掉的一件（并且纠正了我自己上一轮的错误诊断）**
 
