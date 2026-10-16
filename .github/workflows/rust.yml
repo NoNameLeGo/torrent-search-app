@@ -54,6 +54,27 @@ jobs:
           RUST_BACKTRACE: "1"
         run: cargo run -p bt-app --bin bt-search -- --selftest
 
+      # ---- M6 差分验证：Rust 侧 vs Node 侧，**逐字段**比 ----
+      # 两侧对**同一批 fixture** 各导出一份规范化 JSON，再逐字段比较；差异未命中
+      # `scripts/diff/whitelist.json` 就是红。这是 D18「才准删 Node」的那道门。
+      #
+      # ⚠️ 为什么用 `-- --ignored` 显式跑 `dump_rust`：它是**差分工具**不是回归测试
+      # （否则 `cargo test --workspace` 每次都刷一大坨 JSON）。但**显式**跑是有意的 ——
+      # 它失败必须是"响的"，不能变成静默跳过。
+      - name: M6 导出 Rust 侧
+        env:
+          BT_DIFF_OUT: .cache/diff/rust.json
+        run: |
+          set -euo pipefail
+          mkdir -p .cache/diff
+          cargo test -p bt-providers --test dump_rust -- --ignored --nocapture
+
+      - name: M6 导出 Node 侧并比较
+        run: |
+          set -euo pipefail
+          node scripts/diff/dump-node.cjs -o .cache/diff/node.json
+          node scripts/diff/compare.cjs .cache/diff/rust.json .cache/diff/node.json
+
       # 首轮先不做 -D warnings，避免被 lint 噪音挡住"移植是否等价"这个主要信号。
       # 稳定下来后再收紧。
       - name: cargo clippy
