@@ -236,8 +236,13 @@ mod tests {
 
         // magnet 来自 enclosure@url（第一级）
         assert!(it.magnet.starts_with("magnet:"), "{}", it.magnet);
-        // link 里的 &amp; 也要解码
-        assert!(it.magnet.contains("&dn=Rock"), "{}", it.magnet);
+        // ⚠️ 但它**不带** `&dn=Rock` —— 那一段在 link 上，而 magnet 走的是 enclosure。
+        // 第一版我在这里断言了 contains("&dn=Rock")，CI 打回来（打印出的正是这条 magnet）。
+        assert!(
+            !it.magnet.contains("&dn=Rock"),
+            "enclosure 那一级不带 dn：{}",
+            it.magnet
+        );
 
         // ⚠️ fixture 故意**不给** infohash 属性 ⇒ 必须从 magnet 的 btih: 兜底
         assert_eq!(
