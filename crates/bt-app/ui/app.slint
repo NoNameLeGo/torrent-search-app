@@ -175,7 +175,10 @@ component ProviderRow inherits Rectangle {
     }
 }
 
-// 一个站点开关。整行就是按钮 —— 比 CheckBox 稳（CheckBox 没在 M1 里验过）。
+// 一个站点开关。
+// ⚠️ **`Button` 没有 `color` 属性** —— CI 抓到过 `Unknown property color in Button`
+// （std-widgets 的 Button 只认 text/enabled/icon/primary…）。所以颜色只能落在 `Text` 上，
+// 按钮单独放右边。这正是"只用 M1 验过的元素"那条规矩要防的：本机没编译器，猜 API 就是一轮 CI。
 component SiteRow inherits Rectangle {
     in property <SiteToggle> item;
     // 又是那个坑：组件里的 `root` 不是窗口 ⇒ 必须转发
@@ -184,10 +187,22 @@ component SiteRow inherits Rectangle {
     height: 26px;
     background: transparent;
 
-    Button {
-        text: item.label;
-        color: item.tone;
-        clicked => { root.toggle(item.id); }
+    HorizontalLayout {
+        spacing: 4px;
+
+        Text {
+            text: item.label;
+            color: item.tone;
+            font-size: 11px;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+
+        Button {
+            text: "切换";
+            width: 56px;
+            clicked => { root.toggle(item.id); }
+        }
     }
 }
 
