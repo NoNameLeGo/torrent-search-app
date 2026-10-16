@@ -159,12 +159,47 @@ JS 的多镜像 `runMirrors` 是**并行**的（谁先回谁赢），所以镜�
 - `date` 毫秒级差：`1768454947986` vs `1768454964886`
 - `megapeer` 228 处里剩下那些（且 `magnet` 白名单条目这次**没触发** ⇒ 过期或判错）
 
-**⏳ triage 计划（按顺序）**
-1. 先做 ①（compare 里通用剥离 origin）—— 一次消掉一批假差异，让真差异露出来
-2. 逐家看剩下的：`size_text` 的舍入要对照 `normalize.js` 的 `formatSize` **逐字读**，
-   判断是真 bug 还是有意；`date` 的 null-vs-值 要查是不是"空值处理"分叉
-3. `megapeer` 的 `magnet` 白名单条目要么删、要么改对
-4. 全绿之后**摘掉 `rust.yml` 里的 `--json-only`**，16 家全部进门
+**📊 triage 视图（2026-10-16，`m6-diff.yml` run 38849948966）—— 104 处其实只有 6 组、3 个根因。**
+
+**12 家完全一致**：tpb / knaben / torrentscsv / yts / internetarchive / filemood /
+audiobookbay / therarbg / torrent9 / oxtorrent / nyaa / zeromagnet。
+`linuxtracker` 的 18 处**全部命中白名单**（detail_url 那条有意 divergence）⇒ 0 处未豁免。
+
+未豁免的 104 处：
+
+| (provider, field) | 处数 | 形态 |
+|---|---|---|
+| `megapeer.date` | **50** | rust `1791676800000` vs node `null` |
+| `megapeer.date_text` | **50** | rust `"2026-10-11"` vs node `"—"` |
+| `rutor.size_text` | 2 | `"3.2 GB"` vs `"3.3 GB"`、`"4.2"` vs `"4.3"` |
+| `limetorrents.date` | 1 | `1768456238650` vs `1768456242896` |
+| `limetorrents.size_text` | 1 | `"1.2 GB"` vs `"1.3 GB"` |
+
+**🔎 三个根因（按影响排序）**
+
+**A. `megapeer.date` —— 100/104，一个根因吃掉 96%。**
+Rust 产出了日期 `2026-10-11`，Node 产出 `null` / `"—"`。同一条 50 行**全都如此**，
+所以不是随机、是**系统性**的：要么 Rust 的日期解析多认了一种格式，
+要么 Node 的丢掉了。**先查这一条最划算** —— 修好它列表就从 104 掉到 4。
+
+**B. `size_text` 舍入分歧 —— 3 处。**
+`3.2 GB` vs `3.3 GB`、`4.2` vs `4.3`、`1.2` vs `1.3`：**差正好 0.1**，而且都是
+"rust 比 node 小一档"。典型的**舍入方向/精度**分叉（`formatSize` 的取整方式，
+或 `size` 本身的取整）。要去 `normalize.js` 的 `formatSize` 里逐字读，
+而不是猜 —— 上限 3 处，改完立刻能验。
+
+**C. `limetorrents.date` —— 1 处，差 4.2 秒。**
+`1768456238650` vs `1768456242896`，**差 4250ms**。这个量级不像解析分歧，
+更像**两侧各自取了"当前时间"**（页面上是相对时间如「x 分钟前」，
+provider 用 `Date.now()` 换算）⇒ **本质上是非确定性的**。
+🔧 若确认如此，正确处理是**把这个字段排除出比对并写明理由**，
+而不是往白名单里塞一条"忽略" —— 因为白名单的语义是"已知的有意分歧"，
+而这里的分歧根本不该存在（同一时刻跑两次两边也会不同）。
+⚠️ 排查时要先确认 limetorrents 的日期是不是真的来自"现在"。
+
+**⏳ 顺序**：A（104→4）→ B（4→1）→ C（1→0）→ 摘掉 `rust.yml` 的 `--json-only` 与
+`--only`，16 家全部进门。全量报告随时可用 `gh workflow run m6-diff.yml --ref main`
+重新取（它是探针、不是门）。
 
 **⚠️ 一个查不出来的风险**：两侧的 fixture 名是**两份手写表**，**写错不会报错**
 （各自喂各自的 fixture、都"成功"）—— 只能靠人核对，已写进 `fixtures.cjs` 表头。
