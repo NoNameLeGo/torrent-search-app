@@ -30,6 +30,7 @@
 //! - 行号 = `AppState.rows` 的下标；`.slint` 的按钮把行号回传（`push-row(int)`）。
 
 mod config_store;
+mod health;
 mod highlight;
 mod selftest;
 mod ui_model;
@@ -395,6 +396,24 @@ fn start_search(ui: &AppWindow, query: String, page: u32) {
             let Some(ui) = weak.upgrade() else { return };
             STATE.with(|s| {
                 let mut st = s.borrow_mut();
+
+                // #6 把这一轮**每家**的结果落盘（引擎健康度历史）。
+                // ⚠️ 数据不用另接管道：`outcome.providers` 里已经有每家的
+                // count / error / ms —— 收尾这一刻是唯一能一次拿全的地方。
+                // ⚠️ 写失败**静默** —— 一份统计文件不该影响搜索，也不该弹警告。
+                // （16 行的小追加，放 UI 线程上可接受；真变慢再说。）
+                let batch: Vec<health::Record> = outcome
+                    .providers
+                    .iter()
+                    .map(|(id, ps)| health::Record {
+                        id: id.clone(),
+                        n: ps.count,
+                        ok: ps.error.is_none(),
+                        ms: ps.ms,
+                    })
+                    .collect();
+                let _ = health::append(&batch);
+
                 st.app.has_more = outcome.has_more;
                 st.status = st.app.summary(false);
                 sync_small(&ui, &st);
@@ -839,6 +858,46 @@ fn wire(ui: &AppWindow) {
     }
 }
 
+/// #6 打印各引擎的健康度。**纯读**：不开窗口、不写文件。
+///
+/// 表格里**最近连空**那一列才是重点 —— "曾经空过"没有意义（关键词本来就没资源的
+/// 时候也会空），"**最近连续**空手"才是"这家可能改版了"的信号。
+fn print_health() {
+    let records = health::read_all();
+    let where_is = health::path().map_or_else(
+        || "（取不到 %APPDATA%，所以没有记录）".to_string(),
+        |p| p.display().to_string(),
+    );
+
+    if records.is_empty() {
+        println!("还没有任何记录 —— 跑一次搜索就会开始记。");
+        println!("记录位置：{where_is}");
+        return;
+    }
+
+    let stats = health::summarize(&records);
+    println!("共 {} 条记录 · {} 家引擎", records.len(), stats.len());
+    println!("记录位置：{where_is}");
+    println!();
+    println!(
+        "{:<18}{:>6}{:>8}{:>12}{:>10}",
+        "引擎", "轮次", "空手", "最近连空", "平均条数"
+    );
+    for (id, s) in &stats {
+        // ⚠️ 只按**最近连续**空手提示。早先空过、后来好了的不该被标记 ——
+        // 那正是 `summarize` 里"有结果就打断计数"的理由。
+        let flag = if s.tail_empty >= health::STALE_AFTER {
+            "   ⚠ 可能已改版"
+        } else {
+            ""
+        };
+        println!(
+            "{:<18}{:>6}{:>8}{:>12}{:>10}{flag}",
+            id, s.runs, s.empty, s.tail_empty, s.avg_hits
+        );
+    }
+}
+
 fn main() -> Result<(), slint::PlatformError> {
     // `--selftest`：无网、无人、无窗口的**全链路**真跑（见 selftest.rs）。
     // 退出码 0 = 通过，1 = 失败 —— 这一步是 `rust.yml` 的硬门。
@@ -847,6 +906,16 @@ fn main() -> Result<(), slint::PlatformError> {
         if !ok {
             std::process::exit(1);
         }
+        return Ok(());
+    }
+
+    // `--health`：打印各引擎的健康度（#6），**不开窗口、纯读**。
+    //
+    // 为什么要有它：站点改版的失败形态是**静默返回 0 条** —— 在 UI 上和不存在的资源
+    // 长得一样。这里把历史变成趋势："这家最近连续 8 次空手"是可据此行动的结论，
+    // 而"这次没搜到"不是。
+    if std::env::args().any(|a| a == "--health") {
+        print_health();
         return Ok(());
     }
 
