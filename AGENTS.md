@@ -106,7 +106,16 @@ M7 ✅ 打包 + GitHub Release（2026-10-16 —— **v0.3.6-beta 已发布**，�
 | 5 | **`demo` 引擎缺失** | ⬜ 未做。`Provider::demo()` 建模了、`ProviderInfo.demo` 导出了，但 registry 里没有 demo 引擎 ⇒ 该字段恒 `false`。JS 有 `demo.js`（离线确定性假数据）。**注意它与 6 共用同一堵墙**（见下） |
 | 6 | **Torznab / registry 动态化** | ⬜ 未做 —— **但墙已经摸清了，见下面那段。这是下一个大方向** |
 
-#### 🧱 #4 的墙：`Box<dyn Provider>` **不能 clone**（2026-10-16 实测）
+#### 🧱 #4 的墙：`Box<dyn Provider>` **不能 clone** —— ✅ **已按出路 ① 解决（2026-10-16）**
+
+**先记结论**：`bt-app` 现在有 `ProviderFactory` + `INJECTED` + `provider_set()`，
+**每次搜索现造一份** provider 集合，注入**可重复**（旧版 `OnceLock::set` 第二次静默失败）。
+`--selftest` 的假 provider 已工厂化。CI 全绿（含走 push 路径的 M4 自检）。
+
+⚠️ **下面这段墙的原始记录保留** —— 它是"为什么必须用工厂"的原因，
+也是**改用 `&[&dyn Provider]`（出路②）之前**该读的东西。
+
+----
 
 想"静态 16 家 + 运行期动态的（Torznab / demo / 测试注入）并成一份集合"时，
 撞到的是这一条 —— **不是 `Send`**（`pub trait Provider: Send + Sync` ✅、
@@ -119,6 +128,12 @@ registry() -> &'static [Box<dyn Provider>]                          ← 静态�
 两者要进同一个切片 ⇒ 必须**拥有一份拷贝** ⇒ 但 `Box<dyn Provider>` 拷不出来。
 而且 `search_stream` 是在**后台任务里**调的（靠 `registry()` 的 `'static`），
 所以"改成每次现造一份"会连带改那里。
+
+**⚠️ 改动时新引入的一个风险（自查抓到，已修）**：`provider_set()` 读的是
+**`thread_local`** 的 `INJECTED`，而 tokio 的后台线程是**另一个线程** ——
+在 `spawn` 里调它会读到 `None` ⇒ 退回静态注册表 ⇒ `--selftest` 的假 provider 找不到。
+旧代码用 `registry()`（`'static`）从哪个线程读都对，**所以这是新引入的**。
+⇒ **规矩：`provider_set()` 只能在 UI 线程（spawn 之前）调，取到的东西 move 进去。**
 
 **两条干净的出路（选一条，别发明第三条）：**
 
