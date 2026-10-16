@@ -9,10 +9,10 @@
 | 产物 | 文件名（示例） | 体积（约） | 一句话定位 |
 | --- | --- | --- | --- |
 | **Rust 单文件 exe** | `BT-Search-Rust-<版本>.exe` | **18 MB** | 🆕 **新主线**：原生 UI、零运行时依赖、单文件 |
-| Rust 版 (zip) | `BT-Search-Rust-<版本>.zip` | 18 MB | 同上，打包成 zip（有些环境对裸 exe 更敏感） |
+| Rust 版 (zip) | `BT-Search-Rust-<版本>.zip` | **9 MB** | 同上，打包成 zip（有些环境对裸 exe 更敏感） |
 | Electron 安装包 (NSIS) | `BT-Search-Electron-Setup-<版本>.exe` | 150 MB+ | 引擎最全、最成熟稳定 |
 | Electron 便携版 (zip) | `BT-Search-Electron-Portable.zip` | 150 MB+ | 解压即用，绿色免安装 |
-| Tauri 安装包 (NSIS) | `BT-Search-Tauri-Setup-<版本>.exe` | 40 MB | 旧壳里体积最小的 |
+| Tauri 安装包 (NSIS) | `BT-Search-Tauri-Setup-<版本>.exe` | 31 MB | 旧壳里体积最小的 |
 
 ## Rust 版（新主线）——**请先读完这段再选**
 
@@ -60,7 +60,7 @@
 
 **3. Tauri 安装包 (NSIS)**
 轻量之选（构建于 `feat/tauri` 分支）。复用同一套后端（`server.js` + 40 个搜索引擎 provider）与前端，**功能与 Electron 版一致**，但用系统自带的 **WebView2** 取代 Chromium：
-- 安装包体积约 **3–4 倍更小**（~40 MB vs ~150 MB+）；
+- 安装包体积约 **3 倍更小**（~31 MB vs ~100 MB+）；
 - 启动更快、内存占用更低；
 - 需系统已安装 **WebView2 Runtime**（Win10 / Win11 一般已预装；若缺失，安装时会提示下载）。
 

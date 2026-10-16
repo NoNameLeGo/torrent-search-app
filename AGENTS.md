@@ -229,11 +229,35 @@ HTML 解析器只在 foreign content（SVG/MathML）里认自闭合标签，
 **`feat/tauri` 的提交没推上去。** 裸 `git push` + 该分支**没有 upstream 跟踪** ⇒
 `fatal: The current branch feat/tauri has no upstream branch`，
 而我用 `Select-Object -Last 1` 过滤输出时把它吃成了空行，**没看见**。
-⇒ v0.3.6-beta 里那个 `BT-Search-Tauri-Setup-0.3.5-beta.exe` 版本号不对，
-我当时诊断成"bump 错了文件（Tauri 取 package.json 而非 tauri.conf.json）"—— **那是错的**。
-真因是**提交根本没到远端**，CI 构建的是旧的 `feat/tauri`。已补推；
-5 条分支现全部与 `origin` 一致，`origin/feat/tauri` 的版本号已是 `0.3.6-beta`
-⇒ **下次发版的 Tauri 安装包会正确命名**。已发布那次是既成事实（规则：绝不重打同一个 tag）。
+⇒ v0.3.6-beta 里那个 `BT-Search-Tauri-Setup-0.3.5-beta.exe` 版本号不对。
+
+**⚠️ 2026-10-16 晚：这件事我诊断错过两次，最后靠读代码定案 —— 完整证据链如下**
+
+1. **第一次诊断（"bump 错了文件：Tauri 取 `tauri.conf.json` 而非 `package.json`"）—— 是对的。**
+   我后来把它写成了"那是错的"，**那句才是错的**（就是下面这段）。
+2. **第二次诊断（"提交根本没到远端，CI 构建的是旧的 `feat/tauri`"）—— 也对，但只解释了一部分。**
+3. **定案证据（v0.3.7-beta）**：这次我把 `feat/tauri` 的 `package.json` 改成了 `0.3.7-beta`
+   并且**确认推送成功**（`git show feat/tauri:package.json` = 0.3.7-beta），
+   可发出来的安装包**仍然叫 `BT-Search-Tauri-Setup-0.3.6-beta.exe`**。
+   去读 `release.yml` 才看到真源：
+   ```yaml
+   ver=$(node -p "require('./src-tauri/tauri.conf.json').version")
+   ```
+   而 `tauri.conf.json` 当时是 `0.3.6-beta`。⇒ **第一次诊断成立。**
+4. 已修：`feat/tauri` 的三处一律 `0.3.7-beta` ——
+   `src-tauri/tauri.conf.json`（**真源**）、`src-tauri/Cargo.toml`（conf 缺 version 时的回退源，
+   它一直停在 `0.3.4-beta`，落后三个版本）、`package.json`（Electron 用）。
+   CLAUDE.md 里自相矛盾的两处说法（`:91` 说 package.json、`:260` 说 tauri.conf.json）已统一。
+
+**⚠️ 教训（比这件事本身值钱）**：
+- **同一件事在两份文档里说法不一致时，两份都不能信 —— 去读代码。**
+  我在两个错误诊断之间来回，就是因为都在改文档、而不是去看 `release.yml` 那一行。
+- **"改对了"要有产物证据**：`feat/tauri` 的 `package.json` 确实是 0.3.7-beta（那次是真的推上去了），
+  但**产品名没变** —— 只有下载下来的文件名能证明改对了。
+
+**已发布的 v0.3.7-beta 是既成事实**（规则：绝不重打同一个 tag，也**不重命名那个资产** ——
+改名会让文件名说 0.3.7 而安装包内部仍写 0.3.6，那是造假）。
+那个安装包的**内容**与 v0.3.6-beta 相同（Tauri 线这两版没改过代码），只是名字里的版本号旧了。
 
 **⚠️ 教训（与 `gh` 的 403 同一类）**：**本仓库有分支没有 upstream 跟踪
 （`main` / `feat/tauri`）—— 推它们必须显式 `git push origin <branch>`，
