@@ -94,7 +94,10 @@ function diffResult(provider, index, a, b, whitelisted) {
     const vb = b[f];
 
     // 非确定性字段：**只比形状**（是不是 null），不比精确值。见 NONDETERMINISTIC。
-    if (NONDETERMINISTIC[key(provider, f)]) {
+    // ⚠️ 表里的键是 `provider.field`（点号），**不是** `key()` 那个 `\u0000` 分隔的形式
+    // —— 第一版用 `key(provider, f)` 去查，永远查不中，于是这条逻辑静默失效、
+    // 两个不同的时间戳照样被判成差异（本机三条用例当场抓出来的）。
+    if (NONDETERMINISTIC[`${provider}.${f}`]) {
       const sameShape = (va === null) === (vb === null);
       if (sameShape) continue;
       diffs.push({
