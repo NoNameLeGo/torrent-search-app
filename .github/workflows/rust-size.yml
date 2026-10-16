@@ -134,6 +134,24 @@ jobs:
           Write-Host "✅ 没有 MSVC 运行时依赖 ⇒ S2 的静态链接部分达标"
           Write-Host "⚠️ 这仍是**旁证**：S2 的正式判据是「拷到干净 Windows 双击能跑」（只能人工）。"
 
+          # ---- 子系统：双击会不会弹一个命令行窗口 ----
+          #
+          # 2026-10-16 补。原因：用户实测"启动时开一个 cmd 窗口"——
+          # Rust 默认把 exe 编成 **console 子系统**，哪怕它是 GUI 程序。
+          # 修法是代码里那行 `#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]`，
+          # 而它**只在 release 生效** ⇒ 正好是这个 workflow 构建的口径。
+          #
+          # ⚠️ 为什么必须写成断言：那条 cfg_attr 一旦被删/被挪位置，
+          # **编译照样通过、测试照样绿**，只有用户双击时才会发现多了个黑框 ——
+          # 属于"CI 完全看不见"的回归。dumpbin /headers 能把它变成机器判据。
+          $sub = & $dumpbin /headers $b | Select-String 'subsystem' | Select-Object -First 1
+          Write-Host "子系统：$($sub.Line.Trim())"
+          if ($sub -notmatch 'Windows GUI') {
+            Write-Host "::error::子系统不是 Windows GUI ⇒ 双击时会弹命令行窗口。检查 crates/bt-app/src/main.rs 顶部那行 windows_subsystem = ""windows""（必须是 crate 级 inner attribute、在第一个 mod 之前）"
+            exit 1
+          }
+          Write-Host "✅ 子系统 = Windows GUI ⇒ 双击不弹控制台（debug 构建仍保留控制台：--selftest/--health 要它）"
+
       - name: 上传两个口径的 exe（便于在干净机器上实测 S2）
         uses: actions/upload-artifact@v6
         with:
