@@ -1,17 +1,24 @@
-name: Rust exe size (S1 探针)
+name: Rust exe size (S1/S2 探针)
 
-# 目的：量 **S1「单文件自包含 exe」的体积**，快速、便宜。
+# 目的：量 **S1「单文件自包含 exe」的体积**、并给 **S2「零运行时依赖」** 一个机器判据。
 #
 # ⚠️ 为什么单开一个而不是用 `release.yml` 的手动触发：
 # release.yml 的手动触发会**顺带构建 Electron 与 Tauri 两个安装包**（20+ 分钟），
-# 而量体积只需要 `cargo build --release -p bt-app`。这里 4 步就够。
+# 而量体积只需要 `cargo build --release -p bt-app`。
 #
 # 与 `m6-diff.yml` / `provider-health.yml` 同一套做法：**探针，不是门** ——
 # 只挂 `workflow_dispatch`，不参与任何 push/PR 门。
 #
-# S1 的历史基线：M1 实测 **14.5MB**（opt-level=2 + 默认 16 codegen units + 无 lto + 不 strip）。
-# 2026-10-16 M7 给 `[profile.release]` 加了 `lto = true` / `codegen-units = 1` / `strip = true`，
-# 跑这个 workflow 看降了多少。
+# ## 2026-10-16 第一次跑的结论（**口径很重要，别误读**）
+#
+#   · 静态 CRT 口径：**18,610,176 字节（18.0MB）**
+#   · 依赖 DLL 全是 Windows 系统 DLL（kernel32/user32/gdi32/opengl32/dwrite…），
+#     **没有 vcruntime140.dll / msvcp140.dll** ⇒ 静态 CRT 生效
+#
+# ⚠️ 这次**没有**"变大"这件事：M1 的 14.5MB（15,200,768 字节）是
+# **`spike/slint-ui` 的 exe**（一个最小 UI 探针），**不是 bt-app**，而且当时**没有**静态 CRT。
+# 不同程序 + 不同链接口径，**不可直接比**。
+# 真正有意义的对照是 **Electron portable = 151,416,455 字节（≈151MB）**。
 on:
   workflow_dispatch:
 
@@ -21,7 +28,7 @@ permissions:
 jobs:
   size:
     runs-on: windows-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - name: 检出代码
         uses: actions/checkout@v5
@@ -34,54 +41,82 @@ jobs:
         with:
           workspaces: '. -> target'
 
-      # S2「零运行时依赖」的关键：静态链 MSVC 运行时。
-      # 不这么做的话，拷到没装 VC++ Redistributable 的干净 Windows 上起不来。
-      # ⚠️ 用 RUSTFLAGS 传，别写进 .cargo/config.toml —— 那会让所有构建（含测试）都跟着变。
-      - name: 构建 release（静态 CRT）
+      # ⚠️ **构建两个口径**，否则数字没法解读（第一次跑就踩了这个）：
+      #   · 静态 CRT 会把 exe **撑大**（把 MSVC 运行时链进去，+2~3MB），
+      #     但那正是 S2 的代价与前提，不是回归
+      #   · 只测静态口径的话，lto/strip 的收益被 crt-static 的增量掩盖，看不出净效果
+      # 两个用不同的 CARGO_TARGET_DIR，避免 RUSTFLAGS 变化导致互相重建。
+      - name: 构建 A —— 静态 CRT（S2 达标形态）
         env:
+          # ⚠️ 用 RUSTFLAGS 传，别写进 `.cargo/config.toml` ——
+          # 后者会让所有构建（含测试）都跟着变，而这里只需要发布产物是静态的。
           RUSTFLAGS: -C target-feature=+crt-static
+          CARGO_TARGET_DIR: target-static
         run: cargo build --release -p bt-app --bin bt-search
 
-      - name: 报体积
+      - name: 构建 B —— 动态 CRT（隔离出 lto/strip 的净收益）
+        env:
+          CARGO_TARGET_DIR: target
+        run: cargo build --release -p bt-app --bin bt-search
+
+      - name: 报体积（两个口径）
         shell: bash
         run: |
           set -euo pipefail
-          echo "=== 文件 ==="
+          echo "=== A 静态 CRT（S2 达标形态）==="
+          ls -l target-static/release/bt-search.exe
+          du -h target-static/release/bt-search.exe
+          echo ""
+          echo '=== B 动态 CRT（与「不加 crt-static」同口径）==='
           ls -l target/release/bt-search.exe
-          echo ""
-          echo "=== 精确字节数（给脚本用）==="
-          stat -c '%s' target/release/bt-search.exe 2>/dev/null || wc -c < target/release/bt-search.exe
-          echo ""
-          echo "=== 人类可读 ==="
           du -h target/release/bt-search.exe
           echo ""
-          echo "=== S1 基线对照：M1 实测 15,200,768 字节（14.5MB），含调试符号、无 lto ==="
+          echo "=== 对照（⚠️ 只是参考量级，**不可直接比**）==="
+          echo "  M1 的 14.5MB = **spike/slint-ui 的 exe**（不是 bt-app），且当时没有静态 CRT"
+          echo "  真正有意义的对照 = **Electron portable ≈ 151MB**"
+          echo ""
+          echo "  lto/strip 的净收益 = B 与「同样动态 CRT 但无 lto/strip」之差；"
+          echo "  后者没留档 —— 要精确值就临时注释掉 [profile.release] 的三项再跑一次。"
 
-      # S2 的旁证：这个 exe 到底依赖哪些 DLL。
-      # 「零运行时依赖」的判据 = 只依赖 Windows 自带的系统 DLL，没有 MSVC 运行时
-      # （vcruntime140.dll / msvcp140.dll）与任何第三方 DLL。
-      - name: 列出依赖的 DLL（S2 旁证）
+      # S2 的核心判据：这个 exe 依赖哪些 DLL。
+      # 「零运行时依赖」= 只依赖 Windows 自带的系统 DLL，没有 MSVC 运行时、没有第三方 DLL。
+      - name: 依赖的 DLL（S2 判据，机器断言）
         shell: pwsh
         run: |
-          $b = 'target/release/bt-search.exe'
-          # dumpbin 在 VS 的开发者环境里；用 dumpbin /dependents 或 objdump。
-          # runner 上有 VS，先用 vswhere 找 vcvars 再调 dumpbin。
+          $b = 'target-static/release/bt-search.exe'
           $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-          if (Test-Path $vswhere) {
-            $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-            $dumpbin = Join-Path $vs 'VC\Tools\MSVC'
-            $dumpbin = (Get-ChildItem $dumpbin -Directory | Sort-Object Name -Descending | Select-Object -First 1).FullName
-            $dumpbin = Join-Path $dumpbin 'bin\Hostx64\x64\dumpbin.exe'
-            if (Test-Path $dumpbin) {
-              & $dumpbin /dependents $b
-              exit 0
-            }
+          if (-not (Test-Path $vswhere)) {
+            Write-Host "::error::找不到 vswhere ⇒ 无法验证 S2（别跳过：这是 S2 的核心判据）"
+            exit 1
           }
-          Write-Host "::warning::没找到 dumpbin，跳过依赖列表（S2 需要人工在干净 Windows 上实测才算数）"
+          $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          $dumpbin = Join-Path $vs 'VC\Tools\MSVC'
+          $dumpbin = (Get-ChildItem $dumpbin -Directory | Sort-Object Name -Descending | Select-Object -First 1).FullName
+          $dumpbin = Join-Path $dumpbin 'bin\Hostx64\x64\dumpbin.exe'
+          if (-not (Test-Path $dumpbin)) {
+            Write-Host "::error::找不到 dumpbin ⇒ 无法验证 S2"
+            exit 1
+          }
 
-      - name: 上传 exe（便于在干净机器上实测 S2）
+          $deps = & $dumpbin /dependents $b | Select-String '^\s+\S+\.dll$' | ForEach-Object { $_.Line.Trim() }
+          Write-Host "依赖 $($deps.Count) 个 DLL："
+          $deps | ForEach-Object { Write-Host "  $_" }
+
+          # ⚠️ 判据写成**断言**，别只靠人眼看 —— 这一条正是 S2 的核心。
+          # 命中就说明 MSVC 运行时没链进去（或只链了一半），干净 Windows 上会起不来。
+          $bad = @($deps | Where-Object { $_ -match '^(vcruntime|msvcp|concrt|api-ms-win-crt)' })
+          if ($bad.Count -gt 0) {
+            Write-Host "::error::出现 MSVC 运行时依赖 ⇒ **S2 未达标**：$($bad -join ', ')"
+            exit 1
+          }
+          Write-Host "✅ 没有 MSVC 运行时依赖 ⇒ S2 的静态链接部分达标"
+          Write-Host "⚠️ 这仍是**旁证**：S2 的正式判据是「拷到干净 Windows 双击能跑」（只能人工）。"
+
+      - name: 上传两个口径的 exe（便于在干净机器上实测 S2）
         uses: actions/upload-artifact@v6
         with:
           name: rust-exe-s1s2
-          path: target/release/bt-search.exe
+          path: |
+            target-static/release/bt-search.exe
+            target/release/bt-search.exe
           if-no-files-found: error
