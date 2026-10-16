@@ -1,10 +1,10 @@
-name: Release (Electron + Tauri)
+name: Release (Rust + Electron + Tauri)
 
-# 打 `v*` tag（或手动触发）时，构建 Electron 与 Tauri 两个 Windows 安装包，
+# 打 `v*` tag（或手动触发）时，构建 **Rust 主线**、Electron 与 Tauri 三套 Windows 产物，
 # 并统一上传到【同一个】GitHub Release。
 #
-# - Electron job 显式 checkout main（Electron 稳定版代码），Tauri job 显式
-#   checkout feat/tauri（实验性分支代码）——一次发布携带两个分支的构建产物
+# - Rust job 用**触发 ref**（Rust 主线就在 main/tag 上，不需要 checkout 别的分支），`workflow_dispatch` 是干跑
+# - Electron job 显式 checkout main，Tauri job 显式 checkout feat/tauri ——一次发布携带多个分支的构建产物
 # - 两个 job 都【只构建不发布】，最后由 publish job 用 softprops 统一发布，避免竞态
 on:
   push:
