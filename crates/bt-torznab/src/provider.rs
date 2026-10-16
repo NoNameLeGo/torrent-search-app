@@ -30,7 +30,9 @@ use bt_providers::{BoxFuture, Provider, SearchOutcome};
 use crate::{parse_items, RawItem};
 
 /// 用户存下来的一个索引器配置（对齐 JS `torznabStore` 里的形状）。
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+///
+/// ⚠️ **没有 `#[derive(Default)]`** —— 见下面的手写 impl：`enabled` 必须是 `true`。
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IndexerConfig {
     /// 不填时用 `torznab:<name>`（照 JS `makeProvider`）
     pub id: String,
@@ -40,6 +42,24 @@ pub struct IndexerConfig {
     pub api_key: String,
     /// 对齐 JS 的 `enabled !== false` ⇒ **默认启用**
     pub enabled: bool,
+}
+
+/// ⚠️ **手写而不是 derive**：派生出来的 `bool` 默认是 `false`，
+/// 那会让"没填 enabled 的索引器"**静默变哑巴** —— 而 JS 的语义是 `enabled !== false`。
+///
+/// 这个坑我在**配置文件**那层已经修过一次（`serde(default = "default_true")`），
+/// 却漏了类型自己的 `Default` ⇒ CI 上 `metadata_defaults_match_make_provider` 红了一轮。
+/// 同一个坑的两半：**序列化默认值**与**构造默认值**得一起改。
+impl Default for IndexerConfig {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            name: String::new(),
+            url: String::new(),
+            api_key: String::new(),
+            enabled: true,
+        }
+    }
 }
 
 /// 把用户给的 URL 收拾成 API 端点（**照 JS `normalizeApiUrl` 逐条**）：
