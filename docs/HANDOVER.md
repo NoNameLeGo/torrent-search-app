@@ -9,10 +9,10 @@
 `Node (test)`、`Rust exe size`（25MB 门）、`Build Windows 发行包`、`CI guard`。
 工作区干净、`main` 与 `origin/main` 同步。
 
-**最新发布 = `v0.3.8-beta`**（tag `c524723`，GitHub 上已是 Latest）。
-产物四个 + `latest.yml`：`BT-Search-Rust-0.3.8-beta.exe` / `.zip`、
-`BT-Search-Electron-Setup-0.3.8-beta.exe`、`BT-Search-Electron-Portable.zip`、
-`BT-Search-Tauri-Setup-0.3.8-beta.exe`（⚠️ 这次 Tauri 的名字**是对的** —— 上一版叫 0.3.6 的原因已修）。
+**最新发布 = `v0.3.9-beta`**（tag `c524723`，GitHub 上已是 Latest）。
+产物四个 + `latest.yml`：`BT-Search-Rust-0.3.9-beta.exe` / `.zip`、
+`BT-Search-Electron-Setup-0.3.9-beta.exe`、`BT-Search-Electron-Portable.zip`、
+`BT-Search-Tauri-Setup-0.3.9-beta.exe`（⚠️ 这次 Tauri 的名字**是对的** —— 上一版叫 0.3.6 的原因已修）。
 ⚠️ **该 tag 早于 `2b4a3e7`** ⇒ 那个发布**不含**下面「最近这批修复」里的最后一组。
 
 ## 这台机器上的硬约束（先读，否则会白折腾）
@@ -38,16 +38,16 @@
 | `d1c860b` | 审计主体:bt-app 三个 race（第二次搜索无代数围栏 / `refresh_row` 坐标系错 / 网络回来后才写回的 `idx` 被排序重编号）· qB 的 `Fails.` 假成功（Rust + Node 两侧）· Torznab `<error>` 被当空结果 · `normalize_api_url` 裸字节切分 panic · 新增 `node.yml` CI 门 · `rust-size.yml` 从探针转成真门 · `check-workflows.py` 加「引用的脚本是否存在」 · 一批文档矛盾（AGENTS.md / AGENT_HANDBOOK.md）· `Cargo.toml` 版本 0.0.1→0.3.7-beta · `package.json` 清掉指向不存在的 `src-tauri/` 的脚本 · `server.js` async 路由 wrap + 错误中间件 · `electron/main.js` 的 `openExternal` scheme 白名单 · `catch_unwind` 包住 `search()` 调用本身 · 俄语日期大小写 · `btih` 下标不再用 `to_lowercase()` 副本 · `safe_http_url` 的归一化结果不再被丢 · `Kind::parse` 不再默认 qB |
 | `55a9dca` / `d9bed30` | `Cargo.lock`（6781 行）入库；门与发版构建加 `--locked`（探针类 workflow **刻意不加**） |
 | `ea20905` | 修我自己写错的用例期望值（没磁力的行是 `NeedsMagnet` 不是 `Ready`） |
-| `5f1865d` / `c524723` | 0.3.8-beta 版本号对齐 + 文档版本引用 |
+| `5f1865d` / `c524723` | 0.3.9-beta 版本号对齐 + 文档版本引用 |
 | `2b4a3e7` | 审计残留收口：① health 落盘不再占 UI 线程 + `--selftest` 不再写用户真实 `%APPDATA%`（新增 `BT_SEARCH_HOME`）② 用户配置改**原子写**（`write_atomic`: tmp + rename）③ Torznab `attr()` 对齐 JS（全后代 + 大小写不敏感）④ `v2nt` 补 `as_f64` 回退 ⑤ 删掉没人加载的 `build:frontend`（脚本 + `esbuild` 依赖）⑥ axios 锁到 1.20.0 |
 
 ## 还挂着的事（按「值得动」排序）
 
-1. **`v0.3.8-beta` 不含最后那 5 条修复。** 想要就补一版 —— ⚠️ **绝不重打同名 tag**（仓库规矩），新 tag 走 `v0.3.9-beta`。
-2. **索引器不能单独停用**（真·产品缺口）。`config_store::StoredIndexer.enabled` 与 `bt_torznab::IndexerConfig.enabled` 字段都在、`add_indexer`（`crates/bt-app/src/main.rs:854`）恒写 `true`，而 `crates/bt-app/ui/app.slint:365-390` 只有「添加 / 清空」两个按钮 ⇒ 某个索引器坏了只能全部清掉重加。最小做法：给每行加个开关 + `set_indexer_enabled` 回调 + `save_indexers`。
+1. ✅ **已发 `v0.3.9-beta`**（本文档之后的那一次）—— 它含 0.3.8 之后那 5 条修复，**外加**下面第 2、5 条（索引器可单独停用、粘贴 feed URL 自动抠 apikey）。⚠️ 下一版记得走 `v0.3.10-beta`：**绝不重打同名 tag**（仓库规矩）。
+2. ✅ **已修**（本会话）：每个索引器一行「停用 / 启用」。~~索引器不能单独停用~~（真·产品缺口）。原文留档：`config_store::StoredIndexer.enabled` 与 `bt_torznab::IndexerConfig.enabled` 字段都在、`add_indexer`（`crates/bt-app/src/main.rs:854`）恒写 `true`，而 `crates/bt-app/ui/app.slint:365-390` 只有「添加 / 清空」两个按钮 ⇒ 某个索引器坏了只能全部清掉重加。最小做法：给每行加个开关 + `set_indexer_enabled` 回调 + `save_indexers`。
 3. **S2「零运行时依赖」还差人工那一次**：`rust-size.yml` 已机器断言「无 vcruntime140/msvcp140」，但 `docs/ROADMAP.md:47` 的判据是**拷到干净 Windows 双击** —— 需要在虚拟机/另一台机上做。
 4. **S3/S4 的性能目标还是「待你确认」**（`docs/ROADMAP.md:50-51`：冷启动 < 1s、空闲内存 < 100MB）—— 得先真机量一次。
-5. **Torznab 的 UX 小项**：粘贴 Jackett 的 feed URL 不会自动抠 `apikey`（`normalize_api_url` 刻意丢 query），key 得手填。错误现在会明说「Invalid API key」，所以只是省一步。
+5. ✅ **已修**（本会话）：粘贴 feed URL 会自动抠 `apikey`（`bt_torznab::extract_api_key`，只在 key 框空着时用）。原文留档：~~粘贴 Jackett 的 feed URL 不会自动抠 `apikey`~~（`normalize_api_url` 刻意丢 query），key 得手填。错误现在会明说「Invalid API key」，所以只是省一步。
 
 ## 明确「不修」的决定（别重新发现一遍）
 
