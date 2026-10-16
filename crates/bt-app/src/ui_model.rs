@@ -387,6 +387,13 @@ pub struct AppState {
     pub sort_asc: bool,
     /// 分类筛选。`None` = 全部
     pub category: Option<String>,
+    /// #2 这次搜索里**连上了但返回 0 条**的家数。
+    ///
+    /// ⚠️ 为什么要单独记：`ChipData` 只有 `tone`（`Ok`/`Err`/`Dim`），
+    /// 而"HTTP 200 + 0 条"的 tone 也是 `Ok` —— 从 chips 里**看不出**它和
+    /// "成功返回了 50 条"的区别。而这两者对用户的意义完全不同：
+    /// 前者很可能是**站点改版了**（选择器失效），后者是真搜到了。
+    pub zero_hits: usize,
 }
 
 impl AppState {
@@ -400,6 +407,7 @@ impl AppState {
     pub fn begin_search(&mut self, providers: &[(String, String)]) {
         self.rows.clear();
         self.has_more = false;
+        self.zero_hits = 0;
         self.chips = providers
             .iter()
             .map(|(id, name)| pending_chip(id, name))
@@ -556,6 +564,12 @@ impl AppState {
             self.rows.push(RowData::from_result(r, idx, query, accent));
         }
 
+        // #2 「连上了但 0 条」单独计数 —— 它的 tone 也是 Ok，从 chips 里看不出来。
+        // ⚠️ 只在**没有错误**时算：报错的家 count 也是 0，但那是"失败"不是"返回空"。
+        if report.status.error.is_none() && report.status.count == 0 {
+            self.zero_hits += 1;
+        }
+
         let chip = chip_for(&report.id, &report.name, &report.status);
         match self.chips.iter_mut().find(|c| c.id == report.id) {
             Some(slot) => *slot = chip,
@@ -614,8 +628,36 @@ impl AppState {
         }
         let ok = self.chips.iter().filter(|c| c.tone == Tone::Ok).count();
         let err = self.chips.iter().filter(|c| c.tone == Tone::Err).count();
+        let zero = self.zero_hits;
+        let total = self.chips.len();
+        // ⚠️ `pending == 0` 这个守卫不能少：`summary(false)` 的语义是"**这轮结束了**"，
+        // 但调用方也可能在还没人回来时调它（现有用例就是这么测的）。
+        // 没有它的话，"全都还在等"会被说成"一条都没有，多半是网络问题" —— 胡说八道。
+        let pending = self.chips.iter().filter(|c| c.tone == Tone::Dim).count();
+
+        // #2 **一条都没有的时候必须把原因说细**，因为那是用户唯一想知道的事。
+        // 这三种情况的应对完全不同：换网 / 换站 / 换关键词。
+        if self.rows.is_empty() && total > 0 && pending == 0 {
+            if err == total {
+                return format!(
+                    "一条都没有：{total} 家**全部失败** —— 多半是网络问题，或者这些站都被挡了"
+                );
+            }
+            if zero == total {
+                return format!(
+                    "一条都没有：{total} 家都连上了但**返回 0 条** —— 更像是站点改版了（选择器失效）"
+                );
+            }
+            return format!("一条都没有：{ok} 家成功但没结果 / {err} 家失败 / {zero} 家返回空");
+        }
+
+        let tail = if zero > 0 {
+            format!(" / {zero} 家返回 0 条")
+        } else {
+            String::new()
+        };
         format!(
-            "共 {N} 条 · {ok} 家成功 / {err} 家失败",
+            "共 {N} 条 · {ok} 家成功 / {err} 家失败{tail}",
             N = self.rows.len()
         )
     }
@@ -1175,5 +1217,90 @@ mod tests {
             assert_eq!(SortKey::parse(k.id()), Some(k));
         }
         assert_eq!(SortKey::parse("nope"), None);
+    }
+
+    // -----------------------------------------------------------------------
+    // #2 「一条都没有」要能自证原因
+    // -----------------------------------------------------------------------
+
+    /// 全家的都失败 ⇒ 说"网络问题"（换网/换站的应对完全不同）。
+    #[test]
+    fn all_providers_failing_says_it_looks_like_a_network_problem() {
+        let mut st = AppState::new();
+        st.begin_search(&two_providers());
+        st.apply_report(&report("tpb", "TPB", vec![], Some("boom")), "q", "#fff");
+        st.apply_report(&report("nyaa", "NYAA", vec![], Some("boom")), "q", "#fff");
+
+        let s = st.summary(false);
+        assert!(s.contains("全部失败"), "{s}");
+        assert!(s.contains("网络问题"), "{s}");
+    }
+
+    /// 全家都连上了但 0 条 ⇒ 说"更像站点改版"（**不是**网络问题 —— 那会让人白折腾网络）。
+    #[test]
+    fn all_providers_returning_zero_hits_says_the_sites_may_have_changed() {
+        let mut st = AppState::new();
+        st.begin_search(&two_providers());
+        st.apply_report(&report("tpb", "TPB", vec![], None), "q", "#fff");
+        st.apply_report(&report("nyaa", "NYAA", vec![], None), "q", "#fff");
+
+        let s = st.summary(false);
+        assert!(s.contains("返回 0 条"), "{s}");
+        assert!(s.contains("改版"), "{s}");
+    }
+
+    /// ⚠️ `zero_hits` 不能把"失败"也算进去：失败的家 count 也是 0，
+    /// 但它和"成功返回了 0 条"是两回事。这条用例就是钉这个。
+    #[test]
+    fn failed_providers_are_not_counted_as_zero_hits() {
+        let mut st = AppState::new();
+        st.begin_search(&two_providers());
+        st.apply_report(&report("tpb", "TPB", vec![], Some("boom")), "q", "#fff");
+        st.apply_report(&report("nyaa", "NYAA", vec![], None), "q", "#fff");
+
+        assert_eq!(st.zero_hits, 1, "只有没报错的那家算'返回 0 条'");
+        let s = st.summary(false);
+        assert!(s.contains("1 家失败"), "{s}");
+        assert!(s.contains("1 家返回空"), "{s}");
+    }
+
+    /// 有结果时**不要**啰嗦 —— 只在真有"返回 0 条"的家时才多说一句。
+    #[test]
+    fn summary_mentions_zero_hits_only_when_there_are_any() {
+        let mut st = AppState::new();
+        st.begin_search(&two_providers());
+        st.apply_report(
+            &report("tpb", "TPB", vec![hit("a", "tpb", None)], None),
+            "q",
+            "#fff",
+        );
+        st.apply_report(
+            &report("nyaa", "NYAA", vec![hit("b", "nyaa", None)], None),
+            "q",
+            "#fff",
+        );
+        assert_eq!(st.summary(false), "共 2 条 · 2 家成功 / 0 家失败");
+
+        let mut st2 = AppState::new();
+        st2.begin_search(&two_providers());
+        st2.apply_report(
+            &report("tpb", "TPB", vec![hit("a", "tpb", None)], None),
+            "q",
+            "#fff",
+        );
+        st2.apply_report(&report("nyaa", "NYAA", vec![], None), "q", "#fff");
+        assert!(
+            st2.summary(false).contains("1 家返回 0 条"),
+            "{}",
+            st2.summary(false)
+        );
+    }
+
+    /// ⚠️ 还在等的时候**不能**说"一条都没有" —— 那是胡说八道（现有用例也钉着这条）。
+    #[test]
+    fn pending_providers_are_not_reported_as_no_results() {
+        let mut st = AppState::new();
+        st.begin_search(&two_providers());
+        assert_eq!(st.summary(false), "共 0 条 · 0 家成功 / 0 家失败");
     }
 }

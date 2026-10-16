@@ -59,6 +59,28 @@ jobs:
           CARGO_TARGET_DIR: target
         run: cargo build --release -p bt-app --bin bt-search
 
+      # #3 **体积回归门。**
+      #
+      # 18MB 单文件 / 8.5MB zip 是这个项目**唯一"非功能但决定性"的卖点**（D7/D12/S1），
+      # 但它只会在**发版时**才被人注意到 —— 那时已经晚了。所以在这里钉一个上限：
+      # 任何一次改动把 exe 撑过 25MB，跑这个探针就会红，而不是等到下次 tag。
+      #
+      # ⚠️ 上限是**预算**而不是"当前值 + 一点余量"：留 ~35% 空间给正常增长，
+      #    同时挡住"悄悄多链进来一个几百 KB 的依赖"那种退化。
+      - name: 体积回归门（S1）
+        shell: bash
+        run: |
+          set -euo pipefail
+          BYTES=$(wc -c < target-static/release/bt-search.exe)
+          LIMIT=$((25 * 1024 * 1024))
+          MIB=$(awk "BEGIN{printf \"%.2f\", $BYTES/1048576}")
+          echo "静态 CRT exe = $BYTES 字节（$MIB MiB），上限 $LIMIT 字节"
+          if [ "$BYTES" -gt "$LIMIT" ]; then
+            echo "::error::exe 超过 25MB —— 单文件/小体积是核心卖点（D7/D12/S1），别让它悄悄退化"
+            exit 1
+          fi
+          echo "✅ 体积在预算内"
+
       - name: 报体积（两个口径）
         shell: bash
         run: |
