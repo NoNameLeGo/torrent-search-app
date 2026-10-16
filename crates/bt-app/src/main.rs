@@ -29,6 +29,19 @@
 //! - `ui.rows` / `ui.providers`：它的**镜像**，喂给 Slint 渲染。
 //! - 行号 = `AppState.rows` 的下标；`.slint` 的按钮把行号回传（`push-row(int)`）。
 
+// ⚠️ **Windows 子系统** —— 不加这一行，exe 启动时会**带一个控制台窗口**
+// （Rust 默认编成 console 子系统，哪怕它是 GUI 程序）。
+//
+// 只在 **release** 里加（`not(debug_assertions)`）：
+//   · 开发与 CI **需要**那个控制台 —— `--selftest` 的 `[m4]` 输出、
+//     `--health` 的表格、panic 的回溯，全靠它（`rust.yml` 的门就是
+//     `cargo run -p bt-app --bin bt-search -- --selftest`）。
+//   · 交付给用户的 release 是 Slint GUI，双击不该弹黑框。
+//
+// ⚠️ 它必须是 **crate 级 inner attribute**，而且只能待在文件最前面
+// （内部 doc 注释之后、任何 item 之前）。挪下去就编译不过。
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 mod config_store;
 mod health;
 mod highlight;
@@ -898,7 +911,56 @@ fn print_health() {
     }
 }
 
+/// 把**父进程的控制台**接回来。
+///
+/// ## 为什么需要它
+///
+/// release 版是 **windows 子系统**（见文件头的 `#![cfg_attr(...)]`）—— 好处是双击
+/// 不弹黑框，代价是**它没有控制台**：从 cmd/PowerShell 里跑 `bt-search.exe --health`，
+/// `println!` 的输出会**不知去向**。
+///
+/// 所以命令行模式在打印任何东西**之前**，先主动附到父进程的控制台。
+/// 这是 Win32 的标准做法；只为一个函数引 `windows-sys` 不值，直接声明它。
+///
+/// ⚠️ **双击启动时没有父控制台** ⇒ `AttachConsole` 返回 0，什么都不发生 ✅ ——
+/// 那正是我们要的：GUI 模式不该凭空造出一个黑框。
+/// ⚠️ 已知的观赏性小毛病：附上去之后 shell 的提示符可能**先**出现，命令的输出跟在后面。
+/// ⚠️ **`cfg(windows)` 而不是 `cfg(not(debug_assertions))`** —— 这是有意的：
+/// CI 的门（`rust.yml`）跑的是 **debug** 构建，如果这段只在 release 里编译，
+/// **它永远不会被编译检查**，绿灯也就不代表它能编过。
+/// 让它进每一次 Windows 构建，`cargo test`/`clippy` 就都会看它。
+///
+/// debug 下它**会被调用**（`--selftest` 也算 CLI 模式）但什么都不发生：
+/// 进程本来就有控制台，`AttachConsole` 会以 ERROR_ACCESS_DENIED 失败，无害。
+#[cfg(windows)]
+fn attach_parent_console() {
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn AttachConsole(dw_process_id: u32) -> i32;
+    }
+    /// Win32 的 `ATTACH_PARENT_PROCESS`
+    const ATTACH_PARENT_PROCESS: u32 = 0xFFFF_FFFF;
+
+    // SAFETY: 只调一个 Win32 函数，没有指针参数、没有所有权问题；
+    // 失败（没有父控制台）返回 0，我们刻意忽略 —— 那是最常见的正常情况
+    // （双击启动时就没有父控制台，正是我们要的效果）。
+    unsafe {
+        AttachConsole(ATTACH_PARENT_PROCESS);
+    }
+}
+
+/// 非 Windows：没有这回事。
+#[cfg(not(windows))]
+fn attach_parent_console() {}
+
 fn main() -> Result<(), slint::PlatformError> {
+    // ⚠️ **必须在任何 println! 之前**：Rust 的 stdout 会缓存句柄，
+    // 先打印过再 attach 就晚了（句柄已经定死）。
+    let cli_mode = std::env::args().any(|a| a == "--selftest" || a == "--health");
+    if cli_mode {
+        attach_parent_console();
+    }
+
     // `--selftest`：无网、无人、无窗口的**全链路**真跑（见 selftest.rs）。
     // 退出码 0 = 通过，1 = 失败 —— 这一步是 `rust.yml` 的硬门。
     if std::env::args().any(|a| a == "--selftest") {
