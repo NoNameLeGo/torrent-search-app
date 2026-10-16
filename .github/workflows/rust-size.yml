@@ -144,10 +144,24 @@ jobs:
           # ⚠️ 为什么必须写成断言：那条 cfg_attr 一旦被删/被挪位置，
           # **编译照样通过、测试照样绿**，只有用户双击时才会发现多了个黑框 ——
           # 属于"CI 完全看不见"的回归。dumpbin /headers 能把它变成机器判据。
-          $sub = & $dumpbin /headers $b | Select-String 'subsystem' | Select-Object -First 1
-          Write-Host "子系统：$($sub.Line.Trim())"
-          if ($sub -notmatch 'Windows GUI') {
-            Write-Host "::error::子系统不是 Windows GUI ⇒ 双击时会弹命令行窗口。检查 crates/bt-app/src/main.rs 顶部那行 windows_subsystem = ""windows""（必须是 crate 级 inner attribute、在第一个 mod 之前）"
+          #
+          # ⚠️⚠️ 匹配的是 `subsystem (Windows GUI)` / `(Windows CUI)` 这一行，
+          # 不能只 grep 'subsystem' —— PE 头里**先**有一行
+          #     6.00 subsystem version
+          # （那是子系统**版本号**），第一版就匹配到了它，报了个假失败。
+          # 现在显式要求带括号的那个形态；**匹配不到也报错**（别静默通过）。
+          $hdr = & $dumpbin /headers $b
+          $allSub = @($hdr | Select-String 'subsystem')
+          Write-Host "含 subsystem 的行（$($allSub.Count) 行，供核对）："
+          $allSub | ForEach-Object { Write-Host "  $($_.Line.Trim())" }
+
+          $sub = $allSub | Where-Object { $_.Line -match 'subsystem\s+\((Windows GUI|Windows CUI)\)' } | Select-Object -First 1
+          if (-not $sub) {
+            Write-Host "::error::在 dumpbin /headers 里找不到 `subsystem (Windows GUI|CUI)` 那一行 ⇒ 断言无法验证。**别当成通过** —— 上面的原始输出里能看到真实形态，据此改断言。"
+            exit 1
+          }
+          if ($sub.Line -notmatch 'Windows GUI') {
+            Write-Host "::error::子系统是 Windows CUI（控制台程序）⇒ 双击时会弹命令行窗口。检查 crates/bt-app/src/main.rs 顶部那行 windows_subsystem = ""windows""（必须是 crate 级 inner attribute、在第一个 mod 之前）"
             exit 1
           }
           Write-Host "✅ 子系统 = Windows GUI ⇒ 双击不弹控制台（debug 构建仍保留控制台：--selftest/--health 要它）"
