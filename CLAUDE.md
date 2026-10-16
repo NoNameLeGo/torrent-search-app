@@ -4,7 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A desktop BT torrent **meta-search** app: one keyword fans out across 40 torrent-site providers (+ an offline `demo` engine, and user-added Torznab indexers) in parallel and aggregates the results. The core is a Node/Express backend that scrapes/queries third-party sites **server-side** (avoiding browser CORS), served to a static frontend. The same backend is reused unchanged by two desktop shells: Electron (`main` branch) and Tauri (`feat/tauri` branch, current).
+A desktop BT torrent **meta-search** app: one keyword fans out across many torrent-site providers in parallel and the results are aggregated.
+
+⚠️ **There are two implementations on `main`, and you must know which one you're touching.**
+
+1. **The Rust rewrite — this is the mainline since 2026-10-16** (M0–M7 all done, ships as an 18 MB self-contained exe). Workspace under `crates/`; see the section further down. It has its own 16 providers and a Slint UI. **New feature work goes here.**
+2. **The original Node/Express version.** The core is a Node backend that scrapes/queries third-party sites **server-side** (avoiding browser CORS), served to a static frontend and reused unchanged by two desktop shells: Electron (built from `main`) and Tauri (`feat/tauri`). It has **40 providers** + an offline `demo` engine + Torznab indexers. It is no longer the mainline, but it **still builds, still publishes, and is still the feature-complete one**.
+
+Why both are still here: the Node version was kept as the **differential's reference** (M6 compares the two field by field; `test/fixtures/` is kept forever). D18 now permits deleting it, but **function by function, never file by file** — log each removal in the 待删清单 in `AGENTS.md`.
 
 Windows-first. UI strings and many code comments are in Chinese.
 
@@ -66,19 +73,27 @@ Magnet links: WebView2/Electron won't auto-invoke `magnet:`, so both shells inte
 
 **编译一律在 CI 里跑，不在本机跑。** 用户机器 C:/D: 两盘均 90%+ 占用，且明确要求不新增本地构建环境。本机的 `CARGO_HOME`（`D:\Vibe-Coding\.cargo`）已被清理、`cargo` 不在 PATH 上 —— **本地跑不了 cargo**。本地只写代码，编译/测试结果看 Actions 日志，产物从 Artifacts 下载。
 
-Seven workflows, split by shell and trigger:
+Twelve workflows, split by shell/trigger and by **gate vs probe**. ⚠️ See `AGENTS.md` for the authoritative table.
 
+**Gates** (run on push/PR, must be green):
+
+- **`ci-guard.yml`** — validates the workflow files themselves (`scripts/check-workflows.py`). Runs on any `.github/workflows/**` change.
 - **`build.yml`** — Electron only. Runs on push to `main` (or manual). Builds the NSIS installer + portable zip, uploads as artifacts.
-- **`release.yml`** — Electron **and** Tauri together. Runs on `v*` tags (or manual). Three parallel jobs: `electron` (checks out the trigger ref), `tauri` (explicitly checks out `feat/tauri`), then `publish` bundles both into a single GitHub Release (published **directly, `draft: false`** — no manual "Publish" click), appending `docs/RELEASE_ARTIFACTS.md` as the body. Every artifact name carries an explicit `-Electron-`/`-Tauri-` tag (`BT-Search-Electron-Setup-<ver>.exe`, `BT-Search-Electron-Portable.zip`, `BT-Search-Tauri-Setup-<ver>.exe`) so the two shells' installers can't be confused. Renaming lives in three places — `package.json` `build.win.artifactName` (Electron installer), `release.yml`'s `Zip portable` step (Electron portable) and `Rename Tauri installer` step (Tauri) — plus the example names in `docs/RELEASE_ARTIFACTS.md`.
+- **`rust.yml`** — ⚠️ **the main gate on `main`** (it used to be `feat/rust`-only; since the 2026-10-16 switch it runs on **`main`**, and `gh workflow run rust.yml` now works). Steps: `cargo test --workspace` → `bt-app --selftest` (with `SLINT_BACKEND=winit-software`) → **M6 differential vs Node** (`dump_rust` ignored test + `scripts/diff/*.cjs`, all 16 providers, `--only`-free) → `clippy` → `fmt --check`.
 - **`tauri-build.yml`** — Tauri only, validation. Runs on push to `feat/tauri` and on PRs; builds but never releases.
-- **`rust.yml`** — the Rust rewrite (see below). Runs on push to `feat/rust` and on PRs touching `crates/**`. `cargo test --workspace` + `clippy` + `fmt --check`. **Push-only** — it doesn't exist on `main`, so `gh workflow run` returns 404.
-- **`live-smoke.yml`** — `workflow_dispatch` only. Hits the real sites with `BT_LIVE_SMOKE=1` and prints `[smoke]` lines. **Deliberately excluded from every push/PR gate.** Exists on both `main` (required for manual dispatch) and `feat/rust` — keep the two copies in sync. Trigger with `gh workflow run live-smoke.yml --ref feat/rust`.
-- **`html-probes.yml`** — `workflow_dispatch` only (also on both `main` and `feat/rust`). Installs cheerio and prints the ground-truth selector values used to build `test/fixtures/html-probes.expected.json`.
-- **`provider-health.yml`** — `workflow_dispatch` only (also on both `main` and `feat/rust`). Runs `scripts/provider-health.mjs`, which hits the real search URL of all 40 engines and prints `HTTP / bytes / result rows`. This is the "is this engine still usable" check that offline fixtures cannot provide. **Run it on CI, not locally** — locally the MITM proxy breaks Node's TLS trust and the sandbox/DNS makes results unstable (the same host gave 200 then 000 minutes apart). CI is a datacenter IP though, so treat its 403s as a floor, not the user's reality.
+- **`release.yml`** (`Release (Rust + Electron + Tauri)`) — runs on `v*` tags. Four jobs: `rust` (the Rust mainline, from the trigger ref), `electron` (explicitly `main`), `tauri` (explicitly `feat/tauri`), then `publish`. ⚠️ **`publish` is gated on `startsWith(github.ref, 'refs/tags/')`** — a manual `workflow_dispatch` is a **dry run**, otherwise it would create a public Release literally named after the branch (`BT 聚合搜索 main`). Published **directly, `draft: false`**, appending `docs/RELEASE_ARTIFACTS.md` as the body. Artifact names carry an explicit tag so they can't be confused (`BT-Search-Rust-<ver>.exe|.zip`, `BT-Search-Electron-Setup-<ver>.exe`, `BT-Search-Electron-Portable.zip`, `BT-Search-Tauri-Setup-<ver>.exe`). ⚠️ **Version-bump hazard**: the names come from **three different files** — `package.json` `build.win.artifactName` (Electron installer) + `feat/tauri`'s own `package.json` version (Tauri installer) + `release.yml`'s `Zip portable` / `Rename Tauri installer` steps. Bump **all** of them or an installer ships with a stale version in its filename.
 
-### Rust rewrite (`feat/rust`)
+**Probes** (`workflow_dispatch` only, **deliberately not gates** — see Q5: allow-failure means "not a gate", not `continue-on-error`):
 
-Since 2026-10-08 the project is being **rewritten from scratch in Rust** on the `feat/rust` branch, which is intended to eventually become `main`. The Node side is untouched and keeps working until each piece is replaced.
+- **`live-smoke.yml`** — hits the real sites with `BT_LIVE_SMOKE=1` and prints `[smoke]` lines. Trigger with `gh workflow run live-smoke.yml --ref main`.
+- **`html-probes.yml`** — installs cheerio and prints the ground-truth selector values used to build `test/fixtures/html-probes.expected.json`.
+- **`provider-health.yml`** — `scripts/provider-health.mjs` hits the real search URL of all 40 engines and prints `HTTP / bytes / result rows`. The "is this engine still usable" check that offline fixtures cannot provide. **Run it on CI, not locally** — locally the MITM proxy breaks Node's TLS trust and the sandbox/DNS makes results unstable (the same host gave 200 then 000 minutes apart). CI is a datacenter IP though, so treat its 403s as a floor, not the user's reality.
+- **`m6-diff.yml`** — the **full 16-provider** differential report. `rust.yml`'s M6 step is the gate; this is the "show me everything, even if it's red" view. Uploads both JSON exports as artifacts for offline recomputation.
+- **`rust-size.yml`** — **S1/S2 probe**: builds the release exe in **two CRT modes** (static = the S2-compliant form, dynamic = isolates the `lto`/`strip` win) and asserts the DLL dependency list contains **no MSVC runtime** (`^(vcruntime|msvcp|concrt|api-ms-win-crt)` → `::error`). Not a gate; S2's real criterion is "copy to a clean Windows and double-click", which only a human can do.
+
+### Rust rewrite (**on `main` since 2026-10-16**)
+
+Since 2026-10-08 the project is being **rewritten from scratch in Rust**. ⚠️ **`main` is now the Rust mainline** (the `feat/rust` branch is fully merged and retained only as a pointer). M0–M7 are **all done**; the Node side still lives on `main` too — **D18 allows deleting it now that M6 is done, but only function-by-function** (see the 待删清单 in `AGENTS.md`), and `test/fixtures/` is kept forever as the differential's reference.
 
 **Scope decisions.** ⚠️ **Re-scoped 2026-10-11** — the full register now lives in `docs/ROADMAP.md` §5 (D-numbers). The Q-numbers below are the 2026-10-08 set; **Q2 and Q6 are superseded**.
 
