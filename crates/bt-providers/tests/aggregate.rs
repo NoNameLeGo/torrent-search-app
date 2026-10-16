@@ -613,3 +613,75 @@ async fn providers_without_a_resolver_return_the_js_404_text() {
     assert!(out.magnet.is_none());
     assert!(out.info_hash.is_none());
 }
+
+/// **违约 panic 的 provider。** 契约说"永不 panic"，这个故意违约 ——
+/// 用来验证聚合层兜得住（`run_provider` 里的 `AssertUnwindSafe(..).catch_unwind()`）。
+///
+/// ⚠️ panic 必须发生在**被 poll 的时候**（所以放在 `async move {}` 里），
+/// 不能在调用 `search()` 时就炸 —— 那样 `catch_unwind` 根本来不及接。
+struct Panicky {
+    id: &'static str,
+}
+
+impl Provider for Panicky {
+    fn id(&self) -> &'static str {
+        self.id
+    }
+
+    fn name(&self) -> &'static str {
+        self.id
+    }
+
+    fn search<'a>(
+        &'a self,
+        _http: &'a HttpClient,
+        _query: &'a str,
+        _page: u32,
+    ) -> BoxFuture<'a, SearchOutcome> {
+        let id = self.id;
+        Box::pin(async move {
+            panic!("{id} violated the never-panic contract");
+        })
+    }
+}
+
+/// 判据：**违约 panic 的 provider 不会掀翻别人。**
+///
+/// 这是全套移植里"Rust 比 JS 更脆"的**唯一一处** —— JS 的 `runProvider` 用
+/// `try/catch` 兜住抛异常，而 Rust 此前不给兜：一个违约的 provider 会带走整轮聚合，
+/// **别人已经返回的结果也一起没**。
+///
+/// ⚠️ 这条用例的价值全在"它会失败"：把 `run_provider` 里的 `catch_unwind` 去掉，
+/// 这个测试就会以 panic 的形式红掉（而不是静默通过）。
+#[tokio::test]
+async fn a_panicking_provider_does_not_take_down_the_others() {
+    let good = Fake::new("good").hits(2);
+    let registry: Vec<Box<dyn Provider>> =
+        vec![Box::new(Panicky { id: "panicky" }), Box::new(good)];
+
+    let out = search(
+        &HttpClient::new(),
+        &registry,
+        "ubuntu",
+        args(None, 1, false),
+    )
+    .await;
+
+    // ① 好那家的结果必须**完整地**回来
+    assert_eq!(out.results.len(), 2, "别人的结果不该被带走");
+    assert!(
+        out.results.iter().all(|r| r.id.starts_with("good-")),
+        "回来的必须只有好那家的结果"
+    );
+
+    // ② 违约那家自己变成一条普通错误 —— 与"连不上"同形，前端不用特殊处理
+    let bad = status_of(&out, "panicky");
+    assert_eq!(bad.status, ProviderState::Error);
+    assert_eq!(bad.error.as_deref(), Some("panicky panicked"));
+    assert_eq!(bad.count, 0);
+    // JS 的 catch 分支没有 hasMore 键 ⇒ `None`（与"连不上"一致）
+    assert_eq!(bad.has_more, None);
+
+    // ③ 好那家仍然是 Ok
+    assert_eq!(status_of(&out, "good").status, ProviderState::Ok);
+}

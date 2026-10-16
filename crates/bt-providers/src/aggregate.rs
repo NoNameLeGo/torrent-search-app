@@ -10,22 +10,32 @@
 //! | ② 并发池 `asyncPool` + `runProvider` | 163–219 | [`async_pool`] / `run_provider` |
 //! | ③ 聚合 `hasMore` | 190–198 | [`aggregate_has_more`] |
 //!
-//! ## 与 JS 的两处**有意**差异（都写在 `AGENTS.md` 的「M2 开工前勘明」里）
+//! ## 与 JS 的一处**有意**差异（写在 `AGENTS.md` 的「M2 开工前勘明」里）
 //!
 //! 1. **[`async_pool`] 不返回结果集。** JS 的 `asyncPool` 最后用
 //!    `Promise.all(results)` 交出一份**按任务顺序**的数组；但两个调用点
 //!    （`search()` / `searchStream()`）**都把它丢掉了**。这里不为一个没人用的
 //!    返回值加复杂度 —— 需要的东西在 `on_settle` 回调里拿走。
-//! 2. **不兜 panic。** JS 的 `runProvider` 用 `try/catch`，连「抛异常」一起兜；
-//!    Rust 侧 provider 的契约是**永不 panic**，失败一律走 `SearchOutcome::error`，
-//!    所以**错误**路径是同构的。但若将来有 provider 违约 panic，它会带走整个聚合
-//!    （JS 不会）—— 那需要单独加 `catch_unwind` 并单独测，本轮**刻意不做**：
-//!    本机没有 `cargo`，不盲写没验证过的 API 组合。
+//!
+//! ## panic 兜底（2026-10-16 补上，此前**刻意不做**）
+//!
+//! JS 的 `runProvider` 用 `try/catch`，连「抛异常」一起兜；Rust 侧 provider 的契约是
+//! **永不 panic**，失败一律走 `SearchOutcome::error`，所以**错误**路径本来就同构。
+//! 但"契约"是**约定**不是**保证**：真有 provider 违约 panic 时，它会**带走整个聚合**
+//!（别人已经返回的结果也一起没），而 JS 不会。
+//!
+//! 当时"刻意不做"的理由是「本机没有 `cargo`，不盲写没验证过的 API 组合」——
+//! **那条理由后来失效了**（M3/M4/M6 都证明这条路上本机不编译也能交付）。
+//! 现在 [`run_provider`] 用 `AssertUnwindSafe(..).catch_unwind()` 兜住，
+//! 判据是「**违约 panic 的 provider 不会掀翻别人**」，配了同名测试。
 
 use std::time::Instant;
 
+use std::panic::AssertUnwindSafe;
+
 use bt_core::http::HttpClient;
 use bt_core::TorrentResult;
+use futures::future::FutureExt;
 use futures::stream::{FuturesUnordered, StreamExt};
 
 use crate::{Provider, ProviderReport, ProviderState, ProviderStatus};
@@ -142,7 +152,25 @@ async fn run_provider<'a>(
     page: u32,
 ) -> (Vec<TorrentResult>, ProviderStatus) {
     let started = Instant::now();
-    let out = p.search(http, query, page).await;
+
+    // ⚠️ **兜 panic**（2026-10-16 补上 —— 此前是"刻意不做"，见模块文档第 2 条）。
+    //
+    // provider 的契约是"**永不 panic**"，但契约是**约定**、不是**保证**。
+    // JS 侧 `runProvider` 用 `try/catch`，连"抛异常"一起兜；Rust 不给兜的话，
+    // 一个违约的 provider 会**带走整轮聚合** —— 别人已经返回的结果也一起没。
+    // 这是全套移植里"Rust 比 JS 更脆"的唯一一处。
+    //
+    // ⚠️ 必须 `AssertUnwindSafe`：`&dyn Provider` 与 reqwest 的 future 都不是
+    // `UnwindSafe`（内部有可变状态）。这是**有意的接受** —— panic 之后我们不再信任
+    // **那一家** provider 的局部状态，但整轮搜索不该因此作废。
+    let out = match AssertUnwindSafe(p.search(http, query, page))
+        .catch_unwind()
+        .await
+    {
+        Ok(out) => out,
+        // 文案与其它失败同形（`<id> unreachable (...)` 那一类），前端可直接显示
+        Err(_) => SearchOutcome::err(format!("{} panicked", p.id())),
+    };
 
     let status = ProviderStatus {
         status: if out.error.is_some() {
