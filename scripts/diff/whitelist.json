@@ -1,0 +1,51 @@
+{
+  "_doc": [
+    "M6 差分白名单：**只能豁免「已知的、有意的」单字段分歧**，每条必须有 reason。",
+    "⚠️ 不允许用白名单豁免整家 provider —— 那会让差分悄悄失去覆盖面。",
+    "   要整家不参与，就在 scripts/diff/fixtures.cjs 里不列它（那样至少是显式的）。",
+    "⚠️ 命中不了的条目会被 compare.cjs 报成「可能已过期」—— 过期的白名单就是过期文档。",
+    "来源：docs/ROADMAP.md 的策略「功能 bug 修、外观 bug 抄」。"
+  ],
+  "entries": [
+    {
+      "provider": "linuxtracker",
+      "field": "detail_url",
+      "reason": "上游 bug，Rust 侧**有意修掉**：JS 拼出的 detailUrl 少一个斜杠（https://linuxtracker.orgindex.php?...）是死链。见 CLAUDE.md「Upstream bugs found while porting」，Rust 侧有 divergence_* 测试钉住。"
+    },
+    {
+      "provider": "megapeer",
+      "field": "name",
+      "reason": "上游 bug，Rust 侧**有意修掉**：站点是 windows-1251，JS axios 硬按 utf8 解码 ⇒ 标题全是 U+FFFD；reqwest 认 charset 头 ⇒ 解码正确。数据级 bug，不能照抄。"
+    },
+    {
+      "provider": "megapeer",
+      "field": "id",
+      "reason": "同上：megapeer 的 id 由 infoHash/name 派生，name 解码修好后 id 跟着变。"
+    },
+    {
+      "provider": "megapeer",
+      "field": "magnet",
+      "reason": "同上：magnet 的 dn= 参数来自 name，name 解码修好后 dn 跟着变。"
+    },
+    {
+      "provider": "megapeer",
+      "field": "size",
+      "reason": "上游 bug，Rust 侧**有意修掉**：5-td 行里 JS 的固定列号把「评论数」当成 size；Rust 用「倒数第二格=size」。"
+    },
+    {
+      "provider": "megapeer",
+      "field": "size_text",
+      "reason": "同上（size 的格式化结果）。"
+    },
+    {
+      "provider": "megapeer",
+      "field": "seeders",
+      "reason": "上游 bug，Rust 侧**有意修掉**：5-td 行里 JS 的固定列号把最后一格当 peers；Rust 用「最后一格=peers」，取到的数值不同。"
+    },
+    {
+      "provider": "megapeer",
+      "field": "leechers",
+      "reason": "同上。"
+    }
+  ]
+}
