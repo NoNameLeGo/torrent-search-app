@@ -61,7 +61,12 @@ jobs:
       # ⚠️ 为什么用 `-- --ignored` 显式跑 `dump_rust`：它是**差分工具**不是回归测试
       # （否则 `cargo test --workspace` 每次都刷一大坨 JSON）。但**显式**跑是有意的 ——
       # 它失败必须是"响的"，不能变成静默跳过。
+      # ⚠️ **必须写 `shell: bash`。** windows-latest 上多行 `run:` 默认走 **PowerShell**，
+      # 于是 `set -euo pipefail` 会炸（`set` 是 `Set-Variable` 的别名，
+      # 报 "A parameter cannot be found that matches parameter name 'euo'"）。
+      # 之前的步骤都是单行命令，所以这个坑一直没暴露 —— 第一次踩是 M6 接线。
       - name: M6 导出 Rust 侧
+        shell: bash
         env:
           BT_DIFF_OUT: .cache/diff/rust.json
         run: |
@@ -70,6 +75,7 @@ jobs:
           cargo test -p bt-providers --test dump_rust -- --ignored --nocapture
 
       - name: M6 导出 Node 侧并比较
+        shell: bash
         run: |
           set -euo pipefail
           node scripts/diff/dump-node.cjs -o .cache/diff/node.json
