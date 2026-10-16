@@ -1,0 +1,19 @@
+[package]
+name = "bt-torznab"
+description = "Torznab 索引器（Jackett / Prowlarr / *arr）—— D17 的落地。**只做解析**，还没接进 registry"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# 本 crate 现在**只有解析**：给一段 Torznab 的 RSS，吐出一组 RawItem。
+# 请求（拼 URL / 发 HTTP）与 provider 实现是下一步 —— 故意分开，
+# 这样"解析对不对"能单独验证，不必牵进网络。
+[dependencies]
+# ⚠️ **钉住小版本**，理由是本机没有 `cargo`、API 无法预检：
+# 选 roxmltree 而不是 quick-xml，正是因为它的 API 是**树式的**
+# （Document::parse / descendants / attribute），比事件流 API 稳定得多
+# —— quick-xml 的 read_event_into(&mut buf) → read_event() 在 0.30→0.31 改过签名，
+# 押它等于押运气。真出问题也只是 CI 一轮（3 分钟），但没必要冒。
+roxmltree = "0.20"
