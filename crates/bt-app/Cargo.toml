@@ -16,6 +16,10 @@ path = "src/main.rs"
 bt-core = { path = "../bt-core" }
 bt-providers = { path = "../bt-providers" }
 bt-downloaders = { path = "../bt-downloaders" }
+# ⑤ Torznab 的索引器（动态 provider）。⚠️ bt-torznab 依赖 bt-providers，
+# 而 bt-providers **不认识** bt-torznab —— 所以"静态 17 家 + 动态索引器"的拼装
+# 只能发生在这里（同时依赖两边的那一层）。
+bt-torznab = { path = "../bt-torznab" }
 # 与 spike/slint-ui 同一条 1.18 线（M1 就是在这条线上验的 #13548）。
 # ⚠️ 不写 `features = [...]`：默认特性里已经含 windows 上要用的 backend-winit +
 # renderer-software；CI 上靠运行时 `SLINT_BACKEND=winit-software` 避开 GPU。

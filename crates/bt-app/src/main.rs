@@ -89,24 +89,54 @@ thread_local! {
     /// ⚠️ 也正因为它不是 `OnceLock`，注入**可以重复**（旧版 `OnceLock::set` 第二次
     /// 会静默失败）。"运行期插入"本就该可重复 —— 那才是 Torznab 要的那个口子。
     static INJECTED: RefCell<Option<Vec<ProviderFactory>>> = const { RefCell::new(None) };
+
+    /// **追加**进来的动态 provider 工厂（Torznab 索引器走这条）。
+    ///
+    /// ⚠️ 与 [`INJECTED`] 分开是有意的：
+    ///   · `INJECTED` 是**替换**语义 —— `--selftest` 要的是"完全离线、只有假 provider"；
+    ///   · 这里是**追加**语义 —— 静态 17 家照旧，另加用户配的索引器。
+    /// 合成一条会让 `--selftest` 变成"假 provider + 真 Torznab"，那就不是离线测试了。
+    static DYNAMIC: RefCell<Vec<ProviderFactory>> = const { RefCell::new(Vec::new()) };
 }
 
 /// **本次搜索要用的 provider 集合** —— 每次现造一份。
 ///
-/// 注入了就用注入的（`--selftest` 要完全离线、确定性），否则用静态注册表那 17 家。
-/// 将来 Torznab 的动态 provider 在这里 `extend` 进来即可（那一步还没做）。
+/// 注入了就用注入的（`--selftest` 要完全离线、确定性），否则用静态注册表那 17 家；
+/// 最后**追加**动态的那些（Torznab 索引器）。
+///
+/// ⚠️ **只能在 UI 线程调**（它读 `thread_local`），拿到之后 move 进后台任务 ——
+/// 在 `spawn` 的闭包里调会读到空的一份（那条规矩见 `start_search` 里的注释）。
 fn provider_set() -> Vec<Box<dyn Provider>> {
-    INJECTED.with(|slot| match slot.borrow().as_ref() {
+    let mut all: Vec<Box<dyn Provider>> = INJECTED.with(|slot| match slot.borrow().as_ref() {
         Some(factories) => factories.iter().map(|f| f()).collect(),
         None => provider_registry::registry(),
-    })
+    });
+    // 追加：动态 provider 在静态那 17 家**之后**（JS 的 `list()` 也是这个顺序 ——
+    // `[...REGISTRY, ...dynamicTorznabProviders()]`）
+    DYNAMIC.with(|slot| {
+        for f in slot.borrow().iter() {
+            all.push(f());
+        }
+    });
+    all
+}
+
+/// **运行期追加**一个 provider 工厂（Torznab 的索引器走这条）。
+///
+/// 可重复调用：每个配置好的索引器调一次。⚠️ 同样**只能在 UI 线程**调。
+fn add_dynamic_factory(factory: ProviderFactory) {
+    DYNAMIC.with(|slot| slot.borrow_mut().push(factory));
 }
 
 /// **只有 `--selftest` 用**：把 provider 集合换成假的（离线、确定性）。
 ///
 /// 传的是**工厂**：下次 `provider_set()` 现造一套全新的假 provider ——
 /// 状态天然重置，也不会跨用例串味。
+///
+/// ⚠️ 同时清空 [`DYNAMIC`]：自检要的是**完全离线**，任何残留的动态索引器
+/// 都会让它去发真请求（那就不再是自检了）。
 fn install_registry(factories: Vec<ProviderFactory>) {
+    DYNAMIC.with(|slot| slot.borrow_mut().clear());
     INJECTED.with(|slot| *slot.borrow_mut() = Some(factories));
 }
 
@@ -992,6 +1022,19 @@ fn main() -> Result<(), slint::PlatformError> {
         .map(|(id, s)| (id, s.tail_empty))
         .collect();
     STATE.with(|s| s.borrow_mut().app.stale = stale);
+
+    // ⑤ 载入用户配的 Torznab 索引器，**追加**成动态 provider（排在静态 17 家之后，
+    // 与 JS 的 `[...REGISTRY, ...dynamicTorznabProviders()]` 同序）。
+    //
+    // ⚠️ 必须在这里做（UI 线程、第一次搜索之前）：`provider_set()` 读的是
+    // `thread_local`，在 `spawn` 出来的后台线程里读会读到空的一份。
+    // ⚠️ 文件坏了 / 一个都没配 ⇒ 空列表，**不影响启动**（与 config_store 同口径）。
+    let indexers = config_store::load_indexers();
+    for cfg in indexers {
+        add_dynamic_factory(Box::new(move || -> Box<dyn Provider> {
+            Box::new(bt_torznab::TorznabProvider::new(cfg.clone()))
+        }));
+    }
 
     // ② 载入上次保存的下载器配置。⚠️ 这一步**绝不能拦启动** ——
     // 没有配置文件、文件被改坏、APPDATA 取不到，都只是"没配置过"。

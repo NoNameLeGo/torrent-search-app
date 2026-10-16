@@ -102,6 +102,97 @@ pub fn save(kind: Kind, c: &Config) -> Result<(), String> {
     std::fs::write(&path, text).map_err(|e| format!("写入失败：{e}"))
 }
 
+/// 一个 Torznab 索引器的落盘形状（⑤）。
+///
+/// ⚠️ 字段与 `bt_torznab::IndexerConfig` 一一对应，但**不直接复用**那个类型 ——
+/// 与 `Stored` 不复用 `bt_downloaders::Config` 同一个理由：文件格式属于**应用层**，
+/// 将来要加字段 / 做迁移，不该去动引擎层。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct StoredIndexer {
+    /// 空 ⇒ 由 `bt_torznab` 兜底成 `torznab:<name>`
+    #[serde(default)]
+    pub id: String,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub url: String,
+    /// ⚠️ **明文** API key —— 与 Node 版 `data/torznab.json` 同口径（见文件头）
+    #[serde(default)]
+    pub api_key: String,
+    /// ⚠️ 默认 **true**：JS 的语义是 `enabled !== false`（"不是显式关掉"）。
+    /// 手写配置时漏了这个字段，索引器**不该**因此变哑巴。
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+/// `%APPDATA%\bt-search\indexers.json` —— **单独一个文件**。
+///
+/// ⚠️ 为什么不塞进 `config.json`：那会把现有格式从"一个对象"改成"一个对象 + 一个数组"，
+/// 而**旧文件是平铺的** ⇒ 得写兼容分支。单独一个文件零风险，而且
+/// "下载器"与"搜索源"本来就是两件事（一个文件坏了不该连累另一个）。
+pub fn indexers_path() -> Option<PathBuf> {
+    let base = std::env::var_os("APPDATA")?;
+    Some(PathBuf::from(base).join("bt-search").join("indexers.json"))
+}
+
+impl StoredIndexer {
+    pub fn from_config(c: &bt_torznab::IndexerConfig) -> Self {
+        Self {
+            id: c.id.clone(),
+            name: c.name.clone(),
+            url: c.url.clone(),
+            api_key: c.api_key.clone(),
+            enabled: c.enabled,
+        }
+    }
+
+    /// ⚠️ **url 为空的条目直接丢掉**：没有 URL 的索引器没法搜，
+    /// 留着只会在每次搜索时发一个必然失败的请求（JS 那边会是 `?apikey=…` 这种残 URL）。
+    pub fn into_config(self) -> Option<bt_torznab::IndexerConfig> {
+        if self.url.trim().is_empty() {
+            return None;
+        }
+        Some(bt_torznab::IndexerConfig {
+            id: self.id,
+            name: self.name,
+            url: self.url,
+            api_key: self.api_key,
+            enabled: self.enabled,
+        })
+    }
+}
+
+/// 读索引器配置。**任何一步失败都只是空列表**（"没配过"与"读坏了"对调用方是一回事）。
+pub fn load_indexers() -> Vec<bt_torznab::IndexerConfig> {
+    let Some(path) = indexers_path() else {
+        return Vec::new();
+    };
+    let Ok(text) = std::fs::read_to_string(&path) else {
+        return Vec::new();
+    };
+    let Ok(list) = serde_json::from_str::<Vec<StoredIndexer>>(&text) else {
+        return Vec::new();
+    };
+    list.into_iter()
+        .filter_map(StoredIndexer::into_config)
+        .collect()
+}
+
+/// 保存索引器配置。返回 `Err(人话)`，调用方**不该**当成致命错误。
+pub fn save_indexers(list: &[bt_torznab::IndexerConfig]) -> Result<(), String> {
+    let path = indexers_path().ok_or_else(|| "取不到 %APPDATA%，索引器没保存".to_string())?;
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| format!("建目录失败：{e}"))?;
+    }
+    let stored: Vec<StoredIndexer> = list.iter().map(StoredIndexer::from_config).collect();
+    let text = serde_json::to_string_pretty(&stored).map_err(|e| format!("序列化失败：{e}"))?;
+    std::fs::write(&path, text).map_err(|e| format!("写入失败：{e}"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -173,5 +264,65 @@ mod tests {
     fn broken_json_is_an_error_not_a_panic() {
         let r: Result<Stored, _> = serde_json::from_str("{ 这不是 json");
         assert!(r.is_err());
+    }
+
+    // ---- ⑤ 索引器持久化 ----
+
+    fn indexer() -> bt_torznab::IndexerConfig {
+        bt_torznab::IndexerConfig {
+            id: "torznab:jackett".to_string(),
+            name: "Jackett".to_string(),
+            url: "http://localhost:9117".to_string(),
+            api_key: "k3y=\"with quotes\"".to_string(),
+            enabled: true,
+        }
+    }
+
+    #[test]
+    fn indexers_round_trip_through_json() {
+        let s = StoredIndexer::from_config(&indexer());
+        let text = serde_json::to_string(&s).unwrap();
+        let back: StoredIndexer = serde_json::from_str(&text).unwrap();
+        assert_eq!(back, s);
+        assert_eq!(
+            back.into_config().unwrap(),
+            indexer(),
+            "API key 里的引号不能丢"
+        );
+    }
+
+    /// ⚠️ **漏了 `enabled` 字段 ⇒ 默认 true**（JS 的语义是 `enabled !== false`）。
+    /// 用 `#[serde(default)]` 的话默认是 `false` —— 手写的配置会静默变哑巴。
+    #[test]
+    fn a_hand_written_indexer_without_enabled_is_enabled() {
+        let text = r#"{"name":"X","url":"http://x:9117"}"#;
+        let s: StoredIndexer = serde_json::from_str(text).unwrap();
+        assert!(s.enabled, "⚠️ 默认必须是 true，不是 false");
+        assert!(s.into_config().unwrap().enabled);
+    }
+
+    /// ⚠️ **没有 URL 的条目直接丢掉** —— 留着只会每轮发一个必然失败的请求。
+    #[test]
+    fn an_indexer_without_a_url_is_dropped() {
+        let text = r#"[{"name":"no url"},{"name":"ok","url":"http://x:9117"}]"#;
+        let list: Vec<StoredIndexer> = serde_json::from_str(text).unwrap();
+        let cfgs: Vec<_> = list
+            .into_iter()
+            .filter_map(StoredIndexer::into_config)
+            .collect();
+        assert_eq!(cfgs.len(), 1, "只有带 url 的那条活下来");
+        assert_eq!(cfgs[0].name, "ok");
+    }
+
+    #[test]
+    fn a_broken_indexers_file_is_an_empty_list_not_a_panic() {
+        let r: Result<Vec<StoredIndexer>, _> = serde_json::from_str("[ 这不是 json");
+        assert!(
+            r.is_err(),
+            "解析失败 ⇒ load_indexers 返回空列表（已在上层吞掉）"
+        );
+        // 而且空文件 / 空数组都是合法的「没配过」
+        let empty: Vec<StoredIndexer> = serde_json::from_str("[]").unwrap();
+        assert!(empty.is_empty());
     }
 }
