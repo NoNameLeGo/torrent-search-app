@@ -40,7 +40,14 @@ use crate::{install_registry, runtime, save_downloader, wire, AppWindow, STATE};
 
 /// 惰性解析出来的磁力（刻意与"自带磁力"的形状不同 —— 用它来证明
 /// **解析那一步真的跑了**，而不是直接用了结果里带的）。
+const HASH_TAIL: &str = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 const RESOLVED_MAGNET: &str = "magnet:?xt=urn:btih:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+
+/// 磁力在请求体里是**百分号编码**过的（`encodeURIComponent`，与 JS 逐字对齐）——
+/// 所以断言要用编码后的形状。
+/// ⚠️ 这条断言第一版写成了 `add.contains(RESOLVED_MAGNET)`（拿**原文**去 match），
+/// CI 上直接 FAIL —— 自检自己抓到的第一个错，而且抓的是**断言**的错。
+const ENCODED_PREFIX: &str = "urls=magnet%3A%3Fxt%3Durn%3Abtih%3A";
 
 const TICK: Duration = Duration::from_millis(40);
 /// 40ms × 250 = 10 秒上限（假 provider 不发网络请求，正常几跳就完事）
@@ -257,6 +264,14 @@ fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack.windows(needle.len()).position(|w| w == needle)
 }
 
+/// 取原始请求的 body 部分（`\r\n\r\n` 之后），只用于断言失败时打印。
+fn after_headers(raw: &str) -> &str {
+    match raw.find("\r\n\r\n") {
+        Some(i) => &raw[i + 4..],
+        None => "",
+    }
+}
+
 // ---------------------------------------------------------------------------
 // 跑
 // ---------------------------------------------------------------------------
@@ -446,8 +461,13 @@ pub fn run() -> Result<bool, slint::PlatformError> {
         String::new(),
     );
     push(
-        "推的是**惰性解析出来**的磁力（证明解析那步真跑了）",
-        add.contains(RESOLVED_MAGNET),
+        "请求体是 `urls=` + 百分号编码的磁力（照抄 JS 的 encodeURIComponent）",
+        add.contains(ENCODED_PREFIX) && add.contains(HASH_TAIL),
+        format!("body={:?}", after_headers(&add)),
+    );
+    push(
+        "推的是**惰性解析出来**的磁力（证明解析那步真跑了，而不是用了结果里自带的）",
+        add.contains(HASH_TAIL) && !add.contains("INLINE"),
         String::new(),
     );
     push(
