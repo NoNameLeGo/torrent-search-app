@@ -50,7 +50,7 @@ use bt_providers::{registry as provider_registry, Provider};
 use slint::{ComponentHandle, Model, ModelRc, VecModel};
 
 use highlight::markup_to_styled;
-use ui_model::{AppState, ChipData, RowData, Tone};
+use ui_model::{AppState, ChipData, RowData, SortKey, Tone};
 
 // ---------------------------------------------------------------------------
 // 进程级共享（都是 Send + Sync，可以安全地被后台任务借）
@@ -202,6 +202,26 @@ fn to_slint_site(ui: &AppWindow, s: &crate::ui_model::SiteData) -> SiteToggle {
     }
 }
 
+/// #1 `.slint` 的 `Chip`（排序键 / 分类）—— 文案已经在 `ui_model` 里算好了，这里只搬运。
+fn to_slint_chip_row(c: &crate::ui_model::Chip) -> Chip {
+    Chip {
+        id: c.id.clone().into(),
+        label: c.label.clone().into(),
+    }
+}
+
+/// 把 `st.app` 的**视图**整块重建进 Slint 模型。
+///
+/// ⚠️ 这与搜索中的「增量 push」是两回事：那条规矩（别整块重建）是为了**保住用户的
+/// 滚动位置**；而排序 / 筛选**本来就是重排列表**，滚动位置没有意义了。
+/// 另外排序会**重编号 `idx`**（见 `ui_model::sort_rows`），所以必须整块重建 ——
+/// 只更新现有行的内容会让 `idx` 和显示对不上，点一行会推错东西。
+fn rebuild_rows_model(ui: &AppWindow, st: &mut UiState) {
+    let view: Vec<ResultRow> = st.app.view().iter().map(|r| to_slint_row(r)).collect();
+    st.rows_model = Rc::new(VecModel::from(view));
+    ui.set_rows(ModelRc::from(st.rows_model.clone()));
+}
+
 fn sync_small(ui: &AppWindow, st: &UiState) {
     let chips: Vec<ProviderChip> = st.app.chips.iter().map(|c| to_slint_chip(ui, c)).collect();
     ui.set_providers(ModelRc::from(Rc::new(VecModel::from(chips))));
@@ -209,7 +229,14 @@ fn sync_small(ui: &AppWindow, st: &UiState) {
     //    是为 300 行的结果列表定的，重建立刻会重置用户的滚动位置，这里不会）。
     let sites: Vec<SiteToggle> = st.app.sites.iter().map(|s| to_slint_site(ui, s)).collect();
     ui.set_sites(ModelRc::from(Rc::new(VecModel::from(sites))));
-    ui.set_total(st.app.total() as i32);
+    // #1 排序键与分类 chip（也都是小列表，整块重建安全）
+    let sorts: Vec<Chip> = st.app.sort_chips().iter().map(to_slint_chip_row).collect();
+    ui.set_sorts(ModelRc::from(Rc::new(VecModel::from(sorts))));
+    let cats: Vec<Chip> = st.app.cat_chips().iter().map(to_slint_chip_row).collect();
+    ui.set_cats(ModelRc::from(Rc::new(VecModel::from(cats))));
+    // ⚠️ `total` 报的是**视图**条数（屏幕上真有几行），不是 `rows.len()` ——
+    // 筛选状态下两者不同，显示后者会让用户以为筛坏了。
+    ui.set_total(st.app.view().len() as i32);
     ui.set_searching(st.app.chips.iter().any(|c| c.tone == Tone::Dim));
     ui.set_status_text(st.status.clone().into());
     // ① 分页
@@ -274,6 +301,10 @@ fn start_search(ui: &AppWindow, query: String, page: u32) {
         st.app.begin_search(&targets);
         st.app.set_page(page);
         st.app.sync_sites(&all);
+        // #1 ⚠️ 新搜索**清掉分类筛选**：旧筛选（比如「电影」）配上新结果很可能一条都不命中，
+        // 于是用户看到「共 0 条」而其实搜到了一堆 —— 那比"筛选没延续"糟得多。
+        // （排序键保留：那是用户的偏好，不是某次搜索的属性。）
+        st.app.category = None;
         st.query = query.clone();
         st.accent = accent.clone();
         // 换一个新模型：整块重建一次是安全的（此时列表本来就是空的）
@@ -366,6 +397,39 @@ fn toggle_site(ui: &AppWindow, id: String) {
                 if on { "" } else { "（取消了一家）" }
             )
         };
+        sync_small(ui, &st);
+    });
+}
+
+// ---------------------------------------------------------------------------
+// #1 排序 / 分类（UI 层的视图）
+// ---------------------------------------------------------------------------
+
+/// #1 点一个排序键。**在 UI 线程调用** —— 同一个键再点一次翻方向。
+///
+/// ⚠️ 排序会**重编号 `idx`** ⇒ 必须整块重建模型（`rebuild_rows_model`）。
+/// ⚠️ 搜索**进行中**新到的行是**追加在末尾**的（不插进已排好的序列）——
+/// 所以这两个按钮在 `searching` 时是灰的（见 `.slint`）：排一个还在长的列表没有意义。
+fn pick_sort(ui: &AppWindow, id: String) {
+    let Some(key) = SortKey::parse(&id) else {
+        return;
+    };
+    STATE.with(|s| {
+        let mut st = s.borrow_mut();
+        let q = st.query.clone();
+        st.app.pick_sort(key, &q);
+        rebuild_rows_model(ui, &mut st);
+        sync_small(ui, &st);
+    });
+}
+
+/// #1 点一个分类 chip（`id` 是空串 = 全部）。**不改 `rows`**，只改视图。
+fn pick_category(ui: &AppWindow, id: String) {
+    STATE.with(|s| {
+        let mut st = s.borrow_mut();
+        st.app
+            .set_category(if id.is_empty() { None } else { Some(id) });
+        rebuild_rows_model(ui, &mut st);
         sync_small(ui, &st);
     });
 }
@@ -683,6 +747,23 @@ fn wire(ui: &AppWindow) {
         ui.on_toggle_site(move |id| {
             if let Some(ui) = weak.upgrade() {
                 toggle_site(&ui, id.to_string());
+            }
+        });
+    }
+    // #1 排序 / 分类（都是"只重排视图"，不触发搜索）
+    {
+        let weak = ui.as_weak();
+        ui.on_pick_sort(move |id| {
+            if let Some(ui) = weak.upgrade() {
+                pick_sort(&ui, id.to_string());
+            }
+        });
+    }
+    {
+        let weak = ui.as_weak();
+        ui.on_pick_category(move |id| {
+            if let Some(ui) = weak.upgrade() {
+                pick_category(&ui, id.to_string());
             }
         });
     }

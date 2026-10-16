@@ -206,11 +206,36 @@ component SiteRow inherits Rectangle {
     }
 }
 
+// 排序键 / 分类 chip 的一行。文案（含方向箭头 `↓` 与"选中"的方括号）都由
+// **Rust 侧算好** —— `.slint` 里不写条件表达式，少一处语法风险。
+// ⚠️ 只用 Button 的 `text` + `clicked`：std-widgets 的 Button **没有 `color`**（CI 抓到过）。
+export struct Chip {
+    id: string,
+    label: string,
+}
+
+component ChipRow inherits Rectangle {
+    in property <Chip> item;
+    // 老坑：组件里的 `root` 不是窗口 ⇒ 必须转发
+    callback pick(string);
+
+    height: 24px;
+    background: transparent;
+
+    Button {
+        text: item.label;
+        clicked => { root.pick(item.id); }
+    }
+}
+
 export component AppWindow inherits Window {
     in-out property <string> query: "";
     in-out property <[ResultRow]> rows;
     in-out property <[ProviderChip]> providers;
     in-out property <[SiteToggle]> sites;
+    // #1 排序键（4 个）与分类 chip（数量随结果变）
+    in-out property <[Chip]> sorts;
+    in-out property <[Chip]> cats;
     in-out property <bool> searching: false;
     in-out property <string> status-text: "就绪";
     in-out property <string> downloader-kind: "qbittorrent";
@@ -231,6 +256,9 @@ export component AppWindow inherits Window {
     // ①③ 新回调
     callback next-page();
     callback toggle-site(string);
+    // #1 排序 / 分类
+    callback pick-sort(string);
+    callback pick-category(string);
 
     title: "BT 聚合搜索";
     width: 1180px;
@@ -344,10 +372,43 @@ export component AppWindow inherits Window {
                     }
 
                     ListView {
-                        height: 250px;
+                        height: 190px;
                         for s in root.sites : SiteRow {
                             item: s;
                             toggle(id) => { root.toggle-site(id); }
+                        }
+                    }
+
+                    // #1 排序。点一下排序、同一个键再点一下翻方向（箭头由 Rust 加）。
+                    // ⚠️ 只有 4 个键但要放得下箭头，所以高度给足 4 行。
+                    Text {
+                        text: "排序（再点一次反向）";
+                        color: Theme.sub;
+                        font-size: 11px;
+                    }
+
+                    ListView {
+                        height: 104px;
+                        for s in root.sorts : ChipRow {
+                            item: s;
+                            pick(id) => { root.pick-sort(id); }
+                        }
+                    }
+
+                    // #1 分类筛选。第一个恒为「全部」。
+                    // ⚠️ 分类数随结果变（可能十几个），这里给它固定高度 + ListView 自己滚 ——
+                    // 不用 `for` 平铺，免得撑爆布局（`for` 在普通布局里也是没验过的写法）。
+                    Text {
+                        text: "分类";
+                        color: Theme.sub;
+                        font-size: 11px;
+                    }
+
+                    ListView {
+                        height: 130px;
+                        for c in root.cats : ChipRow {
+                            item: c;
+                            pick(id) => { root.pick-category(id); }
                         }
                     }
 

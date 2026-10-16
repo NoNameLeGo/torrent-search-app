@@ -75,6 +75,13 @@ pub struct RowData {
     pub info_hash: Option<String>,
     pub detail_url: Option<String>,
     pub action: RowAction,
+    // ---- 排序 / 筛选要用的原始值 ----
+    // ⚠️ 这三项**原先没进 `RowData`**（当时 UI 只显示 `meta` 那串格式化文本）。
+    // 排序必须比**数值**、不能比 `"3.2 GB"` 这种字符串（`"10 MB" < "3 GB"` 是错的），
+    // 所以从 `TorrentResult` 直接留一份 —— **别从 `meta` 里反解**。
+    pub size: Option<i64>,
+    pub date: Option<i64>,
+    pub category: Option<String>,
 }
 
 impl RowData {
@@ -97,6 +104,9 @@ impl RowData {
             } else {
                 RowAction::NeedsMagnet
             },
+            size: r.size,
+            date: r.date,
+            category: r.category.clone(),
         }
     }
 
@@ -196,9 +206,174 @@ impl SiteData {
     }
 }
 
+/// 排序键。**不是从 JS 抄的** —— 见 [`relevance`] 的说明。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SortKey {
+    Seeds,
+    Relevance,
+    Size,
+    Date,
+}
+
+impl SortKey {
+    /// 4 个键，顺序 = UI 显示顺序。
+    /// ⚠️ **做种数排第一个**是有意的：对"能不能下得动"它是最直接的信号。
+    pub const ALL: [SortKey; 4] = [
+        SortKey::Seeds,
+        SortKey::Relevance,
+        SortKey::Size,
+        SortKey::Date,
+    ];
+
+    pub fn id(self) -> &'static str {
+        match self {
+            SortKey::Seeds => "seeds",
+            SortKey::Relevance => "relevance",
+            SortKey::Size => "size",
+            SortKey::Date => "date",
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            SortKey::Seeds => "做种数",
+            SortKey::Relevance => "相关度",
+            SortKey::Size => "大小",
+            SortKey::Date => "时间",
+        }
+    }
+
+    pub fn parse(s: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|k| k.id() == s)
+    }
+}
+
+impl Default for SortKey {
+    /// ⚠️ 默认**按做种数降序** —— 这是 Rust 版的选择，**不是** JS 的默认值。
+    /// 理由：D7 说"搜索是载体、成品才是目的"，而做种数是"这条能不能下"最直接的信号。
+    fn default() -> Self {
+        SortKey::Seeds
+    }
+}
+
+/// 相关度打分（**Rust 版自定义**，没照抄 JS 的打分函数）。
+///
+/// ## 为什么可以不逐字对齐 JS
+///
+/// M6 差分比的是**聚合层输出的 `results` 数组**（那 15 个字段）——
+/// 排序是 **UI 层**的事、不进差分，所以这里有自由。
+/// 但**规则必须写清**，免得以后有人以为它是从 JS 抄来却"抄错了"。
+///
+/// 规则（1 命中即停，2/3 不叠加）：
+///   1. 标题**就是**查询词（忽略大小写）→ 1000
+///   2. 否则**以**查询词开头 → 500
+///   3. 否则标题**含有**查询词 → 300
+///   4. 多词查询再按**词元覆盖率**加分（每个命中 +200）
+///   5. 全不命中 → 0
+///
+/// 空 / 纯空白查询词 → 0（此时排序等于没排，稳定排序保持到达顺序）。
+pub fn relevance(name: &str, query: &str) -> i32 {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() {
+        return 0;
+    }
+    let n = name.to_lowercase();
+
+    let mut score = if n == q {
+        1000
+    } else if n.starts_with(&q) {
+        500
+    } else if n.contains(&q) {
+        300
+    } else {
+        0
+    };
+
+    // 多词查询靠词元覆盖率拉开差距（"ubuntu server" 中两个词的该排在只中一个的前面）
+    let toks: Vec<&str> = q.split_whitespace().collect();
+    if toks.len() > 1 {
+        score += toks.iter().filter(|t| n.contains(**t)).count() as i32 * 200;
+    }
+    score
+}
+
+/// **就地**排序，排完**重新编号 `idx`**。`sort_by` 是稳定排序。
+///
+/// ⚠️ **重编号是必须的、不是顺手做的**：`idx` 是"回指权威 `rows` 的下标"，
+/// UI 的 `push-row(idx)` 靠它取那一条的磁力。排完不重编号 ⇒ 点第 3 行推的是
+/// 第 3 个**到达**的结果 —— 错得很隐蔽：能推，只是推错东西。
+///
+/// ⚠️ **缺值一律排最后**（不是当 0 排最前）："没有做种数信息"和"0 个做种"是两回事，
+/// 把前者混进最前面会让它看起来像热门资源。
+pub fn sort_rows(rows: &mut [RowData], key: SortKey, asc: bool, query: &str) {
+    /// 方向只翻转**有值**那一档 —— 否则升序会把缺值翻到最前面来。
+    fn ord_opt(a: Option<i64>, b: Option<i64>, asc: bool) -> std::cmp::Ordering {
+        use std::cmp::Ordering;
+        match (a, b) {
+            (None, None) => Ordering::Equal,
+            (None, Some(_)) => Ordering::Greater,
+            (Some(_), None) => Ordering::Less,
+            (Some(x), Some(y)) => {
+                if asc {
+                    x.cmp(&y)
+                } else {
+                    y.cmp(&x)
+                }
+            }
+        }
+    }
+
+    rows.sort_by(|a, b| match key {
+        SortKey::Relevance => {
+            let (x, y) = (
+                relevance(&a.title_plain, query),
+                relevance(&b.title_plain, query),
+            );
+            if asc {
+                x.cmp(&y)
+            } else {
+                y.cmp(&x)
+            }
+        }
+        SortKey::Seeds => ord_opt(Some(a.seeds as i64), Some(b.seeds as i64), asc),
+        SortKey::Size => ord_opt(a.size, b.size, asc),
+        SortKey::Date => ord_opt(a.date, b.date, asc),
+    });
+
+    for (i, r) in rows.iter_mut().enumerate() {
+        r.idx = i as i32;
+    }
+}
+
+/// 分类筛选要用的 `(分类名, 条数)`，**按条数降序** —— 排在前面的才是用户真搜到的东西。
+pub fn categories(rows: &[RowData]) -> Vec<(String, usize)> {
+    let mut acc: Vec<(String, usize)> = Vec::new();
+    for r in rows {
+        let Some(c) = r.category.as_deref().filter(|c| !c.is_empty()) else {
+            continue;
+        };
+        match acc.iter_mut().find(|(name, _)| name == c) {
+            Some((_, n)) => *n += 1,
+            None => acc.push((c.to_string(), 1)),
+        }
+    }
+    // 同票数时按名字排 —— 否则顺序取决于插入次序，UI 上的 chip 会跳来跳去
+    acc.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    acc
+}
+
+/// 排序按钮 / 分类 chip 的一行（`.slint` 的 `Chip` 对应）。
+/// **文案与"选中"标记都由 Rust 算好** —— `.slint` 里不写条件表达式。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Chip {
+    pub id: String,
+    pub label: String,
+}
+
 #[derive(Debug, Default)]
 pub struct AppState {
-    /// 权威的行集合。`.slint` 的模型永远是它的镜像；行号 = 下标。
+    /// 权威的行集合。`.slint` 的模型是它的**视图**（可能被排序 / 筛选过）；
+    /// `idx` 永远是它在**这个 Vec** 里的下标。
     pub rows: Vec<RowData>,
     pub chips: Vec<ChipData>,
     /// ① 当前页码（1 起）
@@ -207,6 +382,11 @@ pub struct AppState {
     pub has_more: bool,
     /// ③ 站点开关。顺序 = 注册表顺序 = UI 显示顺序
     pub sites: Vec<SiteData>,
+    /// 排序键 + 方向（`asc = false` 是常用的那一档）
+    pub sort: SortKey,
+    pub sort_asc: bool,
+    /// 分类筛选。`None` = 全部
+    pub category: Option<String>,
 }
 
 impl AppState {
@@ -285,6 +465,86 @@ impl AppState {
     /// 所以这一层拦下来，由调用方给一句提示。
     pub fn none_selected(&self) -> bool {
         !self.sites.is_empty() && !self.sites.iter().any(|s| s.on)
+    }
+
+    // -----------------------------------------------------------------------
+    // 排序 / 筛选（UI 层的视图，不动权威 rows 的语义）
+    // -----------------------------------------------------------------------
+
+    /// 点一个排序键：**同一个键再点一次就翻方向**，换键则回到默认方向（降序）。
+    ///
+    /// ⚠️ 排序会**重编号 `idx`**（见 [`sort_rows`]）—— 所以调用方必须**重建模型**，
+    /// 不能只更新现有行。
+    pub fn pick_sort(&mut self, key: SortKey, query: &str) {
+        if self.sort == key {
+            self.sort_asc = !self.sort_asc;
+        } else {
+            self.sort = key;
+            self.sort_asc = false;
+        }
+        sort_rows(&mut self.rows, self.sort, self.sort_asc, query);
+    }
+
+    /// 设分类筛选（`None` = 全部）。**不改 `rows`** —— 只影响 [`AppState::view`]。
+    pub fn set_category(&mut self, cat: Option<String>) {
+        self.category = cat;
+    }
+
+    /// **当前视图** = `rows` 里符合筛选的那些，顺序即 `rows` 的顺序（已排过序）。
+    ///
+    /// ⚠️ 视图下标**不是** `idx`，别混：模型的第 N 行显示 `view()[N]`，
+    /// 但点它要推的是 `view()[N].idx` —— `to_slint_row` 已经把它填进 `ResultRow.idx` 了。
+    pub fn view(&self) -> Vec<&RowData> {
+        self.rows
+            .iter()
+            .filter(|r| match &self.category {
+                None => true,
+                Some(c) => r.category.as_deref() == Some(c.as_str()),
+            })
+            .collect()
+    }
+
+    /// 排序按钮的文案：选中的那个带方向箭头（`↓` 降序 / `↑` 升序）。
+    pub fn sort_chips(&self) -> Vec<Chip> {
+        SortKey::ALL
+            .into_iter()
+            .map(|k| {
+                let label = if k == self.sort {
+                    format!("{} {}", k.label(), if self.sort_asc { "↑" } else { "↓" })
+                } else {
+                    k.label().to_string()
+                };
+                Chip {
+                    id: k.id().to_string(),
+                    label,
+                }
+            })
+            .collect()
+    }
+
+    /// 分类 chip。**第一个恒为「全部」**（`id` 是空串 = 不筛），选中的那个带方括号。
+    pub fn cat_chips(&self) -> Vec<Chip> {
+        let total = self.rows.len();
+        let mut out = vec![Chip {
+            id: String::new(),
+            label: if self.category.is_none() {
+                format!("[全部] {total}")
+            } else {
+                format!("全部 {total}")
+            },
+        }];
+        for (name, n) in categories(&self.rows) {
+            let on = self.category.as_deref() == Some(name.as_str());
+            out.push(Chip {
+                id: name.clone(),
+                label: if on {
+                    format!("[{name}] {n}")
+                } else {
+                    format!("{name} {n}")
+                },
+            });
+        }
+        out
     }
 
     /// 一站回来了：**追加**它的结果（所以「谁先回来谁先显示」），并更新它的状态条。
@@ -738,5 +998,165 @@ mod tests {
         st.has_more = true;
         st.begin_search(&three_sites());
         assert!(!st.has_more);
+    }
+
+    // -----------------------------------------------------------------------
+    // #1 排序 / 分类
+    // -----------------------------------------------------------------------
+
+    /// 造一行：`seeds` / `size` / `date` / `category` 都能给。
+    fn row_at(idx: i32, name: &str, seeds: i32, size: Option<i64>, cat: Option<&str>) -> RowData {
+        let mut r = RowData::from_result(&hit(name, "tpb", None), idx, "q", "#fff");
+        r.seeds = seeds;
+        r.size = size;
+        r.category = cat.map(|c| c.to_string());
+        r
+    }
+
+    /// **这条最重要**：排序会重编号 `idx`，而 `idx` 是 push-row 取磁力的下标 ——
+    /// 不重编号就会"点第 3 行推第 3 个**到达**的结果"，错得很隐蔽（能推、推错）。
+    #[test]
+    fn sort_renumbers_idx_so_push_row_still_points_at_the_right_row() {
+        let mut rows = vec![
+            row_at(0, "a", 1, None, None),
+            row_at(1, "b", 50, None, None),
+            row_at(2, "c", 9, None, None),
+        ];
+        sort_rows(&mut rows, SortKey::Seeds, false, "q");
+
+        assert_eq!(
+            rows.iter()
+                .map(|r| r.title_plain.as_str())
+                .collect::<Vec<_>>(),
+            vec!["b", "c", "a"],
+            "按做种数降序"
+        );
+        assert_eq!(
+            rows.iter().map(|r| r.idx).collect::<Vec<_>>(),
+            vec![0, 1, 2],
+            "idx 必须按**新顺序**重编号"
+        );
+    }
+
+    /// 缺值**恒排最后**，而且方向只翻转有值那一档 ——
+    /// 否则升序会把"没有大小信息"的行翻到最前面，看着像最大的资源。
+    #[test]
+    fn missing_size_is_always_last_in_both_directions() {
+        for asc in [false, true] {
+            let mut rows = vec![
+                row_at(0, "has", 0, Some(100), None),
+                row_at(1, "none", 0, None, None),
+                row_at(2, "big", 0, Some(900), None),
+            ];
+            sort_rows(&mut rows, SortKey::Size, asc, "q");
+            let names: Vec<&str> = rows.iter().map(|r| r.title_plain.as_str()).collect();
+            assert_eq!(names[2], "none", "asc={asc} 时缺值仍该在最后");
+            assert_eq!(names[0], if asc { "has" } else { "big" }, "asc={asc}");
+        }
+    }
+
+    #[test]
+    fn relevance_ranks_exact_over_prefix_over_contains() {
+        assert_eq!(relevance("Ubuntu", "ubuntu"), 1000, "完全相等");
+        assert_eq!(relevance("Ubuntu 24.04 LTS", "ubuntu"), 500, "以查询词开头");
+        assert_eq!(relevance("xubuntu desktop", "ubuntu"), 300, "含有查询词");
+        assert_eq!(relevance("debian netinst", "ubuntu"), 0, "不命中");
+        // 大小写不敏感 + 查询词两侧空白要 trim
+        assert_eq!(relevance("ubuntu", "  UBUNTU  "), 1000);
+    }
+
+    #[test]
+    fn relevance_scores_multiple_tokens_and_ignores_empty_query() {
+        // 两个词元都命中 ⇒ 300(contain) + 2*200
+        assert_eq!(relevance("ubuntu server iso", "ubuntu server"), 700);
+        assert_eq!(relevance("anything", ""), 0, "空查询词 → 0");
+        assert_eq!(relevance("anything", "   "), 0, "纯空白 → 0");
+    }
+
+    /// 分类筛选是**视图**，不能改 `rows` —— 否则取消筛选后行就回不来了。
+    #[test]
+    fn category_filter_is_a_view_not_a_mutation() {
+        let mut st = AppState::new();
+        st.rows = vec![
+            row_at(0, "m1", 0, None, Some("电影")),
+            row_at(1, "s1", 0, None, Some("剧集")),
+            row_at(2, "m2", 0, None, Some("电影")),
+            row_at(3, "x", 0, None, None),
+        ];
+
+        assert_eq!(st.view().len(), 4, "默认全部");
+        st.set_category(Some("电影".to_string()));
+        assert_eq!(st.view().len(), 2);
+        assert_eq!(st.rows.len(), 4, "⚠️ rows 不能被筛掉");
+        st.set_category(None);
+        assert_eq!(st.view().len(), 4, "取消筛选后要能全回来");
+    }
+
+    #[test]
+    fn categories_are_counted_and_sorted_by_count() {
+        let rows = vec![
+            row_at(0, "a", 0, None, Some("电影")),
+            row_at(1, "b", 0, None, Some("剧集")),
+            row_at(2, "c", 0, None, Some("电影")),
+            row_at(3, "d", 0, None, Some("")),
+            row_at(4, "e", 0, None, None),
+        ];
+        // 空分类与 None 都不进列表（有些 provider 根本不给 category）
+        assert_eq!(
+            categories(&rows),
+            vec![("电影".to_string(), 2), ("剧集".to_string(), 1)]
+        );
+    }
+
+    #[test]
+    fn cat_chips_start_with_all_and_mark_the_selection() {
+        let mut st = AppState::new();
+        st.rows = vec![
+            row_at(0, "a", 0, None, Some("电影")),
+            row_at(1, "b", 0, None, Some("剧集")),
+        ];
+
+        let chips = st.cat_chips();
+        assert_eq!(chips[0].id, "", "第一个恒为「全部」");
+        assert_eq!(chips[0].label, "[全部] 2");
+        assert_eq!(chips[1].label, "电影 1");
+
+        st.set_category(Some("电影".to_string()));
+        let chips = st.cat_chips();
+        assert_eq!(chips[0].label, "全部 2", "不再是选中态");
+        assert_eq!(chips[1].label, "[电影] 1", "选中的带方括号");
+    }
+
+    #[test]
+    fn sort_chips_show_a_direction_arrow_only_on_the_active_key() {
+        let mut st = AppState::new();
+        assert_eq!(st.sort, SortKey::Seeds, "默认做种数");
+        assert_eq!(
+            st.sort_chips()
+                .iter()
+                .map(|c| c.label.as_str())
+                .collect::<Vec<_>>(),
+            vec!["做种数 ↓", "相关度", "大小", "时间"]
+        );
+
+        // 同一个键再点一次 ⇒ 翻方向
+        st.pick_sort(SortKey::Seeds, "q");
+        assert!(st.sort_asc);
+        assert_eq!(st.sort_chips()[0].label, "做种数 ↑");
+
+        // 换键 ⇒ 回到默认降序
+        st.pick_sort(SortKey::Size, "q");
+        assert_eq!(st.sort, SortKey::Size);
+        assert!(!st.sort_asc);
+        assert_eq!(st.sort_chips()[2].label, "大小 ↓");
+        assert_eq!(st.sort_chips()[0].label, "做种数", "旧的键不再带箭头");
+    }
+
+    #[test]
+    fn sort_key_ids_round_trip() {
+        for k in SortKey::ALL {
+            assert_eq!(SortKey::parse(k.id()), Some(k));
+        }
+        assert_eq!(SortKey::parse("nope"), None);
     }
 }
