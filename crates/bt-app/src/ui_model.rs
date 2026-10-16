@@ -148,13 +148,27 @@ fn non_empty_or_dash(s: &str) -> String {
 }
 
 /// 一站上报之后的状态条。
-pub fn chip_for(id: &str, name: &str, status: &ProviderStatus) -> ChipData {
+///
+/// `stale_runs` = 这家**最近连续空手**了几次（来自 `health`，#6）。
+/// ⚠️ 为什么要它：站点改版的表现是**"每次都成功、但都没有结果"** ——
+/// 光看这一次上报（`Ok` + 0 条）和"这个关键词本来就没资源"**完全分不出来**，
+/// 只有历史能分。
+pub fn chip_for(id: &str, name: &str, status: &ProviderStatus, stale_runs: usize) -> ChipData {
+    // ⚠️ **两个条件都要**：`count == 0` 让不变式在**函数内部**成立 ——
+    // "有结果"就不可能是"连空"。（`apply_report` 有结果时也会把计数归零，
+    // 但纯函数不该依赖调用方做对。）
+    let stale = status.count == 0 && stale_runs >= crate::health::STALE_AFTER;
     match status.status {
         ProviderState::Ok => ChipData {
             id: id.to_string(),
             name: name.to_string(),
             glyph: "✓",
-            detail: format!("{} 条", status.count),
+            detail: if stale {
+                // 状态条窄，所以文案短（比错误串那 18 字还短）
+                format!("{} 条 ⚠连空 {stale_runs} 次", status.count)
+            } else {
+                format!("{} 条", status.count)
+            },
             tone: Tone::Ok,
         },
         ProviderState::Error => ChipData {
@@ -401,6 +415,11 @@ pub struct AppState {
     /// **不是**对文案的猜测）。
     pub net_failures: usize,
     pub site_failures: usize,
+    /// #6 每家的**最近连续空手次数**（`health::summarize` 的 `tail_empty`）。
+    ///
+    /// ⚠️ 用 `HashMap` 而不是 Vec：这里只按 id 查，不需要顺序
+    /// —— 顺序由 `chips` 保证，那才是 UI 的显示顺序。
+    pub stale: std::collections::HashMap<String, usize>,
 }
 
 impl AppState {
@@ -589,7 +608,23 @@ impl AppState {
             }
         }
 
-        let chip = chip_for(&report.id, &report.name, &report.status);
+        // #6 **就地**更新健康度：有结果 ⇒ 归零；空手/报错 ⇒ +1。
+        //
+        // ⚠️ 必须在这里更新、不能挪到"搜索收尾"去更新：`chips` 是在这里**逐个**建起来的，
+        // 收尾再更新的话，状态条上的 ⚠ 会比 `--health` 的数字**差一轮** ——
+        // 两个视图对不上，用户就没法用它们互相印证了。
+        // ⚠️ 语义要与 `health::summarize` 一致（它也是"有结果就打断连续计数"）。
+        let empty = report.status.error.is_some() || report.status.count == 0;
+        let stale_runs = {
+            let cur = self.stale.get(&report.id).copied().unwrap_or(0);
+            if empty {
+                cur + 1
+            } else {
+                0
+            }
+        };
+        self.stale.insert(report.id.clone(), stale_runs);
+        let chip = chip_for(&report.id, &report.name, &report.status, stale_runs);
         match self.chips.iter_mut().find(|c| c.id == report.id) {
             Some(slot) => *slot = chip,
             // 注册表里没有它（将来 Torznab 的动态 provider 就会走这条）→ 追加
@@ -1397,5 +1432,73 @@ mod tests {
         let mut st = AppState::new();
         st.begin_search(&two_providers());
         assert_eq!(st.summary(false), "共 0 条 · 0 家成功 / 0 家失败");
+    }
+
+    // -----------------------------------------------------------------------
+    // #6 健康度标记
+    // -----------------------------------------------------------------------
+
+    /// 连续空手够多次的家，**即使这一轮也算成功（0 条）**，状态条上要带 ⚠ ——
+    /// 因为"每次都成功但都没有结果"正是站点改版的形状，光看这一轮分不出来。
+    #[test]
+    fn a_stale_engine_gets_a_warning_marker() {
+        let mut st = AppState::new();
+        st.begin_search(&two_providers());
+        // 预先标上"tpb 最近连续空手 5 次"
+        st.stale.insert("tpb".to_string(), 5);
+
+        st.apply_report(&report("tpb", "TPB", vec![], None), "q", "#fff");
+        st.apply_report(
+            &report("nyaa", "NYAA", vec![hit("a", "nyaa", None)], None),
+            "q",
+            "#fff",
+        );
+
+        let tpb = st.chips.iter().find(|c| c.id == "tpb").unwrap();
+        assert!(tpb.detail.contains('⚠'), "该带警告：{}", tpb.detail);
+        assert!(tpb.detail.contains('5'), "要带上次数：{}", tpb.detail);
+
+        let nyaa = st.chips.iter().find(|c| c.id == "nyaa").unwrap();
+        assert!(
+            !nyaa.detail.contains('⚠'),
+            "没标记的不该带：{}",
+            nyaa.detail
+        );
+    }
+
+    /// 没到阈值就不提示 —— 站点偶尔抽风不该被报成故障。
+    #[test]
+    fn a_slightly_stale_engine_is_not_marked() {
+        let mut st = AppState::new();
+        st.begin_search(&two_providers());
+        st.stale
+            .insert("tpb".to_string(), crate::health::STALE_AFTER - 1);
+
+        st.apply_report(&report("tpb", "TPB", vec![], None), "q", "#fff");
+        let tpb = st.chips.iter().find(|c| c.id == "tpb").unwrap();
+        assert!(!tpb.detail.contains('⚠'), "没到阈值：{}", tpb.detail);
+    }
+
+    /// 报错的形态是 ✗ + 错误串，**不该**被"连空"文案盖掉 ——
+    /// 那会把"连不上"说成"没结果"，指错方向。
+    #[test]
+    fn an_erroring_stale_engine_still_shows_its_error() {
+        let mut st = AppState::new();
+        st.begin_search(&two_providers());
+        st.stale.insert("tpb".to_string(), 9);
+
+        st.apply_report(
+            &report("tpb", "TPB", vec![], Some("tpb unreachable (ECONNABORTED)")),
+            "q",
+            "#fff",
+        );
+        let tpb = st.chips.iter().find(|c| c.id == "tpb").unwrap();
+        assert_eq!(tpb.tone, Tone::Err);
+        assert!(tpb.detail.contains("ECONNABORTED"), "{}", tpb.detail);
+        assert!(
+            !tpb.detail.contains("连空"),
+            "别把错误改写成没结果：{}",
+            tpb.detail
+        );
     }
 }

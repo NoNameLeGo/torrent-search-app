@@ -922,6 +922,15 @@ fn main() -> Result<(), slint::PlatformError> {
     let ui = AppWindow::new()?;
     wire(&ui);
 
+    // #6 载入各家的健康度（最近连续空手次数）—— 启动读一次，之后每轮搜索在
+    // `ui_model::apply_report` 里增量更新（那里才建 `chips`，见那边的说明）。
+    // ⚠️ 读失败（没记录 / 文件坏了 / 取不到 %APPDATA%）都只是"没有历史"，不是错误。
+    let stale: std::collections::HashMap<String, usize> = health::summarize(&health::read_all())
+        .into_iter()
+        .map(|(id, s)| (id, s.tail_empty))
+        .collect();
+    STATE.with(|s| s.borrow_mut().app.stale = stale);
+
     // ② 载入上次保存的下载器配置。⚠️ 这一步**绝不能拦启动** ——
     // 没有配置文件、文件被改坏、APPDATA 取不到，都只是"没配置过"。
     // 参数 / 环境变量一个都没有 ⇒ 用户重填一次就能继续用。
