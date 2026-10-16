@@ -24,8 +24,13 @@
     },
     {
       "provider": "megapeer",
-      "field": "magnet",
-      "reason": "同上：magnet 的 dn= 参数来自 name，name 解码修好后 dn 跟着变。"
+      "field": "date",
+      "reason": "同一个 windows-1251 根因的**连带损伤**：日期格里的俄语月份名（如 «Окт»）在 JS 侧被 axios 按 utf8 硬解成 U+FFFD ⇒ ruDate 匹配不上月份 ⇒ 返回 null；Rust 认 charset 头 ⇒ 解析出 2026-10-11。两侧都调 ruDate/ru_date，差的只是解码。triage 2026-10-16：这一条单独吃掉 104 处差异里的 50 处。"
+    },
+    {
+      "provider": "megapeer",
+      "field": "date_text",
+      "reason": "同上（date 的格式化结果）：JS 侧 date 为 null ⇒ 按约定显示 —；Rust 侧显示 2026-10-11。"
     },
     {
       "provider": "megapeer",
