@@ -11,6 +11,12 @@ publish.workspace = true
 # 请求（拼 URL / 发 HTTP）与 provider 实现是下一步 —— 故意分开，
 # 这样"解析对不对"能单独验证，不必牵进网络。
 [dependencies]
+# 请求层要用统一的 HTTP 客户端（never-throw 的那一层）与 `normalize`
+bt-core = { path = "../bt-core" }
+# `Provider` trait + `SearchOutcome` —— ⚠️ 反向依赖**不存在**（bt-providers 不认识
+# bt-torznab），所以拼装发生在 bt-app（它同时依赖两边）。这也正是"动态追加"
+# 必须由调用方做的原因：静态注册表在 bt-providers 里，而它不该认识 Torznab。
+bt-providers = { path = "../bt-providers" }
 # ⚠️ **钉住小版本**，理由是本机没有 `cargo`、API 无法预检：
 # 选 roxmltree 而不是 quick-xml，正是因为它的 API 是**树式的**
 # （Document::parse / descendants / attribute），比事件流 API 稳定得多

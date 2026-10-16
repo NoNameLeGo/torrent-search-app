@@ -601,8 +601,15 @@ fn registry_matches_the_js_registry_order_and_flags() {
     assert_eq!(demos, ["demo"], "只有 demo 一家是 demo");
     assert_eq!(ids.last(), Some(&"demo"), "demo 排在最后（照 JS 顺序）");
     let demo = list.iter().find(|p| p.id == "demo").unwrap();
-    assert!(demo.browseable, "demo 是 browseable 的");
     assert!(!demo.paginated, "JS 没给 demo 设 paginated —— 别顺手改");
+    // ⚠️ `ProviderInfo` 里**没有** `browseable` 字段（JS 的 `list()` 也只返回
+    // `{ id, name, enabled, demo, paginated }`）⇒ 要查 browseable 得拿**真正的
+    // Provider 实例**。第一版我直接写了 `demo.browseable` ⇒ CI 报 E0609。
+    let demo_provider = registry::registry()
+        .into_iter()
+        .find(|p| p.id() == "demo")
+        .expect("registry() 里应该有 demo");
+    assert!(demo_provider.browseable(), "demo 是 browseable 的");
 
     // 名字抽查：与 JS `module.exports` 逐字一致（大小写敏感）
     let name_of = |id: &str| list.iter().find(|p| p.id == id).unwrap().name;

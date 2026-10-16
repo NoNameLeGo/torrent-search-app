@@ -27,6 +27,11 @@
 //!   · `infoHash`：`torznab:attr name="infohash"` → 否则从 magnet 正则 `btih:`
 //!   · `detailUrl`：`comments` → `link` → `guid`（与 magnet 那条**互相独立**）
 
+mod provider;
+pub use provider::{
+    build_search_url, normalize_api_url, to_result, IndexerConfig, TorznabProvider, DEFAULT_TIMEOUT,
+};
+
 use roxmltree::Node;
 
 /// RSS 里的一个 `<item>` —— 字段名与 JS 侧的中间表示一致，方便将来对照差分。
