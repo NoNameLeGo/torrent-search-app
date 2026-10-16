@@ -124,10 +124,49 @@ internetarchive  rust=   8 node=   8  ✅ 完全一致
    而 CI 下一步在仓库根找它 ⇒ 文件不存在。修法是在 harness 里用
    `CARGO_MANIFEST_DIR` 上溯两级解析相对路径 —— **harness 不该依赖调用方的 CWD**。
 
-**还没做（M6 的剩余部分）**：11 个 HTML provider 进 `fixtures.cjs`（需要 `cheerio`
-⇒ **只能在 CI 跑**）。`htmlProviders()` 现在**有意**返回空数组 ——
-宁可显式地"还没覆盖"，也不要一份看起来覆盖了、实则喂错 fixture 的表。
-⚠️ 一个**查不出来**的风险：两侧的 fixture 名是两份手写表，**写错不会报错**
+**🔴 2026-10-16 首次全量跑（16 家）—— 抓到 111 处未命中白名单的差异。这正是 M6 的价值。**
+
+| provider | rust | node | 结论 |
+|---|---|---|---|
+| tpb / knaben / torrentscsv / yts / filemood / audiobookbay / therarbg / torrent9 / oxtorrent / nyaa / zeromagnet | — | — | ✅ **11 家完全一致** |
+| `internetarchive` | 8 | 8 | ↔ 7 |
+| `linuxtracker` | 18 | 18 | ↔ 18 |
+| `rutor` | 100 | 100 | ↔ 2 |
+| `limetorrents` | 40 | 40 | ↔ 2 |
+| `megapeer` | 50 | 50 | ↔ 228（白名单命中 146；`magnet` 那条**未触发**） |
+
+**差异分两类，处理方式完全不同：**
+
+**① harness 造的假差异（必须先消掉，否则会淹没真差异）**
+```
+rust = "https://archive.org/details/ubuntu-7.10-alpha3-desktop-i386"
+node = "<BASE>/details/ubuntu-7.10-alpha3-desktop-i386"
+```
+`internetarchive`（可能还有别家）的 `detail_url` 用**硬编码域名**，不在"本侧 base"里
+⇒ 我按"本侧实际用过的 origin"做的归一化**盖不住它**。
+🔧 **正确做法：把归一化从"各侧提供 origin 列表"改成 compare 时的通用剥离** ——
+`detail_url` 里任何 `^https?://[^/]+` 一律换成 `<BASE>`。
+理由：各侧维护域名表就是**第三份会漂的表**；而 `detail_url` 的域名本来就是 harness
+喂进去的（base），比**路径形状**才有意义。
+⚠️ **代价要说清楚**：通用剥离会**盖掉"两侧选中的镜像域名不同"**。
+JS 的多镜像 `runMirrors` 是**并行**的（谁先回谁赢），所以镜像选择本来就有随机性；
+但这确实等于放弃了对它的比对 —— 一条**有意接受**的限制，别当成没看见。
+
+**② 真差异（triage 完之前**不要**往白名单里塞）**
+- `size_text` 舍入分歧：`"3.2 GB"` vs `"3.3 GB"`、`"4.2"` vs `"4.3"`、`"1.2"` vs `"1.3"`
+- `date`：`rust = 1791676800000` / `"2026-10-11"` vs `node = null` / `"—"`
+  ⇒ **Rust 产出了 Node 没有的日期**
+- `date` 毫秒级差：`1768454947986` vs `1768454964886`
+- `megapeer` 228 处里剩下那些（且 `magnet` 白名单条目这次**没触发** ⇒ 过期或判错）
+
+**⏳ triage 计划（按顺序）**
+1. 先做 ①（compare 里通用剥离 origin）—— 一次消掉一批假差异，让真差异露出来
+2. 逐家看剩下的：`size_text` 的舍入要对照 `normalize.js` 的 `formatSize` **逐字读**，
+   判断是真 bug 还是有意；`date` 的 null-vs-值 要查是不是"空值处理"分叉
+3. `megapeer` 的 `magnet` 白名单条目要么删、要么改对
+4. 全绿之后**摘掉 `rust.yml` 里的 `--json-only`**，16 家全部进门
+
+**⚠️ 一个查不出来的风险**：两侧的 fixture 名是**两份手写表**，**写错不会报错**
 （各自喂各自的 fixture、都"成功"）—— 只能靠人核对，已写进 `fixtures.cjs` 表头。
 
 **三条硬约束，别调换**：**M1 必须最先**（Slint 挂了，M2 的架构就得重做）；**M6 必须早于删 Node**（否则「逐字段一致」永远无法再验）；**M5 早于补引擎**（现在没有理由盲搬）。
