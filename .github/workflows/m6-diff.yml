@@ -1,0 +1,77 @@
+name: M6 diff (全部 16 家，**不是门**)
+
+# 目的：M6 的**全量**差分报告 —— Rust 侧 vs Node 侧，16 家逐字段比。
+#
+# ⚠️ **这个 workflow 刻意只挂 `workflow_dispatch`**：它是**探针**，不是门。
+# 理由与 `live-smoke.yml` / `provider-health.yml` 相同 —— 结果需要人看，
+# 不适合当 push/PR 的硬门。**门在 `rust.yml` 里**，覆盖已验证零差异的那几家。
+#
+# 为什么需要它：2026-10-16 首次全量跑抓到 111 处差异，triage 期间
+# `rust.yml` 的门收在 5 家 JSON provider 上（用 `--only` 显式声明作用域）。
+# 但"收着"不等于"不看" —— 这个 workflow 就是那份完整清单的来源。
+#
+# 🔴 triage 完成后：把 `rust.yml` 里的 `--json-only` + `--only` 摘掉，
+#    16 家全部进门；那时这个 workflow 仍然有用（临时复查），但不再是唯一来源。
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diff:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v5
+
+      - name: 安装 Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust 缓存
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> target'
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # 11 家 HTML provider 的 Node 侧要 cheerio；--omit=dev 跳过几百 MB 的 electron
+      - name: 安装 Node 依赖
+        shell: bash
+        run: npm ci --omit=dev
+
+      - name: M6 导出 Rust 侧（16 家）
+        shell: bash
+        env:
+          BT_DIFF_OUT: .cache/diff/rust.json
+        run: |
+          set -euo pipefail
+          mkdir -p .cache/diff
+          cargo test -p bt-providers --test dump_rust -- --ignored --nocapture
+
+      - name: M6 导出 Node 侧（16 家）
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/diff/dump-node.cjs -o .cache/diff/node.json
+
+      # ⚠️ 这里**不加** `--only` —— 这个 workflow 的意义就是看**全部 16 家**。
+      # compare 会把「只在一边出现」判成结构性失败，那正是我们要它管的。
+      - name: M6 全量比较
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/diff/compare.cjs .cache/diff/rust.json .cache/diff/node.json
+
+      - name: 把两份导出传上去（便于事后本地复算）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m6-diff-json
+          path: .cache/diff/*.json
+          if-no-files-found: warn

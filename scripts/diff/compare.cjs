@@ -179,7 +179,20 @@ function printReport(report, whitelist) {
   }
 
   if (report.unexpected.length) {
-    console.log(`\n🔴 未命中白名单的差异 ${report.unexpected.length} 处：`);
+    // 📊 **先按 (provider, field) 归组** —— triage 就是从这个视图开始的。
+    // 111 条按顺序平铺是没法看，但归组后通常只剩十来行，一眼能看出
+    // 「是某一家的某个字段整列不对」还是「随机零散」。
+    const hist = new Map();
+    for (const d of report.unexpected) {
+      const k = `${d.provider}.${d.field}`;
+      hist.set(k, (hist.get(k) || 0) + 1);
+    }
+    console.log(`\n📊 未命中白名单的差异按 (provider, field) 归组（共 ${report.unexpected.length} 处）：`);
+    for (const [k, n] of [...hist.entries()].sort((a, b) => b[1] - a[1])) {
+      console.log(`  ${k.padEnd(36)} × ${n}`);
+    }
+
+    console.log(`\n🔴 明细（前 60 条）：`);
     for (const d of report.unexpected.slice(0, 60)) {
       const at = d.index === undefined ? '' : `[${d.index}]`;
       console.log(
