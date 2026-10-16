@@ -179,6 +179,7 @@ let refs: Vec<&dyn Provider> = statics.iter().chain(dyns.iter()).map(|b| b.as_re
 | `leechers` | `<torznab:attr name="peers" value>` | 名字是 **peers** 不是 leechers |
 | `detailUrl` | `<comments>` → `<link>` → `<guid>` 三级兜底 | 与 magnet 那条**互相独立** |
 | `date` | `<pubDate>` | 交给 `normalize()` 解析 |
+| `category` | `<torznab:attr name="category" value>` | ⚠️ **第一版规格漏了这条**（核对源码时补上的）—— 而它正好喂给 #1 的分类筛选 |
 | `provider` | 配置里的 id | 运行时注入，不是站点给的 |
 
 **⚠️ 解析器：不能用 `bt_core::dom`**（决定性依据）：
