@@ -162,6 +162,55 @@ let refs: Vec<&dyn Provider> = statics.iter().chain(dyns.iter()).map(|b| b.as_re
 **预计规模**：选 ① ⇒ 改 `main.rs`(4 处调用点) + `selftest.rs`(工厂化 3 个假 provider)；
 选 ② ⇒ 再带上 `aggregate.rs` 与它的测试。**半天以内，但必须一次改完**（编译不过会卡住 main）。
 
+#### ⑤ Torznab 的规格（2026-10-16 抄自 JS 参考实现，**已核对源码**）
+
+端点：`{apiBase}?apikey={key}&extended=1&t=search&q={query}`
+（`src/providers/torznab.js` L8 / L32-33）
+
+**字段映射**（逐条对着 `parseItems` 抄的，别凭印象写）：
+
+| TorrentResult | 来源 | 备注 |
+|---|---|---|
+| `name` | `<title>` 文本 | `trim()` |
+| `magnet` | `<enclosure url>` **以 `magnet:` 开头**时用它；否则 `<link>` 以 `magnet:` 开头时用 `<link>`；都没有就是空 | **两级兜底**，不是"或" |
+| `size` | `<enclosure length>` 属性；为空或非数字 ⇒ 退回 `<size>` 元素文本 | 注意是"解析不出**数字**"也算空 |
+| `infoHash` | `<torznab:attr name="infohash" value>`；没有就从 magnet 里正则 `btih:([a-f0-9]+)` 兜底 | **两级兜底** |
+| `seeders` | `<torznab:attr name="seeders" value>` | ⚠️ **`0` 是有效值**，别当 falsy 丢（JS 那边踩过这个坑） |
+| `leechers` | `<torznab:attr name="peers" value>` | 名字是 **peers** 不是 leechers |
+| `detailUrl` | `<comments>` → `<link>` → `<guid>` 三级兜底 | 与 magnet 那条**互相独立** |
+| `date` | `<pubDate>` | 交给 `normalize()` 解析 |
+| `provider` | 配置里的 id | 运行时注入，不是站点给的 |
+
+**⚠️ 解析器：不能用 `bt_core::dom`**（决定性依据）：
+JS 用的是 `cheerio.load(xml, { xmlMode: true })` —— **XML 模式**。
+而 Rust 侧的 `bt_core::dom` 是 `scraper`/html5ever，**没有 XML 模式**：
+HTML 解析器只在 foreign content（SVG/MathML）里认自闭合标签，
+所以 `<torznab:attr name="seeders" value="128" />` 的 `/` 会被**忽略**，
+该元素保持"打开"，**后续兄弟节点变成它的子节点** ⇒ 结构全错。
+⇒ 必须用真正的 XML 解析器。
+
+**两条路（选一条，别发明第三条）：**
+
+1. **引 `quick-xml`**（正确性最优）。⚠️ 代价：本机完全无法预检，而它的
+   **API 在 0.30 → 0.31 之间变过**（`read_event_into(&mut buf)` → `read_event()`、
+   `trim_text` 挪进 `config_mut()`）⇒ 押版本等于押运气，但 CI 反馈只有 3 分钟，
+   迭代得起。**建议钉住一个小版本并在注释里写明"针对该版本的 API"。**
+2. **手写 item 扫描器**（零依赖）。输入是 **Jackett/Prowlarr 机器生成**的、
+   结构固定的 RSS，不是任意 XML。⚠️ 但必须处理：**XML 实体解码**
+   （`&amp;` `&lt;` `&quot;` `&#NN;` —— 标题里的 `&` 极常见）、自闭合标签、
+   CDATA。手写就必须**自己写全**，漏一个就是静默错解。
+   ⇒ 若选它，**把解析封在一个 `parse_items(xml) -> Vec<RawItem>` 里**，
+   将来换 `quick-xml` 只动这一个函数。
+
+**fixture 已经写好了**：`test/fixtures/torznab-search.xml`（3 个 item，
+分别覆盖"标准形态 / 实体+两级兜底+seeders=0 / 全缺字段"）。
+**⚠️ 它是手写的，不是抓来的** —— 每条都对应上面映射表里的一个分支；
+真正的联网校验要靠 `live-smoke.yml` 那条路（或让用户填一个真索引器）。
+
+**还没做**：`bt-torznab` crate（解析 + provider 实现）、`add_dynamic_factory` 的
+追加路径（现在 `provider_set()` 只有"注入**替换**"，见 #4）、UI 的索引器配置界面。
+⚠️ **顺序建议**：解析 + fixture 测试 → provider（`Provider` trait）→ 追加路径 → UI。
+
 **C. 2026-10-16 审计顺手修掉的一件（并且纠正了我自己上一轮的错误诊断）**
 
 **`feat/tauri` 的提交没推上去。** 裸 `git push` + 该分支**没有 upstream 跟踪** ⇒

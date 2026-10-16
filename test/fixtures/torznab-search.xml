@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Torznab 搜索响应的 fixture —— 用于 `bt-torznab` 的离线测试（M6 的对照也用得上）。
+
+  ⚠️ 这份 fixture 是**手写的**，但每一条都对应 JS 参考实现里的一个分支
+  （`src/providers/torznab.js` 的 `parseItems`，用 `cheerio.load(xml, { xmlMode: true })`）。
+  改它之前先读那张映射表（见 AGENTS.md「⑤ Torznab 的规格」）。
+
+  三个 item 分别覆盖：
+    1. 标准形态：enclosure 给 .torrent 链接、size 走 enclosure@length、
+       seeders/peers/infohash 走 torznab:attr
+    2. **实体 + 兜底**：标题里带 & 和引号（必须按 XML 实体解码，否则名字会带 &amp;）；
+       magnet 来自 **link** 而不是 enclosure；**不给** infohash 属性 ⇒ 必须从 magnet 的
+       `btih:` 里兜底；seeders=0（**0 是有效值**，别当成 falsy 丢掉 —— JS 那边踩过这个坑）
+    3. **边界**：没有 size / enclosure / pubDate / seeders ⇒ 每一项都要走 JS 的兜底路径，
+       不许 panic、不许把缺失当 0 还是 null 搞混
+-->
+<rss version="2.0" xmlns:torznab="http://torznab.com/schemas/2015/feed">
+  <channel>
+    <title>Prowlarr</title>
+    <description>Torznab fixture</description>
+
+    <item>
+      <title>Ubuntu 24.04 LTS Desktop amd64</title>
+      <guid isPermaLink="false">https://tracker.example/details/12345</guid>
+      <link>https://tracker.example/download/12345</link>
+      <comments>https://tracker.example/details/12345</comments>
+      <pubDate>Wed, 15 Oct 2026 09:12:00 +0000</pubDate>
+      <size>5200936960</size>
+      <enclosure url="https://tracker.example/download/12345.torrent" length="5200936960" type="application/x-bittorrent" />
+      <torznab:attr name="seeders" value="128" />
+      <torznab:attr name="peers" value="31" />
+      <torznab:attr name="infohash" value="0123456789abcdef0123456789abcdef01234567" />
+    </item>
+
+    <item>
+      <title>Rock &amp; Roll &quot;Remastered&quot; 1975 FLAC</title>
+      <guid>https://tracker.example/details/999</guid>
+      <link>magnet:?xt=urn:btih:abcdef0123456789abcdef0123456789abcdef01&amp;dn=Rock</link>
+      <pubDate>Tue, 14 Oct 2026 22:05:00 +0000</pubDate>
+      <enclosure url="magnet:?xt=urn:btih:abcdef0123456789abcdef0123456789abcdef01" length="734003200" />
+      <torznab:attr name="seeders" value="0" />
+      <torznab:attr name="peers" value="0" />
+    </item>
+
+    <item>
+      <title>Edge Case No Size</title>
+      <guid>https://tracker.example/details/1</guid>
+      <link>https://tracker.example/download/1</link>
+    </item>
+  </channel>
+</rss>
