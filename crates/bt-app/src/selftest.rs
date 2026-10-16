@@ -417,8 +417,13 @@ pub fn run() -> Result<bool, slint::PlatformError> {
     let mut push = |name: &'static str, ok: bool, detail: String| checks.push((name, ok, detail));
 
     push(
-        "窗口真的重绘了",
-        r.paints_ok >= r.ticks && r.ticks > 3,
+        "窗口真的重绘了（每跳都强制同步重绘）",
+        // ⚠️ 别写成 `ticks > 3` 这种魔数：链路快的时候 3 跳就跑完了
+        //（CI 第一次真跑是 4 跳、第二次是 3 跳）—— 那种写法**本身就是 flaky 的**，
+        // 而且它钉的是"跳数"这个无关变量。真正要钉的是：
+        //   · 每跳都重绘成功（M1 那种"假绿"就是重绘从未真的发生）
+        //   · 确实走完了三个阶段（< 3 跳说明状态机没推进到底）
+        r.paints_ok == r.ticks && r.paints_err == 0 && r.ticks >= 3,
         format!(
             "{} 次同步重绘 / {} 跳，失败 {} 次",
             r.paints_ok, r.ticks, r.paints_err
