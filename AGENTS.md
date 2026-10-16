@@ -1756,7 +1756,11 @@ percent-encode，个别老旧下载工具会拿到编码串或问号名，这是
 2. ✅ **Provider 解析逻辑重复** — 新建 `src/lib/scraper.js`：`createProvider()` 工厂 + `scrapeRows()` 辅助，已迁移 eztv/torrentkitty/torrentdownload。
 3. ✅ **请求速率控制** — `src/providers/index.js`：`asyncPool()` 限制 8 并发，替代 `Promise.all` 无限制请求。
 4. ✅ **`PROVIDER_LABEL` 初始态不完整** — 已预填充全部 42 个引擎名称，消除首屏 raw id 闪现。
-5. ✅ **Build 步骤** — `esbuild` minify → `npm run build:frontend`，输出到 `public/dist/`。
+5. ~~Build 步骤 — `esbuild` minify → `npm run build:frontend`，输出到 `public/dist/`。~~
+   ❌ **已删除（2026-10-16 审计）**：`public/index.html` 只加载 `ambient.js` + `js/main.js`，
+   `build.yml` 也从不调它 ⇒ 产出的 `public/dist/` **没有任何东西会加载**，
+   这条「已完成」是假的。脚本、npm script、`esbuild` 依赖一并删掉
+   （Rust 版终局会连 `public/` 一起删，给它接线没有意义）。
 6. ✅ **Provider 级别超时策略** — `scrapeRows`/`createProvider` 支持 `timeout` 选项，各 provider 可覆盖默认 10s。
 
 ### ✅ 已修复（本轮审查 — phantom fixes 落地，2026-08-23）

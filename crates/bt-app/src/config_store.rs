@@ -29,7 +29,7 @@
 //! 那是**引擎层**的类型，不该知道"怎么存"。这里是**应用层的文件格式** ——
 //! 将来格式要加字段 / 做迁移，不该去动引擎层（也不该动引擎层的公开 API）。
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use bt_downloaders::{Config, Kind};
 use serde::{Deserialize, Serialize};
@@ -76,11 +76,45 @@ impl Stored {
     }
 }
 
+/// 数据目录：`BT_SEARCH_HOME` 优先，否则 `%APPDATA%\bt-search`。
+///
+/// ⚠️ **只有测试和 `--selftest` 会用那个环境变量** —— 它存在的理由很具体：
+/// `--selftest` 走的是**生产路径**（`save_downloader` / `health::append`），
+/// 于是它会把桩下载器地址（`http://127.0.0.1:<随机端口>`）写进**用户真实的配置**，
+/// 并把 alpha/beta/gamma 那三家假 provider 写进健康历史。
+pub fn data_dir() -> Option<PathBuf> {
+    if let Some(dir) = std::env::var_os("BT_SEARCH_HOME") {
+        return Some(PathBuf::from(dir));
+    }
+    let base = std::env::var_os("APPDATA")?;
+    Some(PathBuf::from(base).join("bt-search"))
+}
+
+/// 写文件：**先写临时文件再 rename**。
+///
+/// ⚠️ `fs::write` 是**就地截断**的 —— 写入中途崩溃/断电就留下半截文件，
+/// 而这里写的全是**用户配置**（丢了就得重填）。同一卷上的 `rename` 是原子的：
+/// 要么旧内容、要么新内容；失败时旧文件原封不动。
+///
+/// 临时文件名带 pid 与序号：`--selftest` 与正常保存可能并发写同一个目标。
+pub(crate) fn write_atomic(path: &Path, text: &str) -> std::io::Result<()> {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static SEQ: AtomicU64 = AtomicU64::new(0);
+    let mut tmp = path.to_path_buf().into_os_string();
+    tmp.push(format!(
+        ".tmp{}.{}",
+        std::process::id(),
+        SEQ.fetch_add(1, Ordering::Relaxed)
+    ));
+    let tmp = PathBuf::from(tmp);
+    std::fs::write(&tmp, text)?;
+    std::fs::rename(&tmp, path)
+}
+
 /// `%APPDATA%\bt-search\config.json`。取不到 `APPDATA` 就 `None`（**不猜别的路径** ——
 /// 猜出来的位置可能正是只读的那个）。
 pub fn config_path() -> Option<PathBuf> {
-    let base = std::env::var_os("APPDATA")?;
-    Some(PathBuf::from(base).join("bt-search").join("config.json"))
+    Some(data_dir()?.join("config.json"))
 }
 
 /// 读上次保存的配置。**任何一步失败都只是 `None`**，不区分"没保存过"与"读坏了" ——
@@ -99,7 +133,7 @@ pub fn save(kind: Kind, c: &Config) -> Result<(), String> {
     }
     let text = serde_json::to_string_pretty(&Stored::from_parts(kind, c))
         .map_err(|e| format!("序列化失败：{e}"))?;
-    std::fs::write(&path, text).map_err(|e| format!("写入失败：{e}"))
+    write_atomic(&path, &text).map_err(|e| format!("写入失败：{e}"))
 }
 
 /// 一个 Torznab 索引器的落盘形状（⑤）。
@@ -135,8 +169,7 @@ fn default_true() -> bool {
 /// 而**旧文件是平铺的** ⇒ 得写兼容分支。单独一个文件零风险，而且
 /// "下载器"与"搜索源"本来就是两件事（一个文件坏了不该连累另一个）。
 pub fn indexers_path() -> Option<PathBuf> {
-    let base = std::env::var_os("APPDATA")?;
-    Some(PathBuf::from(base).join("bt-search").join("indexers.json"))
+    Some(data_dir()?.join("indexers.json"))
 }
 
 impl StoredIndexer {
@@ -221,7 +254,7 @@ pub fn save_indexers(list: &[bt_torznab::IndexerConfig]) -> Result<(), String> {
     }
     let stored: Vec<StoredIndexer> = list.iter().map(StoredIndexer::from_config).collect();
     let text = serde_json::to_string_pretty(&stored).map_err(|e| format!("序列化失败：{e}"))?;
-    std::fs::write(&path, text).map_err(|e| format!("写入失败：{e}"))
+    write_atomic(&path, &text).map_err(|e| format!("写入失败：{e}"))
 }
 
 #[cfg(test)]

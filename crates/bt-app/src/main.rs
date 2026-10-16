@@ -498,7 +498,9 @@ fn start_search(ui: &AppWindow, query: String, page: u32) {
                 // ⚠️ 数据不用另接管道：`outcome.providers` 里已经有每家的
                 // count / error / ms —— 收尾这一刻是唯一能一次拿全的地方。
                 // ⚠️ 写失败**静默** —— 一份统计文件不该影响搜索，也不该弹警告。
-                // （16 行的小追加，放 UI 线程上可接受；真变慢再说。）
+                // ⚠️ **但不能占着 UI 线程**：`health::append` 超过 5000 行时会
+                // `read_to_string` **整文件**一遍再重写（`trim_if_needed`）。
+                // 丢给一个独立线程 —— 结果本来就没人在等，失败也是静默的。
                 let batch: Vec<health::Record> = outcome
                     .providers
                     .iter()
@@ -509,7 +511,9 @@ fn start_search(ui: &AppWindow, query: String, page: u32) {
                         ms: ps.ms,
                     })
                     .collect();
-                let _ = health::append(&batch);
+                std::thread::spawn(move || {
+                    let _ = health::append(&batch);
+                });
 
                 st.app.has_more = outcome.has_more;
                 st.status = st.app.summary(false);

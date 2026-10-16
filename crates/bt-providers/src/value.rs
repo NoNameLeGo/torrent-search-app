@@ -9,7 +9,14 @@ use serde_json::Value;
 /// `Value` → `NumOrText`。空字符串视作"没有值"（JS 里 `"" || null` 也是 falsy）。
 pub fn v2nt(v: &Value) -> Option<NumOrText> {
     match v {
-        Value::Number(n) => n.as_i64().map(NumOrText::Num),
+        // ⚠️ 用 `as_i64()` 单打一巨丢数据：`12.0` / `1e3` 这类 JSON 数字拿不到 i64，
+        // 而 JS 的 `typeof x === 'number'` 全认 ⇒ 同一个响应两侧结果不一致。
+        // 回退到 `as_f64`（同文件 `min_number` 早就这么干了，两个 helper 本就该一致）。
+        // 小数截断到 i64：`NumOrText::Num` 装不下小数，而下游 `to_int` 本来就截断。
+        Value::Number(n) => n
+            .as_i64()
+            .or_else(|| n.as_f64().map(|f| f as i64))
+            .map(NumOrText::Num),
         Value::String(s) if !s.is_empty() => Some(NumOrText::Text(s.clone())),
         _ => None,
     }

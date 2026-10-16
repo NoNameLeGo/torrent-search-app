@@ -299,6 +299,14 @@ struct Report {
 }
 
 pub fn run() -> Result<bool, slint::PlatformError> {
+    // ⚠️ **先重定向数据目录，再接线**：自检走的是**生产路径**
+    // （`save_downloader` → `config_store::save`、`health::append`），
+    // 不重定向的话它会把桩下载器地址（`http://127.0.0.1:<随机端口>`）写进用户真实的
+    // `%APPDATA%\bt-search\config.json`，并把 alpha/beta/gamma 写进健康历史。
+    let home = std::env::temp_dir().join(format!("bt-search-selftest-{}", std::process::id()));
+    std::env::set_var("BT_SEARCH_HOME", &home);
+    println!("[m4] 数据目录（临时）= {}", home.display());
+
     let ui = AppWindow::new()?;
     install_registry(fake_factories());
     wire(&ui);

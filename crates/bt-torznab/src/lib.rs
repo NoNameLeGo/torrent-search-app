@@ -108,10 +108,17 @@ fn read_item(item: Node<'_, '_>) -> RawItem {
             .filter(|t| !t.is_empty())
     };
     // <torznab:attr name="X" value="Y"> → Y
+    //
+    // ⚠️ 两处刻意对齐 JS（`src/providers/torznab.js:59-63`）：
+    //   ① `$el.find('torznab\\:attr')` 是**全后代**，不是只看直接子节点；
+    //   ② 名字按 `toLowerCase()` 比 —— 把属性写成 `Seeders` 的索引器也得认。
     let attr = |name: &str| -> Option<String> {
-        item.children()
+        item.descendants()
             .filter(|c| c.is_element() && c.tag_name().name() == "attr")
-            .find(|c| c.attribute("name") == Some(name))
+            .find(|c| {
+                c.attribute("name")
+                    .is_some_and(|n| n.eq_ignore_ascii_case(name))
+            })
             .and_then(|c| c.attribute("value"))
             .map(|v| v.to_string())
     };

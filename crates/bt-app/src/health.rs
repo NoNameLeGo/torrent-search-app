@@ -103,9 +103,11 @@ pub fn summarize(records: &[Record]) -> Vec<(String, Stat)> {
 }
 
 /// `%APPDATA%\bt-search\health.jsonl`。取不到 `APPDATA` 就 `None`（不猜别的路径）。
+///
+/// ⚠️ 实际基目录走 [`crate::config_store::data_dir`] —— 它认 `BT_SEARCH_HOME`，
+/// 否则 `--selftest` 会把假的健康记录写进用户真实的数据目录。
 pub fn path() -> Option<PathBuf> {
-    let base = std::env::var_os("APPDATA")?;
-    Some(PathBuf::from(base).join("bt-search").join("health.jsonl"))
+    Some(crate::config_store::data_dir()?.join("health.jsonl"))
 }
 
 /// 读全部记录。**坏行直接跳过**（手改过 / 写一半断电都不该让整个文件作废）。
@@ -165,7 +167,8 @@ fn trim_if_needed(path: &std::path::Path) {
     let keep = &lines[lines.len() - KEEP_LINES..];
     let mut out = keep.join("\n");
     out.push('\n');
-    let _ = std::fs::write(path, out);
+    // 原子写：这是**整文件重写**，就地截断时崩了就把历史全弄丢。
+    let _ = crate::config_store::write_atomic(path, &out);
 }
 
 #[cfg(test)]
