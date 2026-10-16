@@ -37,7 +37,11 @@ function createWindow(port) {
 
   // 外部链接（如磁力调起）交给系统默认程序处理
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    require('electron').shell.openExternal(url);
+    // ⚠️ 这个 url 来自**第三方页面**（抓来的 detailUrl）与磁力链，
+    // 而 `esc()` 只挡 HTML 不挡 scheme —— 不白名单的话 `file:` / `javascript:`
+    // 之类也会被交给系统处理。
+    // ⚠️ `magnet:` 必须放行：点「打开磁力」就是靠它把链接交给系统默认 BT 客户端。
+    if (/^(https?|magnet):/i.test(url)) require('electron').shell.openExternal(url);
     return { action: 'deny' };
   });
 

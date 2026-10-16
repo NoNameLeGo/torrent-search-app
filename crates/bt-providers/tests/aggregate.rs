@@ -635,11 +635,14 @@ async fn providers_without_a_resolver_return_the_js_404_text() {
     assert!(out.info_hash.is_none());
 }
 
-/// **违约 panic 的 provider。** 契约说"永不 panic"，这个故意违约 ——
-/// 用来验证聚合层兜得住（`run_provider` 里的 `AssertUnwindSafe(..).catch_unwind()`）。
+/// **违约 panic 的 provider（异步段）。** 契约说"永不 panic"，这个故意违约。
 ///
-/// ⚠️ panic 必须发生在**被 poll 的时候**（所以放在 `async move {}` 里），
-/// 不能在调用 `search()` 时就炸 —— 那样 `catch_unwind` 根本来不及接。
+/// ⚠️ 这里有**两个**违约点、必须各有一个用例，不能只留一个：
+///   · 异步段（`panic` 在 `async move {}` 里，被 poll 时才炸）→ `Panicky`
+///   · **同步段**（`search()` 本身当场炸，压根没返回 future）→ `PanickySync`
+/// 后者曾经漏网：旧写法 `AssertUnwindSafe(p.search(..)).catch_unwind()`
+/// 只包住了**返回的 future**，而 `search(..)` 的调用发生在守卫**之外** —— 同步段的
+/// panic 照旧带走整轮聚合，而用例全绿（因为唯一那条用例把 panic 放在了 future 里）。
 struct Panicky {
     id: &'static str,
 }
@@ -666,7 +669,7 @@ impl Provider for Panicky {
     }
 }
 
-/// 判据：**违约 panic 的 provider 不会掀翻别人。**
+/// 判据：**违约 panic 的 provider 不会掀翻别人**（异步段）。
 ///
 /// 这是全套移植里"Rust 比 JS 更脆"的**唯一一处** —— JS 的 `runProvider` 用
 /// `try/catch` 兜住抛异常，而 Rust 此前不给兜：一个违约的 provider 会带走整轮聚合，
@@ -674,6 +677,9 @@ impl Provider for Panicky {
 ///
 /// ⚠️ 这条用例的价值全在"它会失败"：把 `run_provider` 里的 `catch_unwind` 去掉，
 /// 这个测试就会以 panic 的形式红掉（而不是静默通过）。
+///
+/// ⚠️ **但只靠它不够** —— 它把 panic 放在 future 里，所以"调用 `search()` 在守卫之外"
+/// 那个 bug 它能过。同步段那半在下面 [`a_synchronously_panicking_provider_is_also_isolated`]。
 #[tokio::test]
 async fn a_panicking_provider_does_not_take_down_the_others() {
     let good = Fake::new("good").hits(2);
@@ -704,5 +710,59 @@ async fn a_panicking_provider_does_not_take_down_the_others() {
     assert_eq!(bad.has_more, None);
 
     // ③ 好那家仍然是 Ok
+    assert_eq!(status_of(&out, "good").status, ProviderState::Ok);
+}
+
+/// **违约 panic 的 provider（同步段）** —— `search()` 本身当场炸，不返回 future。
+struct PanickySync {
+    id: &'static str,
+}
+
+impl Provider for PanickySync {
+    fn id(&self) -> &'static str {
+        self.id
+    }
+
+    fn name(&self) -> &'static str {
+        self.id
+    }
+
+    fn search<'a>(
+        &'a self,
+        _http: &'a HttpClient,
+        _query: &'a str,
+        _page: u32,
+    ) -> BoxFuture<'a, SearchOutcome> {
+        // ⚠️ 炸在**构造 future 之前** —— 这正是旧写法兜不住的那一段。
+        // 谁想"顺手"把它挪进 async 块里，就是把这个用例废掉。
+        panic!(
+            "{} violated the never-panic contract synchronously",
+            self.id
+        );
+    }
+}
+
+/// 判据：**同步段的 panic 同样不掀翻别人。**
+///
+/// ⚠️ 去掉 `run_provider` 里那个把调用包进闭包的写法（改成
+/// `AssertUnwindSafe(p.search(..)).catch_unwind()`）这条就会红 —— 它存在的意义就是这个。
+#[tokio::test]
+async fn a_synchronously_panicking_provider_is_also_isolated() {
+    let good = Fake::new("good").hits(2);
+    let registry: Vec<Box<dyn Provider>> =
+        vec![Box::new(PanickySync { id: "panicky-sync" }), Box::new(good)];
+
+    let out = search(
+        &HttpClient::new(),
+        &registry,
+        "ubuntu",
+        args(None, 1, false),
+    )
+    .await;
+
+    assert_eq!(out.results.len(), 2, "别人的结果不该被带走");
+    let bad = status_of(&out, "panicky-sync");
+    assert_eq!(bad.status, ProviderState::Error);
+    assert_eq!(bad.error.as_deref(), Some("panicky-sync panicked"));
     assert_eq!(status_of(&out, "good").status, ProviderState::Ok);
 }

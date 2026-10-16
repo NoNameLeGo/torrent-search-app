@@ -122,13 +122,13 @@ Slint **#13548**（1.18.0 / 1.18.1 均未修）：**内联样式跨软/硬换行
 
 ### 1.5 交付物
 
-- 一个能跑的最小示例 —— `spike/slint-ui` 重建（当年约 **500 行**，分支与 `slint-spike.yml` 已于 2026-10-09 删除，需要重建）
+- 一个能跑的最小示例 —— ✅ **不需要重建**：`spike/slint-ui` 分支与 `.github/workflows/slint-spike.yml` **都在 `main` 上**（2026-10-16 核过）。M1 已通过，见 `AGENTS.md` 的「M1 实测结论」
 - 一份结论：**及格 / 不及格** + 实测体积 + 失败时的 **panic 栈原文**
 - ⚠️ **结论必须写回 `AGENTS.md` 的「Slint 探针结论（留档）」段** —— 上次分支删了，结论差点丢；这次不许再丢
 
 ### 1.6 构建方式
 
-⚠️ **spike 也要走 CI**（本机无 cargo）。重建一条 `slint-spike.yml`（触发方式：`workflow_dispatch` + 推 `spike/slint-ui` 时触发）。
+⚠️ **spike 也要走 CI**（本机无 cargo）。`slint-spike.yml` **已在 `main` 上**（触发方式：`workflow_dispatch` + 推 `spike/slint-ui`）。
 参考 `tauri-build.yml` 的写法；**放 `main` 上才能手动触发**（见 `AGENTS.md` 的 workflow 表）。
 
 ---
@@ -259,10 +259,12 @@ scripts/gh-retry.sh run view --job=<JOB_ID> --log | grep -E '^\| `'
 ### 6.1 做法（G1：fixture 回放差分，不打真站）
 
 ```
-scripts/diff-providers.mjs
-  ├─ 对每个 test/fixtures/<site>-<query>.{json,html}
-  ├─ Node 侧：require('src/providers/<site>.js') + 现有 createMockHTTP() 喂 fixture → 规范化 JSON
-  ├─ Rust 侧：cargo run -p bt-providers --example dump_provider -- <site> <fixture> → 规范化 JSON
+scripts/diff/{fixtures.cjs, compare.cjs, node.cjs, run.cjs}      ← ✅ 实际落地的是这四件套
+  ├─ 对每个 test/fixtures/<site>-<query>.{json,html}（两张手写表，见 fixtures.cjs 表头）
+  ├─ Node 侧：require.cache 预填一个 **axios 桩**再 require provider（⚠️ **不是** createMockHTTP
+  │            —— 这样本机零依赖也能跑），dump 成规范化 JSON
+  ├─ Rust 侧：`cargo test -p bt-providers --test dump_rust` 写 JSON（⚠️ **不是** `--example
+  │            dump_provider`；CWD 用 CARGO_MANIFEST_DIR 上溯两级解析，别依赖调用方 CWD）
   └─ 逐字段 diff；差异必须命中「已知 divergence 白名单」，否则非零退出
 ```
 

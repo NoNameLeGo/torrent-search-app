@@ -44,7 +44,7 @@ jobs:
         shell: bash
         run: |
           echo "::warning::这个 ref 上没有 test/fixtures/html-probes.json，无事可做。"
-          echo "请用 Actions → 这个 workflow → Run workflow → 选分支 feat/rust。"
+          echo "请用 Actions → 这个 workflow → Run workflow → 选分支 main。"
 
       # 只装 cheerio，不装 electron/electron-builder 那一堆（它们是 devDependencies）
       - name: 安装 cheerio

@@ -16,10 +16,11 @@
 //!     `registry::list()` 的条目类型、以及所有**存下** `p.id()` 的地方；
 //!  ② 把配置串 `Box::leak` 成 `&'static str` —— 零改动。
 //!
-//! 选了 ②：**泄漏是"每个配置索引器一次"、进程生命周期内不释放**，
-//! 而配置对象的寿命本来就是整个进程（用户在 UI 里加几个索引器 ⇒ 泄漏几个短字符串）。
-//! 这不是"每请求泄漏"。⚠️ 真到了要在意的规模（几百个索引器 + 反复增删），
-//! 就该走 ① —— 那时把这条注释当成迁移说明。
+//! 选了 ②。⚠️ **但"每个索引器一次"这句已经不准确了**：`provider_set()` 是
+//! **每次搜索现造一份**（#4 的工厂改造，为了让 Torznab 能动态追加），
+//! 所以真实代价是「**每搜索一次、每索引器 2 个短串**」，进程生命周期内不释放。
+//! 量级上不用担心（3 个索引器 × 搜 100 次 ≈ 20KB），但它是**真泄漏**、不是常量 ——
+//! 真到在意的规模（几十个索引器 + 长跑）就该走 ①。
 
 use std::time::Duration;
 
@@ -82,8 +83,13 @@ pub fn normalize_api_url(url: &str) -> String {
     while u.ends_with('/') {
         u.pop();
     }
-    // `/\/api$/i`
-    let ends_with_api = u.len() >= 4 && u[u.len() - 4..].eq_ignore_ascii_case("/api");
+    /// `/\/api$/i`
+    ///
+    /// ⚠️ **不能裸切字节**：`u[u.len() - 4..]` 在多字节字符中间会 **panic**
+    ///（用户填 `http://localhost:9117/中文` 就中招，而且每次搜索都复发）。
+    let ends_with_api = u
+        .get(u.len().saturating_sub(4)..)
+        .is_some_and(|t| t.eq_ignore_ascii_case("/api"));
     if !ends_with_api {
         u.push_str("/api");
     }
@@ -274,6 +280,11 @@ mod tests {
         assert_eq!(
             normalize_api_url("http://host:9117"),
             "http://host:9117/api"
+        );
+        // ⚠️ 收尾多字节字符：旧版裸切 `u[len-4..]` 会落在这两个字符的续字节上 ⇒ **panic**
+        assert_eq!(
+            normalize_api_url("http://host:9117/中文"),
+            "http://host:9117/中文/api"
         );
     }
 

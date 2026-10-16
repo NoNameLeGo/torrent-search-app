@@ -1,0 +1,58 @@
+name: Node (test)
+
+# 目的：**让 Node 侧的解析测试真正成为门。**
+#
+# ⚠️ 这是 2026-10-16 审计抓到的洞：`package.json` 里明明有
+#     "test": "node test/run.js && node test/normalize.test.js"
+# 而**没有任何 workflow 调它** —— 也就是说 Node 版（Rust 重写期间的日常主力、
+# 也是 M6 差分的对照物）解析回归可以一路绿灯发版。
+# 之前 11 条 workflow 里唯一碰 npm 的是 `build.yml`，它只 `npm ci` 然后打包。
+#
+# 单开一条而不塞进 build.yml：build.yml 要装 electron 全家桶 + 打安装包（几分钟），
+# 而这里只需要 axios/cheerio/express 三个运行时依赖（`npm ci` 秒级）。
+#
+# 只跑 `npm test`（= run.js + normalize.test.js），**不跑 lint**：
+# eslint 的规则变动与"解析是否退化"无关，混在一起会让这条门变得爱红、最后没人看。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'test/**'
+      - 'server.js'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/node.yml'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'test/**'
+      - 'server.js'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/node.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v5
+
+      - name: 安装 Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: Node 测试（golden fixture，全程无外网）
+        run: npm test

@@ -6,8 +6,12 @@ name: Rust exe size (S1/S2 探针)
 # release.yml 的手动触发会**顺带构建 Electron 与 Tauri 两个安装包**（20+ 分钟），
 # 而量体积只需要 `cargo build --release -p bt-app`。
 #
-# 与 `m6-diff.yml` / `provider-health.yml` 同一套做法：**探针，不是门** ——
-# 只挂 `workflow_dispatch`，不参与任何 push/PR 门。
+# ⚠️ **它是门，不是探针**（2026-10-16 审计后改的）：`AGENTS.md` 一直写
+# 「体积回归门（25MB，`rust-size.yml`）✅」，但它此前只挂 `workflow_dispatch`
+# ⇒ 实际上是「谁也不跑的手动探针」，那条 ✅ 是假的。真·探针是
+# `m6-diff.yml` / `provider-health.yml` 那两个（它们只该手动跑）。
+# 现在它跟 `push main` 走 —— 只在 **碰了 Cargo.toml / crates/** 时触发，
+# 因为体积只可能被这两类改动动到；改文档不该白花 5 分钟重编一遍。
 #
 # ## 2026-10-16 第一次跑的结论（**口径很重要，别误读**）
 #
@@ -20,6 +24,12 @@ name: Rust exe size (S1/S2 探针)
 # 不同程序 + 不同链接口径，**不可直接比**。
 # 真正有意义的对照是 **Electron portable = 151,416,455 字节（≈151MB）**。
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'Cargo.toml'
+      - 'crates/**'
+      - '.github/workflows/rust-size.yml'
   workflow_dispatch:
 
 permissions:
@@ -63,7 +73,7 @@ jobs:
       #
       # 18MB 单文件 / 8.5MB zip 是这个项目**唯一"非功能但决定性"的卖点**（D7/D12/S1），
       # 但它只会在**发版时**才被人注意到 —— 那时已经晚了。所以在这里钉一个上限：
-      # 任何一次改动把 exe 撑过 25MB，跑这个探针就会红，而不是等到下次 tag。
+      # 任何一次改动把 exe 撑过 25MB，这条门（`push main` 且碰了 `crates/**`）就会红。
       #
       # ⚠️ 上限是**预算**而不是"当前值 + 一点余量"：留 ~35% 空间给正常增长，
       #    同时挡住"悄悄多链进来一个几百 KB 的依赖"那种退化。

@@ -75,12 +75,21 @@ pub(crate) async fn push(cfg: &Config, magnet: &str) -> Result<PushOutcome, Stri
         .map_err(net_err)?;
 
     // axios 对非 2xx 会抛；reqwest 不会 —— 所以这里必须自己查。
-    if !resp.status().is_success() {
-        return Err(status_err(resp.status()));
+    let status = resp.status();
+    if !status.is_success() {
+        return Err(status_err(status));
+    }
+
+    // ⚠️ **必须读正文**：qB 拒绝一个种子时回的是 **HTTP 200 + 正文 `Fails.`**
+    //（不是错误码 —— 它 200/404 两套都会用）。只看状态码会把"什么都没加"
+    // 报成「已推送到 qbittorrent（HTTP 200）」并标 Done，最典型的触发是**同一个磁力推两次**。
+    let body = resp.text().await.map_err(net_err)?;
+    if body.trim().eq_ignore_ascii_case("fails.") {
+        return Err("qBittorrent 拒绝了这个种子（Fails.）—— 多半是它已经在列表里了".to_string());
     }
 
     Ok(PushOutcome {
-        status: resp.status().as_u16(),
+        status: status.as_u16(),
     })
 }
 

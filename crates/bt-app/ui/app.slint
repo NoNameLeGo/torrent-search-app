@@ -216,6 +216,12 @@ export struct Chip {
 
 component ChipRow inherits Rectangle {
     in property <Chip> item;
+    /// 搜索进行中要置灰 —— **不是**美观问题：
+    /// 排序会重编号 `idx`、筛选会把模型换成 `view()`（子集），而搜索中回报是**按
+    /// `rows` 下标增量 push** 的（`for r in rows.iter().skip(row_count())`）——
+    /// 搜索期间重排一次，那个 `skip` 就会推开重复行 / 漏行。
+    /// （不用 `enabled` 这个名字：它是内建属性名，怕碰。）
+    in property <bool> can-pick: true;
     // 老坑：组件里的 `root` 不是窗口 ⇒ 必须转发
     callback pick(string);
 
@@ -224,6 +230,7 @@ component ChipRow inherits Rectangle {
 
     Button {
         text: item.label;
+        enabled: root.can-pick;
         clicked => { root.pick(item.id); }
     }
 }
@@ -303,12 +310,15 @@ export component AppWindow inherits Window {
                 enabled: !root.searching && root.has-more;
                 clicked => { root.next-page(); }
             }
-            Text {
-                text: root.status-text;
-                color: Theme.sub;
-                vertical-alignment: center;
-                width: 230px;
-            }
+        }
+
+        // ⚠️ 状态行**单独一行**：它是"一条都没有"时唯一告诉用户该干什么的地方
+        //（「网络层不通 / 站点层失败 / 换关键词」），之前挤在搜索行里只有 230px，
+        // 正好把那段最有用的话截掉。
+        Text {
+            text: root.status-text;
+            color: Theme.sub;
+            horizontal-stretch: 1;
         }
 
         // ---- 下载器行（MVP：种类 4 个按钮 + url + 凭据 + 探测/保存）----
@@ -434,6 +444,7 @@ export component AppWindow inherits Window {
                         height: 104px;
                         for s in root.sorts : ChipRow {
                             item: s;
+                            can-pick: !root.searching;
                             pick(id) => { root.pick-sort(id); }
                         }
                     }
@@ -451,6 +462,7 @@ export component AppWindow inherits Window {
                         height: 130px;
                         for c in root.cats : ChipRow {
                             item: c;
+                            can-pick: !root.searching;
                             pick(id) => { root.pick-category(id); }
                         }
                     }

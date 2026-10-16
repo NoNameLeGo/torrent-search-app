@@ -66,6 +66,12 @@ static REL_AGO_RE: LazyLock<Regex> = LazyLock::new(|| {
 });
 static YESTERDAY_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)^yesterday$").unwrap());
 static TODAY_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)^today$").unwrap());
+/// ⚠️ JS 是 `/Сегодня/i`、`/Вчера/i`（**大小写不敏感**）。用 `str::replace` 只能匹配
+/// 首字母大写的写法 —— 站上写小写时静默丢日期（`date_text` 变 `—`），
+/// 而这是「两侧应当逐字一致」的差分口径下不该存在的分歧。
+/// （`(?i)` 对西里尔生效：regex 走 Unicode 大小写折叠。）
+static SEGODNYA_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)Сегодня").unwrap());
+static VCHERA_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)Вчера").unwrap());
 static LAST_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i)^last\s+(month|year)$").unwrap());
 static MAY_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)мая").unwrap());
@@ -419,7 +425,8 @@ pub fn ru_date(s: &str) -> String {
     if s.is_empty() {
         return String::new();
     }
-    let s = s.replace("Сегодня", "Today").replace("Вчера", "Yesterday");
+    let s = SEGODNYA_RE.replace_all(&s, "Today");
+    let s = VCHERA_RE.replace_all(&s, "Yesterday");
     // JS: .replace(/Мая/gi, 'Май') —— 属格转主格
     let s = MAY_RE.replace_all(&s, "Май").into_owned();
     CYR_WORD_RE

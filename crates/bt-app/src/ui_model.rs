@@ -62,6 +62,13 @@ pub struct ChipData {
 #[derive(Debug, Clone, PartialEq)]
 pub struct RowData {
     pub idx: i32,
+    /// **稳定 key** —— 这一行一生不变（`idx` 会被排序重编号）。
+    ///
+    /// ⚠️ 为什么要它：`push_row` 中间有个**网络往返**（惰性解析磁力），回来时用户
+    /// 可能已经点过排序 chip（[`sort_rows`] 会重编号 `idx`）⇒ 拿旧 `idx` 写回会把
+    /// 解析出的磁力和「已推送 ✓」落到**别的行**上 —— 之后复制/推送用的是**错磁力**。
+    /// 所以凡是**跨 await 的写回**，一律用 key 定位，不用 `idx`。
+    pub key: u64,
     /// markdown 串（关键词高亮已经注入）—— **不是** `StyledText`，
     /// 因为本层要能离线单测，而 `StyledText` 属于 UI 线程的东西。
     pub title_markup: String,
@@ -85,11 +92,13 @@ pub struct RowData {
 }
 
 impl RowData {
-    /// 从一条 `TorrentResult` 建行。`idx` 由调用方给（= 它在权威 Vec 里的下标）。
-    pub fn from_result(r: &TorrentResult, idx: i32, query: &str, accent: &str) -> Self {
+    /// 从一条 `TorrentResult` 建行。`idx` = 它在权威 Vec 里的下标，`key` = 稳定标识
+    /// （由 [`AppState::apply_report`] 发号，别自己编）。
+    pub fn from_result(r: &TorrentResult, idx: i32, key: u64, query: &str, accent: &str) -> Self {
         let has_magnet = r.magnet.as_deref().is_some_and(|m| !m.is_empty());
         Self {
             idx,
+            key,
             title_markup: highlight_markup(&r.name, query, accent),
             title_plain: r.name.clone(),
             meta: meta_text(r),
@@ -420,6 +429,9 @@ pub struct AppState {
     /// ⚠️ 用 `HashMap` 而不是 Vec：这里只按 id 查，不需要顺序
     /// —— 顺序由 `chips` 保证，那才是 UI 的显示顺序。
     pub stale: std::collections::HashMap<String, usize>,
+    /// 发号器（见 [`RowData::key`]）。只增不减 —— **不随 `begin_search` 归零**，
+    /// 否则上一轮迟到的异步写回可能命中新搜索里的同号行。
+    next_key: u64,
 }
 
 impl AppState {
@@ -589,7 +601,10 @@ impl AppState {
     pub fn apply_report(&mut self, report: &ProviderReport, query: &str, accent: &str) {
         for r in &report.results {
             let idx = self.rows.len() as i32;
-            self.rows.push(RowData::from_result(r, idx, query, accent));
+            self.next_key += 1;
+            let key = self.next_key;
+            self.rows
+                .push(RowData::from_result(r, idx, key, query, accent));
         }
 
         // #2 「连上了但 0 条」单独计数 —— 它的 tone 也是 Ok，从 chips 里看不出来。
@@ -641,6 +656,33 @@ impl AppState {
             return None;
         }
         self.rows.get(idx as usize)
+    }
+
+    /// 按**稳定 key** 找行 —— 跨 await 的写回必须用它（见 [`RowData::key`]）。
+    pub fn row_by_key(&self, key: u64) -> Option<&RowData> {
+        self.rows.iter().find(|r| r.key == key)
+    }
+
+    /// 按 key 改按钮状态。返回 `false` = 那行已经不在了（被新搜索清掉）—— 静默即可。
+    pub fn set_action_by_key(&mut self, key: u64, action: RowAction) -> bool {
+        match self.rows.iter_mut().find(|r| r.key == key) {
+            Some(r) => {
+                r.action = action;
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// 按 key 写回解析出的磁力。
+    pub fn set_magnet_by_key(&mut self, key: u64, magnet: String) -> bool {
+        match self.rows.iter_mut().find(|r| r.key == key) {
+            Some(r) => {
+                r.magnet = Some(magnet);
+                true
+            }
+            None => false,
+        }
     }
 
     pub fn set_action(&mut self, idx: i32, action: RowAction) -> bool {
@@ -955,12 +997,12 @@ mod tests {
         let mut r = hit("x", "tpb", None);
         r.seeders = Some(-5);
         r.leechers = None;
-        let row = RowData::from_result(&r, 0, "q", "#fff");
+        let row = RowData::from_result(&r, 0, 0, "q", "#fff");
         assert_eq!(row.seeds, 0);
         assert_eq!(row.leechers, 0);
 
         r.seeders = Some(i64::MAX);
-        let row = RowData::from_result(&r, 0, "q", "#fff");
+        let row = RowData::from_result(&r, 0, 0, "q", "#fff");
         assert_eq!(row.seeds, i32::MAX);
     }
 
@@ -1109,7 +1151,7 @@ mod tests {
 
     /// 造一行：`seeds` / `size` / `date` / `category` 都能给。
     fn row_at(idx: i32, name: &str, seeds: i32, size: Option<i64>, cat: Option<&str>) -> RowData {
-        let mut r = RowData::from_result(&hit(name, "tpb", None), idx, "q", "#fff");
+        let mut r = RowData::from_result(&hit(name, "tpb", None), idx, idx as u64, "q", "#fff");
         r.seeds = seeds;
         r.size = size;
         r.category = cat.map(|c| c.to_string());
@@ -1139,6 +1181,84 @@ mod tests {
             vec![0, 1, 2],
             "idx 必须按**新顺序**重编号"
         );
+    }
+
+    /// ⚠️ **这条钉的是上面那条注释没说到的那一半**：`idx` 重编号只保证了
+    /// "**点击那一刻**按下标取到的是对的行"；而 `push_row` 中间隔着一次网络往返，
+    /// 回来时 `idx` 可能已经指到别的行了 ⇒ 那条路必须用 `key`。
+    /// 去掉 `set_action_by_key` / `set_magnet_by_key` 而改用 `set_action(idx, …)`，
+    /// 这条测试会红（磁力落到 "b" 上）。
+    #[test]
+    fn deferred_writes_survive_a_resort_because_they_use_the_key() {
+        let mut st = AppState::new();
+        st.begin_search(&two_providers());
+        st.apply_report(
+            &report(
+                "tpb",
+                "TPB",
+                vec![
+                    TorrentResult {
+                        name: "a".to_string(),
+                        size: Some(100),
+                        ..hit("a", "tpb", None)
+                    },
+                    TorrentResult {
+                        name: "b".to_string(),
+                        size: Some(900),
+                        ..hit("b", "tpb", None)
+                    },
+                ],
+                None,
+            ),
+            "q",
+            "#fff",
+        );
+        // 用户点的是 "a"（下标 0），把自己的 key 交给异步阶段
+        let key = st.rows[0].key;
+        assert_eq!(st.rows[0].title_plain, "a");
+
+        // 用户接着点了排序（换一个键 ⇒ 方向默认降序）⇒ "b" 跑到下标 0
+        st.pick_sort(SortKey::Size, "q");
+        assert_eq!(st.rows[0].title_plain, "b");
+
+        // 异步阶段回来了，按 key 写回
+        assert!(st.set_magnet_by_key(key, "magnet:?xt=urn:btih:AAA".to_string()));
+        assert!(st.set_action_by_key(key, RowAction::Done));
+
+        assert_eq!(st.rows[1].title_plain, "a");
+        assert_eq!(
+            st.rows[1].magnet.as_deref(),
+            Some("magnet:?xt=urn:btih:AAA"),
+            "磁力必须落在用户点的那一行上"
+        );
+        assert_eq!(st.rows[1].action, RowAction::Done);
+        assert_eq!(st.rows[0].magnet, None, "不该落到排到前面的那一行");
+        assert_eq!(st.rows[0].action, RowAction::Ready);
+
+        // 那行被新搜索清掉之后，写回只是静默失效（不 panic、不命中间号）
+        st.begin_search(&two_providers());
+        assert!(!st.set_action_by_key(key, RowAction::Done));
+    }
+
+    /// key 只增不减（否则上一轮迟到的写回会命中新一轮的同号行）。
+    #[test]
+    fn keys_are_never_reused_across_searches() {
+        let mut st = AppState::new();
+        st.begin_search(&two_providers());
+        st.apply_report(
+            &report("tpb", "TPB", vec![hit("a", "tpb", None)], None),
+            "q",
+            "#fff",
+        );
+        let first = st.rows[0].key;
+
+        st.begin_search(&two_providers());
+        st.apply_report(
+            &report("tpb", "TPB", vec![hit("a", "tpb", None)], None),
+            "q",
+            "#fff",
+        );
+        assert_ne!(st.rows[0].key, first, "新一轮的同一行必须换一个 key");
     }
 
     /// 缺值**恒排最后**，而且方向只翻转有值那一档 ——

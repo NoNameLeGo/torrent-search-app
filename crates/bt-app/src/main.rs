@@ -216,6 +216,14 @@ struct UiState {
     /// 加/删都走 [`apply_indexers`]，它同时负责"重建动态工厂 + 落盘 + 更新状态栏"。
     indexers: Vec<bt_torznab::IndexerConfig>,
     status: String,
+    /// **搜索代数围栏**。每开一轮 +1；回报/收尾的闭包各自带一份开轮时的值，
+    /// 不匹配就整个丢掉。
+    ///
+    /// ⚠️ 为什么要它：`accepted` 不受 `searching` 拦（用户可以回车再搜一次），
+    /// 而 `begin_search` 会**清空** rows/chips。没有围栏时，**上一轮**迟到的回报会把旧结果
+    /// 追加进已清空的列表，而且是用**新关键词**去高亮；它的收尾还会把新搜索的状态行与
+    /// `has_more` 盖掉。
+    search_gen: u64,
 }
 
 thread_local! {
@@ -232,6 +240,7 @@ thread_local! {
         downloader: None,
         indexers: Vec::new(),
         status: "就绪".to_string(),
+        search_gen: 0,
     });
 }
 
@@ -391,7 +400,19 @@ fn start_search(ui: &AppWindow, query: String, page: u32) {
     .map(|p| (p.id().to_string(), p.name().to_string()))
     .collect();
 
-    STATE.with(|s| {
+    // ⚠️ 空目标要在 `begin_search` **之前**拦：`begin_search` 会清空 rows ——
+    // 先清再报错的话，「第 1 页有结果 + 取消勾选全部 paginated 站 + 点下一页」会把
+    // 屏幕上的第 1 页结果清光，只留一句「没有可用的站点」（用户的东西被自己弄没了）。
+    if targets.is_empty() {
+        STATE.with(|s| {
+            let mut st = s.borrow_mut();
+            st.status = "没有可用的站点（可能都取消勾选了）—— 结果保持不变".to_string();
+            sync_small(ui, &st);
+        });
+        return;
+    }
+
+    let my_gen = STATE.with(|s| {
         let mut st = s.borrow_mut();
         st.app.begin_search(&targets);
         st.app.set_page(page);
@@ -405,19 +426,14 @@ fn start_search(ui: &AppWindow, query: String, page: u32) {
         // 换一个新模型：整块重建一次是安全的（此时列表本来就是空的）
         st.rows_model = Rc::new(VecModel::from(Vec::new()));
         st.status = format!("搜索中…（第 {page} 页 · {} 家）", targets.len());
+        // 发号 —— 这一轮的所有回报都要对得上它
+        st.search_gen += 1;
+        let gen = st.search_gen;
 
         ui.set_rows(ModelRc::from(st.rows_model.clone()));
         sync_small(ui, &st);
+        gen
     });
-
-    if targets.is_empty() {
-        STATE.with(|s| {
-            let mut st = s.borrow_mut();
-            st.status = "没有可用的站点".to_string();
-            sync_small(ui, &st);
-        });
-        return;
-    }
 
     let q = query.clone();
     // ③ `picked` 是 String，异步块要自己持有一份（不能借用 STATE）
@@ -444,8 +460,16 @@ fn start_search(ui: &AppWindow, query: String, page: u32) {
                     let Some(ui) = weak.upgrade() else { return };
                     STATE.with(|s| {
                         let mut st = s.borrow_mut();
+                        // ⚠️ 代数围栏：不是这一轮了 ⇒ 这轮已被取代（用户又搜了一次），
+                        // 结果**整个丢掉** —— 否则旧结果会被追加进新列表、并按新关键词高亮。
+                        if st.search_gen != my_gen {
+                            return;
+                        }
                         st.app.apply_report(&report, &q, &accent);
-                        // 增量 push：保住用户的滚动位置
+                        // 增量 push：保住用户的滚动位置。
+                        // ⚠️ 这条依赖"模型 == 权威 rows"这个不变式：排序/分类 chip 在
+                        // `searching` 时是灰的（见 `.slint`），搜索中没人能把模型重排成
+                        // `view()`（那样长度就对不上，`skip` 会推开重复行）。
                         for r in st.app.rows.iter().skip(st.rows_model.row_count()) {
                             st.rows_model.push(to_slint_row(r));
                         }
@@ -463,6 +487,12 @@ fn start_search(ui: &AppWindow, query: String, page: u32) {
             let Some(ui) = weak.upgrade() else { return };
             STATE.with(|s| {
                 let mut st = s.borrow_mut();
+
+                // ⚠️ 同一道代数围栏：旧搜索的收尾**不能**写状态行与 `has_more`，
+                // 否则它会把新一轮刚点亮的「下一页」和统计数字盖回上一轮的。
+                if st.search_gen != my_gen {
+                    return;
+                }
 
                 // #6 把这一轮**每家**的结果落盘（引擎健康度历史）。
                 // ⚠️ 数据不用另接管道：`outcome.providers` 里已经有每家的
@@ -571,7 +601,7 @@ fn push_row(ui: &AppWindow, idx: i32) {
 
         match row.magnet() {
             Some(m) => Some(Plan {
-                idx,
+                key: row.key,
                 kind,
                 cfg,
                 provider: row.provider.clone(),
@@ -586,7 +616,7 @@ fn push_row(ui: &AppWindow, idx: i32) {
                     return None;
                 };
                 Some(Plan {
-                    idx,
+                    key: row.key,
                     kind,
                     cfg,
                     provider: row.provider.clone(),
@@ -603,8 +633,8 @@ fn push_row(ui: &AppWindow, idx: i32) {
     // 立刻反馈：按钮变成「解析中…」/「已推送 ✓」由异步阶段写
     STATE.with(|s| {
         let mut st = s.borrow_mut();
-        st.app.set_action(
-            plan.idx,
+        st.app.set_action_by_key(
+            plan.key,
             if plan.need_resolve {
                 ui_model::RowAction::Resolving
             } else {
@@ -617,7 +647,7 @@ fn push_row(ui: &AppWindow, idx: i32) {
             format!("正在推送到 {}…", plan.kind.as_str())
         };
         sync_small(ui, &st);
-        refresh_row(&st, plan.idx);
+        refresh_row(&st, plan.key);
     });
 
     let weak = ui.as_weak();
@@ -627,14 +657,14 @@ fn push_row(ui: &AppWindow, idx: i32) {
     // 旧代码用 `registry()`（`'static`）从哪个线程读都对，这是本次改动**引入的新风险**。
     let resolve_providers = provider_set();
     spawn(async move {
-        let idx = plan.idx;
+        let key = plan.key;
 
         // 第 1 步：需要就先惰性解析磁力
         let magnet = if plan.need_resolve {
             let url = plan.detail_url.clone().unwrap_or_default();
             // `Box<dyn Provider>` **不是 Clone**，所以这里只能借（集合已经 move 进来了）。
             let Some(p) = resolve_providers.iter().find(|p| p.id() == plan.provider) else {
-                finish(&weak, idx, format!("找不到站点 {}", plan.provider));
+                finish(&weak, key, format!("找不到站点 {}", plan.provider));
                 return;
             };
 
@@ -648,7 +678,7 @@ fn push_row(ui: &AppWindow, idx: i32) {
                 None => {
                     finish(
                         &weak,
-                        idx,
+                        key,
                         out.error.unwrap_or_else(|| "no resolver".to_string()),
                     );
                     return;
@@ -666,25 +696,27 @@ fn push_row(ui: &AppWindow, idx: i32) {
                 let mut st = s.borrow_mut();
                 match pushed {
                     Ok(out) => {
-                        st.app.set_magnet(idx, magnet);
-                        st.app.set_action(idx, ui_model::RowAction::Done);
+                        st.app.set_magnet_by_key(key, magnet);
+                        st.app.set_action_by_key(key, ui_model::RowAction::Done);
                         st.status =
                             format!("已推送到 {}（HTTP {}）", plan.kind.as_str(), out.status);
                     }
                     Err(e) => {
-                        st.app.set_action(idx, ui_model::RowAction::Ready);
+                        st.app.set_action_by_key(key, ui_model::RowAction::Ready);
                         st.status = format!("推送失败：{e}");
                     }
                 }
                 sync_small(&ui, &st);
-                refresh_row(&st, idx);
+                refresh_row(&st, key);
             });
         });
     });
 }
 
 struct Plan {
-    idx: i32,
+    /// **稳定 key**（不是下标）—— 这个计划要跨越一次网络往返，
+    /// 期间用户可能点排序 chip 而把 `idx` 重编号（见 `RowData::key`）。
+    key: u64,
     kind: Kind,
     cfg: Config,
     provider: String,
@@ -694,31 +726,36 @@ struct Plan {
 }
 
 /// 把某个失败原因写回界面（由后台线程调用）。
-fn finish(weak: &slint::Weak<AppWindow>, idx: i32, msg: String) {
+fn finish(weak: &slint::Weak<AppWindow>, key: u64, msg: String) {
     let weak = weak.clone();
     let _ = slint::invoke_from_event_loop(move || {
         let Some(ui) = weak.upgrade() else { return };
         STATE.with(|s| {
             let mut st = s.borrow_mut();
-            st.app.set_action(idx, ui_model::RowAction::Ready);
+            st.app.set_action_by_key(key, ui_model::RowAction::Ready);
             st.status = format!("取磁力失败：{msg}");
             sync_small(&ui, &st);
-            refresh_row(&st, idx);
+            refresh_row(&st, key);
         });
     });
 }
 
-/// 只刷新一行（按钮文案会变）—— 不必重建整个列表。
-fn refresh_row(st: &UiState, idx: i32) {
-    if idx < 0 {
+/// 只刷新一行（按钮文案会变）—— 不必重建整个列表（那会把滚动位置顶回去）。
+///
+/// ⚠️ 收的是**稳定 key**，不是下标 —— 模型里装的是 [`AppState::view`]（筛选后的子集），
+/// 而下标是"权威 `rows` 里的位置"，筛选状态下两者不同 ⇒ 用下标会把**别的行**的内容
+/// 画到这张卡上。行已经不在视图里（被筛掉 / 被新搜索清掉）就什么也不做。
+fn refresh_row(st: &UiState, key: u64) {
+    let found = {
+        let view = st.app.view();
+        view.iter()
+            .position(|r| r.key == key)
+            .map(|pos| (pos, to_slint_row(view[pos])))
+    };
+    let Some((pos, row)) = found else {
         return;
-    }
-    let i = idx as usize;
-    if i < st.rows_model.row_count() {
-        if let Some(row) = st.app.row(idx) {
-            st.rows_model.set_row_data(i, to_slint_row(row));
-        }
-    }
+    };
+    st.rows_model.set_row_data(pos, row);
 }
 
 // ---------------------------------------------------------------------------
@@ -738,16 +775,27 @@ fn save_downloader(ui: &AppWindow) {
 
     // ⚠️ 信任边界：只放行 http/https。JS 把这一步放在 server.js 的 safeHttpUrl；
     // Rust 侧没有那层服务器，所以放库里 —— 而且 `push` 内部还会再查一次。
-    if downloaders::safe_http_url(&url).is_none() {
+    // ⚠️ 这个函数**返回归一化后的 URL**，别只拿它当"合法吗"的谓词：
+    // 手输的串可能带空格/大写，归一化结果才是下游该用的那份。
+    let Some(url) = downloaders::safe_http_url(&url) else {
         STATE.with(|s| {
             let mut st = s.borrow_mut();
             st.status = "地址不合法：只接受 http:// 或 https://".to_string();
             sync_small(ui, &st);
         });
         return;
-    }
+    };
 
-    let kind = Kind::parse(&ui.get_downloader_kind()).unwrap_or(Kind::Qbittorrent);
+    // ⚠️ 认不出来**不能默认成 qBittorrent**：那会把用户填的凭据发到这台主机的
+    // qB 登录端点，并把报错误导成"qB 登录失败"。认不出就拒绝保存。
+    let Some(kind) = Kind::parse(&ui.get_downloader_kind()) else {
+        STATE.with(|s| {
+            let mut st = s.borrow_mut();
+            st.status = "无法识别的下载器类型（界面状态异常）—— 请重开设置面板再试".to_string();
+            sync_small(ui, &st);
+        });
+        return;
+    };
     let secret = ui.get_downloader_secret().to_string();
     let (user, pass, token) = if downloaders::meta_of(kind).auth == downloaders::Auth::Token {
         (String::new(), String::new(), secret)
@@ -808,11 +856,12 @@ fn add_indexer(ui: &AppWindow) {
         ui.set_indexer_status("请先填 Torznab 地址".into());
         return;
     }
-    // 与下载器同一个信任边界：只放行 http/https（不合法就别存进配置文件了）
-    if downloaders::safe_http_url(&url).is_none() {
+    // 与下载器同一个信任边界：只放行 http/https（不合法就别存进配置文件了），
+    // 并且**把归一化结果留下来**（别丢掉返回值、把未校验的原文存进去）。
+    let Some(url) = downloaders::safe_http_url(&url) else {
         ui.set_indexer_status("地址不合法：只接受 http:// 或 https://".into());
         return;
-    }
+    };
 
     let name = if name.trim().is_empty() {
         // 名字留空 ⇒ 用地址当代名（比让所有索引器都叫 "Torznab" 有用）
@@ -1142,7 +1191,18 @@ fn main() -> Result<(), slint::PlatformError> {
     // ⚠️ 必须在这里做（UI 线程、第一次搜索之前）：`provider_set()` 读的是
     // `thread_local`，在 `spawn` 出来的后台线程里读会读到空的一份。
     // ⚠️ 文件坏了 / 一个都没配 ⇒ 空列表，**不影响启动**（与 config_store 同口径）。
-    let indexers = config_store::load_indexers();
+    // ⚠️ **启动这条路也得过 `safe_http_url`** —— 此前只有 UI 的「添加索引器」过了，
+    // 手改过 `indexers.json` 的人能让 `file://` / `ftp://` 进搜索路径（UI 那条就白拦了）。
+    // 顺手把归一化结果写回去，下游就不必反复解析未校验的原文。
+    let indexers: Vec<_> = config_store::load_indexers()
+        .into_iter()
+        .filter_map(|mut i| {
+            downloaders::safe_http_url(&i.url).map(|u| {
+                i.url = u;
+                i
+            })
+        })
+        .collect();
     // ⚠️ 启动这条路**不落盘**：只是把已有的读回来。从没配过索引器的机器不该因为
     // 启动一次就多出一个 indexers.json —— 落盘只发生在用户点「添加 / 清空」时。
     ui.set_indexer_status(config_store::describe(&indexers).into());

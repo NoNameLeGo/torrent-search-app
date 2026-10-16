@@ -51,7 +51,7 @@ jobs:
         shell: bash
         run: |
           echo "::warning::ref 上还没有 crates/bt-providers，联网冒烟无事可做。"
-          echo "请用 Actions → 这个 workflow → Run workflow → 选分支 feat/rust。"
+          echo "请用 Actions → 这个 workflow → Run workflow → 选分支 main。"
 
       - name: 提示
         if: always()

@@ -163,7 +163,12 @@ async fn run_provider<'a>(
     // ⚠️ 必须 `AssertUnwindSafe`：`&dyn Provider` 与 reqwest 的 future 都不是
     // `UnwindSafe`（内部有可变状态）。这是**有意的接受** —— panic 之后我们不再信任
     // **那一家** provider 的局部状态，但整轮搜索不该因此作废。
-    let out = match AssertUnwindSafe(p.search(http, query, page))
+    // ⚠️ **`p.search(..)` 的调用本身必须在闭包里**：只把返回的 future 包进去
+    // （`AssertUnwindSafe(p.search(..)).catch_unwind()`）挡不住 `search()` **同步段**
+    // 的 panic —— 那一段在构造 future 时就跑完了，压根没进守卫。
+    // 内置 16 家的 search 都是 `Box::pin(crate::x::search(..))`（不可达），
+    // 但 `Provider` 是公开的扩展点，而 Torznab 是每次搜索现造状态的。
+    let out = match AssertUnwindSafe(async { p.search(http, query, page).await })
         .catch_unwind()
         .await
     {

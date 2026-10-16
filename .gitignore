@@ -56,3 +56,7 @@ src-tauri/gen/
 # Rust workspace（feat/rust 主线）构建产物 —— 本机不开构建，target 只会在 CI 产生
 /target/
 
+
+# 本地审计报告（本轮 4 份 .md，不入库）
+.audit/
+__pycache__/

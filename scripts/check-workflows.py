@@ -24,6 +24,7 @@ Git Bash / CI 上直接能看中文；Windows 的 GBK 控制台会显示乱码�
 
 import glob
 import os
+import re
 import sys
 
 # Windows 控制台默认 GBK，直接 print 中文/对钩会 UnicodeEncodeError。
@@ -38,6 +39,27 @@ except ImportError:  # 没装就退化成字符串级检查，不因为它失败
 
 # 一个真 workflow 不可能小于这个数（历史那个空文件是 0 字节）
 MIN_BYTES = 200
+
+
+def referenced_scripts(text):
+    """workflow 里提到的 `scripts/...` 路径（去重，去尾随标点）。
+
+    ⚠️ 为什么要查这个：`docs/CI_FAILURES.md` #1 那个故障的形态就是
+    「workflow 在、脚本不在」—— `provider-health.yml` / `html-probes.yml` 在
+    `main` 上调 `scripts/provider-health.mjs` / `scripts/html-probes.cjs`，
+    而那两个文件当时只存在于 `feat/rust` ⇒ 两条 workflow 在 main 上是必失败的。
+    体积/YAML/on:/jobs: 四项全过，因为它们与脚本存在与否无关。
+    """
+    out = set()
+    for m in re.finditer(r"scripts/[A-Za-z0-9_.\-/]+", text):
+        out.add(m.group(0).rstrip(".,;:)'\"`"))
+    return out
+
+
+def check_scripts_exist(text, problems):
+    for rel in sorted(referenced_scripts(text)):
+        if not os.path.exists(rel):
+            problems.append(f"引用了不存在的仓库文件 `{rel}`（workflow 在、脚本不在）")
 
 
 def check(path):
@@ -59,12 +81,16 @@ def check(path):
         for needle in ("\non:", "\njobs:", "runs-on:"):
             if needle not in text:
                 problems.append(f"找不到 `{needle.strip()}`（没装 pyyaml，只能字符串级检查）")
+        check_scripts_exist(text, problems)
         return problems
 
     try:
         doc = yaml.safe_load(text)
     except Exception as e:  # noqa: BLE001 — 任何解析错误都要报出来
         return [f"YAML 解析失败：{str(e).splitlines()[0]}"]
+
+    # 与 YAML 能否解析无关，独立查
+    check_scripts_exist(text, problems)
 
     if not isinstance(doc, dict):
         return [f"顶层不是映射（解析出来是 {type(doc).__name__}）"]

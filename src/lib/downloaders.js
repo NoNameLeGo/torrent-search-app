@@ -60,6 +60,11 @@ const qbittorrent = {
       `urls=${encodeURIComponent(magnet)}`,
       { headers: { 'Content-Type': 'application/x-www-form-urlencoded', Cookie: cookie }, timeout: TIMEOUT }
     );
+    // ⚠️ **必须看正文**：qB 拒绝一个种子时回的是 **HTTP 200 + 正文 `Fails.`**（不是错误码），
+    // 只看状态码会把"什么都没加"报成「已推送（HTTP 200）」，最典型的触发是同一个磁力推两次。
+    if (String(add.data || '').trim().toLowerCase() === 'fails.') {
+      throw new Error('qBittorrent 拒绝了这个种子（Fails.）—— 多半是它已经在列表里了');
+    }
     return { status: add.status };
   },
   // 疎通確認：仅登录，不产生任何下载副作用。

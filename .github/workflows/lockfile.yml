@@ -1,0 +1,51 @@
+name: Cargo.lock (生成/刷新)
+
+# ⚠️ 为什么需要它：本机**没有 cargo**（磁盘约束，见 AGENTS.md「构建约束」），
+# 所以 `Cargo.lock` 只能在这里生成。而它**从未入库**，`release.yml` 的 rust job
+# 跑的又是 `cargo build --release -p bt-app --bin bt-search`（没有 `--locked`）
+# ⇒ 每次发版都在现场重新解析依赖版本，**同一个 tag 重跑可能构建出不同的二进制**。
+#
+# 跑一次、把 Cargo.lock 提交回触发它的分支之后，`rust.yml` / `release.yml` /
+# `rust-size.yml` 那几条构建命令就能加 `--locked` 把依赖钉死。
+# 以后升级依赖（改任何 `Cargo.toml`）也用它刷新一次。
+#
+# ⚠️ 生成在 Linux 上完全没问题：`Cargo.lock` 是**平台无关**的依赖图快照。
+#
+# 用法：
+#   scripts/gh-retry.sh workflow run lockfile.yml --ref main
+#   git pull --rebase     # CI 会把文件提交回来
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  lockfile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v5
+
+      - name: 安装 Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: 生成 Cargo.lock
+        run: cargo generate-lockfile
+
+      - name: 提交回触发这次运行的 ref
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Cargo.lock
+          if git diff --cached --quiet; then
+            echo "::notice::Cargo.lock 无变化。"
+            exit 0
+          fi
+          echo "---- 新增/变更的依赖（前 40 行）----"
+          git diff --cached --stat
+          git commit -m "chore(deps): 生成 Cargo.lock（钉死依赖版本，供 --locked 使用）"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+          echo "::notice::已提交到 ${GITHUB_REF_NAME} —— 记得 git pull 取回来"

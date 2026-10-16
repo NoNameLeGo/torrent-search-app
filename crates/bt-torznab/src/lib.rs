@@ -55,10 +55,32 @@ pub struct RawItem {
 
 /// 解析一整份 Torznab 搜索响应。
 ///
-/// ⚠️ **`Err` 只在 XML 本身不合法时返回**；某一项缺字段**不是错误**
+/// ⚠️ **`Err` 只在 XML 本身不合法、或索引器显式报 `<error>` 时返回**；某一项缺字段**不是错误**
 /// （那是常态 —— 见 fixture 的第 3 个 item），走各自的兜底。
 pub fn parse_items(xml: &str) -> Result<Vec<RawItem>, String> {
     let doc = roxmltree::Document::parse(xml).map_err(|e| format!("XML 解析失败：{e}"))?;
+
+    // ⚠️ Torznab / Jackett / Prowlarr 报错**不复用 HTTP 状态码**：API key 错了也是
+    // **200 + 一个 `<error code="100" description="Invalid API key"/>`**。
+    // 不认它的话，"key 填错了"与"真的没结果"在 UI 上**长得一模一样**（都是 `✓ 0 结果`），
+    // 用户会一直以为自己关键词没搜对 —— 这是这条分支存在的全部理由。
+    if let Some(e) = doc
+        .descendants()
+        .find(|n| n.is_element() && n.tag_name().name() == "error")
+    {
+        let code = e.attribute("code").unwrap_or("");
+        let desc = e.attribute("description").unwrap_or("").trim();
+        // `code="0"` 且无描述在部分索引器的**成功**响应里也出现 ⇒ 不算错
+        if !(code == "0" && desc.is_empty()) {
+            let msg = if desc.is_empty() {
+                format!("code {code}")
+            } else {
+                desc.to_string()
+            };
+            return Err(format!("索引器报错：{msg}"));
+        }
+    }
+
     Ok(doc
         .descendants()
         // ⚠️ 取标签名一律用 `tag_name().name()`（**local name**，忽略命名空间前缀）。
@@ -156,15 +178,19 @@ fn parse_int(s: &str) -> Option<i64> {
 
 /// 从 magnet 里抠 `btih:<hex>`（JS 用 `/btih:([a-f0-9]+)/i`，大小写不敏感）。
 ///
-/// ⚠️ 这里用 `to_lowercase()` 找位置、再回原串按**同一个字节偏移**截取。
-/// 这在 `to_lowercase` 改变字节长度时（个别 Unicode 字符会，如 U+0130）会有偏移错位 ——
-/// 但 magnet 是 RFC 规定的 ASCII URI，而且 `xt=urn:btih:` 在**最前面**，
-/// 后面才可能出现中文（`&dn=中文`），所以偏移不受影响。
-/// 真要较真就换成手写的 ASCII 大小写不敏感查找（不经 `to_lowercase`）。
+/// ⚠️ **不许用 `to_lowercase()` 找位置再回原串切**：`to_lowercase` 会改变字节长度
+///（U+0130 'İ' → 3 字节），于是"副本里的下标"拿去切原串就会错位，
+/// 轻则取错、重则 `magnet[idx..]` 落在字符中间 **panic**。
+///（旧版就是这样，靠"`btih:` 总在最前面"的假设免祸 —— 但 `&dn=İ…&xt=urn:btih:`
+/// 这种顺序完全合法，假设不成立。）手写 ASCII 大小写不敏感查找就没这个问题。
 fn btih(magnet: &str) -> Option<String> {
-    let lower = magnet.to_lowercase();
-    let idx = lower.find("btih:")? + "btih:".len();
-    let hex: String = magnet[idx..]
+    let needle = b"btih:";
+    let at = magnet
+        .as_bytes()
+        .windows(needle.len())
+        .position(|w| w.eq_ignore_ascii_case(needle))?
+        + needle.len();
+    let hex: String = magnet[at..]
         .chars()
         .take_while(|c| c.is_ascii_hexdigit())
         .collect();
@@ -354,5 +380,47 @@ mod tests {
             parse_items("<rss><channel></channel></rss>").unwrap().len(),
             0
         );
+    }
+
+    /// ⚠️ 这就是那个最阴的分支：Torznab 报错也是 **HTTP 200**。
+    /// 不认 `<error>` 的话，`parse_items` 会当"合法但没结果" ⇒ 空 Vec，
+    /// 于是 UI 上"API key 填错了"与"真的搜不到"显示完全一样（都是 `✓ 0 结果`）。
+    #[test]
+    fn an_error_response_is_an_error_not_an_empty_ok() {
+        let err = parse_items(r#"<error code="100" description="Invalid API key" />"#)
+            .expect_err("错 key 必须是 Err，不能是空 Vec");
+        assert!(
+            err.contains("Invalid API key"),
+            "错误串要带上索引器原话：{err}"
+        );
+
+        // 嵌套在 RSS 里的形态（部分索引器）同样要认
+        let nested = parse_items(
+            r#"<rss><channel><error code="201" description="Insufficient credits" /></channel></rss>"#,
+        )
+        .expect_err("RSS 里嵌的 <error> 也要认");
+        assert!(nested.contains("Insufficient credits"), "{nested}");
+    }
+
+    /// 反过来：`code="0"` + 空描述在部分索引器的**成功**响应里也会出现 ⇒ 不能当错。
+    #[test]
+    fn a_zero_code_without_description_is_not_an_error() {
+        let xml = r#"<rss><channel><error code="0" description="" /><item><title>t</title></item></channel></rss>"#;
+        assert_eq!(parse_items(xml).unwrap().len(), 1);
+    }
+
+    /// ⚠️ 旧版用 `to_lowercase()` 找下标、再拿它切**原串** —— `to_lowercase` 会改变字节
+    /// 长度（`İ` U+0130 → 3 字节），于是下标错位、`magnet[idx..]` 可落在字符中间 panic。
+    /// `btih:` 不在最前面时也得找得到、且大小写不敏感。
+    #[test]
+    fn btih_survives_multibyte_prefix_and_uppercase_needle() {
+        let m = "magnet:?dn=İstanbul&xt=URN:BTIH:ABCDEF0123456789ABCDEF0123456789ABCDEF01";
+        assert_eq!(
+            btih(m).as_deref(),
+            Some("ABCDEF0123456789ABCDEF0123456789ABCDEF01"),
+            "大小写与位置都不能影响（JS 的正则带 /i，且不锚定）"
+        );
+        assert_eq!(btih("magnet:?dn=nohash"), None);
+        assert_eq!(btih("magnet:?xt=urn:btih:zz"), None, "非 hex ⇒ None");
     }
 }

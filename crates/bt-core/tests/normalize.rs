@@ -247,6 +247,16 @@ fn ru_date_cases() {
     );
     assert!(ru_date("мая").contains("May"), "genitive month -> May");
     assert!(ru_date("янв").contains("Jan"), "Russian month -> Jan");
+    // ⚠️ JS 是 `/Сегодня/i`（大小写不敏感）—— 小写形态必须也认，
+    // 否则站上写小写时会静默丢日期（`dateText` 变 `—`）。
+    assert!(
+        ru_date("сегодня").contains("Today"),
+        "today translation 必须大小写不敏感（JS 带 /i）"
+    );
+    assert!(
+        ru_date("вчера").contains("Yesterday"),
+        "yesterday translation 必须大小写不敏感（JS 带 /i）"
+    );
 }
 
 // ============================================================================

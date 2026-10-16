@@ -18,7 +18,7 @@ name: Provider health (online)
 # 触发（workflow_dispatch 要求在默认分支上存在，所以 main 与 feat/rust 各有一份，
 # 改动要同步 —— 同 live-smoke.yml / html-probes.yml）：
 #
-#   scripts/gh-retry.sh workflow run provider-health.yml --ref feat/rust
+#   scripts/gh-retry.sh workflow run provider-health.yml --ref main
 #   scripts/gh-retry.sh run view --job=<JOB_ID> --log | grep -E '^\| `'
 #
 # 失败不算回归，所以**刻意不放进任何 push/PR 的门**里。
@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: actions/setup-node@v4
         with:

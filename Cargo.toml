@@ -7,7 +7,11 @@ members = ["crates/*"]
 exclude = ["src-tauri", "spike"]
 
 [workspace.package]
-version = "0.0.1"
+# ⚠️ 与 `package.json` 的 `version` **必须一致** —— exe 的文件属性里就是它，
+# 而发布产物名会写成 `BT-Search-Rust-<版本>.exe`。0.0.1 是占位初值，一直没改，
+# 导致拿到 v0.3.7-beta 的人在属性里看到 0.0.1（大小写/格式差异都不算错，但一致才好对账）。
+# `ci-guard.yml` 会拦住两者不一致的提交。
+version = "0.3.7-beta"
 edition = "2021"
 rust-version = "1.80"
 license = "GPL-3.0"
@@ -16,7 +20,8 @@ publish = false
 # M7 / S1：单文件自包含 exe 的体积。
 #
 # ⚠️ 只影响 `--release`。`cargo test` 走 dev profile，所以 rust.yml 的常规门
-# （397 tests + M4 自检 + M6 差分）**不受影响**，只是发布构建会慢一些。
+# （全套测试 + M4 自检 + M6 差分，**数量以日志为准 —— 别在这里写死**）**不受影响**，
+# 只是发布构建会慢一些。
 #
 # 基线（M1 实测）：opt-level=2 + 默认 codegen-units=16 + 无 lto + 不 strip ⇒ **14.5MB**。
 # 下面三项是"最小体积"的标准配方，量一下就知道了（发布 job 里会打印 ls/du）。

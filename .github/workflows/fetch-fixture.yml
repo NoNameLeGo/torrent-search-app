@@ -9,7 +9,7 @@ name: Fetch a fixture (online, from CI)
 # 人只负责 `git fetch` + `git restore`（见 AGENTS.md「探针流程」）。
 #
 # 用法：
-#   scripts/gh-retry.sh workflow run fetch-fixture.yml --ref feat/rust \
+#   scripts/gh-retry.sh workflow run fetch-fixture.yml --ref main \
 #     -f url='https://nyaa.si/?f=0&c=0_0&q=ubuntu' -f path='test/fixtures/nyaa-ubuntu.html'
 #
 # ⚠️ 只写 `test/fixtures/` 下的路径（下面有校验）。

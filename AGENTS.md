@@ -31,6 +31,10 @@ Electron mode: `npm run electron` (picks a free port automatically, no collision
 | Electron + Tauri 统一发版 | `release.yml` | `v*` tag |
 | Tauri 编译校验 | `tauri-build.yml` | push `feat/tauri` |
 | Slint spike / M1 自检 | `slint-spike.yml` | push `spike/slint-ui`、PR 改 `spike/**` ⚠️ 要手动触发得先同步到 `main` |
+| **Node 版测试** | `node.yml` | push `main`、PR 改 `src/**`/`test/**`/`server.js`/`package*.json`、手动 —— **2026-10-16 新建**：在此之前 CI 里**没有任何一步跑 Node 测试**（`npm test` 只存在于 `package.json`） |
+| **产物体积门（25MB）** | `rust-size.yml` | push `main` 改 `Cargo.toml`/`crates/**`、手动 —— **2026-10-16 才从探针改成门** |
+| **生成并提交 `Cargo.lock`** | `lockfile.yml` | 仅手动 —— 本机无 cargo，锁文件只能在这里生成 |
+| workflow 文件体检 | `ci-guard.yml` | push/PR 改 `.github/workflows/**` 或 `scripts/check-workflows.py`、手动 |
 
 **已知可回收空间**：`src-tauri/target` 约 1.1GB（`cargo clean` 即可，但本机已无 cargo）。
 
@@ -39,19 +43,20 @@ Electron mode: `npm run electron` (picks a free port automatically, no collision
 本项目**推倒重开、用 Rust 重写**，在 `feat/rust` 上进行，长期长成主分支。
 `main` 上的 Node/Express + Electron/Tauri 实现继续可用；Rust 版每搬完一块就替代一块。
 
-**📊 进度快照（2026-10-16 —— **`main` 已是 Rust 主线**）**：**16 个 provider 已搬**（5 JSON + 11 HTML），
-CI **397 passed / 0 failed + M4 全链路自检 12/12**（clippy + fmt 均为硬门）；
+**📊 进度快照（2026-10-16 —— **`main` 已是 Rust 主线，M0–M7 全部完成**）**：**16 个 provider 已搬**（5 JSON + 11 HTML），
+CI 全绿 + M4 全链路自检 12/12（clippy + fmt 均为硬门；**具体测试数看最近一次 `rust.yml` 日志** —— 本文件里出现的数字都是快照，别当现值）；
 探针 **126 条 / 17 fixture**；
-**聚合层 = 100%（M2）、下载器 = 100%（M3）、UI = 100%（M4）、引擎体检 = 100%（M5，结论「不砍」）**
-⇒ **M6 差分验证是当前唯一剩下的硬骨头**（M7 打包在其后）。
-Node 版整套仍在 `main` 上共存（D18：M6 做完才准删）。
+**聚合层 = 100%（M2）、下载器 = 100%（M3）、UI = 100%（M4）、引擎体检 = 100%（M5，结论「不砍」）、
+差分 = 100%（M6，16 家全量 0 处未豁免差异）、打包 = 100%（M7，v0.3.6/v0.3.7-beta 已发）**
+⇒ **没有"下一个里程碑"了** —— 往后是审计/加固（见 §「Rust 侧遗留清单」）。
+Node 版整套仍在 `main` 上共存（D18：那道门（M6）已经开了，但"删"是按**函数粒度**的，还没开始）。
 
 🔴 **2026-10-11 目标重订 —— 动手前先读 `docs/ROADMAP.md`。**
 那一轮追问推翻了旧路线的隐含假设（「能搜到东西」就是目标），结论是：
 **真正的目标 = 「小、快、原生的桌面成品」，搜索只是载体** →
 **跳过 WebView 中间态，直接上 Slint；核心做成库，不写 HTTP/SSE。**
 ⇒ **旧 Q2（复用 `public/` 前端）与 Q6（WebView↔Rust 通信）双双作废。**
-当前里程碑 = **M2 聚合层 + `Provider` trait**（M1 已于 2026-10-16 通过，见「Slint 探针结论」）。
+M1–M7 全部通过（见上面进度快照）—— ⚠️ **这一段是 2026-10-11 的目标重订记录，别当成"当前状态"读**。
 
 ### 范围决策
 
@@ -83,7 +88,50 @@ M6 ✅ 差分验证（2026-10-16 —— **16 家全量、0 处未豁免差异**�
 M7 ✅ 打包 + GitHub Release（2026-10-16 —— **v0.3.6-beta 首发**，四套产物；**v0.3.7-beta** 带上 windows 子系统修复（不再弹控制台）+ Torznab 界面 + 离线 demo 引擎）
 ```
 
+### 🧹 2026-10-16 审计修复（50 条发现 → 三组已收口，15 HIGH 全部核验）
+
+一次全仓审计（4 个只读 reviewer 分头：`bt-app` / `bt-providers+bt-core` / `downloaders+torznab` / 仓库卫生），
+**共 50 条发现**（15 HIGH）。HIGH 逐条回到源码核验过，下面只列**已经改掉的**；
+报告与全部发现的原文在 `.audit/*.md`（**未提交**，本地留存）。
+
+**A. 三个 race（`bt-app` —— 都是「await 回来后写错行」）**
+
+| 缺口 | 后果（改之前） | 怎么修的 |
+|---|---|---|
+| 第二次搜索没有代数围栏 | 搜 ubuntu 回车、立刻搜 debian ⇒ 旧结果被追加进新清空的列表、用**新**查询高亮，旧完成闭包还写 `status`/`has_more` | `UiState.search_gen`（单调递增）+ 两个闭包各一道 `if st.search_gen != my_gen { return }` |
+| `refresh_row` 拿 rows 下标去写筛选后的视图 | 点分类 chip 后再推送 ⇒ 按钮文案不刷新、或**别的行**的数据画到那张卡上 | 新增 `RowData.key`（跨 await 一律用 key，不用 idx）+ `row_by_key`/`set_action_by_key`/`set_magnet_by_key`/`refresh_row(st, key)` |
+| `push_row` 捕获 `idx` 在**网络往返之后**才写回 | 解析磁力期间点排序 ⇒ 磁力与「已推送 ✓」落到**别**的结果上，之后复制/推送用的是错磁力 | 同上（`Plan.key`）；`next_key` **只增不减**，不随 `begin_search` 归零 |
+
+附带两处 UI 修正：`targets.is_empty()` 的早退回搬到 `begin_search` **之前**（否则「取消勾选全部 paginated 站 + 点下一页」会把第 1 页结果清光）；分类/排序 chip 搜索中置灰（`ChipRow` 加 `in property <bool> can-pick`）；状态行从搜索行里搬出来独立成整行（原来 `width: 230px` 正好截掉「16 家全部失败」那句诊断）。
+
+**B. 两处「静默假成功」+ 一处 panic**
+
+| 缺口 | 后果（改之前） | 怎么修的 |
+|---|---|---|
+| qB `/torrents/add` 在拒绝时回 **HTTP 200 + 正文 `Fails.`**（不是错误码） | 同一个磁力推两次 ⇒ UI 报「已推送到 qbittorrent（HTTP 200）」并标 Done，**实际什么都没加** | Rust 侧读 body（`eq_ignore_ascii_case("fails.")`）；**Node 侧 `src/lib/downloaders.js` 同缺陷、同轮修掉** |
+| Torznab/Jackett 用 **HTTP 200 + `<error code="100">`** 报错 | 错 API key 与「真的没结果」在 UI 上**完全一样**（`✓ 0 结果`） | `parse_items` 探测 `<error>` 子节点（`code == "0"` 且描述为空时不算错 —— 部分索引器成功响应里也有） |
+| `normalize_api_url` 用**裸字节切分**判 `/api` 结尾 | 用户给的 URL 以多字节结尾（`http://localhost:9117/中文`）⇒ 每次搜索都 **panic** | `u.get(u.len().saturating_sub(4)..).is_some_and(...)` |
+
+附带四级 LOW/MED 一次收口：`safe_http_url` 的**归一化结果**不再被丢掉（原来只当谓词用，配置里存的是未校验原串）；`Kind::parse` 认不出时**报错**而不是默认成 qBittorrent（否则凭据被发到那台主机的 qB 登录端点、还误导为「登录失败」）；启动装载 `indexers.json` 也过 `safe_http_url`（此前**只有 UI 那条路过**，手改配置能让 `file://`/`ftp://` 进搜索路径）；`btih()` 不再用 `to_lowercase()` 的副本找下标回原串切（U+0130 → 3 字节会错位、可 panic）；`Box::leak` 的注释改成实话（`provider_set()` 每次搜索现造 ⇒ 每次搜索每索引器漏 2 个 String）。
+
+**C. 门与文档（「文档写了✅、机器上没跑」才是本轮最值钱的一类）**
+
+| 缺口 | 证据 | 怎么修 |
+|---|---|---|
+| **CI 里没有任何一步跑 Node 测试** | `grep -rn "npm test" .github/workflows/` = **0 命中**，而 README 把 Node 版当日常主力 ⇒ 解析回归能绿灯发布 | 新建 **`node.yml`**（push main / PR / 手动，`npm ci` + `npm test`） |
+| 体积门**不是门** | `AGENTS.md` 写「体积回归门（25MB）✅」，而 `rust-size.yml` 只挂 `workflow_dispatch` | 加 `push: main`（限 `Cargo.toml`/`crates/**`） |
+| `test/providers.test.js` 没人跑**而且早就坏了** | 不在 `npm test` 里、无 workflow 提及；`mockHTTP` 拿 RegExp 去 `startsWith` ⇒ 用例真的打外网 | 删除（覆盖在 `test/run.js` 里全有） |
+| `check-workflows.py` 不查 workflow 引用的脚本是否存在 | 正是 `docs/CI_FAILURES.md` #1 的故障形态（workflow 在、脚本不在） | 加 `check_scripts_exist`，`python3 scripts/check-workflows.py` 实测 13 条全 OK + 负向用例会报 |
+| 文档自相矛盾 | `AGENTS.md:660` 写「下次开工 = M2」而 `:190` 已记 M2 完成；`:1765` 还写「下一个里程碑是 M1」（相隔 1600 行）；`:223` 写「bt-torznab 还没做」而 crate 早在；`AGENT_HANDBOOK.md` 引用两个**不存在**的脚本 | 逐条改正（并把不存在的 `scripts/diff-providers.mjs` 换成真的 `scripts/diff/*.cjs` + `dump_rust`） |
+| 版本两个真源不一致 | workspace `version = "0.0.1"` ⇒ 拿到 0.3.7-beta 的人**在 exe 属性里看到 0.0.1**；`Cargo.lock` 不在仓库而发版跑 `cargo build --release`（**无 `--locked`**） | `Cargo.toml` → `0.3.7-beta`（与 `package.json` 一致）+ `release-check.js` 加机器判据 + 新建 `lockfile.yml` 生成锁文件（后续可加 `--locked`） |
+
+其他：`package.json` 里 4 个指向**不存在**的 `src-tauri/` 的脚本 + `@tauri-apps/cli` 依赖已删（main 上根本没有那个目录 ⇒ 每次 `npm ci` 白装）；`server.js` 给所有 async 路由加 `wrap()` 转 `next(err)` + 加 4 参错误中间件（Express 4 不转发 rejected promise，而 node≥22 下未处理拒绝会**终止进程**；默认错误页还会回显栈与绝对路径）；`electron/main.js` 的 `shell.openExternal` 加 `^(https?|magnet):` 白名单（`esc()` 只挡 HTML、不挡 scheme）；`aggregate.rs` 的 `catch_unwind` 把 **`search()` 调用本身**包进闭包（旧写法只包住返回的 future ⇒ 同步段 panic 仍带走整轮聚合，而唯一那条用例把 panic 放在了 future 里所以全绿）。
+
+⚠️ **两条有意留着没改**（不是遗忘）：`/api/magnet`、`/api/torznab/test`、`/api/download/*` 的 SSRF 面（只查 scheme、无 host 白名单）—— 属**已登记的设计决策**，缓解措施是绑 `127.0.0.1`；Node 版依赖树里的 `21 vulnerabilities`（1 critical）—— 属 Node 版，且本机不装依赖、改它需要 `npm audit fix` 与真跑一轮测试。
+
 ### 🔍 Rust 侧遗留清单（2026-10-16 审计；A 表 ①②③ ✅ / B 表 ④ ✅）
+
+
 
 **结论：七个里程碑全部完成；`crates/` 里没有任何 TODO/FIXME 型欠账。**
 
@@ -93,8 +141,8 @@ M7 ✅ 打包 + GitHub Release（2026-10-16 —— **v0.3.6-beta 首发**，四�
 |---|---|---|
 | 1 | 排序（做种/相关度/体积/日期）+ 分类筛选 | ✅ |
 | 2 | 「一条都没有」说得清原因 + **失败分网络层/站点层** | ✅ 判据是 `bt_core::http::classify_error`（依据 providers 复刻的 axios 错误码，不是猜文案） |
-| 3 | 体积回归门（25MB，`rust-size.yml`） | ✅ |
-| 4 | registry 动态化（`ProviderFactory` + `provider_set()`，每次现造一份） | ✅ 但**只有"注入替换"，没有"追加"** —— Torznab 接入需要追加 |
+| 3 | 体积回归门（25MB，`rust-size.yml`） | ✅ ⚠️ **2026-10-16 才真的挂上 `push main` 门** —— 在那之前它只挂 `workflow_dispatch`，等于「谁也不跑的探针」而文档已当它是门 |
+| 4 | registry 动态化（`ProviderFactory` + `provider_set()`，每次现造一份） | ✅ **注入与追加都有**（`add_dynamic_factory` 就是 Torznab 用的追加路径） |
 | 5 | Torznab | 🟡 **只差 UI** —— `crates/bt-torznab` 已完成**解析层**（`roxmltree`，10 条测试）+ **请求层/Provider**（`normalize_api_url` / `build_search_url` / `TorznabProvider`）+ **动态追加**（`add_dynamic_factory`）+ **索引器持久化**（`indexers.json`）+ 启动装载。⚠️ **还剩**："在 UI 里加/删索引器"的界面 —— 现在要用手编 `%APPDATA%\bt-search\indexers.json`（`save_indexers()` 已写好但**没有调用方**） |
 | 6 | 引擎腐坏数据化（`health.rs` 落盘 + `--health` + 状态条 ⚠ 标记） | ✅ |
 
@@ -220,9 +268,10 @@ HTML 解析器只在 foreign content（SVG/MathML）里认自闭合标签，
 **⚠️ 它是手写的，不是抓来的** —— 每条都对应上面映射表里的一个分支；
 真正的联网校验要靠 `live-smoke.yml` 那条路（或让用户填一个真索引器）。
 
-**还没做**：`bt-torznab` crate（解析 + provider 实现）、`add_dynamic_factory` 的
-追加路径（现在 `provider_set()` 只有"注入**替换**"，见 #4）、UI 的索引器配置界面。
-⚠️ **顺序建议**：解析 + fixture 测试 → provider（`Provider` trait）→ 追加路径 → UI。
+**✅ 这条已经过期（2026-10-16 晚）：`crates/bt-torznab` 早已落地** —— `roxmltree` 解析层 +
+`TorznabProvider`（请求层）+ `add_dynamic_factory` 动态追加 + `indexers.json` 持久化 + 启动装载，
+**只差 UI 的"加/删索引器"界面**（现在要手编 `%APPDATA%\bt-search\indexers.json`，
+`save_indexers()` 已写好但**没有调用方**）。下面的"顺序建议"已完成，留作历史。
 
 **C. 2026-10-16 审计顺手修掉的一件（并且纠正了我自己上一轮的错误诊断）**
 
@@ -449,7 +498,7 @@ Rust `format!("{:.1}", 3.25)` 因为 3.25 在二进制里是精确值 ⇒ 平局
 **切之后**（`main` = `7605e7a`，三个 workflow **全绿**）：
 - **`Rust (test)` success** —— 触发已加 `main`（前一个提交 `082712a`）。
   这条是切换的**硬性配套**：不加的话切完 Rust 侧一条 CI 都不跑，
-  而 397 tests + bt-app 全链路自检全靠它把关。
+  而整套测试 + bt-app 全链路自检全靠它把关。
 - **`Build Windows 发行包` success**，真产出 `BT-Search-Electron-Portable.zip`
   （151,416,455 字节）⇒ **根目录多了 `Cargo.toml` + `crates/` 之后 Electron 打包照旧**。
   这条之前只是"理论排除"（electron-builder 的 `files` 是白名单、
@@ -657,7 +706,7 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 | 4 | ~~`yts.js`~~ | ✅ 11 tests |
 | 5 | ~~`internetarchive.js`~~ | ✅ 14 tests（fixture 是合成的，见进度表上方说明） |
 
-**⛳ 下次开工 = M2：聚合层 + `Provider` trait（M1 已于 2026-10-16 通过）**
+**✅ M2 已完成，这一节是"开工前"的勘明记录** —— `②`/`⑨` 那两条待定也在 M2 当轮拍定了。
 
 原计划「继续搬 provider 直到 40 个齐」**已废止**（D13：剩余 24 个站点里 5 个确认死亡、
 约 8 个两边环境都不通；而且「引擎多」只是感觉，不是需求）。
@@ -839,7 +888,7 @@ provider 都没改**；同一个要求传播到四处泛型约束（`BoxFuture` 
   `perProvider` 是对象，**key 顺序 = provider 完成顺序**（`asyncPool` 按谁先 resolve 落库）。
   用 `BTreeMap` 会把这个顺序丢掉。`ms` 用 `Instant::elapsed().as_millis()`。
 
-**⑨ 两条待定（下次开工先拍）**
+**⑨ 两条待定 —— ✅ 两条都已结案（M2 当轮拍定）**
 1. **要不要 `catch_unwind` 兜住 provider 的 panic？** JS 的 `try/catch` 连
    "抛异常"也兜；Rust 的 provider 契约是「永不 panic」，所以 `SearchOutcome.error`
    已经覆盖了**错误**路径。但若某个 provider 违约 panic，Rust 会**带走整个聚合**
@@ -849,7 +898,7 @@ provider 都没改**；同一个要求传播到四处泛型约束（`BoxFuture` 
    `if (!p.enabled ...)`，但 REGISTRY 里 16 家全是 `true`，用户级开关走 `wanted`。
    建议**建模**（默认 `true`），否则第 1 条语义少一个分支、测不全。
 
-⚠️ **本次会话到此为止（用户 5h 限额）**：M2 **代码未写**，工作区干净，
+⚠️ **历史记录（2026-10-11 那次会话结束时的状态，早已不成立）**：当时 M2 **代码未写**，工作区干净，
 上面 ⑧ 的定案可以直接落笔。下次开工：写 `Cargo.toml` + `lib.rs`（`Option<bool>` + trait）
 + `aggregate.rs` + `registry.rs` + `tests/aggregate.rs`，然后 `rustfmt --check` 后推 CI。
 
@@ -1762,7 +1811,7 @@ git worktree remove <tmp>      # clean up AFTER push confirmed
 
 ## 历史：Node / Electron 时代的收尾记录（⚠️ **不是当前计划**）
 
-> 当前计划 = 本节上方「📌 下一步计划」（下一个里程碑是 **M1**）+ `docs/ROADMAP.md` §3。
+> ⚠️ 本节是**历史存档**：其中"下一个里程碑是 M1"之类的话早已过期 —— **M0–M7 全部完成**（见 `docs/ROADMAP.md` §3）。
 > 下面这一段记录的是 **Rust 重写之前** Node/Electron 那条线的收尾工作，保留只为查历史。
 
 ### ✅ 已完成：多客户端下载器同步到 `feat/tauri`

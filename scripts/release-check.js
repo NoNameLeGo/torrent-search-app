@@ -12,6 +12,8 @@
  * 避免 cmd 不识别 `2>/dev/null`、`&&` 等 Unix 语法。
  */
 const { execFileSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
 function gitOut(args) {
   try {
@@ -80,6 +82,24 @@ try {
 } catch (e) { /* ignore */ }
 const lastTag = gitOut(['describe', '--tags', '--abbrev=0']);
 console.log(`   版本：package.json=${version || '(空)'}   最近 tag：${lastTag || '(无)'}`);
+
+// 6b) Rust 侧版本必须与 package.json 一致。
+// 为什么：workspace 的 `version` 就是 exe 文件属性里那个版本（crates 用
+// `version.workspace = true`），而它曾经**一直停在 0.0.1**，于是拿到
+// v0.3.7-beta 的人在属性里看到 0.0.1。这类"两个真源不一致"正是
+// Tauri 版本号那次事故的同一形状 —— 给它一个机器判据。
+let cargoVersion = '';
+try {
+  const cargoToml = fs.readFileSync(path.join(__dirname, '..', 'Cargo.toml'), 'utf8');
+  cargoVersion = (cargoToml.match(/^version\s*=\s*"([^"]+)"/m) || [])[1] || '';
+} catch (e) { /* ignore */ }
+check(
+  !!cargoVersion && cargoVersion === version,
+  `Cargo.toml 版本与 package.json 一致（Cargo.toml=${cargoVersion || '?'} / package.json=${version || '?'}）`
+);
+if (lastTag && version && lastTag !== `v${version}`) {
+  console.log(`   ⚠️ 最近 tag（${lastTag}）与当前版本（v${version}）不一致 —— 确认是真的忘了 bump，还是刚发完下一轮`);
+}
 
 // 7) 未推送的提交（相对 origin/main；无 origin 时不阻塞）
 const unpushed = gitOut(['log', '--oneline', 'origin/main..HEAD']);

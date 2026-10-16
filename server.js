@@ -30,6 +30,22 @@ function safeHttpUrl(raw) {
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ⚠️ Express 4 **不会**把 async 路由里 rejected 的 promise 转给错误处理器。
+// 而 `package.json` 声明 `node >= 22` —— 未处理的拒绝会**直接终止进程**，
+// 于是"某个爬虫/索引器抛了个异常"的表现是「整个应用无提示地消失」，不是 500。
+// 逐个路由包 wrap() 太啰嗦（现在有 9 个 async 端点，以后还会加），
+// 这里一次性把 `app.get/post/...` 套一层 —— 只影响路由注册，不动中间件。
+function wrap(fn) {
+  return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+}
+for (const method of ['get', 'post', 'put', 'delete', 'patch']) {
+  const orig = app[method];
+  // ⚠️ 必须转发到 orig（而不是重建），因为 express 的 `app.get(name)`
+  // 单参形式是"读配置"的重载，返回值要原样透出去。
+  app[method] = (routePath, ...handlers) =>
+    orig.call(app, routePath, ...handlers.map(wrap));
+}
+
 // DNS rebinding 防御：所有 API 端点只接受来自本机回环地址的请求。
 // 恶意网页可通过 DNS rebinding 让 evil.com 解析到 127.0.0.1，浏览器
 // 视作同源从而绕过 CORS 读取 /api/torznab (含明文 API key) 或调用
@@ -255,6 +271,15 @@ app.post('/api/torznab/test', async (req, res) => {
   const { html, error } = await getText(`${api}?${params.toString()}`, { timeout: 8000 });
   if (error) return res.json({ ok: false, error });
   res.json({ ok: true, length: (html || '').length });
+});
+
+// 错误处理器（必须放在**所有路由之后**）。
+// 没有它时 Express 会用默认处理页 —— 那会把**调用栈与绝对路径**回给浏览器
+//（Electron 里 NODE_ENV 不是 production，所以拿到的是开发版页面）。
+// eslint-disable-next-line no-unused-vars -- Express 靠 4 个参数识别错误中间件
+app.use((err, req, res, next) => {
+  console.error('[server] 未处理的错误：', (err && err.stack) || err);
+  if (!res.headersSent) res.status(500).json({ error: 'internal error' });
 });
 
 function start(port = PORT) {
