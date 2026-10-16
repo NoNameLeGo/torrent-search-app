@@ -285,20 +285,60 @@ async fn send_json<T: DeserializeOwned>(req: reqwest::RequestBuilder) -> JsonRes
     }
 }
 
+/// 超时的错误码 —— axios 的 `ECONNABORTED`。
+///
+/// ⚠️ **这是对外契约，不是内部字面量**：`bt-app` 的失败分类（[`classify_error`]）
+/// 靠它把"超时"和"连不上"分开，`docs/ROADMAP.md` 的 M6 差分也拿它对照 JS。
+/// 改这个串 = 改两处的行为。
+pub const ERR_TIMEOUT: &str = "ECONNABORTED";
+/// 连接失败的错误码 —— axios 的 `ECONNREFUSED`。
+pub const ERR_CONNECT: &str = "ECONNREFUSED";
+/// HTTP 状态错误的**前缀**（后面接状态码），axios 的文案。
+pub const ERR_STATUS_PREFIX: &str = "Request failed with status code ";
+
+/// 一次失败**在哪一层**。给 UI 用 —— 决定提示"换网"还是"换站"。
+///
+/// ⚠️ 这是**判据**不是猜测：依据是 [`map_err`] / [`http_status_error`] 产出的
+/// **axios 兼容错误码**（providers 复刻 JS 时就是按这套写的）。
+/// 所以 [`classify_error`] 是个**纯函数**，能离线单测 —— 不用构造 `reqwest::Error`。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ErrorKind {
+    /// 网络层：超时 / 连不上 / DNS —— **用户该查网络，换站没用**
+    Network,
+    /// 站点层：对方回了（403 / 429 / 500 …）—— **站点在，但拒绝了或坏了**
+    HttpStatus,
+    /// 认不出来（解析失败、正文不合预期等）—— 不硬猜
+    Other,
+}
+
+/// 把一个错误串归到 [`ErrorKind`]。**纯函数**。
+///
+/// 认不出来的**一律 `Other`**，不硬塞进前两类 —— 假分类比不分类更坏：
+/// 它会让用户朝着错误的方向排查。
+pub fn classify_error(msg: &str) -> ErrorKind {
+    if msg.contains(ERR_TIMEOUT) || msg.contains(ERR_CONNECT) {
+        ErrorKind::Network
+    } else if msg.contains(ERR_STATUS_PREFIX) {
+        ErrorKind::HttpStatus
+    } else {
+        ErrorKind::Other
+    }
+}
+
 /// 复刻 axios 的 HTTP 状态错误文案（provider 会把它拼进自己的错误串）。
 fn http_status_error(status: reqwest::StatusCode) -> String {
-    format!("Request failed with status code {}", status.as_u16())
+    format!("{ERR_STATUS_PREFIX}{}", status.as_u16())
 }
 
 /// 把 reqwest 的错误映射成 axios 风格的错误码，方便两边对照。
 fn map_err(e: &reqwest::Error) -> String {
     if e.is_timeout() {
         // axios 用 ECONNABORTED 表示超时
-        "ECONNABORTED".to_string()
+        ERR_TIMEOUT.to_string()
     } else if e.is_connect() {
         // 连接失败。JS 那边 DNS 解析不了会给 ENOTFOUND、端口不通给 ECONNREFUSED，
         // reqwest 不区分，这里统一成 ECONNREFUSED（够用，且不会误导成"站点不存在"）
-        "ECONNREFUSED".to_string()
+        ERR_CONNECT.to_string()
     } else {
         e.to_string()
     }
@@ -309,4 +349,59 @@ static DEFAULT_CLIENT: OnceLock<HttpClient> = OnceLock::new();
 /// 全局共享实例 —— 对应 JS 里那个模块级 `axios.create({...})`。
 pub fn default_client() -> &'static HttpClient {
     DEFAULT_CLIENT.get_or_init(HttpClient::new)
+}
+
+#[cfg(test)]
+mod classify_tests {
+    use super::*;
+
+    /// 这一条是**契约测试**：`map_err` 的两个码与 `http_status_error` 的前缀
+    /// 是 `bt-app` 失败分类的依据。改了它们而不改分类，会让 UI 把"网络问题"
+    /// 说成"站点改版" —— 那是**指错方向**，比不提示更坏。
+    #[test]
+    fn classifier_reads_the_axios_compatible_codes() {
+        // 超时 / 连不上 ⇒ 网络层
+        assert_eq!(classify_error(ERR_TIMEOUT), ErrorKind::Network);
+        assert_eq!(classify_error(ERR_CONNECT), ErrorKind::Network);
+        // provider 会把码拼进自己的串（`<name> unreachable (<err>)`）
+        assert_eq!(
+            classify_error("tpb unreachable (ECONNABORTED)"),
+            ErrorKind::Network
+        );
+        assert_eq!(
+            classify_error("nyaa unreachable (ECONNREFUSED; ECONNABORTED)"),
+            ErrorKind::Network
+        );
+
+        // HTTP 状态 ⇒ 站点层
+        assert_eq!(
+            classify_error(&http_status_error(reqwest::StatusCode::FORBIDDEN)),
+            ErrorKind::HttpStatus
+        );
+        assert_eq!(
+            classify_error("oxtorrent unreachable (Request failed with status code 429)"),
+            ErrorKind::HttpStatus
+        );
+
+        // 认不出来的一律 Other —— 不硬猜
+        assert_eq!(classify_error("no_results"), ErrorKind::Other);
+        assert_eq!(
+            classify_error("invalid json: expected value"),
+            ErrorKind::Other
+        );
+        assert_eq!(classify_error(""), ErrorKind::Other);
+    }
+
+    /// `http_status_error` 的文案必须与 axios 一致 —— 它是**差分**能对上的前提。
+    #[test]
+    fn status_error_text_matches_axios() {
+        assert_eq!(
+            http_status_error(reqwest::StatusCode::FORBIDDEN),
+            "Request failed with status code 403"
+        );
+        assert_eq!(
+            http_status_error(reqwest::StatusCode::TOO_MANY_REQUESTS),
+            "Request failed with status code 429"
+        );
+    }
 }

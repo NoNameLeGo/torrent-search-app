@@ -394,6 +394,13 @@ pub struct AppState {
     /// "成功返回了 50 条"的区别。而这两者对用户的意义完全不同：
     /// 前者很可能是**站点改版了**（选择器失效），后者是真搜到了。
     pub zero_hits: usize,
+    /// #2 失败再分一层：**网络层**（超时 / 连不上）与**站点层**（HTTP 状态 / 认不出来）。
+    ///
+    /// ⚠️ 这个区分是有意义的：它决定用户该**换网**还是**换站** —— 那是他唯一能做的动作。
+    /// 判据来自 `bt_core::http::classify_error`（依据是 providers 复刻的 axios 错误码，
+    /// **不是**对文案的猜测）。
+    pub net_failures: usize,
+    pub site_failures: usize,
 }
 
 impl AppState {
@@ -408,6 +415,8 @@ impl AppState {
         self.rows.clear();
         self.has_more = false;
         self.zero_hits = 0;
+        self.net_failures = 0;
+        self.site_failures = 0;
         self.chips = providers
             .iter()
             .map(|(id, name)| pending_chip(id, name))
@@ -570,6 +579,16 @@ impl AppState {
             self.zero_hits += 1;
         }
 
+        // #2 失败再分一层：网络层（该换网）vs 站点层（该换站）。
+        // 判据是 `bt_core::http` 的 axios 兼容错误码 —— 纯函数，不猜文案。
+        if let Some(err) = report.status.error.as_deref() {
+            if bt_core::http::classify_error(err) == bt_core::http::ErrorKind::Network {
+                self.net_failures += 1;
+            } else {
+                self.site_failures += 1;
+            }
+        }
+
         let chip = chip_for(&report.id, &report.name, &report.status);
         match self.chips.iter_mut().find(|c| c.id == report.id) {
             Some(slot) => *slot = chip,
@@ -639,9 +658,16 @@ impl AppState {
         // 这三种情况的应对完全不同：换网 / 换站 / 换关键词。
         if self.rows.is_empty() && total > 0 && pending == 0 {
             if err == total {
-                return format!(
-                    "一条都没有：{total} 家**全部失败** —— 多半是网络问题，或者这些站都被挡了"
-                );
+                // #2 再分一层：**网络层**（换网有用）还是**站点层**（换站有用）。
+                // 全都失败时这一天差就是用户唯一能采取的动作，所以要说准。
+                let hint = if self.net_failures == err {
+                    "**网络层不通**（超时 / 连不上）—— 多半是网络问题，先查网络或代理"
+                } else if self.site_failures == err {
+                    "**站点层拒绝**（403 / 限流 / 返回内容不认识）—— 站点还在，是它们挡了这次请求"
+                } else {
+                    "网络层与站点层都有 —— 先把网络理顺，再看站点"
+                };
+                return format!("一条都没有：{total} 家**全部失败** —— {hint}");
             }
             if zero == total {
                 return format!(
@@ -1223,17 +1249,86 @@ mod tests {
     // #2 「一条都没有」要能自证原因
     // -----------------------------------------------------------------------
 
-    /// 全家的都失败 ⇒ 说"网络问题"（换网/换站的应对完全不同）。
+    /// 全家失败、且都是**网络层**（超时/连不上）⇒ 让用户去查网络。
     #[test]
-    fn all_providers_failing_says_it_looks_like_a_network_problem() {
+    fn all_network_failures_point_at_the_network() {
         let mut st = AppState::new();
         st.begin_search(&two_providers());
-        st.apply_report(&report("tpb", "TPB", vec![], Some("boom")), "q", "#fff");
-        st.apply_report(&report("nyaa", "NYAA", vec![], Some("boom")), "q", "#fff");
+        st.apply_report(
+            &report("tpb", "TPB", vec![], Some("tpb unreachable (ECONNABORTED)")),
+            "q",
+            "#fff",
+        );
+        st.apply_report(
+            &report(
+                "nyaa",
+                "NYAA",
+                vec![],
+                Some("nyaa unreachable (ECONNREFUSED)"),
+            ),
+            "q",
+            "#fff",
+        );
 
+        assert_eq!(
+            (st.net_failures, st.site_failures),
+            (2, 0),
+            "两家都归网络层"
+        );
         let s = st.summary(false);
         assert!(s.contains("全部失败"), "{s}");
+        assert!(s.contains("网络层不通"), "{s}");
         assert!(s.contains("网络问题"), "{s}");
+    }
+
+    /// 全家失败、且都是**站点层**（403 / 认不出来）⇒ **不能说成网络问题** ——
+    /// 那会让人白折腾网络，而真正该做的是换站。
+    #[test]
+    fn all_site_failures_do_not_blame_the_network() {
+        let mut st = AppState::new();
+        st.begin_search(&two_providers());
+        st.apply_report(
+            &report(
+                "tpb",
+                "TPB",
+                vec![],
+                Some("tpb unreachable (Request failed with status code 403)"),
+            ),
+            "q",
+            "#fff",
+        );
+        // 认不出来的串（解析失败那种）也算站点层 —— 但**不硬说**是网络
+        st.apply_report(&report("nyaa", "NYAA", vec![], Some("boom")), "q", "#fff");
+
+        assert_eq!((st.net_failures, st.site_failures), (0, 2));
+        let s = st.summary(false);
+        assert!(s.contains("站点层拒绝"), "{s}");
+        assert!(!s.contains("网络问题"), "站点层失败不该甩锅给网络：{s}");
+    }
+
+    #[test]
+    fn mixed_failures_are_reported_as_mixed() {
+        let mut st = AppState::new();
+        st.begin_search(&two_providers());
+        st.apply_report(
+            &report("tpb", "TPB", vec![], Some("ECONNABORTED")),
+            "q",
+            "#fff",
+        );
+        st.apply_report(
+            &report(
+                "nyaa",
+                "NYAA",
+                vec![],
+                Some("Request failed with status code 403"),
+            ),
+            "q",
+            "#fff",
+        );
+
+        assert_eq!((st.net_failures, st.site_failures), (1, 1));
+        let s = st.summary(false);
+        assert!(s.contains("都有"), "两层混合要说清：{s}");
     }
 
     /// 全家都连上了但 0 条 ⇒ 说"更像站点改版"（**不是**网络问题 —— 那会让人白折腾网络）。
