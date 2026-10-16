@@ -79,8 +79,56 @@ M3 ✅ bt-downloaders（2026-10-16，4 客户端 / 34 条离线测试）
 M4 ✅ bt-app Slint MVP（2026-10-16，UI + 接线 + 映射层 + **全链路 --selftest 12/12**）
 M5 ✅ 引擎体检（2026-10-16 —— **结论是「一个都不砍」**，见「provider 探活」；
 单边 403 不足以判死）
-M6 ⬅️ 差分验证（必须早于删 Node）    M7 打包 + GitHub Release
+M6 🟡 差分验证（**5/16 家已逐字段对齐、零差异**；11 家 HTML 待接）
+M7 打包 + GitHub Release
 ```
+
+**🟡 M6 进行中（2026-10-16）—— 差分 harness 建成，5 个 JSON provider 首次真跑就零差异。**
+
+`scripts/diff/` 四件套 + `crates/bt-providers/tests/dump_rust.rs` + `rust.yml` 两步。
+实测（CI run `38846312012`）：
+
+```
+tpb              rust= 100 node= 100  ✅ 完全一致
+knaben           rust=   5 node=   5  ✅ 完全一致
+torrentscsv      rust=  25 node=  25  ✅ 完全一致
+yts              rust=   7 node=   7  ✅ 完全一致
+internetarchive  rust=   8 node=   8  ✅ 完全一致
+✅ 差分通过 —— 5 个 provider，0 处未豁免差异（白名单共 8 条，全部未触发）
+```
+
+**145 条结果 × 15 个字段 = 2175 个字段逐一对齐、零差异** —— 这 5 家与 Node
+**逐字段同构**，不再是"手抄期望值"的间接证据。
+
+**🔑 让这件事可行的关键勘明**：`package.json` 是 `"type": "commonjs"`，
+`src/lib/http.js` 是 CJS ⇒ **`require.cache` 预填一个桩**就能把 HTTP 层换掉，
+不需要 loader hooks；而桩把 `axios` 挡在门外 ⇒ **本机就能跑，不需要 `node_modules`**
+（符合「不新增本地依赖」的约束）。⚠️ 顺序是硬要求：**先 install 桩、再 require provider**
+（provider 在模块顶层就 `const { getJSON } = require('../lib/http')` 解构捕获了）。
+
+**设计上防「假通过」的五条**（都在 `compare.cjs` 里）：默认比**全部 15 个字段**；
+**两侧 provider 集合必须完全一致**（少移植一家是真差异，不能静默）；**条数必须一致且逐行
+按下标对齐**（顺序也是语义）；**白名单只能豁免单字段且必须有 reason，不允许整家豁免**；
+**命中不了的白名单条目会被报成「可能已过期」**。
+另外顶层 `has_more` 也比（M2 的发现：`undefined` 与显式 `false` 不是一回事），
+但 `error` 串**不**比 —— Rust 的网络层文案是有意 divergence（M3 定的）。
+
+**这一轮踩到两个坑，都不是"逻辑错"，是环境/约定错：**
+
+1. 🔴 **windows-latest 上多行 `run:` 默认走 PowerShell，不是 bash。**
+   所以 `set -euo pipefail` 会炸（`set` 是 `Set-Variable` 的别名，
+   报 `A parameter cannot be found ... 'euo'`）。**多行 `run:` 必须显式写 `shell: bash`。**
+   之前的步骤都是单行命令（`npm ci` / `cargo test`），所以这个坑一直没暴露。
+2. 🔴 **cargo 跑测试时 CWD 是「包根」（`crates/bt-providers`），不是仓库根。**
+   所以 `BT_DIFF_OUT=.cache/diff/rust.json` 会写到 `crates/bt-providers/.cache/` 去，
+   而 CI 下一步在仓库根找它 ⇒ 文件不存在。修法是在 harness 里用
+   `CARGO_MANIFEST_DIR` 上溯两级解析相对路径 —— **harness 不该依赖调用方的 CWD**。
+
+**还没做（M6 的剩余部分）**：11 个 HTML provider 进 `fixtures.cjs`（需要 `cheerio`
+⇒ **只能在 CI 跑**）。`htmlProviders()` 现在**有意**返回空数组 ——
+宁可显式地"还没覆盖"，也不要一份看起来覆盖了、实则喂错 fixture 的表。
+⚠️ 一个**查不出来**的风险：两侧的 fixture 名是两份手写表，**写错不会报错**
+（各自喂各自的 fixture、都"成功"）—— 只能靠人核对，已写进 `fixtures.cjs` 表头。
 
 **三条硬约束，别调换**：**M1 必须最先**（Slint 挂了，M2 的架构就得重做）；**M6 必须早于删 Node**（否则「逐字段一致」永远无法再验）；**M5 早于补引擎**（现在没有理由盲搬）。
 
