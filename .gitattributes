@@ -1,0 +1,14 @@
+# 换行符统一策略
+#
+# 本机（Windows）的 core.autocrlf 是 true，默认会把文本文件在检出时换成 CRLF。
+# 但 **shell 脚本必须是 LF** —— 带 CRLF 的 .sh 在 bash 下会报
+# `\r: command not found` / `syntax error near unexpected token`。
+# 所以这里显式钉死。
+#
+# 其它文件（.js / .rs / .json / .md …）沿用 git 默认（autocrlf 管），不额外约束。
+
+*.sh text eol=lf
+
+# CI 工作流与文档也用 LF，避免 diff 噪音
+*.yml text eol=lf
+*.yaml text eol=lf

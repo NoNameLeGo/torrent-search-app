@@ -1,0 +1,23 @@
+[package]
+name = "bt-downloaders"
+description = "BT 聚合搜索 — 四个下载客户端（qB / Transmission / aria2·Motrix / Gopeed）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+# ⚠️ **刻意不依赖 bt-core**：`src/lib/downloaders.js` 开头就写明了为什么它不放进 http.js ——
+# 那层是给「抓第三方页面」用的（UA 轮换、never-throw、返回 {html,error}）；
+# 这里是给「本机受信下载器」用的（Basic Auth、会话 cookie、JSON-RPC、409 重试、
+# 失败靠抛异常），语义上是另一件事。Rust 侧沿用这个划分。
+reqwest = { version = "0.12", features = ["json"] }
+serde_json = "1"
+
+[dev-dependencies]
+# 集成测试看不到 crate 的普通依赖，用到什么就再声明什么。
+serde_json = "1"
+# 起本地一次性/脚本化 HTTP 服务，让四个客户端能在 CI 里无网络地跑完
+# 「成功 / 认证失败 / 连不上 / 409 重试」等路径
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "time"] }

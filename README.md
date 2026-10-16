@@ -8,6 +8,18 @@
 
 > ⚠️ **本项目由 AI 辅助生成**，参考 [prajwalch/TorrentSearch](https://github.com/prajwalch/TorrentSearch)（Kotlin/Android 原生应用）的多引擎并行聚合思路，重写为 Node/Express 后端 + 原生 JS 前端 + Electron 桌面壳。代码可供学习、修改与再分发，但**不保证完整性与安全性**，使用前请自行审阅。
 
+> 🦀 **开发状态（2026-10-08 起）：正在用 Rust 重写。**
+> 现有 Node/Express + Electron/Tauri 实现继续可用；Rust 版在 `feat/rust` 分支上逐块替代，长期长成主分支。
+> - **终局**：Windows 桌面原生应用 —— 单文件、零运行时依赖、启动快、内存低；浏览器 / 手机访问模式已放弃
+> - **路径（2026-10-11 重订）**：**直接上 Slint 原生 UI**，核心做成**库**（进程内直调，不做 HTTP、不做 SSE）。
+>   旧的「阶段一 = 复用 WebView 前端」路线**已作废** —— 它给不出「小快原生」这个成品。详见 [`docs/ROADMAP.md`](./docs/ROADMAP.md)
+> - **构建**：全部走 GitHub Actions（维护者机器磁盘吃紧，本地不编译）
+> - **进度（2026-10-11）**：provider 已迁 **16 个**（5 JSON + 11 HTML，CI 338 条测试全绿）；
+>   聚合层 / UI / 下载器均未开始。**当前里程碑 M1 = 验证 Slint 的已知崩溃风险**
+> （中文标题 + 关键词高亮 + 自动换行），见 [`docs/AGENT_HANDBOOK.md`](./docs/AGENT_HANDBOOK.md) §1
+>
+> 贡献者细节见 [`AGENTS.md`](./AGENTS.md) / [`CLAUDE.md`](./CLAUDE.md)。
+
 <br>
 
 <details open>

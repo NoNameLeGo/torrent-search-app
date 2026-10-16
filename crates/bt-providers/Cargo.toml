@@ -1,0 +1,26 @@
+[package]
+name = "bt-providers"
+description = "BT 聚合搜索 — 各站点 provider（一文件一站）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+bt-core = { path = "../bt-core" }
+# linuxtracker 把 DD/MM/YYYY 解析成"本地时区当日零点"，与 JS 的
+# `new Date(y, m-1, d).getTime()` 对齐 —— 所以 provider 层就需要 chrono
+chrono = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# M2 聚合层用 `FuturesUnordered` 在**当前任务**上驱动并发池（对应 JS 的
+# `asyncPool`）。刻意不引 tokio 到普通依赖：聚合层本身不需要运行时，
+# 驱动它的 `#[tokio::test]` / 调用方负责提供。
+futures = "0.3"
+
+[dev-dependencies]
+# 集成测试看不到 crate 的普通依赖，用到的都得在这儿再声明一遍
+chrono = "0.4"
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "time"] }

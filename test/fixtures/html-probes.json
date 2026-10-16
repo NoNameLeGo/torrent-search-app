@@ -1,0 +1,867 @@
+{
+  "_note": "cheerio 与 scraper 的「选择器 + 取值」语义对照探针。两侧读同一个文件：cheerio 侧 scripts/html-probes.cjs，Rust 侧 crates/bt-core/tests/dom_probes.rs。期望值来自 cheerio（scripts/html-probes.cjs 的输出），存成 html-probes.expected.json。ops: count=匹配数 / count_nonempty_texts=文本 trim 后非空的条数 / text_first=首个匹配的 .text().trim() / attr_first=首个匹配的 attr（无则 null）/ attrs=前 limit 个 attr / texts=前 limit 个 text / row_cells=对前 limit 个匹配各自 closest(标签) 后 find(within) 的 text 列表（closest 未命中给 []，结果是**数组的数组**）。⚠️ cheerio 侧一律用 .toArray().map()，不用 cheerio 的 .map()（jQuery 语义会拍平一层）。",
+  "fixtures": [
+    {
+      "file": "linuxtracker-linux.html",
+      "note": "真实结果页（2026-07 快照）。坑点：侧栏 Top10 行只有 2 个 td，主表行更多 —— JS 靠 tds.length < 6 过滤；href 在源码里是 &amp; 形式，两侧都该解码成 &。",
+      "probes": [
+        {
+          "id": "name_links.count",
+          "op": "count",
+          "selector": "td.lista a[href*=\"torrent-details\"]"
+        },
+        {
+          "id": "name_links.first_text",
+          "op": "text_first",
+          "selector": "td.lista a[href*=\"torrent-details\"]"
+        },
+        {
+          "id": "name_links.first_href",
+          "op": "attr_first",
+          "selector": "td.lista a[href*=\"torrent-details\"]",
+          "attr": "href"
+        },
+        {
+          "id": "name_links.first_3_hrefs",
+          "op": "attrs",
+          "selector": "td.lista a[href*=\"torrent-details\"]",
+          "attr": "href",
+          "limit": 3
+        },
+        {
+          "id": "name_links.first_3_texts",
+          "op": "texts",
+          "selector": "td.lista a[href*=\"torrent-details\"]",
+          "limit": 3
+        },
+        {
+          "id": "name_links.first_3_rows",
+          "op": "row_cells",
+          "selector": "td.lista a[href*=\"torrent-details\"]",
+          "closest": "tr",
+          "within": "td",
+          "limit": 3
+        },
+        {
+          "id": "main_only.preference",
+          "op": "count",
+          "selector": "td.lista a[href^=\"index.php\"][href*=\"torrent-details\"]"
+        },
+        {
+          "id": "main_only.first_3_rows",
+          "op": "row_cells",
+          "selector": "td.lista a[href^=\"index.php\"][href*=\"torrent-details\"]",
+          "closest": "tr",
+          "within": "td",
+          "limit": 3
+        },
+        {
+          "id": "main_only.nonempty_texts_count",
+          "op": "count_nonempty_texts",
+          "selector": "td.lista a[href^=\"index.php\"][href*=\"torrent-details\"]"
+        },
+        {
+          "id": "main_only.first_5_hrefs",
+          "op": "attrs",
+          "selector": "td.lista a[href^=\"index.php\"][href*=\"torrent-details\"]",
+          "attr": "href",
+          "limit": 5
+        },
+        {
+          "id": "main_only.first_5_texts",
+          "op": "texts",
+          "selector": "td.lista a[href^=\"index.php\"][href*=\"torrent-details\"]",
+          "limit": 5
+        },
+        {
+          "id": "main_only.first_5_rows",
+          "op": "row_cells",
+          "selector": "td.lista a[href^=\"index.php\"][href*=\"torrent-details\"]",
+          "closest": "tr",
+          "within": "td",
+          "limit": 5
+        },
+        {
+          "id": "name_links.attrs_td_index",
+          "op": "row_cells",
+          "selector": "td.lista a[href*=\"torrent-details\"]",
+          "closest": "tr",
+          "within": "td.lista a",
+          "limit": 2
+        },
+        {
+          "id": "td_lista.count",
+          "op": "count",
+          "selector": "td.lista"
+        }
+      ]
+    },
+    {
+      "file": "filemood-ubuntu.html",
+      "note": "真实结果页（2026-08 快照，20 条）。用 table > tbody > tr（裸 tr 靠解析器补 tbody）+ a.btn-success 过滤数据行；infoHash 从详情页 URL 里抠。",
+      "probes": [
+        {
+          "id": "rows.count",
+          "op": "count",
+          "selector": "table > tbody > tr"
+        },
+        {
+          "id": "btn_success.count",
+          "op": "count",
+          "selector": "a.btn-success"
+        },
+        {
+          "id": "title.count",
+          "op": "count",
+          "selector": "td.dn-title"
+        },
+        {
+          "id": "title.first_text",
+          "op": "text_first",
+          "selector": "td.dn-title"
+        },
+        {
+          "id": "title.first_3_texts",
+          "op": "texts",
+          "selector": "td.dn-title",
+          "limit": 3
+        },
+        {
+          "id": "detail_link.first_href",
+          "op": "attr_first",
+          "selector": "td.dn-btn > div > a",
+          "attr": "href"
+        },
+        {
+          "id": "detail_link.first_3_hrefs",
+          "op": "attrs",
+          "selector": "td.dn-btn > div > a",
+          "attr": "href",
+          "limit": 3
+        },
+        {
+          "id": "size.first_3_texts",
+          "op": "texts",
+          "selector": "td.dn-size",
+          "limit": 3
+        },
+        {
+          "id": "status.first_3_texts",
+          "op": "texts",
+          "selector": "td.dn-status",
+          "limit": 3
+        },
+        {
+          "id": "title.row_status_cells",
+          "op": "row_cells",
+          "selector": "td.dn-title",
+          "closest": "tr",
+          "within": "td.dn-status",
+          "limit": 3
+        },
+        {
+          "id": "title.row_all_cells",
+          "op": "row_cells",
+          "selector": "td.dn-title",
+          "closest": "tr",
+          "within": "td",
+          "limit": 1
+        }
+      ]
+    },
+    {
+      "file": "1337x-ubuntu.html",
+      "note": "⚠️ 这不是结果页 —— 是 1337x 的反爬 JS 挑战页（1.1KB，只有 window.location.replace）。探针用来把这个事实钉住：rows.count == 0。2026-10-09 复查：页里那个跳转域名 13377x.to 已变成域名停放广告页，而 1337x 官方域名要么 DNS 不返回 A 记录、要么撞 Cloudflare 挑战页 —— 详见 AGENTS.md 的「1337x.js —— 调查完毕，跳过」小节。",
+      "probes": [
+        {
+          "id": "rows.count",
+          "op": "count",
+          "selector": "table tbody tr"
+        },
+        {
+          "id": "name_cells.count",
+          "op": "count",
+          "selector": "table tbody tr td.name a"
+        },
+        {
+          "id": "title_text",
+          "op": "text_first",
+          "selector": "title"
+        }
+      ]
+    },
+    {
+      "file": "rutor-ubuntu.html",
+      "note": "真实结果页（2026-10-09 从 rutor.is 抓，UTF-8）。索引表是 div#index > table > tbody > tr，**第一行是表头要丢掉**。片名/磁力靠 td:nth-child(2) 里的第 3/第 2 个 <a> 定位；**数据行的 td 数不固定（4 或 5）**，所以 size 必须按内容找而不是列序号 —— 这正是 JS 的做法。",
+      "probes": [
+        {
+          "id": "rows.count",
+          "op": "count",
+          "selector": "div#index > table > tbody > tr"
+        },
+        {
+          "id": "name.first_3_texts",
+          "op": "texts",
+          "selector": "div#index > table > tbody > tr td:nth-child(2) > a:nth-child(3)",
+          "limit": 3
+        },
+        {
+          "id": "name.first_href",
+          "op": "attr_first",
+          "selector": "div#index > table > tbody > tr td:nth-child(2) > a:nth-child(3)",
+          "attr": "href"
+        },
+        {
+          "id": "name.attrs_first_3",
+          "op": "attrs",
+          "selector": "div#index > table > tbody > tr td:nth-child(2) > a:nth-child(3)",
+          "attr": "href",
+          "limit": 3
+        },
+        {
+          "id": "magnet.first_href",
+          "op": "attr_first",
+          "selector": "div#index > table > tbody > tr td:nth-child(2) > a:nth-child(2)",
+          "attr": "href"
+        },
+        {
+          "id": "date_cells.first_3_texts",
+          "op": "texts",
+          "selector": "div#index > table > tbody > tr td:nth-child(1)",
+          "limit": 3
+        },
+        {
+          "id": "row_tds.first_3_rows",
+          "op": "row_cells",
+          "selector": "div#index > table > tbody > tr td:nth-child(2) > a:nth-child(3)",
+          "closest": "tr",
+          "within": "td",
+          "limit": 3
+        },
+        {
+          "id": "row_spans.first_3_rows",
+          "op": "row_cells",
+          "selector": "div#index > table > tbody > tr td:nth-child(2) > a:nth-child(3)",
+          "closest": "tr",
+          "within": "span",
+          "limit": 3
+        },
+        {
+          "id": "row_links.first_3_rows",
+          "op": "row_cells",
+          "selector": "div#index > table > tbody > tr td:nth-child(2) > a:nth-child(3)",
+          "closest": "tr",
+          "within": "a",
+          "limit": 3
+        },
+        {
+          "id": "html.lang_text",
+          "op": "text_first",
+          "selector": "html"
+        }
+      ]
+    },
+    {
+      "file": "audiobookbay-ubuntu.html",
+      "note": "真实结果页（2026-10-09 快照，关键词 ubuntu → 9 条）。坑点：div.postContent 的**第 3 个孩子**才是那句 'Posted: … File Size: …'（前两个是 div.center 和一个空的 <p style=\"center;\">），JS 用 `p:nth-child(3)` 命中它。关键未知数：这句里字段靠 <br /> 分隔，而 cheerio 的 .text() 给不给换行 —— 直接决定 JS 的 size/date 解析是否生效。cover.first_src 用来独立确认 info hash（站点把 hash 当前缀写进封面图文件名）。",
+      "probes": [
+        {
+          "id": "posts.count",
+          "op": "count",
+          "selector": "div.post"
+        },
+        {
+          "id": "titles.count",
+          "op": "count",
+          "selector": "div.postTitle > h2 > a"
+        },
+        {
+          "id": "titles.first_3_texts",
+          "op": "texts",
+          "selector": "div.postTitle > h2 > a",
+          "limit": 3
+        },
+        {
+          "id": "titles.attrs_first_3",
+          "op": "attrs",
+          "selector": "div.postTitle > h2 > a",
+          "attr": "href",
+          "limit": 3
+        },
+        {
+          "id": "info.count",
+          "op": "count",
+          "selector": "div.postContent > p:nth-child(3)"
+        },
+        {
+          "id": "info.first_text",
+          "op": "text_first",
+          "selector": "div.postContent > p:nth-child(3)"
+        },
+        {
+          "id": "info.first_3_texts",
+          "op": "texts",
+          "selector": "div.postContent > p:nth-child(3)",
+          "limit": 3
+        },
+        {
+          "id": "cover.first_src",
+          "op": "attr_first",
+          "selector": "div.postContent > div.center img",
+          "attr": "src"
+        },
+        {
+          "id": "html.lang_text",
+          "op": "text_first",
+          "selector": "html"
+        }
+      ]
+    },
+    {
+      "file": "therarbg-ubuntu.html",
+      "note": "真实结果页（2026-10-10 快照，关键词 ubuntu → 39 个 tr.list-entry）。坑点：日期/大小不在文本里，而在 data-order 属性里（秒 / 字节）；分类在第 3 个 td 的 <a> 文本里；第 1 个 td 是图标、没有名字。名字那一格还有多一个 </a>（站上写错了），看解析器吃不吃。⚠️ 这一页**故意不设 `html.lang_text`** —— 那一条是整页 text 拼接的超长单行，实测会把 CI 日志在这里截断，导致后面的 probe 真值全拿不到（2026-10-10 踩过）。整页拼接的语义已由 rutor / audiobookbay 两条覆盖。",
+      "probes": [
+        {
+          "id": "rows.count",
+          "op": "count",
+          "selector": "table > tbody > tr.list-entry"
+        },
+        {
+          "id": "rows.first_3_rows",
+          "op": "row_cells",
+          "selector": "table > tbody > tr.list-entry",
+          "closest": "tr",
+          "within": "td",
+          "limit": 3
+        },
+        {
+          "id": "name.count_nonempty_texts",
+          "op": "count_nonempty_texts",
+          "selector": "td.cellName > div > a"
+        },
+        {
+          "id": "name.first_3_texts",
+          "op": "texts",
+          "selector": "td.cellName > div > a",
+          "limit": 3
+        },
+        {
+          "id": "name.attrs_first_3",
+          "op": "attrs",
+          "selector": "td.cellName > div > a",
+          "attr": "href",
+          "limit": 3
+        },
+        {
+          "id": "size.attrs_first_3",
+          "op": "attrs",
+          "selector": "td.sizeCell",
+          "attr": "data-order",
+          "limit": 3
+        },
+        {
+          "id": "date.attrs_first_3",
+          "op": "attrs",
+          "selector": "td:nth-child(4)",
+          "attr": "data-order",
+          "limit": 3
+        },
+        {
+          "id": "cat.first_3_texts",
+          "op": "texts",
+          "selector": "td:nth-child(3) > a",
+          "limit": 3
+        },
+        {
+          "id": "seeders.first_3_texts",
+          "op": "texts",
+          "selector": "td:nth-child(7)",
+          "limit": 3
+        },
+        {
+          "id": "leechers.first_3_texts",
+          "op": "texts",
+          "selector": "td:nth-child(8)",
+          "limit": 3
+        },
+        {
+          "id": "magnet.count",
+          "op": "count",
+          "selector": "a[href^=\"magnet:?\"]"
+        }
+      ]
+    },
+    {
+      "file": "therarbg-detail.html",
+      "note": "真实详情页（2026-10-10 快照，150KB / 磁力链只有 1 条）。整个列表页都没有磁力，只有详情页有 —— 这就是 resolveMagnet 的存在理由。源玛里是 `&amp;dn=…`，取值应该是**解码后**的单 & ，这条 probe 同时验证长属性的实体解码。",
+      "probes": [
+        {
+          "id": "magnet.count",
+          "op": "count",
+          "selector": "a[href^=\"magnet:?\"]"
+        },
+        {
+          "id": "magnet.first_href",
+          "op": "attr_first",
+          "selector": "a[href^=\"magnet:?\"]",
+          "attr": "href"
+        }
+      ]
+    },
+    {
+      "file": "limetorrents-ubuntu.html",
+      "note": "真实结果页（2026-10-10 快照，关键词 ubuntu）。坑点：第一行是**表头 `<tr><th>`**（无 td）→ `row_cells` 给出 `[]`；名称在第 1 格 `.tt-name` 里的**第 2 个** `<a>`，第 1 个是 `itorrents.net/torrent/<HASH>.torrent`（info hash 就从它里面抠）；第 2 格是「`<相对日期> - in <分类>`」一句话，日期与分类得自己切；分类词是 `TV shows` / `E-books` / `Applications`，**对不上 JS `switch` 里的 `TV`/`E-book`/`App`**。",
+      "probes": [
+        {
+          "id": "rows.count",
+          "op": "count",
+          "selector": ".table2 > tbody > tr"
+        },
+        {
+          "id": "rows.first_3_rows",
+          "op": "row_cells",
+          "selector": ".table2 > tbody > tr",
+          "closest": "tr",
+          "within": "td",
+          "limit": 3
+        },
+        {
+          "id": "names.count_nonempty_texts",
+          "op": "count_nonempty_texts",
+          "selector": "td:nth-child(1) > div.tt-name > a:nth-child(2)"
+        },
+        {
+          "id": "names.first_3_texts",
+          "op": "texts",
+          "selector": "td:nth-child(1) > div.tt-name > a:nth-child(2)",
+          "limit": 3
+        },
+        {
+          "id": "names.attrs_first_3",
+          "op": "attrs",
+          "selector": "td:nth-child(1) > div.tt-name > a:nth-child(2)",
+          "attr": "href",
+          "limit": 3
+        },
+        {
+          "id": "filelinks.count",
+          "op": "count",
+          "selector": "td:nth-child(1) > div.tt-name > a:nth-child(1)[href*=\"itorrents.net/torrent/\"]"
+        },
+        {
+          "id": "filelinks.attrs_first_3",
+          "op": "attrs",
+          "selector": "td:nth-child(1) > div.tt-name > a:nth-child(1)",
+          "attr": "href",
+          "limit": 3
+        },
+        {
+          "id": "datecell.texts",
+          "op": "texts",
+          "selector": "td:nth-child(2)",
+          "limit": 6
+        },
+        {
+          "id": "size.first_3_texts",
+          "op": "texts",
+          "selector": "td:nth-child(3)",
+          "limit": 3
+        },
+        {
+          "id": "seeds.first_3_texts",
+          "op": "texts",
+          "selector": "td.tdseed",
+          "limit": 3
+        },
+        {
+          "id": "leech.first_3_texts",
+          "op": "texts",
+          "selector": "td.tdleech",
+          "limit": 3
+        }
+      ]
+    },
+    {
+      "file": "torrent9-ubuntu.html",
+      "note": "真实结果页（2026-10-10 快照，关键词 ubuntu → **只有 3 条**）。第一行是表头（`<tr><th>`）；数据行 5 个 td：名称链接、日期、大小、seed、leech —— 但 **JS 只取第 1 格的名称与详情链接，其余全丢**（它宁可点击时去详情页拿，见 provider 文件头）。名称文本要跨 `<h3>` 与 `<span class='blue'>` 拼出来，正好验证 text() 的后代拼接。",
+      "probes": [
+        {
+          "id": "rows.count",
+          "op": "count",
+          "selector": "table > tbody > tr"
+        },
+        {
+          "id": "rows.first_3_rows",
+          "op": "row_cells",
+          "selector": "table > tbody > tr",
+          "closest": "tr",
+          "within": "td",
+          "limit": 3
+        },
+        {
+          "id": "names.count_nonempty_texts",
+          "op": "count_nonempty_texts",
+          "selector": "td:nth-child(1) > a"
+        },
+        {
+          "id": "names.first_3_texts",
+          "op": "texts",
+          "selector": "td:nth-child(1) > a",
+          "limit": 3
+        },
+        {
+          "id": "names.attrs_first_3",
+          "op": "attrs",
+          "selector": "td:nth-child(1) > a",
+          "attr": "href",
+          "limit": 3
+        }
+      ]
+    },
+    {
+      "file": "torrent9-detail.html",
+      "note": "真实详情页（2026-10-10 快照，名称为 `div.movie-section h1`；磁力链在源码里是**裸 `&`**（不是 `&amp;`），所以这条 probe 验证的不是实体解码而是引号内的原始值。页面上有 2 条，内容一模一样，JS 取 .first()。",
+      "probes": [
+        {
+          "id": "h1.count",
+          "op": "count",
+          "selector": "div.movie-section h1"
+        },
+        {
+          "id": "h1.first_text",
+          "op": "text_first",
+          "selector": "div.movie-section h1"
+        },
+        {
+          "id": "magnet.count",
+          "op": "count",
+          "selector": "a[href^=\"magnet:?\"]"
+        },
+        {
+          "id": "magnet.first_href",
+          "op": "attr_first",
+          "selector": "a[href^=\"magnet:?\"]",
+          "attr": "href"
+        },
+        {
+          "id": "magnet.hrefs",
+          "op": "attrs",
+          "selector": "a[href^=\"magnet:?\"]",
+          "attr": "href",
+          "limit": 2
+        }
+      ]
+    },
+    {
+      "file": "oxtorrent-ubuntu.html",
+      "note": "真实结果页（2026-10-10 快照，关键词 ubuntu → **3 条，没有表头行**）。每行 4 个 td：名称链接、大小、seeders、leechers —— **JS 只取名称与详情链接，后三格全丢**（卡片上除名字外都是 —）。另外第 1 格里的 `<i class=\"Logiciels\">` 就是分类（法语），JS 也没用。与 torrent9 是同一个毛病。",
+      "probes": [
+        {
+          "id": "rows.count",
+          "op": "count",
+          "selector": "table > tbody > tr"
+        },
+        {
+          "id": "rows.first_3_rows",
+          "op": "row_cells",
+          "selector": "table > tbody > tr",
+          "closest": "tr",
+          "within": "td",
+          "limit": 3
+        },
+        {
+          "id": "names.count_nonempty_texts",
+          "op": "count_nonempty_texts",
+          "selector": "td:nth-child(1) > a"
+        },
+        {
+          "id": "names.first_3_texts",
+          "op": "texts",
+          "selector": "td:nth-child(1) > a",
+          "limit": 3
+        },
+        {
+          "id": "names.attrs_first_3",
+          "op": "attrs",
+          "selector": "td:nth-child(1) > a",
+          "attr": "href",
+          "limit": 3
+        },
+        {
+          "id": "cat_classes.attrs_first_3",
+          "op": "attrs",
+          "selector": "td:nth-child(1) > i",
+          "attr": "class",
+          "limit": 3
+        }
+      ]
+    },
+    {
+      "file": "oxtorrent-detail.html",
+      "note": "真实详情页（2026-10-10 快照）。`div.btn-magnet > a` 只有 1 条；页面上别处还有个 `div.btn-download > a` 指向**同一条**磁力（实测内容一样），但 JS 只认 btn-magnet。",
+      "probes": [
+        {
+          "id": "btn_magnet_links.count",
+          "op": "count",
+          "selector": "div.btn-magnet > a"
+        },
+        {
+          "id": "btn_magnet_links.first_href",
+          "op": "attr_first",
+          "selector": "div.btn-magnet > a",
+          "attr": "href"
+        },
+        {
+          "id": "all_magnets.count",
+          "op": "count",
+          "selector": "a[href^=\"magnet:?\"]"
+        }
+      ]
+    },
+    {
+      "file": "nyaa-ubuntu.html",
+      "note": "真实结果页（2026-10-10 由 CI 抓取，关键词 ubuntu → **只有 1 条**，探活的「2 行」是 <tr 计数含表头）。⚠️ 名字那格带 colspan=\"2\"，所以一行只有 **8 个 td**（评论列被合并了），而 JS 是按 9 列的旧布局写的：它读的 tds.eq(2)/eq(3)/eq(4)/eq(5) 实际落在 Link/Size/Date/Seeders 上 —— size 拿到空串、date 拿到 \"624.0 MiB\"、seeders 拿到日期。探针 rows.first_3_rows 把真实格子逐个钉住。",
+      "probes": [
+        {
+          "id": "rows.count",
+          "op": "count",
+          "selector": "table.torrent-list tbody tr"
+        },
+        {
+          "id": "rows.first_3_rows",
+          "op": "row_cells",
+          "selector": "table.torrent-list tbody tr",
+          "closest": "tr",
+          "within": "td",
+          "limit": 3
+        },
+        {
+          "id": "view_links.count",
+          "op": "count",
+          "selector": "a[href^=\"/view/\"]"
+        },
+        {
+          "id": "view_links.first_3_texts",
+          "op": "texts",
+          "selector": "a[href^=\"/view/\"]",
+          "limit": 3
+        },
+        {
+          "id": "view_links.attrs_first_3",
+          "op": "attrs",
+          "selector": "a[href^=\"/view/\"]",
+          "attr": "href",
+          "limit": 3
+        },
+        {
+          "id": "cat_titles.attrs_first_3",
+          "op": "attrs",
+          "selector": "td:nth-child(1) a[href*=\"c=\"]",
+          "attr": "title",
+          "limit": 3
+        },
+        {
+          "id": "namecell_magnets.count",
+          "op": "count",
+          "selector": "td:nth-child(2) a[href^=\"magnet:\"]"
+        },
+        {
+          "id": "namecell_magnets.first_href",
+          "op": "attr_first",
+          "selector": "td:nth-child(2) a[href^=\"magnet:\"]",
+          "attr": "href"
+        },
+        {
+          "id": "td3.texts",
+          "op": "texts",
+          "selector": "td:nth-child(3)",
+          "limit": 3
+        },
+        {
+          "id": "td4.texts",
+          "op": "texts",
+          "selector": "td:nth-child(4)",
+          "limit": 3
+        },
+        {
+          "id": "td5.texts",
+          "op": "texts",
+          "selector": "td:nth-child(5)",
+          "limit": 3
+        },
+        {
+          "id": "td6.texts",
+          "op": "texts",
+          "selector": "td:nth-child(6)",
+          "limit": 3
+        }
+      ]
+    },
+    {
+      "file": "megapeer-1080p.html",
+      "encoding": "windows-1251",
+      "note": "真实结果页（2026-10-11 由 CI 抓取，关键词 1080p → 50 条）。⚠️ 本站是 windows-1251（meta 声明 + 字节实测）：条目里用 encoding 声明，cheerio 侧走 TextDecoder、Rust 侧走 encoding_rs，两个解码器必须给出同一文本。⚠️ 行有两种形状：43 行 4-td、7 行 5-td（多一格评论数，恒在 td3）——JS 按固定列索引取，会把 5-td 行的评论数当 size、peers 落空；Rust 侧改成「倒数第 2 格 = size、最后一格 = peers」，下面的 probe 就是修正后的语义。名称那一格两种行都在 td2，JS 原选择器不变。",
+      "probes": [
+        {
+          "id": "rows.count",
+          "op": "count",
+          "selector": "div#index > table > tbody > tr.table_fon"
+        },
+        {
+          "id": "rows.first_3_rows",
+          "op": "row_cells",
+          "selector": "div#index > table > tbody > tr.table_fon",
+          "closest": "tr",
+          "within": "td",
+          "limit": 3
+        },
+        {
+          "id": "names.count_nonempty_texts",
+          "op": "count_nonempty_texts",
+          "selector": "tr.table_fon td:nth-child(2) > a:nth-child(2)"
+        },
+        {
+          "id": "names.first_3_texts",
+          "op": "texts",
+          "selector": "tr.table_fon td:nth-child(2) > a:nth-child(2)",
+          "limit": 3
+        },
+        {
+          "id": "names.attrs_first_3",
+          "op": "attrs",
+          "selector": "tr.table_fon td:nth-child(2) > a:nth-child(2)",
+          "attr": "href",
+          "limit": 3
+        },
+        {
+          "id": "sizes.texts_first_5",
+          "op": "texts",
+          "selector": "tr.table_fon td:nth-last-child(2)",
+          "limit": 5
+        },
+        {
+          "id": "seeds.texts_first_5",
+          "op": "texts",
+          "selector": "tr.table_fon td:last-child > font:nth-child(2)",
+          "limit": 5
+        },
+        {
+          "id": "leeches.texts_first_5",
+          "op": "texts",
+          "selector": "tr.table_fon td:last-child > font:nth-child(4)",
+          "limit": 5
+        },
+        {
+          "id": "dates.texts_first_3",
+          "op": "texts",
+          "selector": "tr.table_fon td:nth-child(1)",
+          "limit": 3
+        },
+        {
+          "id": "magnets.count",
+          "op": "count",
+          "selector": "tr.table_fon a[href^=\"magnet:\"]"
+        }
+      ]
+    },
+    {
+      "file": "megapeer-detail.html",
+      "encoding": "windows-1251",
+      "note": "真实详情页（2026-10-11 由 CI 抓取）。`a[href^=\"magnet:?xt=\"]` 只有 1 条；href 在源码里是 &amp; 形式（两侧都应解码成 &）。同样是 windows-1251。",
+      "probes": [
+        {
+          "id": "magnet_links.count",
+          "op": "count",
+          "selector": "a[href^=\"magnet:?xt=\"]"
+        },
+        {
+          "id": "magnet_links.first_href",
+          "op": "attr_first",
+          "selector": "a[href^=\"magnet:?xt=\"]",
+          "attr": "href"
+        },
+        {
+          "id": "all_magnets.count",
+          "op": "count",
+          "selector": "a[href^=\"magnet:\"]"
+        }
+      ]
+    },
+    {
+      "file": "zeromagnet-ubuntu.html",
+      "note": "真实结果页（2026-10-11 由 CI 抓取，关键词 ubuntu → 29 条，**无表头行**）。名称被 `<mark>` 包住关键词（高亮）→ 文本必须拼接后代；`td:nth-child(2)` 的 meta 列里明明有 size/日期（`6.2GB` / `2026-08-07`），JS 全丢（只取 name+链接，与 oxtorrent/torrent9 同款）。详情链接是短 ID 形式 `/!xxxx`。",
+      "probes": [
+        {
+          "id": "rows.count",
+          "op": "count",
+          "selector": "table.file-list > tbody > tr"
+        },
+        {
+          "id": "rows.first_3_rows",
+          "op": "row_cells",
+          "selector": "table.file-list > tbody > tr",
+          "closest": "tr",
+          "within": "td",
+          "limit": 3
+        },
+        {
+          "id": "names.count_nonempty_texts",
+          "op": "count_nonempty_texts",
+          "selector": "table.file-list tbody tr td:nth-child(1) > a"
+        },
+        {
+          "id": "names.first_3_texts",
+          "op": "texts",
+          "selector": "table.file-list tbody tr td:nth-child(1) > a",
+          "limit": 3
+        },
+        {
+          "id": "names.attrs_first_3",
+          "op": "attrs",
+          "selector": "table.file-list tbody tr td:nth-child(1) > a",
+          "attr": "href",
+          "limit": 3
+        },
+        {
+          "id": "meta_sizes.texts_first_3",
+          "op": "texts",
+          "selector": "table.file-list tbody tr td:nth-child(2) > div:nth-child(1)",
+          "limit": 3
+        },
+        {
+          "id": "meta_dates.texts_first_3",
+          "op": "texts",
+          "selector": "table.file-list tbody tr td:nth-child(2) > div.result-date",
+          "limit": 3
+        },
+        {
+          "id": "magnets.count",
+          "op": "count",
+          "selector": "input#input-magnet"
+        }
+      ]
+    },
+    {
+      "file": "zeromagnet-detail.html",
+      "note": "真实详情页（2026-10-11 由 CI 抓取）。磁力在 `input#input-magnet` 的 **value 属性**里（195 字符，源码里是 &amp; 形式）；页面上另有一条 `a[href^=\"magnet:\"]`（复制按钮）指向同一条，JS 只认 input。",
+      "probes": [
+        {
+          "id": "magnet_inputs.count",
+          "op": "count",
+          "selector": "input#input-magnet"
+        },
+        {
+          "id": "magnet_inputs.first_value",
+          "op": "attr_first",
+          "selector": "input#input-magnet",
+          "attr": "value"
+        },
+        {
+          "id": "magnet_links.count",
+          "op": "count",
+          "selector": "a[href^=\"magnet:\"]"
+        }
+      ]
+    }
+  ]
+}

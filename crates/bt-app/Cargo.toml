@@ -1,0 +1,35 @@
+[package]
+name = "bt-app"
+description = "BT 聚合搜索 — Slint 桌面应用（**唯一的 UI**，对齐 docs/ROADMAP.md M4）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# 产物名固定成 `bt-search.exe`（M7 要拿它当自包含单文件交付）。
+[[bin]]
+name = "bt-search"
+path = "src/main.rs"
+
+[dependencies]
+bt-core = { path = "../bt-core" }
+bt-providers = { path = "../bt-providers" }
+bt-downloaders = { path = "../bt-downloaders" }
+# 与 spike/slint-ui 同一条 1.18 线（M1 就是在这条线上验的 #13548）。
+# ⚠️ 不写 `features = [...]`：默认特性里已经含 windows 上要用的 backend-winit +
+# renderer-software；CI 上靠运行时 `SLINT_BACKEND=winit-software` 避开 GPU。
+slint = "1.18"
+# 网络 IO 必须有运行时；Slint 的 UI 是单线程的 —— 两者靠
+# `slint::invoke_from_event_loop` 接起来（见 src/main.rs 的线程模型说明）。
+# ⚠️ `net` 不能少：`runtime()` 用 `.enable_all()` 打开 **IO driver**，
+# 而 IO driver 由 `net` 特性把门 —— 少了它 reqwest 会在运行期报
+# "IO driver not enabled"（编译期不报）。这是 2026-10-16 补自检时发现的第二个坑。
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "net"] }
+
+[build-dependencies]
+slint-build = "1.18"
+
+[dev-dependencies]
+# 集成测试看不到 crate 的普通依赖，用到什么就再声明什么。
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "time"] }

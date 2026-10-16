@@ -9,9 +9,1040 @@ npm start     # node server.js → http://localhost:3000
 
 Electron mode: `npm run electron` (picks a free port automatically, no collision with a running `npm start`).
 
+## 🏗️ 构建约束 — 先读这条（硬规则，2026-10-04 用户明令）
+
+**不要在本机编译任何东西。** 用户原话：「不要在本地新增什么构建环境什么的，我电脑没空间了」。
+实测磁盘（2026-10-07）：C: 301G / 剩 **31G**（90% 用），D: 653G / 剩 **41G**（94% 用）—— **两个盘都快满了，不只是 C**。
+
+凡会产出 `target/` / `dist/` / `node_modules/` 或联网拉依赖的命令
+（`cargo build`、`cargo test`、`npm install`、`npm run dist` …）：**先问用户，默认改走 GitHub Actions**。
+不要因为「D 盘反正还有 41G」就自作主张开跑。
+
+**注**：本机的 `CARGO_HOME`（`D:\Vibe-Coding\.cargo`）已被清理，`cargo` 已不在 PATH 上；
+`RUSTUP_HOME`（`D:\Vibe-Coding\.rustup`）的 toolchain 还在但缺 shim。
+**结论：本地跑不了 cargo（编译/测试一律走 CI）；但 toolchain 里的 `rustfmt.exe` 可以独立跑** ——
+改完 `.rs` 后 `rustfmt --edition 2021 --check <files>` 一遍再推，能省掉 fmt 门的 CI 往返
+（路径与用法见 `CLAUDE.md`「Rust tooling on this machine」；2026-10-11 起实战使用）。
+
+| 场景 | workflow | 触发 |
+|---|---|---|
+| Rust workspace（编译 + 测试） | `rust.yml` | push `feat/rust`、PR 改 `crates/**` |
+| Electron 安装包 + portable | `build.yml` | push `main`、`v*` tag |
+| Electron + Tauri 统一发版 | `release.yml` | `v*` tag |
+| Tauri 编译校验 | `tauri-build.yml` | push `feat/tauri` |
+| Slint spike / M1 自检 | `slint-spike.yml` | push `spike/slint-ui`、PR 改 `spike/**` ⚠️ 要手动触发得先同步到 `main` |
+
+**已知可回收空间**：`src-tauri/target` 约 1.1GB（`cargo clean` 即可，但本机已无 cargo）。
+
+## 🦀 Rust 重写主线（`feat/rust` 分支，2026-10-08 起）
+
+本项目**推倒重开、用 Rust 重写**，在 `feat/rust` 上进行，长期长成主分支。
+`main` 上的 Node/Express + Electron/Tauri 实现继续可用；Rust 版每搬完一块就替代一块。
+
+**📊 进度快照（2026-10-11）**：**16 个 provider 已搬**（5 JSON + 11 HTML），
+CI **397 passed / 0 failed + M4 全链路自检 12/12**（clippy + fmt 均为硬门）；
+探针 **126 条 / 17 fixture**；
+**聚合层 = 100%（M2）、下载器 = 100%（M3）、UI = 100%（M4：能编译 + 映射层单测 + 全链路自检）**
+（provider 核心已有 16 个家底）。
+
+🔴 **2026-10-11 目标重订 —— 动手前先读 `docs/ROADMAP.md`。**
+那一轮追问推翻了旧路线的隐含假设（「能搜到东西」就是目标），结论是：
+**真正的目标 = 「小、快、原生的桌面成品」，搜索只是载体** →
+**跳过 WebView 中间态，直接上 Slint；核心做成库，不写 HTTP/SSE。**
+⇒ **旧 Q2（复用 `public/` 前端）与 Q6（WebView↔Rust 通信）双双作废。**
+当前里程碑 = **M2 聚合层 + `Provider` trait**（M1 已于 2026-10-16 通过，见「Slint 探针结论」）。
+
+### 范围决策
+
+⚠️ **2026-10-11 已重订。canonical 登记在 `docs/ROADMAP.md` §5（用 D 编号）。**
+下表是 2026-10-08 的**旧编号 Q**，保留只为翻历史时对得上 —— **其中 Q2 / Q6 已作废**。
+
+| # | 问题 | 决定 |
+|---|---|---|
+| Q1 | 产品形态 | **只做桌面原生应用；浏览器 / 手机访问模式放弃**（沿用，见 D2） |
+| ~~Q2~~ | ~~UI 方案~~ | ❌ **已作废（2026-10-11）**：原「先不动 UI、复用 `public/` 前端」被推翻 → **直接上 Slint**（`docs/ROADMAP.md` **D8**） |
+| Q3 | 平台 | **暂时 Windows-only**（但代码里别写死平台相关的东西）—— 沿用 |
+| Q4 | 切换时机 | **门 = 「聚合层跑通」**（口径 C）。**不做「40 个引擎齐」的硬要求**（5 个引擎已确认死亡，按字面执行这条分支永远合不回去），**也不把差分门当硬门** —— 差分（G1，见 `docs/AGENT_HANDBOOK.md` §6）降为**自选验证工具** |
+| Q5 | 站点改版怎么发现 | **CI 默认只跑离线 fixture**（稳定的门）；另加一条 `workflow_dispatch` **手动触发的联网冒烟**，允许失败 —— 沿用 |
+| ~~Q6~~ | ~~WebView ↔ Rust 怎么通信~~ | ❌ **已作废（2026-10-11）** —— **没有 WebView 就没有这个问题**（`docs/ROADMAP.md` **D9**：核心是库，Slint 进程内直调；不写 HTTP、不写 SSE） |
+
+### 路线（2026-10-11 重订 —— 取代旧的「阶段一 / 阶段二」）
+
+**canonical 在 `docs/ROADMAP.md` §3。** 一句话版：
+
+```
+M0 ✅ run_mirrors 提取（净 −73 行）
+M1 ✅ 验 Slint 风险（#13548）—— **未复现，Slint 可用**（2026-10-16，见下面「Slint 探针结论」）
+M2 ✅ 聚合层 + Provider trait（2026-10-16，347 tests；**D5「聚合层跑通」的门已满足**）
+M3 ✅ bt-downloaders（2026-10-16，4 客户端 / 34 条离线测试）
+M4 ✅ bt-app Slint MVP（2026-10-16，UI + 接线 + 映射层 + **全链路 --selftest 12/12**）
+M5 ⬅️ 引擎体检 → 砍掉死的            M6 差分验证（必须早于删 Node）
+M7 打包 + GitHub Release
+```
+
+**三条硬约束，别调换**：**M1 必须最先**（Slint 挂了，M2 的架构就得重做）；**M6 必须早于删 Node**（否则「逐字段一致」永远无法再验）；**M5 早于补引擎**（现在没有理由盲搬）。
+
+### 🌿 分支现状（2026-10-16 核对）
+
+| 分支 | 角色 | 状态 |
+|---|---|---|
+| `main` | **发版线**（Node/Express + Electron） | ⚠️ **尚未切换**，见下 |
+| `legacy/node-electron` | `main` 的存档分支 —— **维护规则：始终指向 `main` 的当前 tip**（切 `main` 之前必须再同步一次） | 半废弃保留；主线上移后旧线不会丢 |
+| `feat/rust` | **Rust 主线**（当前开发分支） | 16 provider + M1 结论 |
+| `feat/tauri` | Tauri 壳（Node backend + node sidecar） | 旧线，仍可发版。⚠️ 只有 3 条 workflow（build / release / tauri-build）—— 它**从没**同步过较新的那些（ci-guard / live-smoke / html-probes / provider-health / fetch-fixture / rust）。**这不是 bug**：实测这 3 条都不引用 `scripts/`，所以不存在 main 那种「workflow 在、脚本不在」的坏链 |
+| `spike/slint-ui` | M1 的 spike（`--selftest` + `slint-spike.yml`） | 一次性；**代码不在 `feat/rust` 上**，别去那儿找 |
+
+**同步状态（2026-10-16 实测）**：5 条分支（`main` / `feat/rust` / `feat/tauri` / `spike/slint-ui` / `legacy/node-electron`）
+本地与 `origin` **逐一比对全部一致**，工作区干净。⚠️ `main` 与 `feat/tauri` 本地**没配 upstream 跟踪**
+（`git branch -vv` 里 upstream 为空）—— 推它们要显式 `git push origin <branch>`，别指望裸 `git push`。
+
+⚠️ **「把 `main` 换成 Rust 线」这件事 2026-10-16 讨论过，结论是「等 M2 之后」**：
+- 门是 **D5 = 「聚合层跑通」**，而 M2 是 0%；换完 `main`，用户下载到的仍是 Electron 版
+  （`bt-app` 在 M4）—— 收益是管理层面的，不是产品层面的。
+- 真要换时**必做配套**：`rust.yml` 的触发是 `branches: [feat/rust]`，不加上 `main` 的话
+  换完 Rust CI **一条都不会跑**。用 `merge`（不是 `reset --hard`）：两线在 `dec3512` 已分叉，
+  `main` 有 9 个独有提交，且它是已发布分支。
+- ⚠️ **换 `main` 不等于可以删 Node 版**：D18 要求留到 M6 差分验证做完，
+  `public/`、`src/providers/*.js`、`test/fixtures/` 一个都不能提前删（§0.4 禁改清单）。
+
+**2026-10-16 已修**：`main` 上 `provider-health.yml` / `html-probes.yml` 调用的
+`scripts/provider-health.mjs` / `scripts/html-probes.cjs` / `scripts/gh-retry.sh`
+**一直缺失**（两条手动触发的 workflow 在 `main` 上是坏的），已从 `feat/rust` 补齐；
+`slint-spike.yml` 也从 `spike/slint-ui` 同步到了 `main`（手动触发要带 `--ref spike/slint-ui`）。
+⚠️ **`rust.yml` 刻意不在 `main` 上** —— `main` 没有 `Cargo.toml`/`crates/`，放过去只会是必失败的 workflow。
+
+**旧路线为什么被推翻**：它假设「能搜到东西」是目标，于是「复用 WebView 前端」看起来最省事。
+但真实目标是**成品属性**（小 / 快 / 原生），而 WebView 路线**给不出那个成品**，还要多写一层
+终局用不上的 HTTP + SSE（Slint 是进程内直调）。详见 `docs/ROADMAP.md` §0。
+
+**Slint 探针结论（留档）** —— `spike/slint-ui` 分支与 `slint-spike.yml` 已于 2026-10-09 删除，
+结论必须留着，否则 M1 要重新踩一遍。**重建成本约 500 行** —— 步骤、及格线、Plan B 见 `docs/AGENT_HANDBOOK.md` §1。
+
+### ✅ M1 实测结论（2026-10-16）—— **#13548 未复现，Slint 可用**
+
+CI run `38774543781`（branch `spike/slint-ui`，绿）。六条及格线逐条判定：
+
+| # | 及格线 | 结果 |
+|---|---|---|
+| 1 | 200 条中文标题 + 高亮 + 自动换行全部渲染、不 panic | ✅ **布局覆盖 200/200**，全程未 panic |
+| 2 | 关键词落在**第 2 行**也 OK | ✅ 构造覆盖（前缀 50..=109 逐字扫过软换行边界），未 panic |
+| 3 | 关键词**正好压在换行边界**也 OK | ✅ 同上，扫描步长 1 个汉字 |
+| 4 | 西里尔（真实素材） | ✅ **布局覆盖 50/50**，未 panic |
+| 5 | 实测自包含 exe 体积 | ⚠️ **14.5 MB**（15,200,768 字节）—— 见下「体积对不上」 |
+| 6 | `ListView` 虚拟化生效 | ✅ 2000 条 → **实测实例化 9 个** |
+
+- 环境：slint **1.18.1**（2026-10-16 查 crates.io，**这就是最新版**，没有已修复的更新版）/ parley 0.11.1 / `SLINT_BACKEND=winit-software`（CI runner 无 GPU，femtovg 会挂）
+- 方式：`slint-spike.exe --selftest` —— 真开窗口、真滚动、真渲染；判定 = **进程跑到底**
+- ⚠️ **口径**：及格线 2/3 是**构造覆盖**（Rust 侧拿不到字体度量，无法反查行号），
+  **不是**「实测关键词在第 2 行」。实测的是「这些情形会不会 panic」。
+- 重建方式：代码从 git 悬空对象原样找回（`7d204f9` / `beaea27` / `74dde45` / `e50510c`，没被 gc）；
+  新增的是 `src/m1.rs` 的 `--selftest` 与 workflow 的「真跑」步骤。
+
+🔴 **最大的坑（第一轮就是这样被骗过去的）：只靠事件循环重绘 = 根本没重绘。**
+第一版自检 440 步只花 **0.38s**（≈0.86ms/步）—— 全窗口 1180×800 的软件重绘不可能这么快。
+`ListView` 的**实例化**确实发生了（行高固定 80px，建实例不需要量文本），所以「覆盖 200/200」是真的；
+但 **parley 的 #13548 panic 发生在绘制期的文本布局里**，没重绘 = 没测到，那一轮的「绿」什么都证明不了。
+**解法：每步调 `Window::take_snapshot()` 强制一次同步重绘**（它会重新渲染整个场景）。
+本轮 580 次强制重绘全部成功。**以后凡是验 Slint 渲染路径，必须用这条，别信定时器。**
+
+⚠️ **体积对不上 —— 旧数字「6.7MB」作废。** 同一条 `cargo build --release --locked` 这次实测
+**14.5 MB**，是留档值的 **2.2×**，原因未查明（Rust 版本 / 依赖增长？`[profile.release]` 只有
+`opt-level = 2`，**没开 lto、没 strip**）。S1/R2 的账要按 14.5MB 重算；真要压体积，先试
+`lto = true` + `strip = true` + `opt-level = "z"` 再报数（本轮**没有**调 profile，报的是原始基线）。
+
+（以下为 2026-10-07 spike 的原始留档，坑仍然有效）
+
+- 产物体积是硬卖点：**6.7MB 自包含 exe，零运行时依赖**（对照 Electron 便携版 360MB / Tauri + node sidecar 89MB）
+- ⚠️ `@markdown()` **会把插值转义**（官方原文 "Any text passed as an argument to the macro will be escaped"），
+  所以 `@markdown("\{expr}")` 进去的内容永远是纯文本、不参与解析。运行时富文本必须：
+  `.slint` 里属性类型写 **`styled-text`**（不是 `string`），Rust 侧 `slint::StyledText::from_markdown()`
+- ⚠️ **别在 `init` 里写全局属性** —— 会形成属性依赖环，实测 200 条数据触发 **2628** 次实例化。
+  计数要走 `callback` 进 Rust 的 `Cell`，显示属性只在用户点击时写
+- ⚠️ **Slint #13548（1.18.0 / 1.18.1 均未修）**：内联样式跨软/硬换行、且换行后是多字节字符时
+  parley 会 panic（`end byte index N is not a char boundary`）。最小复现 `@markdown("Это очень\nважно")`。
+  **「中文标题 + 关键词高亮 + 自动换行」正中靶心 —— 这是选 Slint 的最大风险点，始终未能实测**
+- `ListView` 自动虚拟化（元素只在可见时实例化，无需手动分页）；CJK 走 `default-font-family` + 系统回退
+- `StyledText` 支持 `<font color>` / `<u>` / 斜体 / 删除线 / 行内代码 / 链接 / 列表；
+  **没有 `wrap` 属性**；高亮色是烘进 markup 的，**切主题必须整体重建模型**
+
+⚠️ **过渡期千万别做的事**：不要为了"干净"提前删 `public/` 或 `src/providers/`。
+两者合计约 390KB，却是差分验证（M6）的对照物；删了等于凭记忆重写。
+
+```
+Cargo.toml              workspace 根（members = ["crates/*"]，exclude = ["src-tauri"]
+                        — ⚠️ src-tauri 只在 feat/tauri 分支上，feat/rust 没有它）
+crates/bt-core/         领域类型 + 归一化 + HTTP 公共层 + HTML 解析层
+  src/normalize.rs      ← src/lib/normalize.js 的语义等价移植
+  tests/normalize.rs    ← test/normalize.test.js 的断言原样搬来
+  src/http.rs           ← src/lib/http.js 的移植（契约：永不返回 Err）
+  tests/http.rs         ← 自起本地一次性 HTTP 服务，全程无外网
+  src/dom.rs            ← cheerio 的替代层（scraper 0.27 = html5ever + selectors）
+  tests/dom_probes.rs   ← 选择器语义对照：与 cheerio 真值（126 条 probe）逐条比对
+crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方式  src/lib.rs            SearchOutcome { results, error, has_more }
+                        （**聚合调度也放这里**；`Provider` trait 在 **M2** 建，见 `docs/ROADMAP.md` §2.4）
+  src/value.rs          Value → NumOrText / String / min 的公共转换（含 v2nt_nonzero）
+  src/tpb.rs            ← src/providers/tpb.js（GET，apibay）
+  src/knaben.rs         ← src/providers/knaben.js（POST，官方 JSON API）
+  src/torrentscsv.rs    ← src/providers/torrentscsv.js（GET，简单一层数组）
+  src/yts.rs            ← src/providers/yts.js（GET，电影→种子两层结构）
+  src/internetarchive.rs ← src/providers/internetarchive.js（GET，advancedsearch JSON）
+  src/linuxtracker.rs   ← src/providers/linuxtracker.js（HTML，bt_core::dom）
+  src/filemood.rs       ← src/providers/filemood.js（HTML，bt_core::dom）
+  src/rutor.rs          ← src/providers/rutor.js（HTML，bt_core::dom；俄站 UTF-8）
+  src/audiobookbay.rs   ← src/providers/audiobookbay.js（HTML；磁力惰性，resolve_magnet）
+  src/therarbg.rs       ← src/providers/therarbg.js（HTML；size/date 在 data-order 属性里；resolve_magnet）
+  src/limetorrents.rs   ← src/providers/limetorrents.js（HTML；info hash 在 itorrents 链接里；带真分页）
+  src/torrent9.rs       ← src/providers/torrent9.js（HTML，法站；只取名字+详情链接，其余四格 JS 丢掉）
+  src/oxtorrent.rs      ← src/providers/oxtorrent.js（HTML，法站；同上，错误串是 no_results）
+  src/nyaa.rs           ← src/providers/nyaa.js（HTML；fixture 是 CI 抓的；⚠️ JS 列索引全错位）
+  src/megapeer.rs       ← src/providers/megapeer.js（HTML；**windows-1251**，首个非 UTF-8 站点）
+  src/zeromagnet.rs     ← src/providers/zeromagnet.js（HTML；名称被 <mark> 拆开；磁力在 input 的 value 属性）
+  tests/common/mod.rs   本地一次性 HTTP 服务 + fixture 加载（provider 测试公用）
+                        oneshot() 只要响应；oneshot_bytes() 可带 charset 头与原始字节（非 UTF-8 fixture 用）；
+                        oneshot_capture() 另交出原始请求，用于钉请求契约
+  tests/*.rs            每个 provider 一份离线测试（16 个）+ live_smoke.rs
+  tests/live_smoke.rs   联网冒烟；**默认跳过**，只有 BT_LIVE_SMOKE=1 才打外网
+
+（待建）`crates/bt-downloaders/`（4 客户端）· `crates/bt-app/`（**Slint 应用 —— 唯一的 UI**）
+⚠️ `bt-torznab` **本期不建**（D17：只留抽象口子）；旧的 `docs/BT_APP_DESIGN.md` 已删
+```
+
+**移植进度**：
+
+| JS 源 | Rust 目标 | 验收 | 旧 JS 状态 |
+|---|---|---|---|
+| `src/lib/normalize.js`（161 行） | `crates/bt-core/src/normalize.rs` | `test/normalize.test.js` 的断言全搬到 `tests/normalize.rs`，**27 passed** | 保留(对照) |
+| `src/lib/http.js`（71 行） | `crates/bt-core/src/http.rs` | `tests/http.rs` 覆盖成功 / 4xx / 5xx / JSON / 非 JSON / 超时 / 连接失败 / 请求头，**12 passed** | 保留(对照) |
+| `src/providers/tpb.js`（53 行） | `tpb.rs` | 真 fixture（100 条）逐字段 + 三条失败路径，**7 passed** | **待删** |
+| `src/providers/knaben.js`（70 行） | `knaben.rs` | 真 fixture 逐字段 + 分类区间 + 请求 body 契约 + divergence，**9 passed** | **待删** |
+| `src/providers/torrentscsv.js`（32 行） | `torrentscsv.rs` | 真 fixture 首末条 + query 编码契约 + falsy 日期，**9 passed** | **待删** |
+| `src/providers/yts.js`（55 行） | `yts.rs` | 真 fixture 三条结果 + 请求 URL 契约 + 缺省值 + 两条跳过规则，**11 passed** | **待删** |
+| `src/providers/internetarchive.js`（58 行） | `internetarchive.rs` | **合成** fixture（见下）+ 分类映射 + item_size 三态 + `no_docs` 错误语义，**14 passed** | **待删** |
+| `src/lib/scraper.js`（HTML 解析底座） | `crates/bt-core/src/dom.rs` | cheerio 语义对照层 + 11 条单测 + **126 条 probe** 与 cheerio 1.2.0 真值逐条比对（`dom_probes` **通过**） | 保留(对照) |
+| `src/providers/linuxtracker.js`（95 行） | `linuxtracker.rs` | 真 fixture：43 候选 → 18 条结果（三个数字都由 cheerio 交叉验证）+ 11 条集成 + 8 条单测 | **待删** |
+| `src/providers/filemood.js`（74 行） | `filemood.rs` | 真 fixture：65 行 → 20 条数据行（cheerio 交叉验证）+ 11 条集成 + 11 条单测 | **待删** |
+| `src/providers/rutor.js`（99 行） | `rutor.rs` | 真 fixture：101 行（含表头）→ 100 条（cheerio 交叉验证）+ 13 条集成 + 13 条单测 | **待删** |
+| `src/providers/audiobookbay.js`（92 行） | `audiobookbay.rs` | 真 fixture：9 条结果 + 详情页（还原 info hash）+ 15 条集成 + 11 条单测（含上游 size/date bug 的钉住） | **待删** |
+| `src/providers/therarbg.js`（91 行） | `therarbg.rs` | 真 fixture：39 条结果（size/date 走 `data-order`）+ 详情页磁力 + 18 条集成 + 7 条单测 | **待删** |
+| `src/providers/limetorrents.js`（95 行） | `limetorrents.rs` | 真 fixture：41 行（含表头）→ 40 条（hash 从 itorrents 链接抠）+ 10 条集成 + 9 条单测（含两个上游 bug 的钉住） | **待删** |
+| `src/providers/torrent9.js`（126 行） | `torrent9.rs` | 真 fixture：3 条结果（只有名字！）+ 详情页磁力 + 11 条集成 + 5 条单测（含「缺 h1 就不给磁力」的守卫） | **待删** |
+| `src/providers/oxtorrent.js`（61 行） | `oxtorrent.rs` | 真 fixture：3 条结果（**无表头行**）+ 详情页磁力 + 12 条集成 + 4 条单测 | **待删** |
+| `src/providers/nyaa.js`（64 行） | `nyaa.rs` | 真 fixture（**CI 抓的**）：1 条结果 + 8 条集成 + 6 条单测（把三处上游 bug 钉住） | **待删** |
+| `src/providers/megapeer.js`（87 行） | `megapeer.rs` | 真 fixture（**CI 抓的**）：50 条结果（**windows-1251**）+ 详情页磁力 + 18 条集成 + 10 条单测（两处 divergence：编码 / 5-td 列语义） | **待删** |
+| `src/providers/zeromagnet.js`（60 行） | `zeromagnet.rs` | 真 fixture（**CI 抓的**）：29 条结果（无表头）+ 详情页磁力（`input#input-magnet` 的 value）+ 14 条集成 + 4 条单测 | **待删** |
+
+（另有 `bt-providers` 的 92 条单元测试（测 `src/value.rs` + `linuxtracker.rs` + `filemood.rs` + `rutor.rs` + `audiobookbay.rs` + `therarbg.rs` + `limetorrents.rs` + `torrent9.rs` + `oxtorrent.rs` + `nyaa.rs` + `megapeer.rs` + `zeromagnet.rs`）；
+`tests/live_smoke.rs` 3 条默认跳过。合计 **338 passed / 0 failed**（2026-10-11 CI）。）
+
+⚠️ `test/fixtures/internetarchive-ubuntu.synthetic.json`（文件名带 `.synthetic`）：
+`docs[0..2]` 是 2026-10-08 从 CI 冒烟日志取回的**真实 doc**，`docs[3..]` 是手工构造的边界样本；
+整体**不是逐字节快照**（本机对 `archive.org` 有 DNS 污染 —— 连续解析得到不同假 IP，
+IPv6 落在 `2a03:2880:face:b00c` 黑洞前缀，直连 / 代理 / DoH / 中转全失败；
+对照站点 torrents-csv.com 解析正常，说明不是网络整体不通）。
+真实响应已验证：冒烟取回 97~98 条、`error=None`，字段名与类型与 fixture 一致
+（真实数据里第一条就**没有 btih**，说明"缺 btih 就跳过"确实会命中）。
+**换成完整真快照的条件**：在能访问 archive.org 的环境抓一次（或改进冒烟让它落盘成 artifact，
+但 `gh run download` 在本仓库会卡死），然后删掉 fixture 里的 `_synthetic` 字段、
+把文件名去掉 `.synthetic`（`fixture_is_still_marked_as_synthetic` 会逼你这么做）。
+
+### ⚠️ 边搬边删（用户 2026-10-08 指定，2026-10-08 二次修订）
+
+**原则（修订后 —— 别死板按文件删）**：
+
+1. **以「功能」为粒度，不以「文件」为粒度。** 一个功能在 Rust 侧完整可用（含被
+   `bt-app` 真正接通）之后，才考虑删它对应的旧 JS。
+2. **删了会影响后续的，就先不删。** 判断标准：这个 JS 是否还在被别的东西引用/对照？
+   是 → 留着，登记到下面的「待删清单」，阶段收尾时批量删。
+3. **删之前必须登记。** 不登记就删 = 以后没人知道哪些该删。
+4. 唯一红线不变：**不允许两套实现长期漂移**。所以每搬完一块，必须在下面的
+   「移植进度」表里标注该 JS 的状态（`待删` / `保留(对照)` / `已删`）。
+
+**为什么放宽**：验收点之一是「Rust 版结果与 Node 版**逐字段一致**」（= M6 的差分，见
+`docs/ROADMAP.md` §3），Node 源码在这里是**验证工具**而不是待清垃圾。提前删掉 = 亲手毁掉对照物。
+
+**待删清单（收尾时批量处理 —— "何时可删"以下表为准）**：
+
+| 路径 | 为何现在留着 | 何时可删 |
+|---|---|---|
+| `src/providers/tpb.js`、`knaben.js`、`torrentscsv.js`、`yts.js`、`internetarchive.js`、`linuxtracker.js`、`filemood.js`、`rutor.js`、`audiobookbay.js`、`therarbg.js`、`limetorrents.js`、`torrent9.js`、`oxtorrent.js`、`nyaa.js` ✅已移植 | `test/run.js` 仍在跑 tpb/knaben/linuxtracker/filemood/rutor；离线对照要用 | `bt-app` 接通对应 provider + Node 测试块删除后 |
+| `src/providers/*.js`（其余 28 个） | 尚未移植，是逐行对照的参照物 | 各自移植完成后按上条判断 |
+| `src/lib/`、`server.js`、`test/run.js` | 聚合层尚未移植，本分支上 Node 版仍需可跑 | **聚合层跑通**（= 切 `main` 的门，口径 C）之后 |
+| `public/` | Node 版的前端本体（D8 直接上 Slint，**不再有"阶段二"**；Slint 版能用后它就无用） | **M6 差分验证做完**（与 Node 版一起删，D18） |
+| `electron/`、`scripts/`、`package.json`、`start.bat`/`stop.bat`、`.eslintrc.json`、`.prettierrc`、`build.yml`/`release.yml`/`tauri-build.yml` | Rust 版尚未能取代旧 Shell 发版 | Rust 版能独立发版后 |
+
+**已删（已做）**：构建产物 + 依赖缓存（`node_modules`、`src-tauri/target`、`src-tauri/binaries`）→ 省 1.35GB；
+`public/app.js`（**1634 行 / 69KB 死代码**，2026-10-11 —— `index.html` 只加载 `js/main.js`，
+`build-frontend.js` 也只读 `public/js/*.js`，全仓零功能性引用；已同步到 main + feat/tauri）
+
+**永久保留**：`test/fixtures/`（迁进 Rust 测试后也不删，是 golden 数据源）、
+`LICENSE`、`SEARCH_ENGINE_PORT_COVERAGE.md`
+
+⚠️ 反过来也要守：**别提前删还没搬的源码**。`src/providers/` + `public/` 一共才 460KB，
+却是逐行对照的参照物；删了等于凭记忆重写。
+
+### 📌 下一步计划（2026-10-08 用户定，**2026-10-11 改向**）
+
+用户口径：**Q2 选 A → B，先只记录，不动手。**
+
+推荐顺序 **A（纯 JSON 组）→ B（HTML 组）**，理由：JSON 组零解析风险、每个都快，
+能快速把 provider 的组织形态（crate 内一文件一站、`tests/common/mod.rs` 复用）打磨稳；
+HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地方，值得等前面都稳了再集中攻。
+
+**A 组（纯 JSON API，无 HTML 解析）—— ✅ 全部完成**
+
+| 顺序 | provider | 备注 |
+|---|---|---|
+| 1 | ~~`tpb.js`~~ | ✅ 7 tests |
+| 2 | ~~`knaben.js`~~ | ✅ 9 tests |
+| 3 | ~~`torrentscsv.js`~~ | ✅ 9 tests |
+| 4 | ~~`yts.js`~~ | ✅ 11 tests |
+| 5 | ~~`internetarchive.js`~~ | ✅ 14 tests（fixture 是合成的，见进度表上方说明） |
+
+**⛳ 下次开工 = M2：聚合层 + `Provider` trait（M1 已于 2026-10-16 通过）**
+
+原计划「继续搬 provider 直到 40 个齐」**已废止**（D13：剩余 24 个站点里 5 个确认死亡、
+约 8 个两边环境都不通；而且「引擎多」只是感觉，不是需求）。
+旧路线「阶段一 = 核心 + WebView」**也已作废**（D8/D9）—— 真正的目标是「小快原生的成品」。
+
+**✅ M1 已完成（2026-10-16）：Slint #13548 未复现。**
+六条及格线全部判定通过（覆盖率 + 580 次强制同步重绘 + 实测体积），
+结论与踩坑记录见本文件上面的「Slint 探针结论（留档）」。
+⇒ **架构不必重做**，`docs/ROADMAP.md` 的三条硬约束里「M1 必须最先」这条已经兑现。
+
+**✅ M2 已完成（2026-10-16）—— 聚合层 + `Provider` trait 落地，CI 347 tests / 0 failed。**
+三条 JS 语义逐条复刻并有独立验收（语义① 三条过滤 + `?providers=` 三个边界；
+语义② **先回调再起下一个**（事件序钉死）+ 单站失败隔离 + 每站单独计时；
+语义③ 真值表 8 条 + 端到端「paginated 的 provider 也能明确否决 has_more」）。
+🔴 **D5 说的「切 `main` 的门 = 聚合层跑通」到此已经满足** —— 换不换、什么时候换是你拍板；
+配套清单（merge 而非 reset、给 `rust.yml` 触发加 `main`、一个文件都不删）见本文件「🌿 分支现状」。
+
+**✅ M3 已完成（2026-10-16）—— `bt-downloaders` 落地，4 客户端 / 34 条离线测试，CI 382 tests。**
+`crates/bt-downloaders`：qBittorrent / Transmission / aria2·Motrix / Gopeed，
+对 `src/lib/downloaders.js` 移植。**刻意不依赖 bt-core**（那层是抓第三方页面的，
+这层是本机受信下载器：Basic Auth / 会话 cookie / JSON-RPC / 409 重试 / 失败靠 `Err`）。
+两个手册点名的坑各有用例钉住：**qB 的 SID 要在全部 set-cookie 里找**（+只把 403 当凭证错）、
+**`safeHttpUrl` 只放行 http/https**（放库里 + push/test 内部各再查一次）。
+另外三处照抄容易改错的：axios 对非 2xx 会抛而 reqwest 不会（**必须自己查状态码**）、
+axios 把解析不了的正文退化成字符串 ⇒「2xx + 非 JSON」算**成功**（软检查）、
+JS 真值语义（`aria2` 的 `error: 0/""/false` 都是假）。详见 commit `c3fe36a`。
+
+**🟢 M4 已完工（2026-10-16）—— 见下面的「M4 完成」块。**
+`ui/app.slint`（**唯一的 UI**）+ `src/main.rs`（接线）+ `src/highlight.rs`（从 M1 spike 原样搬来）
++ `src/ui_model.rs`（纯映射层，**不 import slint**，11 条单测）。317→397 条测试里
+新增 15 条，全在 `ui_model` / `highlight` 上 —— GUI 渲染路径 CI 测不了，但那两层的**行为**
+可以，所以特意把它们从接线里拎出来。
+
+**🔴 M4 抓到一个 M2 埋下的真缺陷 —— 这条最值得记：`BoxFuture` 少了 `+ Send`。**
+三层各自 CI 全绿（338 → 382 tests），但第一次把它们**拼起来**就编译失败：
+`future cannot be sent between threads safely`，因为 GUI 必须把搜索丢到 `tokio::spawn`
+（要求 `Future + Send + 'static`），而 M2 把 `BoxFuture` 定义成
+`Pin<Box<dyn Future + 'a>>` —— M2 当时**刻意**不加 `Send`，理由也写在那儿了
+（「聚合层在当前任务上驱动，不需要 Send；将来要改成 tokio::spawn 时再加，那时
+得逐个确认 provider」）。**那个「将来」就是 M4。** 逐个确认的结果：16 家全是
+reqwest + `bt_core::dom`，`async` 体里没有 `Rc`/`RefCell`，所以是**纯放宽、一个
+provider 都没改**；同一个要求传播到四处泛型约束（`BoxFuture` / `run_mirrors` 的
+`F`+`Fut` / `async_pool` 的 `F`+`Fut`+`on_settle` / `search_stream` 的 `on_provider`）。
+**教训：接口级问题只有"拼起来"才会暴露 —— 这正是 M4 早于 M5/M6 的价值。**
+
+**Slint 又踩了两个新坑（都已修，别退回去）：**
+1. **组件内的 `root` 指组件自己，不是窗口。** `ResultCard` 里直接写
+   `root.push-row(...)` 编译不过 —— 必须在组件上开 `callback push(int)`，
+   再在 `ListView` 的实例化处 `push(idx) => { root.push-row(idx); }` 转发。
+2. **`VecModel` 的 `row_count` / `set_row_data` 是 `Model` trait 的方法**，
+   不是固有方法 —— 少 `use slint::Model;` 会报
+   `no method named row_count found for struct Rc<VecModel<..>>`。
+
+**线程模型（`docs/ROADMAP.md` §2.2 点名"最容易写错"）已按要求落实**：
+后台任务绝不直接改 UI 属性（数据装进 `invoke_from_event_loop` 回 UI 线程）；
+后台闭包**不能捕获 `Rc`**（回调要求 `Send + 'static`）⇒ UI 侧可变状态放
+**thread_local**，闭包只捕获「拥有所有权的数据 + `Weak<AppWindow>`」；
+**每站一回来就更新**且列表模型**增量 `push`**（不是整块重建 —— 否则每来一站都会把
+用户的滚动位置顶回去）。回调里用 `as_weak()` 而不是 `clone_strong()`：
+回调存在组件内部，强引用会成环、组件永不释放。
+
+**✅ M4 完成（2026-10-16）—— `--selftest` 全链路自检 12/12 通过；CI 397 tests + 自检都是硬门。**
+自检走**和真程序同一条接线**（把 `main()` 里的回调抽成 `wire(ui)` 共用 —— 否则验的是
+一个平行实现，等于没验），只换数据源：假注册表（alpha 3 条**无**磁力 / beta 2 条
+**自带**磁力 / gamma **故意失败**）+ 本地 qB 桩。
+于是 `搜索 → 每站状态 → 行模型 → 惰性取磁力 → 推送到下载器` 真的跑了一遍。
+
+**🔴 自检证明了自己的价值：它抓到两个「编译期 / cargo test / clippy 全绿也发现不了」的运行期 bug。**
+
+1. **回调里裸用 `tokio::spawn` 会 panic。** Slint 的事件循环线程**不在**任何 tokio
+   运行时上下文里 ⇒ 真程序**一点搜索就崩**（`there is no reactor running…`）。
+   修法：自己持有运行时，用 `spawn()` 包装。
+2. **`enable_all()` 要靠 tokio 的 `net` 特性才会打开 IO driver**，少了它 reqwest 在
+   运行期报 `IO driver not enabled` —— 同样编译期不报。bt-app 的 tokio features 补了 `net`。
+
+**自检还抓到两条「断言自己写错」**（说明它不是摆设，真的会 FAIL）：
+① 拿**未编码**的磁力去 match 请求体（体里是 `encodeURIComponent` 之后的）；
+② 用 `ticks > 3` 这种**魔数**钉重绘 —— 链路快时 3 跳就跑完，那种写法本身就是 flaky，
+改成钉「每跳都重绘成功 && 走完三个阶段」。
+
+**防假绿**（M1 的教训）：每跳调 `Window::take_snapshot()` **强制同步重绘并计数**，
+要求 `paints_ok == ticks && paints_err == 0 && ticks >= 3`。
+**provider 线仍然后置**（D13），不是主推进方向。
+
+### 📌 M2 开工前勘明（2026-10-16）—— **已执行完毕，留档备查**
+
+> ⚠️ 下面是**开工前**的勘明，代码已按它写完（commit `b91546d`）。
+> 保留它是为了：① 那几条「推翻了既有文档」的结论需要出处；② ⑨ 里两条待定还挂着。
+> 与最终实现的差异只有一处：⑧ 里说宏「可选重复」有风险 → 实际写成**两条宏臂**。
+
+勘察方式：读 `src/providers/index.js`（271 行，**唯一真值来源**）+ 现有 Rust 基座。
+下面每条都是**实测/实读**的，不是回忆。
+
+**① 真值来源与三条语义的位置**（`src/providers/index.js`）
+| 语义 | 行 | 备注 |
+|---|---|---|
+| `resolveTargets` 三条过滤 | 147–158 | 第 3 条：`page > 1 && !p.paginated && !p.demo` |
+| `runProvider`（计时 + 隔离） | 163–183 | 注意 catch 分支**没有 `hasMore` 键** |
+| `asyncPool` | 204–219 | ⚠️ 见下面第 ③ 条 |
+| `aggregateHasMore` | 190–198 | 三行判断，`typeof s.hasMore === 'boolean'` 是分水岭 |
+| `MAX_CONCURRENT = 8` | 223 | |
+
+**② 🔴 `has_more` 必须是 `Option<bool>`** —— 这是本轮最重要的发现
+- Rust 现状：`SearchOutcome.has_more: bool`，而**全仓只有 3 处**引用它
+  （`lib.rs` 的字段声明 + `ok()`/`err()` 两个构造），**16 个 provider 没有一个设过 `true`**
+  —— 它是个死字段。爆炸半径实测 = 改 3 行，**测试里 0 处引用**，`SearchOutcome::ok/err`
+  的 66 个调用点全都不受影响（构造器不收这个参数）。
+- JS 侧：只有 `demo.js` 显式返回 `hasMore`；其余 16 家是 `undefined`。
+- 而 `aggregateHasMore` 里 **`undefined` 与显式 `false` 走不同分支**：
+  前者回退到 `!!p.paginated`，后者是 provider 的明确否决。
+  ⇒ 用 `bool` 会在「provider 说 false 但它是 paginated」时给出**错的** `hasMore`。
+  ⇒ **`Option<bool>`：`None` = 没表态。**
+
+**③ ⚠️ 章节 §2.1② 的「onSettle 是唯一原因」说法要更正**
+`asyncPool(tasks, limit, onSettle)` 的 **`onSettle` 参数在两个调用点都没被传**
+（都只传 2 个参数，是死参数）。流式的真实来源是每个 task 自己链上的
+`.then(...)`：provider 一 resolve 就立刻写 `perProvider` / `allResults` / 调 `onProvider`。
+⇒ 验收测试钉「**provider 一返回就上报，不等慢的**」；池子那层单独钉「同时在飞 ≤ 8」。
+
+**④ JS 的「没有 resolver」不是 `no_resolver`**
+`server.js` 里是 **HTTP 404 + `{ error: 'no resolver' }`**（**有空格**）——
+它是**端点级**行为，不是 provider 返回值。ROADMAP §2.4 草案写的 `no_resolver` 与 JS 不符。
+⇒ Rust 侧没有 HTTP 层，收敛成 trait 默认方法的返回值，字符串**取 JS 原文 `"no resolver"`**。
+
+**⑤ `providers` 参数的边界比想象中怪**（`?providers=a,b`）
+| 输入 | JS 结果 |
+|---|---|
+| `null` / `""` | `wanted = null` → **全都要**（空串是 falsy） |
+| `"  "`（纯空白） | `wanted = []` → **一个都不查**（不是"全都要"！） |
+| `"a,,b"` | `["a","b"]` |
+
+**⑥ 崩溃路径的形状**：JS catch 分支的 status 是
+`{ status:'error', count:0, error: e.message || 'crash', ms }` —— **没有 `hasMore` 键**
+⇒ Rust `has_more: None`、`error: Some("crash")`（JS 的兜底串就是 `'crash'`）。
+
+**⑦ 16 家已搬站点的 id / name / 旗标（逐字核对过，`module.exports` 在 JS 文件末尾）**
+
+| id | name | paginated | browseable | resolve_magnet |
+|---|---|---|---|---|
+| `tpb` | The Pirate Bay | | | |
+| `nyaa` | NYAA | ✅ | | |
+| `yts` | YTS | | ✅ | |
+| `knaben` | Knaben | | | |
+| `torrentscsv` | TorrentsCSV | | | |
+| `limetorrents` | LimeTorrents | ✅ | | |
+| `therarbg` | TheRarBg | | | ✅ |
+| `rutor` | Rutor | ✅ | | |
+| `torrent9` | Torrent9 | | | ✅ |
+| `zeromagnet` | ZeroMagnet | | | ✅ |
+| `oxtorrent` | OxTorrent | | | ✅ |
+| `audiobookbay` | AudioBookBay | | | ✅ |
+| `filemood` | FileMood | | | |
+| `internetarchive` | InternetArchive | | | |
+| `linuxtracker` | LinuxTracker | | | |
+| `megapeer` | MegaPeer | | | ✅ |
+
+⚠️ **注册表顺序** = JS `REGISTRY` 里这 16 个的相对顺序（`1337x` 等未搬的要跳过、
+但**别重排**）——UI 显示顺序就是它。详见 `src/providers/index.js:79-121`。
+
+**⑧ 设计定案（可以直接照这个写，但有两条待定，见下）**
+- `Provider` trait：`Provider: Send + Sync`，方法用 **boxed future**
+  （`Pin<Box<dyn Future + 'a>>`）而不是 `async fn in trait` —— **因为 AFIT 让 trait
+  不能做 trait object**，而 D17 要留的 Torznab 口子正是「运行时插入带状态的
+  provider（URL + API key）」⇒ 必须是 `Box<dyn Provider>`。**不加 `Send`**（与
+  `run_mirrors` 的 `Fut` 约束一致，聚合用 `FuturesUnordered` 在**当前任务**上驱动）。
+- 模块：`aggregate.rs`（三条语义 + 池）、`registry.rs`（16 家 impl + `registry()`）。
+  ⚠️ 16 家的 impl 集中放 `registry.rs`、**不改 16 个 provider 文件** —— 理由：
+  本机无 `cargo check`，新代码放新文件能把编译风险圈在"不会弄坏已有 16 个测试"里。
+- 依赖：`bt-providers` 需新增 **`futures = "0.3"`**（`FuturesUnordered` / `StreamExt`）。
+  `tokio` 只需留在 `[dev-dependencies]`（聚合层本身不需要运行时）。
+  实测：`futures` 目前**不是**任何 crate 的依赖；根 `Cargo.lock` 未入库，CI 会现场生成。
+- 状态形状：`ProviderStatus { status: ProviderState, count, error, has_more, ms }`，
+  `ProviderState` 是 enum 但带 `as_str()` 回 `"ok"/"error"`（M6 差分要用）。
+- 返回：`providers` 用 **`Vec<(String, ProviderStatus)>` 而不是 map** —— JS 的
+  `perProvider` 是对象，**key 顺序 = provider 完成顺序**（`asyncPool` 按谁先 resolve 落库）。
+  用 `BTreeMap` 会把这个顺序丢掉。`ms` 用 `Instant::elapsed().as_millis()`。
+
+**⑨ 两条待定（下次开工先拍）**
+1. **要不要 `catch_unwind` 兜住 provider 的 panic？** JS 的 `try/catch` 连
+   "抛异常"也兜；Rust 的 provider 契约是「永不 panic」，所以 `SearchOutcome.error`
+   已经覆盖了**错误**路径。但若某个 provider 违约 panic，Rust 会**带走整个聚合**
+   （JS 不会）。加它需要 `AssertUnwindSafe(...).catch_unwind()`，而本机无 cargo、
+   没法验证这个 API 组合 ⇒ **建议下一轮单独做、单独测**，别和主体混在一起。
+2. `Provider` trait 是否要暴露 `enabled()`？JS 的 `resolveTargets` 第一条就是
+   `if (!p.enabled ...)`，但 REGISTRY 里 16 家全是 `true`，用户级开关走 `wanted`。
+   建议**建模**（默认 `true`），否则第 1 条语义少一个分支、测不全。
+
+⚠️ **本次会话到此为止（用户 5h 限额）**：M2 **代码未写**，工作区干净，
+上面 ⑧ 的定案可以直接落笔。下次开工：写 `Cargo.toml` + `lib.rs`（`Option<bool>` + trait）
++ `aggregate.rs` + `registry.rs` + `tests/aggregate.rs`，然后 `rustfmt --check` 后推 CI。
+
+**进度存档（2026-10-11）**：`audiobookbay`…`nyaa` 9 个 + **`megapeer`（第 11 个）**
++ **`zeromagnet`（第 12 个）**都已搬完。⭐ 本机能抓到的候选早已用完；剩下站点的
+fixture 靠 CI 抓（`fetch-fixture.yml`），探针链路支持 **per-fixture 编码声明**
+（条目里的 `encoding` 字段，megapeer 是第一个 windows-1251）。
+
+**候选状态（2026-10-11）**：
+
+| 候选 | 状态 |
+|---|---|
+| `dmhy` | ⏸️ **暂缓** —— CI 抓取连试 3 次全部 60s 超时（0 字节；主页也一样）；agent 沙箱直连也 `fetch failed`。站点自己挂了/在维护，**不是**「本机不通但 CI 通」那一类。过些天再试 |
+| `zeromagnet`（CI 29 行） | ✅ 已搬完（2026-10-11） |
+| `xxxtracker`（CI 1 行） | ⏸️ provider 线最前，但 **provider 线整体后置**（D13：先摸存活再砍；当前里程碑是 **M1 验 Slint**，不是再搬一个） |
+| `sukebei` / `nekobt` | 排队（域名是死是活待确认） |
+
+⚠️ **B 组序号口径**：序号把 `#0 地基` 与 `#10 1337x（跳过）` 都算进去了，
+所以「B 组第 12 个」= `zeromagnet` = **第 11 个真搬的 HTML provider**（commit message 里也是这个口径）。
+**别把序号当数量**：HTML 侧实际只搬了 11 个，全仓合计 16 个。
+
+抓 fixture 的姿势（本机不通的站点，`zeromagnet` 即为例）：
+
+```bash
+scripts/gh-retry.sh workflow run fetch-fixture.yml --ref feat/rust \
+  -f url='https://9mag.net/search?q=ubuntu' \
+  -f path='test/fixtures/zeromagnet-ubuntu.html'
+# 20 秒后 pull 回来，按「探针流程」继续
+```
+
+**B 组（HTML 抓取，需引入 `scraper` crate 对标 cheerio）** —— ✅ 地基 + 11 个 provider 完成
+
+- ✅ `crates/bt-core/src/dom.rs`：cheerio 的替代层（`scraper` 0.27 = html5ever + selectors）
+  语义对照表写在文件头；自带 11 条单元测试
+- ✅ 选择器等价性对照机制：`test/fixtures/html-probes.json`（**126 条 probe / 17 个 fixture**）+
+  `scripts/html-probes.cjs`（cheerio 侧，真值来源）+ `crates/bt-core/tests/dom_probes.rs`（Rust 侧）
+  + `test/fixtures/html-probes.expected.json`（真值，cheerio 1.2.0 生成）
+  ⚠️ **别给大页面加 `text_first` on `html`**（整页 text 拼接的超长单行）—— 实测会让 CI 日志
+  从那一行起被截断，后面的 probe 真值全拿不到（2026-10-10 在 therarbg 上踩过）。
+  整页拼接的语义已有 rutor / audiobookbay 两条覆盖，不必每个 fixture 都加。
+  ⚠️ **非 UTF-8 站点**（megapeer=windows-1251）：条目里加 `"encoding": "windows-1251"` ——
+  cheerio 侧走 `TextDecoder(label)`、Rust 侧走 `encoding_rs::Encoding::for_label(label)`；
+  fixture 存**原始字节**（别转码），两个解码器对同一标签必须给出一致文本。
+- ✅ `linuxtracker.js` + `filemood.js` + `rutor.js` + `audiobookbay.js` + `therarbg.js` + `limetorrents.js` + `torrent9.js` + `oxtorrent.js` + `nyaa.js` + `megapeer.js` + `zeromagnet.js` 十一个 HTML provider 落地，全部离线可测
+
+**B 组进度**
+
+| # | provider | 状态 |
+|---|---|---|
+| 0 | 地基（`dom.rs` + 选择器对照机制） | ✅ **126 条 probe** 与 cheerio 1.2.0 逐条一致 |
+| 1 | `linuxtracker.js` | ✅ 18 条结果 + 11 集成 + 8 单测 |
+| 2 | `filemood.js` | ✅ 20 条结果 + 11 集成 + 11 单测 |
+| 3 | `rutor.js` | ✅ 100 条结果 + 13 集成 + 13 单测（**本机与 CI 两边都 ✅ 的第一个**） |
+| 4 | `audiobookbay.js` | ✅ 9 条结果（**两边都 ✅**）+ 15 集成 + 11 单测；本项目**第一个带惰性 `resolve_magnet`** 的 provider |
+| 5 | `therarbg.js` | ✅ 39 条结果（两边都出结果；CI 那轮 403，属机房 IP 被拦）+ 18 集成 + 7 单测；第二个 `resolve_magnet` |
+| 6 | `limetorrents.js` | ✅ 40 条结果（本机 ✅ 45 行 / CI ⛔403）+ 10 集成 + 9 单测；第一个**带真分页**的 HTML provider |
+| 7 | `torrent9.js` | ✅ 3 条结果（本机 ✅ 4 行 / CI ⛔403）+ 11 集成 + 5 单测；⚠️ 卡片上除名字外全是 `—`（JS 把同页的日期/大小/peers 全丢了） |
+| 8 | `oxtorrent.js` | ✅ 3 条结果（本机 ✅ 3 行 / CI ⛔403）+ 12 集成 + 4 单测；无表头行；错误串是 `no_results` |
+| 9 | `nyaa.js` | ✅ 1 条结果（CI ✅ 2 行，**本机不通 → fixture 由 CI 抓**）+ 8 集成 + 6 单测；⚠️ 三种上游 bug（见下） |
+| 10 | `1337x.js` | ⛔ **已调查，当前不可抓取 → 跳过**，见下面专门小节 |
+| 11 | `megapeer.js` | ✅ 50 条结果（**CI ✅ 50 条、charset 解码实测通过**）+ 18 集成 + 10 单测；**第一个 windows-1251 站点**、两处有意 divergence（编码 / 5-td 列语义），见下面专门小节 |
+| 12 | `zeromagnet.js` | ✅ 29 条结果（CI ✅29，fixture 由 CI 抓）+ 14 集成 + 4 单测；⚠️ 名称被 `<mark>` 拆开→拼接；meta 列（6.2GB/日期）白扔（照抄）；磁力在详情页 `input#input-magnet` 的 **value 属性** |
+| — | 俄站编码 | ✅ 已验清：`rutor` 是 UTF-8（`getWin1251()` 名误导）；**`megapeer` 真的是 windows-1251**（响应头带 charset） |
+
+### 🔤 `megapeer.js`（B 组第 11 个）—— 第一个 windows-1251 站点，两处有意 divergence（2026-10-11）
+
+**1. 编码：Rust 修了 JS 的乱码 bug（有意，不是回归）**
+
+- 站点响应字节是 **windows-1251**（响应头确实带 `charset=windows-1251`，2026-10-11 CI 冒烟实测）
+- **JS 版是坏的**：axios 1.7.x 对文本响应一律 `buffer.toString('utf8')`（源码写死，不读 charset）
+  → 所有西里尔标题变 `U+FFFD`。Rust 的 reqwest `res.text()` 读 Content-Type 的 charset
+  （encoding_rs）→ 正确解出俄语
+- 判断依据：这是**数据级**错误（且「照抄乱码」反而要在 Rust 里刻意写 lossy 才能复现）→ 修
+- 测试钉住：`divergence_js_style_utf8_decoding_would_mangle_the_cyrillic`（同时展示
+  `from_utf8_lossy` 的 � 版与正确解码版的对照）
+
+**2. 5-td 行的列语义：JS 固定列索引取错（有意修）**
+
+- 50 行里 **7 行多一格评论数**（恒在 td3）：`[日期][名称][评论][大小][peers]`；其余 43 行是
+  `[日期][名称(colspan=2)][大小][peers]`
+- JS 的 `td:nth-child(3)` 当 size、`td:nth-child(4) > font` 当 peers → **5-td 行的 size 变成评论数、peers 落空**
+- Rust 改成「**倒数第 2 格 = size、最后一格 = peers**」（两种行都对；rutor 的「按内容找 size」是同类问题的另一种解法）
+- 探针（`sizes.texts_first_5` 等）就是修正后的语义；`divergence_5td_row_takes_real_size_not_the_comment_count` 钉住
+
+**基础设施（服务非 UTF-8 站点，后续别的编码站点直接用）**：
+
+- `html-probes.json` 条目新增可选 `encoding`；`html-probes.cjs` 用 Node 内置 `TextDecoder`（零依赖）
+- `tests/common/mod.rs`：新增 `fixture_bytes()`（原始字节）+ `oneshot_bytes()` / `oneshot_capture_bytes()`
+  （Content-Type 可指定 —— 带 `charset=windows-1251` 发给本地服务，走 reqwest 真解码路径）
+- live_smoke 新增 `smoke_megapeer_checks_real_world_charset_decoding`（实测结果见上）
+
+⚠️ **push 前跑一遍 rustfmt 能省一轮 CI**：本机 `.rustup` toolchain 里的 `rustfmt.exe` 一直可用
+（见 CLAUDE.md），`--edition 2021 --check <files>` 后再推 —— 这次就是靠它做到 fmt 门从不红。
+
+### ⛔ `1337x.js` —— 2026-10-09 调查完毕，**跳过**
+
+**结论：1337x 用普通 HTTP 客户端拿不到结果页** —— 不是选择器的问题，也不是本移植引入的
+（**JS 版在同样环境下一模一样地失败**）。全部候选域名实测：
+
+| 域名 | 结果 |
+|---|---|
+| `1337x.to` / `1337x.is` / `x1337x.se` | **DNS 不返回 A 记录**（本机 `nslookup` 只回路由器地址 + 污染 IPv6；对照 `torrents-csv.com` 正常解析到 51.15.62.20） |
+| `1337x.st` / `x1337x.ws` / `x1337x.eu` / `x1337x.cc` | **Cloudflare 挑战页**：403 + 5.5KB，`Just a moment... Enable JavaScript and cookies to continue` |
+| `13377x.to`（旧 fixture 里那个跳转域名） | **已变成域名停放广告页**（`mode:"iframe"` → `yfdpco5.com/sk-park.php`） |
+| `1337x.tw` | 301 → `www.1337x.tw` → 404 |
+| `1337x.net` / `1337x.am` / `1377x.is` / `1337x.piratic.org` / `1337x.pages.dev` | 停放页 / 空响应 / 不可信的"买流量"页 |
+| `1337x.proxyninja.org` / `1337x.torrentsbay.org` | 同样撞 Cloudflare 挑战页 |
+
+⚠️ **顺带修正一条旧认知**：`test/fixtures/1337x-ubuntu.html` 里那个 FingerprintJS 挑战页
+**当年其实是可以跟的** —— 它只是在同域 URL 上加 `fp=<指纹>` 重定向，而且页面自带
+`<a href="...&fp=-3">Click here to enter</a>` 这个**给非 JS 客户端的降级入口**，
+跟着那个隐藏链接走就绕过去了。但**那个域名现在已停放**，所以这条路彻底断了；
+今天挡住我们的是 **Cloudflare + DNS 级封锁**，机制与当年完全不同。
+
+**要继续，可选路径**（按成本排序，都需要用户先点头）：
+1. **换个能访问的环境抓一次 fixture** —— 成本最低。但 Cloudflare 对机房 IP 更凶，
+   在 `live-smoke.yml` 里试一次可能也拿不到
+2. **第三方 1337x API / 代理服务** —— 引入外部依赖 + 信任问题，与原设计（自抓 HTML）不符
+3. **浏览器自动化过 Cloudflare** —— 本机 Playwright 不可用（Node 不能 spawn 子进程），
+   只能走 CDP 启 Chrome；给 app 引入重量级依赖，且 Cloudflare 对自动化浏览器同样会拦
+4. **放弃这个引擎** —— 项目已有 40+ 引擎，1337x 并非不可替代
+
+**决定：先跳过**（用户 2026-10-09 拍板）。`src/providers/1337x.js` 与
+`test/fixtures/1337x-ubuntu.html` 原样保留（那个 fixture 仍是「JS 挑战页长什么样」的真实样本，
+probe 用 `rows.count == 0` 把事实钉住）。
+
+⚠️ 因此在 `bt-providers` 里**不要**实现 `1337x`：写出来只会是一个永远报错的 provider。
+
+### 🐞 移植中发现的上游 bug（JS 版既有，值得单独修）
+
+| 位置 | 现象 | 本移植怎么处理 |
+|---|---|---|
+| `linuxtracker.js` 的 `detailUrl` | `` `${base}${href}` `` 而 base 无结尾斜杠 → `https://linuxtracker.orgindex.php?…` **死链，点开 404**（抓取不受影响，所以一直没暴露） | **修掉**（`join_base` 补斜杠）+ 单列 divergence 测试 |
+| `linuxtracker.js` 的 `parseEuDate` | 用 `new Date(y,m-1,d)`（本地时区零点），而 `dateText` 按 UTC 格式化 → **东八区显示早一天**（站上 28/04 显示 04-27） | **照抄**（纯显示问题，且与时区绑定；要修得两版一起改） |
+| `linuxtracker.js` 的列索引 | 主表里夹着 19 个 td 的「展开描述行」，列含义不同 → 这些结果的 size/seeders 落在错误列上 | **照抄**（否则与 Node 版对不上） |
+| `audiobookbay.js` 的 size/date | `infoText.split('\n')` 想按行切字段，但页面靠 `<br />` 分隔，而 **cheerio 的 `.text()` 不给 `<br>` 补换行**（探针 `info.first_text` 实证：整段挤成一行）→ size 恒 `null`；又因 `else if`，date 被赋成整段垃圾串（`Date.parse` → NaN → `null`）。**两个站上真实存在的字段全丢** | **照抄**（属「数据缺失 / 纯显示」；要修得两版一起改：按字段名切分，`src/lib/normalize.js` 的 `parseSize` 本来就能吃 `19.24 GBs`） |
+| `therarbg.js` 的 `categoryFromRaw` | `switch` 只列了 `Anime/Apps/Books/Games/Movies/Music/XXX/Tv` 八个**精确**拼写，站上大量分类（`E-books`、`Other`、`TV`…）一律落 `Other` —— 实测 fixture 第 3 行站上写 `E-books`，归一化后变成 `Other` | **照抄**（分类只是给前端的粗粒度提示；要修该拉全量分类表，不是改一行） |
+| `limetorrents.js` 的 `categoryFromRaw` | 同一个毛病，而且更彻底 —— `switch` 只认 `TV`/`Movie`/`Music`/`App`/`E-book`/`Anime`/`Games`，而站上写的是 `TV shows`/`E-books`/`Applications`（探针 `datecell.texts` 实证）→ **40 条结果全落 `Other`** | **照抄**（同上；测试里连“整页没有一个非 Other 的分类”都钉住了） |
+| `limetorrents.js` 的日期 | 站上会把相对日期截断成 `1 Year+`，而 `normalize.parseDate` 只认带 `ago` 的写法 → **大部分结果没有日期**（`dateText` 显示 `—`）；只有 `9 months ago` 这类才认（而且是相对今天算的） | **照抄**（要修该把 `1 Year+` 映射成「约一年前」，属两版同步的活） |
+| `torrent9.js` 的数据白扔 | 结果表第 2~5 格就摆着 `30/08/2018` / `1.9Go` / `3` / `3`，详情页也有 `Poids du torrent`（大小）、`Date d'ajout`（日期）、`Catégories`；但 `searchOn` 只传 `name` + `detailUrl`，`resolveMagnet` 只回 `{magnet, infoHash}` —— **其余字段全丢**，卡片上除名字外全是 `—` | **照抄**（属「数据没用上」；要修就是让 search 直接读那四格，或让 resolve 顺手补全字段） |
+| `torrent9.js` 的 `parseDetail` | 它抽出的 `size`/`seeders`/`leechers`/`date`/`category` **没有任何调用方用到**（`resolveMagnet` 只要 magnet + hash）→ JS 里的死代码，连带 `categoryFromRaw` 也只服务于它 | **不搬**（Rust 侧只实现可达路径；文件头写了哪一天要补就照 JS 补） |
+| `oxtorrent.js` 的数据白扔 | 与 torrent9 同一个毛病：同行就有 `700.4 MB` / `9` / `2`，第 1 格还带 `<i class="Logiciels">`（法语分类，本该映成 `Apps`）—— `searchOne` 只传 `name` + `detailUrl`，全不要 | **照抄**（探针 `cat_classes.attrs_first_3` 把「分类其实拿得到」这个事实钉住了） |
+| `megapeer.js` 的编码 | axios 对文本响应一律 `toString('utf8')`（不读 charset），而站点是 **windows-1251** → 全部西里尔标题变替换字符（数据级损坏） | **修掉**（reqwest 按 charset 解码）+ divergence 测试；见下面 megapeer 专门小节 |
+| `megapeer.js` 的列索引 | 50 行里 7 行多一格评论数（恒在 td3）→ `td:nth-child(3)` 当 size 在那些行取到评论数、`td:nth-child(4)` 的 peers 落空 | **修掉**（「倒数第 2 格 = size、最后一格 = peers」）+ divergence 测试 |
+| `zeromagnet.js` 的数据白扔 | `td:nth-child(2)` 的 `result-meta` 里就有 `6.2GB` / `2026-08-07`，JS 只传 `name`/`detailUrl`/`category:'Porn'`，全丢（探针 `meta_sizes`/`meta_dates` 把「拿得到却不用」钉住） | **照抄**（与 oxtorrent/torrent9 同款毛病） |
+| `nyaa.js` 的列索引 | 名字那格带 `colspan="2"`（评论列被并掉），一行只有 **8 个 td**，而 JS 按 9 列读 `tds.eq(2..5)` → 实际落到 Link/Size/Date/Seeders：`sizeText` 恒 `—`、`dateText` 恒 `—`、**`seeders` 变成日期串里的 2009**（实测 JS 真给这个数） | **照抄**（测试把 `seeders = Some(2009)` 都钉住了，免得以后有人以为 Rust 写错） |
+| `nyaa.js` 的磁力 | `nameCell.find('a[href^="magnet:"]')` 在**名字格**里找，而磁力在 `tds.eq(2)`（Link 格）→ **magnet 恒 `null`、`needsMagnet` 恒 true**；而 `nyaa.js` **又没有 `resolveMagnet`**，于是前端「获取磁力」会打到 `/api/magnet` → 无 resolver → 回退到已死的 1337x → 报错。**结论：nyaa 现在拿不到磁力** | **照抄**（真要修：把搜索范围改成整行 + 补一个 `resolveMagnet`，两版一起改） |
+
+口径：**功能性 bug（死链）就修，纯显示问题先照抄** —— 三条都在代码注释里写明了理由。
+- HTML fixture 现状：
+
+| fixture | 状态 |
+|---|---|
+| `linuxtracker-linux.html` | ✅ 真实结果页。43 个候选链接里 **33 条**是主表行（其余是 Top10 侧栏，行内只有 2 个 td） |
+| `filemood-ubuntu.html` | ✅ 真实结果页。65 个 tr 里 **20 条**数据行 |
+| `1337x-ubuntu.html` | ❌ **不是结果页** —— FingerprintJS 反爬跳转页（1.1KB，`window.location.replace`）。该域名 2026-10-09 已停放，详见上面的 `1337x.js` 小节 |
+| `rutor-ubuntu.html` | ✅ 真实结果页，101 行（含表头）→ 100 条；**UTF-8**（名字叫 `getWin1251` 的那段实际没换编码） |
+| `audiobookbay-ubuntu.html` | ✅ 真实结果页，9 条。字段靠 `<br />` 分隔，**卡片上的 size/date 是空的**（上游 bug，见上表） |
+| `audiobookbay-detail.html` | ✅ 真实详情页（179KB / 1277 个 td）。`<td>Info Hash:</td>` 后面那格就是 40 位 hash；它也是 `resolve_magnet` 唯一的测试输入 |
+| `therarbg-ubuntu.html` | ✅ 真实结果页，39 个 `tr.list-entry`（但**40** 个名称链接 —— 第 28 行多一个 IMDb 徽章）。size/date 在 `data-order` 里，文本里只有给人看的形式 |
+| `therarbg-detail.html` | ✅ 真实详情页（150KB，`a[href^="magnet:?"]` 只有 1 条，848 字符、"&amp;" 编码）。同时是「长属性的实体解码」的对照样本 |
+| `limetorrents-ubuntu.html` | ✅ 真实结果页，41 行含表头（第一行是 `<tr><th>`）。⚠️ 页面别处也有 `td:nth-child(2)` / `td.tdseed`（旁边速度榜的 `6572 KB/Sec`）—— 所以格子真值只能看 `rows.first_3_rows`（按行取） |
+| `torrent9-ubuntu.html` | ✅ 真实结果页，**只有 3 条**。名称要跳 `<h3>` + `<span class="blue">` 拼出来；后四格（日期/大小/peers）JS 不要 |
+| `torrent9-detail.html` | ✅ 真实详情页（48KB，861 字符的磁力链，19 个 tracker）。源玛里是**裸 `&`**（不是 `&amp;`）—— 与 therarbg 那条正好互补 |
+| `oxtorrent-ubuntu.html` | ✅ 真实结果页，**3 行且没有表头行**。同行就有大小/peers/分类（`<i class="Logiciels">`），JS 都不要 |
+| `oxtorrent-detail.html` | ✅ 真实详情页（20KB）。`div.btn-magnet > a` 1 条，同级还有个 `div.btn-download > a` 指向同一条磁力（JS 不认） |
+| `nyaa-ubuntu.html` | ✅ 真实结果页（**CI 抓的**，本机不通），只有 1 条。⚠️ 名字格 `colspan="2"` → 一行 8 个 td，JS 的列索引全错位；磁力在 `td[2]` 而 JS 在 `td[1]` 找 |
+
+**C 组（基础设施，可穿插）**：`src/lib/scraper.js` 的 `createProvider` 工厂 + `runMirrors` 镜像回退 ——
+搬完 3~5 个 provider、看清共性后再定抽象。
+**截至 2026-10-10 已搬 14 个**，三类共性全都有实例了：
+镜像回退（`rutor` / `audiobookbay` / `therarbg` / `limetorrents` / `torrent9` / `oxtorrent`，各自的 `search_with` 逐字复刻 `runMirrors`）、
+翻页（`rutor` 的 0/1 起始差异、`limetorrents` 的真分页 URL、`nyaa` 的**不** coerce）、
+磁力惰性解析（`audiobookbay` / `therarbg` / `torrent9` / `oxtorrent` 的 `resolve_magnet` + `MagnetOutcome`，已因此从 provider 提到 `lib.rs`）。
+→ ✅ **2026-10-11 已提取 `run_mirrors`**：10 份逐字副本（`audiobookbay` / `filemood` / `limetorrents` /
+`linuxtracker` / `megapeer` / `oxtorrent` / `rutor` / `therarbg` / `torrent9` / `zeromagnet`）
+合并成 `bt-providers::run_mirrors`，**净 −73 行**（`+77 / −150`，11 个文件）。
+✅ **`Provider` trait 现在该建了（M2）** —— 时机变了：当时那 10 份的差异只是「站点名」，
+一个 helper 就够（`run_mirrors` 已提取）；**但现在出现了三个真实消费者**：
+① 聚合层要**并发遍历异构 provider 列表** ② D17 要给 Torznab 留口子
+③ `resolve_magnet` 只 6/16 家有 → 正是 trait **默认方法**要表达的可选能力。
+形状与反方意见见 `docs/ROADMAP.md` §2.4。
+⚠️ 顺带记一处 **有意 divergence**：JS 的 `runMirrors` 是**并行**（`Promise.allSettled`），
+Rust 侧是**顺序** `await`（最坏 `n × 10s`）—— 以前只在 `filemood` / `linuxtracker` 两处注释里提过，
+现在统一写在 `run_mirrors` 的文档注释里（要不要改成并行 = `docs/ROADMAP.md` 的小项默认值 **d1：保持顺序**，想改就说）。
+
+### 🧱 HTML provider 的四条铁律（写自 `dom.rs` 与历次对照的实测）
+
+1. **裸 `<tr>`/`<td>` 片段会被解析器丢掉**（文档模式下不合法的表格标签被忽略，文本留下）。
+   写测试时随手塞 `<tr><td>x</td></tr>` 会得到 0 个匹配，看着像"选择器写错"，其实是 HTML 规则
+   —— cheerio 的 parse5 行为完全一样。**片段要包进 `<table>`。**
+2. **类名匹配区分大小写**，标签名不区分（HTML 规则）。`td.LISTA` 不会命中 `class="lista"`。
+3. **属性值是解码后的**：源码 `&amp;` → 取值 `&`。所以 `[href*=...]` 是对解码后的值做子串匹配
+   （linuxtracker 的 `href^="index.php"` 就是靠这个把侧栏和主表区分开的）。
+4. **`.text()` 拼接后代文本时一个字都不插**（不给 `<br>` 补换行、不给块级元素补空格）。
+   实测（`audiobookbay`）：`Posted: 1 Sep 2026<br />Format: MP3<br />File Size: 19.24 GBs`
+   的 `.text()` 是 `Posted: 1 Sep 2026Format: MP3File Size: 19.24 GBs` —— **没有换行**。
+   所以 JS 里那些 `split('\n')` 在真页面上往往只有一行，靠它分字段的解析器看着很像在工作、实际全拿不到。
+   → **别信 JS 注释里的假设，先跑探针把真字符串取回来。**
+
+**移植约定**：
+- JS 的运行时类型判别（`typeof x === 'number'`）在 Rust 里提为类型：`NumOrText::{Num, Text}`
+- JS 的宽松数值解析要复刻，不能直接用 `f64::from_str`：`"1.2.3"` 在 JS `parseFloat` 下是 `1.2`；
+  `parseInt("12abc")` 是 `12`。已手写 `js_parse_float` / `to_int`。
+- `encodeURIComponent` 也手写复刻（只 `A-Za-z0-9-_.!~*'()` 原样）
+- **集成测试（`tests/`）拿不到 crate 的普通依赖**，只能访问公开 API + `[dev-dependencies]`
+  → 测试里要用 `chrono` / `serde` / `tokio` 都得在 `[dev-dependencies]` 再声明一遍
+- 有意偏离 JS 的行为，一律单列成 divergence 测试并在注释里写明原因，别当 bug 修掉
+- 测试**尽量不依赖外网**：`tests/http.rs` 自起本地一次性 HTTP 服务，这个套路可以直接复用到 provider 上
+
+**Rust 本地工具现状（重要）**：
+- ❌ 本机 `CARGO_HOME`（`D:\Vibe-Coding\.cargo`）已被清理，`cargo` 不在 PATH
+  → **本地跑不了 `cargo build` / `cargo test` / `cargo clippy`**，全走 CI
+- ✅ 但 **`rustfmt.exe` 是独立二进制，不需要 cargo**，提交前先本地自查能省一轮 CI（~1.5 分钟）：
+  ```bash
+  RF="/d/Vibe-Coding/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin/rustfmt.exe"
+  "$RF" --check --edition 2021 <files>   # 只报告
+  "$RF" --edition 2021 <files>           # 就地修好
+  ```
+  **必须带 `--edition 2021`**（独立运行时默认 2015，结果会不一致）。
+- ⚠️ **不要用「行宽 ≤ 100」代替 rustfmt**：它默认 `fn_call_width = 60`，
+  多参数宏/函数调用即使整行不到 100 也会被拆行（`assert_eq!(a, b, "msg")` 是重灾区）。
+- ⚠️ **没有 `cargo check`，签名错误只能靠 CI 发现**（一次往返 ~1.5 分钟）。已踩过的三类：
+  1. **turbofish 泛型个数**：`bt-core` 的 `post_json<T, B>` 是两个泛型参数，
+     `post_json::<Value>(...)` 会报 E0107。→ 改成在绑定上标注：
+     `let resp: JsonResponse<Value> = http.post_json(url, &body, None).await;`
+  2. **`and_then` 的闭包签名**：`extract_info_hash` 收的是 `Option<&str>` 而不是 `&str`，
+     不能直接 `and_then(extract_info_hash)`，要么 `.or_else(|| f(x.as_deref()))`，
+     要么写 `|s| ...` 闭包。
+  3. **`"#` 会把 raw string 提前结束**：测试里造 HTML 片段习惯写 `r#"…"#`，
+     而内容里只要出现 `="#`（如 `bgcolor="#F4F4F4"`）字符串就在那里断了，
+     报一堆 `prefix \`name\` is unknown`。→ 用 `r##"…"##`。
+  提交前顺手核对一遍要调用的每个函数的真实签名，比等 CI 便宜。
+
+### 🧩 provider 移植配方（照着 tpb / knaben 抄）
+
+1. 读 `src/providers/<name>.js`，grep 出它调了 `getText` / `getJSON` / `postJSON` 哪些形态
+2. 在 `crates/bt-providers/src/<name>.rs` 写 `KnabenRequest` 式的 payload + `search()` + `search_at(http, api, query)`
+3. **期望值不要手抄** —— 写个临时 Node 脚本 require `src/lib/normalize.js`，
+   把同一份 fixture 喂进去，把输出逐字段抄进 Rust 断言。这样「与 Node 版一致」才有实据
+   （`normalize.js` **零依赖**，本机 `node -e "…"` 直接能跑，不需要 `node_modules` ——
+   `audiobookbay` 的 `sizeText: "—"` / `date: null` 就是这么实测出来的）
+4. `tests/<name>.rs`：真 fixture 逐字段 + 请求契约（用 `common::oneshot_capture`）+
+   空结果 + HTTP 错误 + 非 JSON 正文
+5. 若有**有意偏离** JS 的地方，单列一条 `divergence_*` 测试并写明原因
+6. `git add` 前先跑 rustfmt 自查；**不要删对应的 `.js`**（见上面「边搬边删」）
+
+**⚠️ 已踩的期望值坑（都是没按第 3 条做导致的）**：
+- `dateText` 缺省是 **`"—"`** 不是空串（JS `formatDate(null)` 就返回 `—`）
+- JS 的 `0` 是 falsy：`x ? Number(x) : null` 会让 `created_unix: 0` → 无日期，
+  而不是 1970-01-01。用 `value::v2nt_nonzero`。而字符串 `"0"` 是 truthy，别一起过滤掉
+- `categoryId` 之类的**数组取 min 而非首元素**
+- yts 会把 infoHash **小写化**；tpb/knaben 原样保留大小写
+
+**HTML provider 追加的步骤（`linuxtracker` 走通的路子）**：
+
+7. 先用 probe 机制把页面结构问清楚，**别靠读 HTML 猜**：
+   往 `test/fixtures/html-probes.json` 加该 fixture 的 probe（选择器、列索引候选、
+   href、closest+find 的整行），跑 `.github/workflows/html-probes.yml` 拿 cheerio 真值。
+   linuxtracker 就是这样才发现「43 个候选里只有 33 条主表行、最终 18 条」这种数字。
+8. 结构里常有的**坑行/坑列**要单独成测试：侧栏行（td 少）、展开的描述行（列语义不同、
+   名字链接为空）。**照抄 JS 的取舍**，别顺手"修"。
+9. `runMirrors` 的真实语义要读 `src/lib/mirrors.js`（**不是**"出错就换下一个"）：
+   并行请求、按声明顺序取第一个**结果非空**的；全空时错误被包成
+   `"<name> unreachable (<err1>; <err2>)"`。所以「页面正常但没结果」算**错误**。
+   **Rust 侧直接调 `bt_providers::run_mirrors`**，别自己再抄一遍循环；
+   注意它是**顺序** `await`（有意 divergence，最坏 `n × 10s`），语义说明在该函数的文档注释里。
+10. 移植中发现的上游 bug：**功能性 bug（死链）就修并单列 divergence 测试；
+    纯显示问题先照抄**。已发现的若干条登记在上面的「🐞 移植中发现的上游 bug」。
+
+## 🔴 CI 失败模式总账（2026-07-10 ~ 2026-10-10，223 个 run / **51 次失败**）
+
+把远程所有失败 run 拉下来逐条归类后，结论是：**这 51 次里只有 3 次是真·环境问题，
+其余都是自己造成的，而且大部分本机就能拦住**。
+
+| 类 | 次数 | 现象 | 根因 | 以后怎么避免 |
+|---|---|---|---|---|
+| **A. workflow 文件变成空壳** | **15** | run 有结论、但**一个 job 都没有**；`gh run view` 只说 `likely failed because of a workflow file issue`，`--log-failed` 输出**完全为空** | `main` 上的 `.github/workflows/tauri-build.yml` 是 **0 字节**。来源于 `3ad0c59`（2026-08-14「同步 Tauri Build workflow 到 main」）—— 那次同步写出了一个空文件，一直挂到 08-20 的 `8d06e5e` 才修。期间 main 上**每次 push 都失败一次** | ① 新增 `ci-guard.yml` + `scripts/check-workflows.py`（见下）；② 同步/恢复文件后立刻 `gh run view <id>`，**看不到 job 就是文件坏了**，别等日志 |
+| **B. 探针真值没跟上** | 7 | `dom_probes::selectors_and_accessors_match_cheerio_on_real_fixtures` 失败，打印 "期望值里没有这个 probe" | 先推了「fixture + 新 probe」，而 `html-probes.expected.json` 还是旧的 —— **两步流程的必然红灯**（每搬一个 HTML provider 就来一次） | 见「探针两步流程」；根治办法（待做）：让 `html-probes.yml` 自己 commit 回 expected.json |
+| **C. 测试返回值写错** | 7 | 各种 `assertion left == right` | 手算的期望值错：`dateText` 默认是 `—` 不是空串、`1 MB` 会格式化成 `1.0 MB`、`date` 不含 `Posted:` 前缀、base 多一个尾斜杠、`ends_with` 写成了带 slug 的、把线上域名写进本地服务测试 | 期望值**一律先跑真 JS**：`node -e "require('./src/lib/normalize.js')"` —— 本机零依赖，能跑（实测过） |
+| **D. 自己代码编译不过 / 单测片段写错** | 6 | `error[E0107] expected 2 generic arguments`、`error[E0308] &str vs String`、`error: prefix \`x\` is unknown`、3 次 dom.rs 单测（裸 `<tr>`/`<td>` 片段被解析器丢掉） | 本机没 cargo，签名/泛型靠 CI 发现；测试里随手塞不合法表格标签 | 见「本机三道门」+ 「HTML provider 铁律 #1」 |
+| **E. `cargo fmt --check`** | 2 | `Diff in crates/...` | 本地没跑 rustfmt，或跑了没看退出码 | 见「本机三道门」第 1 条 —— **必须用 `&&` 串，不能用 `;`** |
+| **F. 打包 / 发版** | 14 | EPERM×5（npm cleanup 删不掉被进程锁住的 `@tauri-apps`/`@electron` 原生二进制）、GH_TOKEN×2（electron-builder 想自动 publish）、E0593×2（`src-tauri` closure 参数个数）、NSIS 配置不合法×1、`未找到 electron 运行时`×1、`cat docs/RELEASE_ARTIFACTS.md: No such file`×1、pwsh `working directory` 不存在×1、无日志无说明×1 | 基本上是**同一台 Windows runner 上的文件锁 / 上游 schema 变动 / 分支上缺文件**，跟被测代码无关 | EPERM：不要在同一 job 里先 `npm ci` 再就地删 node_modules（已修）；GH_TOKEN：别让 electron-builder 自动 publish，改 artifact 上传（已修）；引用文件前先 `test -f` |
+| **G. Slint spike** | 1 | `Cannot convert string to styled-text`（build.rs 挂了） | spike 分支已删，结论留在「Slint 探针结论（留档）」 | M1 重建 Slint 时别再踩 |
+
+（组合：A15 + B~E22（Rust 门禁）+ F14 + G1 = 51；Rust 那一组 22 次里
+**没有一次是环境问题**。）
+
+### 🚧 本机三道门（提交前必须过，任一条不过就别 push）
+
+```bash
+# 1) 格式化 —— ⚠️ 必须用 && 串起来！用 ; 的话前面失败了你还会继续 commit+push
+RF="/d/Vibe-Coding/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin/rustfmt.exe"
+"$RF" --edition 2021 <改动的 .rs 文件> && "$RF" --check --edition 2021 <改动的 .rs 文件> && \
+  git commit ... && git push ...
+
+# 2) 期望值先跑真 JS（normalize.js 零依赖，本机能跑）
+node -e "const {normalize}=require('./src/lib/normalize.js'); console.log(normalize({...}))"
+
+# 3) workflow 文件体检
+python3 scripts/check-workflows.py
+```
+
+> 2026-10-10 实测：`limetorrents` 那次 raw string 编译错**本机 rustfmt 已经报出来了**，
+> 是我用 `;` 串命令、`echo $?` 之后照样 commit+push，白丢一轮 CI。
+
+### 🔒 workflow 文件守卫（`ci-guard.yml` + `scripts/check-workflows.py`）
+
+workflow 文件坏掉时**它自己不跑**，所以要另一条无关的 workflow 来体检：
+
+- 触发：push / PR 改动 `.github/workflows/**` 或 `scripts/check-workflows.py`（也可手动触发）
+- 检查：每个 `*.yml` ① 体积 ≥ 200 字节（抓空壳）② 能 YAML 解析 ③ 有 `on:` 与 `jobs:`
+  ④ 每个 job 有 `runs-on` 或 `uses`（没装 pyyaml 就退化成字符串级检查）
+- ⚠️ **`ci-guard.yml` 与 `scripts/check-workflows.py` 现在已经两个分支都有了**（2026-10-16 实测
+  `git ls-tree main .github/workflows/` 与 `git ls-tree main scripts/` 均在列）——
+  旧笔记说「main 上还没有、下次动 main 时带过去」**已过期**，别再重复搬一遍
+
+### 🐢 探针流程（2026-10-10 改造：CI 自己提交真值，中间不再必红）
+
+搬一个 HTML provider 时，按下面走 —— **feat/rust 上不会出现「probe 有了、真值还没」的中间态**：
+
+**0. 先看本机能不能抓到真页面**
+
+- **能**（大多数站）：自己抓一份存成 `test/fixtures/<site>-<query>.html`（详情页要单独再抓一次）
+- **不能**（`dmhy` / `megapeer` / `zeromagnet` 这类本机探不通的）：让 CI 去抓
+
+  ```bash
+  scripts/gh-retry.sh workflow run fetch-fixture.yml --ref feat/rust \
+    -f url='<结果页 URL>' -f path='test/fixtures/<site>-<query>.html'
+  # 20 秒左右，CI 会把文件 commit 回 feat/rust
+  git pull --rebase
+  ```
+
+  ⚠️ 抓回来**先看一眼内容**（`head -c 300`）—— Cloudflare 挑战页 / 停放页也是 200。
+
+**1. 加 probe**：往 `test/fixtures/html-probes.json` 里加这个 fixture 的条目，
+选择器就拄 JS 里那几条（`rows.count` / `row_cells` 的整行 / 每个用到的格子各一条）。
+
+⚠️ **站点不是 UTF-8 时**（如 megapeer=windows-1251），条目里加 `"encoding": "windows-1251"`：
+cheerio 侧走 `TextDecoder(label)`、Rust 侧走 `encoding_rs`，**同一标签两侧必须解出一致文本**；
+fixture 一律存原始字节，不要转码。
+
+**2. 在临时分支上把真值跑出来**（别在 feat/rust 上先推，那样 rust.yml 必红一次）：
+
+   ```bash
+   git checkout -b probes/scratch
+   git add test/fixtures/<新 fixture> test/fixtures/html-probes.json
+   git commit -m "test(<site>): 抓真 fixture + N 条探针"
+   GIT_SSL_NO_VERIFY=true git push -u origin probes/scratch
+   scripts/gh-retry.sh workflow run html-probes.yml --ref probes/scratch   # 20 秒左右
+   git fetch origin probes/scratch
+   git checkout feat/rust            # ← 先切回来
+   git restore --source=origin/probes/scratch -- test/fixtures/html-probes.json test/fixtures/html-probes.expected.json
+   ```
+
+   ⚠️ 取文件要用 `git restore --source=<ref>` **从 feat/rust 上**拿 —— 千万别先 `git checkout feat/rust`
+   再想拿临时分支独有的文件（拿不到，而且会把它们从工作区删掉；2026-10-10 踩过，靠 `git reflog` 才救回来）。
+
+**3. 回 `feat/rust` 一次推完**：fixture + probe + 真值 + provider + 测试 → 一次就绿
+**4. 删临时分支**：`git branch -D probes/scratch && GIT_SSL_NO_VERIFY=true git push origin :probes/scratch`
+
+为什么这么改：`html-probes.yml` 现在**自己 commit** `expected.json` 回触发它的 ref
+（`permissions: contents: write`），所以人只负责 fetch 文件。
+以前是「先推 probe（rust.yml 必红）→ 再从日志手抠 JSON」，那个红灯在 CI 失败总账里出现了 **7 次**。
+
+残留的坑：
+- 如果 CI 提交失败（分支保护之类），日志里还有一份可抠：`scripts/gh-retry.sh run view <id> --log`，
+  **按 `\t` 切掉前两段前缀、去掉 `\uFEFF`、从单独一行的 `{` 读到单独一行的 `}`**，
+  再和旧的 expected.json 逐 fixture 比对（老 fixture 必须逐字一样，不然就是抓错了）
+- ⚠️ **别给大页面加 `text_first` on `html`** —— 超长单行会让 CI 日志从那一行起被截断
+  （therarbg 实测）；现在真值走文件、不走日志，但那条 probe 依旧没意义，别加
+- ⚠️ CI 提交后**远端比本地新**，接着推之前先 `git pull --rebase`，否则会被拒
+
+---
+
 ## Testing
 
-This repo uses **Node.js built-in `assert` module** for golden-file tests. No external test framework required.
+**过渡期两套测试并存**：
+
+| | 命令 | 跑在哪 | 去向 |
+|---|---|---|---|
+| Node（旧） | `npm test` | 本机（需 node） | 随「边搬边删」逐步缩小，最终退休 |
+| Rust（新） | `cargo test --workspace` | **只能走 CI**（`.github/workflows/rust.yml`） | 本机无 cargo |
+
+### 测试策略（Q5 决策）
+
+- **CI 默认只跑离线 fixture**（`test/fixtures/` 的真实快照）—— 稳定的门，作用是防"解析逻辑退化"
+- ⚠️ **但离线 fixture 证明不了"现在还能用"**：快照多半是 2026-07 的，站点早已改版。
+  测试全绿也可能一个结果都搜不出来。这条必须记住，别把绿灯当成"抓取正常"。
+- 因此另设一条 **联网冒烟**，只有手动触发、**允许失败**：
+  - 测试：`crates/bt-providers/tests/live_smoke.rs`（**默认跳过**，只有 `BT_LIVE_SMOKE=1` 才打外网）
+  - workflow：`.github/workflows/live-smoke.yml`（仅 `workflow_dispatch`）
+  - 本地跑法：`BT_LIVE_SMOKE=1 cargo test -p bt-providers --test live_smoke -- --nocapture --test-threads=1`
+    （**注意：本机跑没用** —— archive.org 被 DNS 污染；要在 CI 上跑，见下）
+  - 用途 ① 判断站点还能不能用 ② **抓真实响应形态**（日志里有 `[smoke] <provider> first: ...`
+    与 IA 的原始 doc，`gh run view --log` 可读）
+  - 「允许失败」= 它不在任何 push/PR 的门上；**不是**把它设成 `continue-on-error`
+    （那会让红变绿，等于把信号藏起来）
+  - ⚠️ **已归为已知噪声**：`tpb` 在 CI 上稳定 403（apibay 对机房 IP 限流），
+    测试里单列 `[smoke] NOTE` 不触发红灯；但「**0 条结果且无错误**」会**计入失败**
+    （那才是选择器/字段名失效的信号）
+
+**冒烟基线（2026-10-08 首次跑，run 37735017845：5 个 provider，0 个问题）**
+
+| provider | 结果 | 备注 |
+|---|---|---|
+| `knaben` | 300 条 | ✅ |
+| `torrentscsv` | 25 条 | ✅ |
+| `yts` | 24 条 | ✅ |
+| `internetarchive` | 97~98 条 | ✅ 顺带拿到真实字段形态（见进度表上方） |
+| `tpb` | 403 | ⚠️ 机房 IP 被限流，非代码问题 |
+| `megapeer` | 50 条 | ✅ 2026-10-11 加入（独立 test）；标题西里尔完好 → 真实 `charset=windows-1251` 头实锤 |
+
+以后跑冒烟时，拿这些数字做对比：**数量级突然掉到 0 或个位数**才是真信号。
+（2026-10-11 复跑：knaben 300 / torrentscsv 25 / yts 24 / internetarchive 95 / tpb 403 / megapeer 50，0 问题 —— 与基线一致。）
+
+### 🔍 provider 探活：全部 40 个引擎，`scripts/provider-health.mjs`
+
+冒烟只覆盖 5 个 JSON provider。要问「**其他 35 个现在还能用吗**」，用这个脚本 ——
+零依赖（只用 Node 内置 `fetch`，不用装 `node_modules`），对每个引擎的**真实搜索 URL**
+发一次请求，打印 `HTTP / 字节 / 结果行数`：
+
+```bash
+# CI（推荐，出口干净）
+scripts/gh-retry.sh workflow run provider-health.yml --ref feat/rust
+scripts/gh-retry.sh run view --job=<JOB_ID> --log | grep -E '^\| `'
+
+# 本机（得加两个开关，见下）
+NODE_TLS_REJECT_UNAUTHORIZED=0 node --use-env-proxy scripts/provider-health.mjs
+```
+
+**⚠️ 本机结果不可全信 —— 已实测**：
+- Node 的 `fetch` 默认不读 `HTTP_PROXY`（要 Node 24+ 的 `--use-env-proxy`）
+- 本机那层代理是 **MITM** 的，Node 不信任其证书 → 报 `DEPTH_ZERO_SELF_SIGNED_CERT`
+- 同一域名**前后两次探活结论会不同**（实测 `linuxtracker` 一次 200、几分钟后 000；
+  `filemood` 报 ECONNRESET，但我们手里有它真实的结果页快照）
+- 本机对 `archive.org` 等还有 DNS 污染
+
+→ 所以「本机探不通」**不等于**「站点挂了」。要权威结论就用 CI，或两边都跑、对比着看。
+
+**⚠️ 反过来，CI 也不等于用户环境**：CI 是机房 IP，有些站对机房 IP 更凶
+（apibay 对机房 IP 直接 403）。**两边都跑，才是完整答案。**
+
+**2026-10-09 两个环境各跑一次 —— 结论必须两边合起来看**（同一脚本、同一关键词 `ubuntu`）：
+
+| 引擎 | 本机 | CI | 引擎 | 本机 | CI |
+|---|---|---|---|---|---|
+| `tpb` | ✅ 100 行 | ⛔ 403 | `rutor` | ✅ 111 行 | ✅ 111 行 |
+| `audiobookbay` | ✅ 36 行 | ✅ 36 行 | `torrentscsv` | ✅ 25 行 | ✅ 25 行 |
+| `filemood` | ❌ ECONNRESET | ✅ 65 行 | `linuxtracker` | ❌ 000 | ✅ 26 行 |
+| `internetarchive` | ❌ timeout | ✅ 1 行 | `knaben` | ✅ 1 | ✅ 1 |
+| `yts` | ✅ 1 | ✅ 1 | `limetorrents` | ✅ 45 行 | ⛔ 403 |
+| `therarbg` | ✅ 39 行 | ⛔ 403 | `torrent9` | ✅ 4 行 | ⛔ 403 |
+| `oxtorrent` | ✅ 3 行 | ⛔ 403 | `dmhy` | ❌ timeout | ✅ 10 行 |
+| `megapeer` | ⛔ 403 | ✅ 14 行 | `nyaa` | ❌ timeout | ✅ 2 行 |
+| `zeromagnet` | ❌ timeout | ✅ 29 行 | `xxxtracker` | ❌ timeout | ✅ 1 行 |
+| `1337x` | ⛔ 403 | ⛔ 403 | `blueroms` | ⛔ 403 | ⛔ 403 |
+| `eztv` | ⛔ 451 | ⛔ 403 | `torrentdatabase` | ⛔ 403 | ⛔ 403 |
+| `uindex` | ⛔ 403 | ⛔ 403 | `btdigg` | ❌ timeout | ↪ 429 |
+
+**怎么读这张表（重要）**：
+- **两个环境合起来，至少 18 个引擎真的出结果** —— 所以「剩下的全都坏了」是**不成立**的
+- **两边都 ✅** 才是最硬的（`rutor` / `audiobookbay` / `torrentscsv` / `knaben` / `yts`）
+- **一边 ✅ 一边 ❌ 的，说明问题在「网络出口」而不在站点**：
+  - CI ✅ / 本机 ❌ → 本机网络挡着（`linuxtracker` / `filemood` / `internetarchive` / `dmhy` / `nyaa` / `megapeer` / `zeromagnet` / `xxxtracker`）
+  - 本机 ✅ / CI ⛔ → **机房 IP 被 Cloudflare 拦**（`tpb` / `limetorrents` / `therarbg` / `torrent9` / `oxtorrent`）
+    ⚠️ 所以 **CI 上的 403 是「下限」不是「真相」** —— 本机跑得通就说明用户那儿也能用
+- **两边都 ⛔**：`1337x` / `blueroms` / `eztv` / `torrentdatabase` / `uindex` —— 这几个基本可以判死刑
+- `btdigg` 的 **429** = 限流（不是封锁）；`animetosho` / `mikan` 是本机/CI 都 200 但
+  粗判标记没命中 → **要按站点看真实选择器**，不能只看这个数字
+
+**顺带发现**：`megapeer` 用的是 `getWin1251()` —— 就是那条「俄站**编码**要专门验」的实例。
+**`eztv` 的 451**（Unavailable For Legal Reasons）是法律性封锁 —— 写多少 UA 都没用，
+和 Cloudflare 的 403 要分开对待。
+
+### 🚧 受阻引擎清单（2026-10-09，**先记下来，以后再看有没有办法**）
+
+用户口径：**先搬能用的，不能用的记录在案**。按「有没有救」分四档：
+
+| 档 | 引擎 | 现象 | 还有什么办法 |
+|---|---|---|---|
+| **A. 基本没救** | `eztv` | **451 法律性封锁**（两个环境都是） | 没有。法律性封锁不是技术问题 |
+| | `blueroms` / `torrentdatabase` / `uindex` / `1337x` | **Cloudflare 403**（两个环境都是） | 参考 1337x 小节那四条路（换环境抓 fixture / 第三方 API / 浏览器自动化 / 放弃），成本都高 |
+| **B. 机房 IP 被拦，本机可用** | `tpb` / `limetorrents` / `therarbg` / `torrent9` / `oxtorrent` | 本机 ✅ 出结果，CI ⛔ 403 | **不是问题** —— 用户在家里跑就能用。只是别拿 CI 的 403 当真相 |
+| **C. 两个环境都不通** | `anirena` / `bitsearch` / `bt4g` / `mypornclub` / `tokyotoshokan` / `torrentdownload` / `torrentdownloads` / `torrentkitty` / `xxxclub` | CI ⛔ 403，本机 timeout/连不上 | CI 全 403 → 大概率也是 Cloudflare；要确认得**换个住宅 IP 的环境**再探一次 |
+| | `sukebei` / `nekobt` | 两边都连不上（`UND_ERR_CONNECT_TIMEOUT` / timeout） | 确认域名是否还活着（`sukebei` 是 `nyaa.si` 的子域，可能一起被网络层挡了） |
+| **D. 页面在但拿不到结果行** | `animetosho` / `mikan` | 两边都 200，但粗判 0 行 | **不是坏事** —— 很可能只是我的粗判标记（数 `<tr`）跟它们的结构不符。按站点核一遍真实选择器即可 |
+| | `anilibria` / `subsplease` / `bangumimoe` | 200 但响应只有 2~55 字节 | 空 JSON（`[]`）—— 说明接口通、只是这个关键词没结果。**换关键词再探一次就能定性** |
+
+**重新评估的触发条件**（满足任一条就该重探，不用等）：
+1. 探活里某个引擎从 ⛔/❌ 变成 200+有行（可能只是它自己换了域名/放开了）
+2. 有志愿者/上游给出可用的镜像或 API
+3. 真要上浏览器自动化（CDP）时 —— 那是一次性成本，摊到多个 Cloudflare 站上才划算
+
+⚠️ 别忘了「探活 ≠ 能解析」：`provider-health.mjs` 的行数是**粗判**。
+D 档那几个要真搬，第一步仍然是**加探针、拿 cheerio 真值**（见下面的移植配方）。
+
+---
+
+### ⚠️ 本机 `gh` 会间歇性 403 —— 一律用 `scripts/gh-retry.sh`
+
+本机有一层**透明拦截代理**，对 `api.github.com` 的请求会**间歇性直接返回 403**
+（0.08 秒秒拒、响应体为空、带 `Via: Caddy`）。实测 2026-10-09 各路线成功率：
+
+| 路线 | 成功率 |
+|---|---|
+| 本机代理 `:1267` | 9/10 → 8/12 → 4/12（会波动） |
+| 本机代理 `:80` | 5/12 |
+| 直连（绕开代理） | 7/10 |
+
+**哪条路都不稳，而且 403 成簇出现（见过连续 5 次）。** 这不是 GitHub 拒绝、也不是 token 问题 ——
+`gh auth status` 是 ✓，token 是 `gho_` 格式且 scope 含 `repo` / `workflow` / `admin:org`。
+
+→ **把命令里的 `gh` 换成 `scripts/gh-retry.sh`**（同一个命令，参数原样传）：
+
+```bash
+scripts/gh-retry.sh run list --branch feat/rust
+scripts/gh-retry.sh run view --job=<JOB_ID> --log
+scripts/gh-retry.sh workflow run live-smoke.yml --ref feat/rust
+```
+
+只在输出含 `403` 时重试（其它错误立刻透传），stdout 不缓冲所以 `--log` / `watch` 照常。
+
+⚠️ **旧笔记「`gh` 必须绕开代理（加 `env -u HTTP_PROXY ...`）」已失效** ——
+那是 2026-10-07 在另一个代理实例上的观察；现在绕不绕都会间歇 403。
+
+⚠️ **本机 `git push` 会报 SSL 证书错**（`fatal: unable to access …: SSL certificate problem:
+unable to get local issuer certificate`）—— 同上，本机那层 MITM 代理的证书不在
+`~/.gitconfig` 指向的 `C:\Users\LeGo\.git-ca-bundle.crt` 里。临时绕：
+
+```bash
+GIT_SSL_NO_VERIFY=true git push origin feat/rust
+```
+
+（2026-10-10 实测可用；`scripts/gh-retry.sh` 走的是 `gh` 自己的 TLS 栈，不受影响。）
+
+---
+
+⚠️ **`gh workflow run <file>` 要求 workflow 已存在于默认分支（`main`）上**，否则报
+`HTTP 404: workflow ... not found on the default branch`。本项目 workflow 目前的状态：
+
+| workflow | 在哪 | 能手动触发吗 |
+|---|---|---|
+| `build.yml` / `release.yml` / `tauri-build.yml` | `main` | 能 |
+| `live-smoke.yml` | `main`（**为能手动触发而特意放的**）+ `feat/rust` | 能（触发时用 `--ref feat/rust` 才检出 Rust 代码） |
+| `rust.yml` | 只在 `feat/rust` | ❌ 不能，只能靠 push 触发 |
+| `html-probes.yml` | `main` + `feat/rust` | 能（选分支 `feat/rust`，生成 cheerio 真值**并自己提交**） |
+| `fetch-fixture.yml` | `main` + `feat/rust` | 能（带 `url`/`path`，让 CI 去抓本机探不通的页面快照，抓完自己提交） |
+| `provider-health.yml` | `main` + `feat/rust` | 能（全部 40 个引擎的联网探活） |
+
+`live-smoke.yml` 用 `hashFiles('crates/bt-providers/Cargo.toml')` 兜底：
+在还没有 Rust workspace 的 ref 上会优雅跳过，不给假红灯。
+`html-probes.yml` 同理（判 `test/fixtures/html-probes.json` 在不在）。
+改这两个文件时记得 **`main` 与 `feat/rust` 上各有一份，要同步**。
+
+Node 侧仍然使用 **Node.js 内置 `assert` 模块**做 golden-file 测试，无第三方框架：
 
 ```bash
 npm test          # run all tests
@@ -268,6 +1299,7 @@ percent-encode，个别老旧下载工具会拿到编码串或问号名，这是
 以下从编码者角度梳理的优化项，已全部收口：
 
 1. ✅ **`public/app.js` 1634 行单体巨石** — 已拆为 7 个 ES 模块：`js/state.js`、`js/render.js`、`js/actions.js`、`js/history.js`、`js/settings.js`、`js/utils.js`、`js/main.js`。
+   ⚠️ **该文件本身已于 2026-10-11 删除**（拆完一直留着，见上面「已删（已做）」）。
 2. ✅ **Provider 解析逻辑重复** — 新建 `src/lib/scraper.js`：`createProvider()` 工厂 + `scrapeRows()` 辅助，已迁移 eztv/torrentkitty/torrentdownload。
 3. ✅ **请求速率控制** — `src/providers/index.js`：`asyncPool()` 限制 8 并发，替代 `Promise.all` 无限制请求。
 4. ✅ **`PROVIDER_LABEL` 初始态不完整** — 已预填充全部 42 个引擎名称，消除首屏 raw id 闪现。
@@ -308,10 +1340,13 @@ git push origin feat/tauri     # push FIRST
 git worktree remove <tmp>      # clean up AFTER push confirmed
 ```
 
-⚠️ **`feat/tauri` 的 `public/app.js` 整体落后于 `main`，不是「另一个修好的版本」。**
-它是多客户端改造**之前**的 qB-only 版本（`state.qb` / `autoDetectQB()` / `#qb-url` 系列 DOM）。
-往那边找 bug 修复会白跑一趟；反过来，从 `main` 同步下载相关功能到 `feat/tauri` 时，
-要连带把整套多客户端改造（含下面的 6 处修名）一起带过去，不能只摘单个提交。
+⚠️ **`public/app.js` 已于 2026-10-11 从三个分支全部删除**（1634 行死代码，见「已删（已做）」）。
+下面这一段**只作为历史背景**保留（解释当初为什么会存在两份 app.js）—— 文件已经没了，别再去同步它。
+
+> ~~`feat/tauri` 的 `public/app.js` 整体落后于 `main`，不是「另一个修好的版本」。~~
+> ~~它是多客户端改造**之前**的 qB-only 版本（`state.qb` / `autoDetectQB()` / `#qb-url` 系列 DOM）。~~
+> ~~往那边找 bug 修复会白跑一趟；反过来，从 `main` 同步下载相关功能到 `feat/tauri` 时，
+> 要连带把整套多客户端改造（含下面的 6 处修名）一起带过去，不能只摘单个提交。~~
 
 **~~Known recurring conflict — `PROVIDER_LABEL` / `loadProviders`~~ 已消解（2026-08-10）:**
 两分支曾在这里分叉——`main` 是只含 ~4 项的静态字面量，`feat/tauri` 是 `PROVIDER_LABEL = {}`
@@ -321,11 +1356,15 @@ git worktree remove <tmp>      # clean up AFTER push confirmed
 若日后再在此处分叉：解冲突时取 incoming（`main`）逻辑，**但务必保留那行动态填充**，
 丢了它会让所有徽章/状态栏显示名退化成 provider 原始 id。
 
-## Next steps（下一步）
+## 历史：Node / Electron 时代的收尾记录（⚠️ **不是当前计划**）
+
+> 当前计划 = 本节上方「📌 下一步计划」（下一个里程碑是 **M1**）+ `docs/ROADMAP.md` §3。
+> 下面这一段记录的是 **Rust 重写之前** Node/Electron 那条线的收尾工作，保留只为查历史。
 
 ### ✅ 已完成：多客户端下载器同步到 `feat/tauri`
 
-`main` 和 `feat/tauri` 两分支的 `public/app.js` 现已完全一致，均支持：
+⚠️ **以下描述的是 Node 版（`public/app.js` 已于 2026-10-11 删除，见「已删（已做）」）。**
+当时 `main` 和 `feat/tauri` 两分支的 `public/app.js` 完全一致，均支持：
 - **四种下载器**：qBittorrent / Transmission / aria2·Motrix / Gopeed
 - **统一状态**：`state.dl`（单键 `'dl'`，body 形状 `{kind,url,user,pass,token,magnet}`）
 - **核心函数**：`DL_CLIENTS`、`dlLabel()`、`sendToClient()`、`autoDetectDownloader()`、`batchSendToClient()`

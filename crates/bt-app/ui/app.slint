@@ -1,0 +1,297 @@
+// bt-app —— 真正的应用界面（M4）。唯一的 UI，对齐 docs/ROADMAP.md §2.2。
+//
+// ⚠️ 这里只用 M1 spike 已经**实测过**的元素：std-widgets 的 LineEdit / Button / ListView，
+// 加上内置的 Text / Rectangle / 布局。刻意不用 ComboBox / ScrollView 之类没在
+// 本机验证过的控件 —— 本机没有编译器，Slint API 写错的代价是一轮 CI。
+//
+// ⚠️ 两条 M1 踩出来的硬约束（AGENTS.md「Slint 探针结论」）：
+//   1. 富文本属性类型必须是 `styled-text`（不是 `string`）—— 高亮是 Rust 侧
+//      `StyledText::from_markdown()` 构造的 markup，`@markdown()` 会把插值整体转义。
+//   2. **别在 `init` 里写全局属性** —— 会形成属性依赖环，实测 200 条数据触发 2628 次实例化。
+//      所以这里没有任何 `init`。
+
+import { LineEdit, Button, ListView } from "std-widgets.slint";
+
+// 一条搜索结果 —— 字段全部由 Rust 侧 src/ui_model.rs 产出（那一层是纯函数、有单测）。
+export struct ResultRow {
+    // 行号。`push-row(int)` 用它回指 Rust 的权威 Vec（UI 模型可能整体重建，行号必须稳）
+    idx: int,
+    // 标题：styled-text + Rust 侧构造的 markup（关键词高亮）
+    title-markup: styled-text,
+    // 同一标题的纯文本版本（不做高亮时/无障碍用）
+    title-plain: string,
+    meta: string,
+    provider: string,
+    seeds: int,
+    leechers: int,
+    // 按钮文案由 Rust 决定："取磁力并推送" / "推送到下载器" / "解析中…"
+    action-label: string,
+}
+
+// 每站状态 —— 形状对齐 `bt_providers::ProviderStatus`（`ok` / `error` / `pending`）。
+// ⚠️ 字形与颜色都由 **Rust 侧算好**（ui_model.rs），.slint 里不写三元表达式 ——
+// 少一处 Slint 语法风险，而且那三档的措辞本来就该跟 Rust 的状态枚举绑在一起。
+export struct ProviderChip {
+    id: string,
+    name: string,
+    glyph: string,
+    detail: string,
+    tone: color,
+}
+
+export global Theme {
+    // Catppuccin Mocha（与 spike 一致，不自己造色）
+    out property <color> bg:       #1e1e2e;
+    out property <color> card:     #313244;
+    out property <color> text:     #cdd6f4;
+    out property <color> sub:      #9399b2;
+    out property <color> accent:   #89b4fa;
+    out property <color> hl:       #f9e2af;
+    out property <color> surface1: #45475a;
+    out property <color> ok:       #a6e3a1;
+    out property <color> err:      #f38ba8;
+}
+
+// 一条结果卡片。
+component ResultCard inherits Rectangle {
+    in property <ResultRow> item;
+    // ⚠️ 必须**转发**出去：组件里的 `root` 指的是这个组件实例，不是窗口。
+    // 直接写 `root.push-row(...)` 会编译不过（窗口上没这个回调）。
+    callback push(int);
+
+    height: 74px;
+    background: Theme.card;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: Theme.surface1;
+
+    HorizontalLayout {
+        padding: 8px;
+        spacing: 8px;
+
+        // 左侧：seeders
+        Rectangle {
+            width: 54px;
+            background: Theme.surface1;
+            border-radius: 4px;
+
+            VerticalLayout {
+                alignment: center;
+                spacing: 0px;
+                Text {
+                    text: "\{item.seeds}";
+                    color: Theme.accent;
+                    font-size: 15px;
+                    font-weight: 700;
+                    horizontal-alignment: center;
+                }
+                Text {
+                    text: "seeds";
+                    color: Theme.sub;
+                    font-size: 9px;
+                    horizontal-alignment: center;
+                }
+            }
+        }
+
+        // 中间：标题（富文本 + 自动换行）+ 元信息
+        VerticalLayout {
+            alignment: center;
+            spacing: 3px;
+
+            StyledText {
+                text: item.title-markup;
+                default-color: Theme.text;
+                default-font-size: 14px;
+                // 两条以内，超了省略 —— 中文标题 + 高亮 + 换行正是 M1 压过的组合
+                max-lines: 2;
+            }
+
+            Text {
+                text: item.meta;
+                color: Theme.sub;
+                font-size: 11px;
+            }
+        }
+
+        // 右侧：来源 + 动作按钮
+        VerticalLayout {
+            width: 150px;
+            alignment: center;
+            spacing: 4px;
+
+            Text {
+                text: item.provider;
+                color: Theme.accent;
+                font-size: 11px;
+                horizontal-alignment: center;
+            }
+
+            Button {
+                text: item.action-label;
+                clicked => { root.push(item.idx); }
+            }
+        }
+    }
+}
+
+// 一站状态的小条。
+component ProviderRow inherits Rectangle {
+    in property <ProviderChip> item;
+
+    height: 22px;
+    background: transparent;
+
+    HorizontalLayout {
+        spacing: 4px;
+        Text {
+            text: item.glyph;
+            color: item.tone;
+            font-size: 11px;
+            vertical-alignment: center;
+        }
+        Text {
+            text: item.name;
+            color: Theme.text;
+            font-size: 11px;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+        Text {
+            text: item.detail;
+            color: Theme.sub;
+            font-size: 10px;
+            vertical-alignment: center;
+        }
+    }
+}
+
+export component AppWindow inherits Window {
+    in-out property <string> query: "";
+    in-out property <[ResultRow]> rows;
+    in-out property <[ProviderChip]> providers;
+    in-out property <bool> searching: false;
+    in-out property <string> status-text: "就绪";
+    in-out property <string> downloader-kind: "qbittorrent";
+    in-out property <string> downloader-url: "";
+    in-out property <string> downloader-user: "";
+    in-out property <string> downloader-secret: "";
+    in-out property <string> downloader-status: "未配置下载器";
+    in-out property <int> total: 0;
+
+    callback search(string);
+    callback push-row(int);
+    callback pick-kind(string);
+    callback detect-downloader();
+    callback save-downloader();
+
+    title: "BT 聚合搜索";
+    width: 1180px;
+    height: 800px;
+    background: Theme.bg;
+    // CJK 靠它 + 系统字体回退（spike 实测可行）
+    default-font-family: "Microsoft YaHei";
+    default-font-size: 13px;
+
+    VerticalLayout {
+        padding: 10px;
+        spacing: 8px;
+
+        // ---- 搜索行 ----
+        HorizontalLayout {
+            spacing: 6px;
+            LineEdit {
+                horizontal-stretch: 1;
+                placeholder-text: "关键词（回车搜索）";
+                text <=> root.query;
+                accepted(t) => { root.search(t); }
+            }
+            Button {
+                text: root.searching ? "搜索中…" : "搜索";
+                enabled: !root.searching;
+                clicked => { root.search(root.query); }
+            }
+            Text {
+                text: root.status-text;
+                color: Theme.sub;
+                vertical-alignment: center;
+                width: 260px;
+            }
+        }
+
+        // ---- 下载器行（MVP：种类 4 个按钮 + url + 凭据 + 探测/保存）----
+        HorizontalLayout {
+            spacing: 6px;
+            Text { text: "下载器"; color: Theme.sub; vertical-alignment: center; }
+            Button { text: "qB";  clicked => { root.pick-kind("qbittorrent"); } }
+            Button { text: "TR";  clicked => { root.pick-kind("transmission"); } }
+            Button { text: "aria2"; clicked => { root.pick-kind("aria2"); } }
+            Button { text: "Gopeed"; clicked => { root.pick-kind("gopeed"); } }
+            Text {
+                text: root.downloader-kind;
+                color: Theme.accent;
+                vertical-alignment: center;
+                width: 96px;
+            }
+            LineEdit {
+                horizontal-stretch: 1;
+                placeholder-text: "地址，例 http://localhost:8080";
+                text <=> root.downloader-url;
+            }
+            LineEdit {
+                width: 96px;
+                placeholder-text: "用户名";
+                text <=> root.downloader-user;
+            }
+            LineEdit {
+                width: 110px;
+                placeholder-text: "密码 / token";
+                text <=> root.downloader-secret;
+            }
+            Button { text: "探测"; clicked => { root.detect-downloader(); } }
+            Button { text: "保存"; clicked => { root.save-downloader(); } }
+            Text {
+                text: root.downloader-status;
+                color: Theme.sub;
+                vertical-alignment: center;
+                width: 200px;
+            }
+        }
+
+        // ---- 主体：结果列表 + 每站状态 ----
+        HorizontalLayout {
+            spacing: 8px;
+
+            ListView {
+                horizontal-stretch: 1;
+                for row in root.rows : ResultCard {
+                    item: row;
+                    // 转发：卡片上的 push 回到窗口的 push-row
+                    push(idx) => { root.push-row(idx); }
+                }
+            }
+
+            Rectangle {
+                width: 210px;
+                background: Theme.card;
+                border-radius: 6px;
+
+                VerticalLayout {
+                    padding: 6px;
+                    spacing: 2px;
+
+                    Text {
+                        text: "共 \{root.total} 条";
+                        color: Theme.sub;
+                        font-size: 11px;
+                    }
+
+                    ListView {
+                        vertical-stretch: 1;
+                        for p in root.providers : ProviderRow { item: p; }
+                    }
+                }
+            }
+        }
+    }
+}
