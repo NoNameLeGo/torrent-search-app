@@ -95,7 +95,7 @@ M7 ✅ 打包 + GitHub Release（2026-10-16 —— **v0.3.6-beta 已发布**，�
 | 2 | 「一条都没有」说得清原因 + **失败分网络层/站点层** | ✅ 判据是 `bt_core::http::classify_error`（依据 providers 复刻的 axios 错误码，不是猜文案） |
 | 3 | 体积回归门（25MB，`rust-size.yml`） | ✅ |
 | 4 | registry 动态化（`ProviderFactory` + `provider_set()`，每次现造一份） | ✅ 但**只有"注入替换"，没有"追加"** —— Torznab 接入需要追加 |
-| 5 | Torznab | 🟡 **规格 + fixture + 解析层已完成**（`crates/bt-torznab`，`roxmltree`，10 条测试）；剩请求层 / `Provider` 实现 / 动态追加 / UI 配置 |
+| 5 | Torznab | 🟡 **只差 UI** —— `crates/bt-torznab` 已完成**解析层**（`roxmltree`，10 条测试）+ **请求层/Provider**（`normalize_api_url` / `build_search_url` / `TorznabProvider`）+ **动态追加**（`add_dynamic_factory`）+ **索引器持久化**（`indexers.json`）+ 启动装载。⚠️ **还剩**："在 UI 里加/删索引器"的界面 —— 现在要用手编 `%APPDATA%\bt-search\indexers.json`（`save_indexers()` 已写好但**没有调用方**） |
 | 6 | 引擎腐坏数据化（`health.rs` 落盘 + `--health` + 状态条 ⚠ 标记） | ✅ |
 
 

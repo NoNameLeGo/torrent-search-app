@@ -8,7 +8,7 @@ A desktop BT torrent **meta-search** app: one keyword fans out across many torre
 
 ⚠️ **There are two implementations on `main`, and you must know which one you're touching.**
 
-1. **The Rust rewrite — this is the mainline since 2026-10-16** (M0–M7 all done, ships as an 18 MB self-contained exe). Workspace under `crates/`; see the section further down. It has its own 16 providers and a Slint UI. **New feature work goes here.**
+1. **The Rust rewrite — this is the mainline since 2026-10-16** (M0–M7 all done, ships as an 18 MB self-contained exe). Workspace under `crates/`; see the section further down. It has **17 providers** (16 ported sites + an offline deterministic `demo`) and a Slint UI. **New feature work goes here.**
 2. **The original Node/Express version.** The core is a Node backend that scrapes/queries third-party sites **server-side** (avoiding browser CORS), served to a static frontend and reused unchanged by two desktop shells: Electron (built from `main`) and Tauri (`feat/tauri`). It has **40 providers** + an offline `demo` engine + Torznab indexers. It is no longer the mainline, but it **still builds, still publishes, and is still the feature-complete one**.
 
 Why both are still here: the Node version was kept as the **differential's reference** (M6 compares the two field by field; `test/fixtures/` is kept forever). D18 now permits deleting it, but **function by function, never file by file** — log each removal in the 待删清单 in `AGENTS.md`.
@@ -201,7 +201,13 @@ crates/bt-app/          the Slint app (**the only UI**, M4 — **DONE**). `ui/ap
                         paints_err == 0`) so a "never actually repainted" fake-green run cannot pass.
                         12 assertions; exits 1 on failure.
 
-bt-torznab is **not built** this round (D17: leave an abstraction hook only)
+crates/bt-torznab/      Torznab indexers (Jackett / Prowlarr / *arr) — **built 2026-10-16**:
+                        `parse_items` (roxmltree) + request layer + `TorznabProvider`.
+                        ⚠️ It depends on `bt-providers` (for the `Provider` trait) and
+                        `bt-providers` does **not** know about it — so the "static 17 +
+                        dynamic indexers" assembly happens in `bt-app`
+                        (`add_dynamic_factory`). Still missing: **the UI to add indexers**
+                        (today you hand-edit `%APPDATA%\bt-search\indexers.json`).
 ```
 
 **Porting a provider (recipe, copy tpb/knaben/torrentscsv/yts):** read the JS, write `src/<name>.rs` with a payload struct (if it's a POST) + `search()` + `search_at(http, api, query)` (the latter is what makes offline tests possible), then `tests/<name>.rs` with field-by-field assertions. **Don't hand-write the expected values** — feed the same fixture through `src/lib/normalize.js` with a throwaway Node script and copy its output into the assertions; that is what makes "same as the Node version" verifiable. Pin any deliberate divergence as a named `divergence_*` test.
