@@ -2,12 +2,18 @@
 
 > 对比对象：
 > - 原仓库：`https://github.com/prajwalch/TorrentSearch`（Android / Kotlin 实现）
-> - 当前项目：`D:\Vibe-Coding\torrent-search-app`（Node.js / Electron Web 实现）
+> - 当前项目：`D:\Vibe-Coding\torrent-search-app`（**Node.js / Electron 那一条线** —— 见下面的更正）
 > - 生成时间：2026-07-11
 >
-> ⚠️ **本文件描述的是 Node 版（`main` 发布线）的引擎覆盖情况，仍然成立**；
-> 2026-10-08 起项目在用 Rust 重写（`feat/rust` 分支），**Rust 侧的移植进度见 `AGENTS.md`**
-> （「📊 进度快照」+「移植进度」表）——那是另一条线的口径，别与本文件混用。
+> ⚠️ **本文件描述的是 Node 版（40 家）的引擎覆盖情况，仍然成立** —— 那个版本还在 `main` 上。
+> 2026-10-08 起项目在用 Rust 重写，**Rust 侧的移植进度见 `AGENTS.md`** —— 那是另一条线的口径，
+> 别与本文件混用。
+>
+> ⚠️ **2026-10-16 核对时更正两处过时说法**：
+> ① Rust 线**已经切到 `main`**（不再是 `feat/rust` 分支 —— 那个分支现在是 0 独有提交的指针）；
+> ② 所以"当前项目 = Node.js / Electron 实现"只对本文件的口径成立：
+> `main` 的**主线已经是 Rust**（17 家 = 16 个移植站点 + 离线 demo），
+> Node 版是差分对照（M6）与备选交付。
 
 ## 结论
 

@@ -392,13 +392,25 @@ Rust `format!("{:.1}", 3.25)` 因为 3.25 在二进制里是精确值 ⇒ 平局
 
 ### 🌿 分支现状（2026-10-16 —— **`main` 已切换成 Rust 主线**）
 
+> **2026-10-16 收尾核对（实测，不是推断）**：`feat/rust` 与 `legacy/node-electron`
+> 相对 `main` 各有 **0 个独有提交**（`git rev-list --count main..<b>` = 0，
+> `git diff --stat main...<b>` 空）⇒ 它们**已经没有任何独有内容**，
+> 是纯指针。⚠️ **但本表明确写了"保留不删 / 存档"，所以这次只核对、不删除** ——
+> 既定决策不该被一次"清理"顺手推翻。真要删，改这一行并说清理由再删。
+>
+> **远端**：`origin/{main, feat/rust, feat/tauri, legacy/node-electron, spike/slint-ui}` ——
+> 与本地一一对应，`git remote prune` 无待清理项。
+> **tag**：`v0.0.1` … `v0.3.6-beta` 共 10 个。⚠️ 其中 **`v0.3.3-beta` 有 tag 但从来
+> 没有过 release**（`gh release view v0.3.3-beta` = not found）—— 历史遗留，
+> **保留**（tag 是历史标记，删它比留着更容易让人困惑）。
+
 | 分支 | 角色 | 状态 |
 |---|---|---|
-| `main` | **Rust 主线**（Node 版原地保留到 M6，D18） | ✅ **2026-10-16 已切**，tip = `7605e7a`（merge commit） |
-| `legacy/node-electron` | Node/Electron 线的存档 | 停在 `9b9461c` = **切换前的最后一个纯 Node main**（就是存档该有的形态） |
-| `feat/rust` | 切换前的 Rust 线；合并后与 `main` 同源 | 保留不删；合并点 = `082712a` |
-| `feat/tauri` | Tauri 壳（Node backend + node sidecar） | 旧线，仍可发版。⚠️ 只有 3 条 workflow（build / release / tauri-build）—— 它**从没**同步过较新的那些（ci-guard / live-smoke / html-probes / provider-health / fetch-fixture / rust）。**这不是 bug**：实测这 3 条都不引用 `scripts/`，所以不存在 main 当年那种「workflow 在、脚本不在」的坏链 |
-| `spike/slint-ui` | M1 的 spike（`--selftest` + `slint-spike.yml`） | 一次性；**代码不在 `main`/`feat/rust` 上**，别去那儿找。它的 workflow 只触发 `spike/slint-ui`（不挂 main）⇒ 不会因缺 `spike/` 目录而变红 |
+| `main` | **Rust 主线**（Node 版原地保留到 M6，D18） | ✅ **2026-10-16 已切**。切换点是 merge commit `7605e7a`；⚠️ 下表里的 tip / 测试数都是**切换当天**的快照，之后 main 一直在前进（当前状态看 `git log` / CI） |
+| `legacy/node-electron` | Node/Electron 线的存档 | 停在 `9b9461c` = **切换前的最后一个纯 Node main**（就是存档该有的形态）。✅ 核对：相对 main 无独有提交 |
+| `feat/rust` | 切换前的 Rust 线；合并后与 `main` 同源 | **保留不删**；合并点 = `082712a`。✅ 核对：相对 main 无独有提交 |
+| `feat/tauri` | Tauri 壳（Node backend + node sidecar） | 旧线，仍可发版（`release.yml` 的 tauri 作业 checkout 它）。⚠️ 只有 3 条 workflow（build / release / tauri-build）—— 它**从没**同步过较新的那些（ci-guard / live-smoke / html-probes / provider-health / fetch-fixture / rust）。**这不是 bug**：实测这 3 条都不引用 `scripts/`，所以不存在 main 当年那种「workflow 在、脚本不在」的坏链。✅ 相对 main 有 69 个独有提交（Tauri 壳本体）⇒ **必须保留** |
+| `spike/slint-ui` | M1 的 spike（`--selftest` + `slint-spike.yml`） | 一次性；**代码不在 `main` 上**（7239 行），别去那儿找。它的 workflow 只触发 `spike/slint-ui`（不挂 main）⇒ 不会因缺 `spike/` 目录而变红。M1 已通过、结论已留档（见「Slint 探针结论」），故**保留作证据** |
 
 **✅ 切换记录（2026-10-16，全部实测，不是推断）**
 
