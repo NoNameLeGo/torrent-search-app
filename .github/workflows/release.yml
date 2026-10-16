@@ -152,11 +152,16 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist-rust
-          # 文件名带 ref：tag 触发时就是版本号
-          cp target/release/bt-search.exe "dist-rust/BT-Search-Rust-${{ github.ref_name }}.exe"
+          # ⚠️ 版本号要**去掉 tag 的 `v` 前缀**，与 Electron 侧一致：
+          # Electron 用 package.json 的 version（`0.3.5-beta`）命名，
+          # 这里若直接用 github.ref_name 就会变成 `v0.3.5-beta` ——
+          # 同一份 Release 里两种风格，而 docs/RELEASE_ARTIFACTS.md 是按前者写的。
+          VER="${GITHUB_REF_NAME#v}"
+          echo "版本号 = $VER"
+          cp target/release/bt-search.exe "dist-rust/BT-Search-Rust-$VER.exe"
           # 附一个 zip：有些浏览器/网盘对裸 exe 更敏感
           powershell -NoProfile -Command \
-            "Compress-Archive -Path 'target/release/bt-search.exe' -DestinationPath 'dist-rust/BT-Search-Rust-${{ github.ref_name }}.zip' -Force"
+            "Compress-Archive -Path 'target/release/bt-search.exe' -DestinationPath 'dist-rust/BT-Search-Rust-$VER.zip' -Force"
           ls -l dist-rust
 
       - name: Upload Rust artifact
