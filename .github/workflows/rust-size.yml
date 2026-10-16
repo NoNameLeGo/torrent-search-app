@@ -1,0 +1,87 @@
+name: Rust exe size (S1 探针)
+
+# 目的：量 **S1「单文件自包含 exe」的体积**，快速、便宜。
+#
+# ⚠️ 为什么单开一个而不是用 `release.yml` 的手动触发：
+# release.yml 的手动触发会**顺带构建 Electron 与 Tauri 两个安装包**（20+ 分钟），
+# 而量体积只需要 `cargo build --release -p bt-app`。这里 4 步就够。
+#
+# 与 `m6-diff.yml` / `provider-health.yml` 同一套做法：**探针，不是门** ——
+# 只挂 `workflow_dispatch`，不参与任何 push/PR 门。
+#
+# S1 的历史基线：M1 实测 **14.5MB**（opt-level=2 + 默认 16 codegen units + 无 lto + 不 strip）。
+# 2026-10-16 M7 给 `[profile.release]` 加了 `lto = true` / `codegen-units = 1` / `strip = true`，
+# 跑这个 workflow 看降了多少。
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  size:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v5
+
+      - name: 安装 Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust 缓存
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> target'
+
+      # S2「零运行时依赖」的关键：静态链 MSVC 运行时。
+      # 不这么做的话，拷到没装 VC++ Redistributable 的干净 Windows 上起不来。
+      # ⚠️ 用 RUSTFLAGS 传，别写进 .cargo/config.toml —— 那会让所有构建（含测试）都跟着变。
+      - name: 构建 release（静态 CRT）
+        env:
+          RUSTFLAGS: -C target-feature=+crt-static
+        run: cargo build --release -p bt-app --bin bt-search
+
+      - name: 报体积
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "=== 文件 ==="
+          ls -l target/release/bt-search.exe
+          echo ""
+          echo "=== 精确字节数（给脚本用）==="
+          stat -c '%s' target/release/bt-search.exe 2>/dev/null || wc -c < target/release/bt-search.exe
+          echo ""
+          echo "=== 人类可读 ==="
+          du -h target/release/bt-search.exe
+          echo ""
+          echo "=== S1 基线对照：M1 实测 15,200,768 字节（14.5MB），含调试符号、无 lto ==="
+
+      # S2 的旁证：这个 exe 到底依赖哪些 DLL。
+      # 「零运行时依赖」的判据 = 只依赖 Windows 自带的系统 DLL，没有 MSVC 运行时
+      # （vcruntime140.dll / msvcp140.dll）与任何第三方 DLL。
+      - name: 列出依赖的 DLL（S2 旁证）
+        shell: pwsh
+        run: |
+          $b = 'target/release/bt-search.exe'
+          # dumpbin 在 VS 的开发者环境里；用 dumpbin /dependents 或 objdump。
+          # runner 上有 VS，先用 vswhere 找 vcvars 再调 dumpbin。
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          if (Test-Path $vswhere) {
+            $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+            $dumpbin = Join-Path $vs 'VC\Tools\MSVC'
+            $dumpbin = (Get-ChildItem $dumpbin -Directory | Sort-Object Name -Descending | Select-Object -First 1).FullName
+            $dumpbin = Join-Path $dumpbin 'bin\Hostx64\x64\dumpbin.exe'
+            if (Test-Path $dumpbin) {
+              & $dumpbin /dependents $b
+              exit 0
+            }
+          }
+          Write-Host "::warning::没找到 dumpbin，跳过依赖列表（S2 需要人工在干净 Windows 上实测才算数）"
+
+      - name: 上传 exe（便于在干净机器上实测 S2）
+        uses: actions/upload-artifact@v6
+        with:
+          name: rust-exe-s1s2
+          path: target/release/bt-search.exe
+          if-no-files-found: error

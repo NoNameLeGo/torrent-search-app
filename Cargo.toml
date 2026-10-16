@@ -13,5 +13,18 @@ rust-version = "1.80"
 license = "GPL-3.0"
 publish = false
 
+# M7 / S1：单文件自包含 exe 的体积。
+#
+# ⚠️ 只影响 `--release`。`cargo test` 走 dev profile，所以 rust.yml 的常规门
+# （397 tests + M4 自检 + M6 差分）**不受影响**，只是发布构建会慢一些。
+#
+# 基线（M1 实测）：opt-level=2 + 默认 codegen-units=16 + 无 lto + 不 strip ⇒ **14.5MB**。
+# 下面三项是"最小体积"的标准配方，量一下就知道了（发布 job 里会打印 ls/du）。
 [profile.release]
 opt-level = 2
+# 跨 crate 内联 —— 体积收益最大的那一项
+lto = true
+# 单 codegen unit：让 LTO 真的能跨 crate 优化（多 unit 会挡住一部分）——体积换编译时间
+codegen-units = 1
+# 丢掉符号表。MSVC 的 release 构建里符号能占好几 MB，这是最容易拿到的一项
+strip = true
