@@ -29,10 +29,19 @@ const { FIELDS } = require('./canonical.cjs');
 const DEFAULT_WHITELIST = path.join(__dirname, 'whitelist.json');
 
 function parseArgs(argv) {
-  const out = { files: [], whitelist: DEFAULT_WHITELIST };
+  const out = { files: [], whitelist: DEFAULT_WHITELIST, only: [] };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--whitelist' || argv[i] === '-w') out.whitelist = argv[++i];
-    else out.files.push(argv[i]);
+    else if (argv[i] === '--only') {
+      // 「**本次比哪些**」——逗号分隔。
+      // ⚠️ 这是**显式作用域**，不是放宽检查：列表**内**的 provider 仍要求两侧都在
+      //（少一边 = 结构性失败）。需要它的原因是 triage 期间两侧覆盖面可以不同
+      //（Rust 已 16 家、CI 里的 Node 只跑 5 家 JSON）。
+      out.only = String(argv[++i] || '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+    } else out.files.push(argv[i]);
   }
   return out;
 }
@@ -194,13 +203,34 @@ function printReport(report, whitelist) {
 function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.files.length !== 2) {
-    console.error('用法：node scripts/diff/compare.mjs rust.json node.json [--whitelist file]');
+    console.error(
+      '用法：node scripts/diff/compare.cjs rust.json node.json [--whitelist file] [--only a,b,c]',
+    );
     process.exit(2);
   }
 
   const read = (f) => JSON.parse(fs.readFileSync(f, 'utf8'));
+  let rust = read(args.files[0]);
+  let node = read(args.files[1]);
+
+  // `--only`：把**两侧**都裁到同一个显式作用域。
+  // ⚠️ 作用域**必须显式**（不能靠"取交集"）—— 取交集的话，某家在一边掉了会静默
+  // 退出比对，而那正是 M6 最不能出的问题（覆盖面静默缩水）。
+  if (args.only.length) {
+    const keep = (arr) => arr.filter((o) => args.only.includes(o.provider));
+    const droppedN = node.length - keep(node).length;
+    const droppedR = rust.length - keep(rust).length;
+    console.log(
+      `⚠️ 本次只比 ${args.only.length} 家（--only）：${args.only.join(', ')}\n` +
+        `   导出里还有 ${droppedR} 家 Rust / ${droppedN} 家 Node **没进本次比对** —— 这是 triage 期间的临时作用域，\n` +
+        `   清完必须去掉 --only，让它比全部（见 AGENTS.md「M6」）。`,
+    );
+    rust = keep(rust);
+    node = keep(node);
+  }
+
   const whitelist = loadWhitelist(args.whitelist);
-  const report = compare(read(args.files[0]), read(args.files[1]), whitelist);
+  const report = compare(rust, node, whitelist);
   const ok = printReport(report, whitelist);
   process.exit(ok ? 0 : 1);
 }

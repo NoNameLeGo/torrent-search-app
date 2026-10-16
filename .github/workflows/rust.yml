@@ -107,7 +107,13 @@ jobs:
           # 而"覆盖面静默缩水"正是 M6 最不能出的问题）。摘之前先把 origin 处理改成
           # **通用剥离**（`^https?://[^/]+` → `<BASE>`），否则那批假差异会一直在。
           node scripts/diff/dump-node.cjs --json-only -o .cache/diff/node.json
-          node scripts/diff/compare.cjs .cache/diff/rust.json .cache/diff/node.json
+          # `--only` = 本次比的显式作用域（两侧会被裁到同一集合）。
+          # ⚠️ 它**不是**放宽检查：作用域**内**的 provider 仍要求两侧都在，
+          # 少一边照样 fatal。之所以需要它，是因为 triage 期间两侧覆盖面不同
+          # （Rust 已导出 16 家、这里的 Node 只跑 5 家 JSON）——
+          # 而 compare 对「只在一边出现」是判结构性失败的，那是对的，别去改它。
+          node scripts/diff/compare.cjs .cache/diff/rust.json .cache/diff/node.json \
+            --only tpb,knaben,torrentscsv,yts,internetarchive
 
       # 首轮先不做 -D warnings，避免被 lint 噪音挡住"移植是否等价"这个主要信号。
       # 稳定下来后再收紧。
