@@ -249,8 +249,19 @@ mod tests {
         assert_eq!(it.seeders, Some(0));
         assert_eq!(it.leechers, Some(0));
 
-        // detailUrl 走 link 兜底（这一项没有 comments）
-        assert_eq!(it.detail_url.as_deref(), Some(it.magnet.as_str()));
+        // ⚠️ `detailUrl` 与 `magnet` 是**两条独立的兜底链**，这里正好是证据：
+        //   magnet 走第一级（enclosure@url），detailUrl 走第二级（link）
+        //   ⇒ 两者**不相等** —— link 上还带着 `&dn=Rock`，enclosure 上没有。
+        // 第一版我断言了 `detail_url == magnet`，CI 直接打回来。
+        assert_eq!(
+            it.magnet, "magnet:?xt=urn:btih:abcdef0123456789abcdef0123456789abcdef01",
+            "magnet 走 enclosure（第一级）"
+        );
+        assert_eq!(
+            it.detail_url.as_deref(),
+            Some("magnet:?xt=urn:btih:abcdef0123456789abcdef0123456789abcdef01&dn=Rock"),
+            "detailUrl 走 link（第二级），且 &amp; 已解码"
+        );
     }
 
     /// item 2：全缺字段 —— **每项都是 None/空，而且不 panic**。
@@ -264,10 +275,27 @@ mod tests {
         assert_eq!(it.seeders, None, "缺席 ≠ 0");
         assert_eq!(it.leechers, None);
         assert_eq!(it.pub_date, None);
+        // ⚠️ 这一项**同时有 link 和 guid** ⇒ detailUrl 落在 **link**（第二级）上。
+        // 第一版我写成"只能走 guid 兜底"（expected guid），CI 打回来。
+        // guid 到底走不走得到，见下面那条专门的用例。
         assert_eq!(
             it.detail_url.as_deref(),
-            Some("https://tracker.example/details/1"),
-            "只能走 guid 兜底"
+            Some("https://tracker.example/download/1"),
+            "link 在 guid 之前，所以落在这里"
+        );
+    }
+
+    /// **第三级兜底（guid）单独验** —— fixture 里那一项走不到它，
+    /// 而"没被覆盖的那一级"正是最容易写错的地方（也是我第一版写错的地方）。
+    #[test]
+    fn detail_url_falls_back_to_guid_when_comments_and_link_are_absent() {
+        let xml = r#"<rss><channel><item>
+            <title>t</title>
+            <guid isPermaLink="false">https://tracker.example/details/7</guid>
+        </item></channel></rss>"#;
+        assert_eq!(
+            parse_items(xml).unwrap()[0].detail_url.as_deref(),
+            Some("https://tracker.example/details/7")
         );
     }
 
