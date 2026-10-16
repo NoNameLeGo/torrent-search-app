@@ -56,25 +56,22 @@ pub fn parse_items(xml: &str) -> Result<Vec<RawItem>, String> {
     let doc = roxmltree::Document::parse(xml).map_err(|e| format!("XML 解析失败：{e}"))?;
     Ok(doc
         .descendants()
-        .filter(|n| n.is_element() && local_name(*n) == "item")
+        // ⚠️ 取标签名一律用 `tag_name().name()`（**local name**，忽略命名空间前缀）。
+        // **不能**用 `has_tag_name("item")`：那个带 `&str` 的版本把它当成
+        // "**无命名空间**"的名字，而 Torznab 的元素大多带 `xmlns:torznab` ⇒ 匹配不上。
+        // ⚠️ 也**不要**抽成 `fn local_name(n: Node<'_, '_>) -> &str` 这样的 helper：
+        // 参数里是匿名 `'_` 时返回值没法与它关联 ⇒ `E0106: missing lifetime specifier`
+        // （CI 就是这么红的）。内联反而干净。
+        .filter(|n| n.is_element() && n.tag_name().name() == "item")
         .map(read_item)
         .collect())
-}
-
-/// **按 local name 取标签名**，忽略命名空间前缀。
-///
-/// ⚠️ 不能改用 `has_tag_name("attr")`：那个带 `&str` 的版本会把它当成
-/// **"无命名空间"** 的名字，而 `<torznab:attr>` 是有命名空间的（`xmlns:torznab=...`）
-/// ⇒ 永远匹配不上。`tag_name().name()` 拿的是 local name，与命名空间无关。
-fn local_name(n: Node<'_, '_>) -> &str {
-    n.tag_name().name()
 }
 
 fn read_item(item: Node<'_, '_>) -> RawItem {
     // 直接子节点里按 local name 找一个元素（Torznab 的 item 字段都是 item 的直接子节点）
     let child = |tag: &str| -> Option<Node<'_, '_>> {
         item.children()
-            .find(|c| c.is_element() && local_name(*c) == tag)
+            .find(|c| c.is_element() && c.tag_name().name() == tag)
     };
     // 元素的文本，trim 后为空就算"没有"
     let text = |tag: &str| -> Option<String> {
