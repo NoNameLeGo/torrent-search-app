@@ -80,8 +80,49 @@ M4 ✅ bt-app Slint MVP（2026-10-16，UI + 接线 + 映射层 + **全链路 --s
 M5 ✅ 引擎体检（2026-10-16 —— **结论是「一个都不砍」**，见「provider 探活」；
 单边 403 不足以判死）
 M6 ✅ 差分验证（2026-10-16 —— **16 家全量、0 处未豁免差异**，门已放开到全量）
-M7 ⬅️ 打包 + GitHub Release
+M7 ✅ 打包 + GitHub Release（2026-10-16 —— **v0.3.6-beta 已发布**，四套产物，Rust 版首次可下载）
 ```
+
+### 🔍 Rust 侧遗留清单（2026-10-16 审计，M0–M7 走完之后）
+
+**结论：七个里程碑全部完成；`crates/` 里没有任何 TODO/FIXME 型欠账；
+但功能面上有 6 个明确缺口 —— 其中 3 个用户能直接感到。**
+
+**A. 用户能直接感到的三个（产品级）**
+
+| # | 缺口 | 证据 | 性质 |
+|---|---|---|---|
+| 1 | **分页完全没接** | `bt-app/src/main.rs` 两处写死 `page: 1`；`has_more` 在 UI 层**完全没用**（`ui_model.rs` 里只是构造测试夹具时填 `None`） | ⚠️ **能力做完了、UI 没接**：引擎层的分页语义 M2 就建好并测过了（`paginated()` / `browseable()` / `resolve_targets` 第 3 条 / `aggregate_has_more`），JS 版也有翻页 |
+| 2 | **下载器配置不持久化** | `bt-app` 里**没有** `fs::write` / `serde` / 任何配置文件 | 重启要重填。已在 `docs/RELEASE_ARTIFACTS.md` 如实写明 |
+| 3 | **没有用户级站点开关** | `SearchArgs { providers: None }` ⇒ **永远 16 家全打** | ⚠️ 同样是"能力做了没接"：`SearchArgs::providers` + `wanted()` 的语义（含 `"  "` → **零目标**这种边界）M2 就测过了 |
+
+**B. 工程级的三个**
+
+| # | 缺口 | 说明 |
+|---|---|---|
+| 4 | **`catch_unwind` 未做** | `aggregate.rs` 顶部有明确的"刻意不做"记录：provider 违约 panic 会**带走整轮聚合**（JS 的 `try/catch` 不会）。**⚠️ 当时的理由已经失效** —— 原文是"本机没有 `cargo`，不盲写没验证过的 API 组合"，而 M3/M4/M6 已经证明这条路上本机不编译也能交付（有快速 CI）。⇒ **该做了**，并配一条"违约 panic 的 provider 不掀翻别人"的用例 |
+| 5 | **`demo` 引擎缺失** | `Provider::demo()` 建模了、`ProviderInfo.demo` 导出了，但 registry 里**没有 demo 引擎** ⇒ 该字段恒为 `false`。JS 有 `demo.js`（离线确定性假数据）⇒「无网络也能演示」这个能力缺（内部有 `--selftest`，但那是 app 自己的，不是可选引擎） |
+| 6 | **Torznab 的"口子"比文档读起来浅一层** | 架构上允许（`Box<dyn Provider>` + `install_registry`），但 `registry()` 是**进程级 `OnceLock`（只 set 一次）**，且 `search_stream(http, registry, query, args, cb)` **没有"额外 provider"参数** ⇒ 真接 Torznab 时要**改签名**。**这不是 bug**（D17 明确本期不做），但"口子"要记准是这个深度 |
+
+**C. 2026-10-16 审计顺手修掉的一件（并且纠正了我自己上一轮的错误诊断）**
+
+**`feat/tauri` 的提交没推上去。** 裸 `git push` + 该分支**没有 upstream 跟踪** ⇒
+`fatal: The current branch feat/tauri has no upstream branch`，
+而我用 `Select-Object -Last 1` 过滤输出时把它吃成了空行，**没看见**。
+⇒ v0.3.6-beta 里那个 `BT-Search-Tauri-Setup-0.3.5-beta.exe` 版本号不对，
+我当时诊断成"bump 错了文件（Tauri 取 package.json 而非 tauri.conf.json）"—— **那是错的**。
+真因是**提交根本没到远端**，CI 构建的是旧的 `feat/tauri`。已补推；
+5 条分支现全部与 `origin` 一致，`origin/feat/tauri` 的版本号已是 `0.3.6-beta`
+⇒ **下次发版的 Tauri 安装包会正确命名**。已发布那次是既成事实（规则：绝不重打同一个 tag）。
+
+**⚠️ 教训（与 `gh` 的 403 同一类）**：**本仓库有分支没有 upstream 跟踪
+（`main` / `feat/tauri`）—— 推它们必须显式 `git push origin <branch>`，
+且不要用 `Select-Object -Last 1` 过滤推送输出**，否则失败会被静默吃掉。
+（`main` 已在切主线时补上 upstream；`feat/tauri` 这次也推通了。）
+
+**D. 不是遗留，是设计（别再当欠账）**：D17 Torznab 本期不做 · D18 Node 版留着
+（M6 已完成 ⇒ 那道门开了，但"删"是按**函数粒度**的，还没开始）·
+M5 那 5 个 403 是**机房 IP 被拦**不是死站 · Rust 版 **16 家 vs Node 40 家**已如实写明。
 
 **🟡 M6 进行中（2026-10-16）—— 差分 harness 建成，5 个 JSON provider 首次真跑就零差异。**
 
