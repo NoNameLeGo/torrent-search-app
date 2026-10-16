@@ -149,7 +149,7 @@ crates/bt-downloaders/  the 4 download clients (qB / Transmission / aria2·Motri
                         ⚠️ axios throws on non-2xx but reqwest does NOT → every "axios would throw"
                         site must check the status itself; and a non-JSON 2xx body counts as SUCCESS
                         (the JS success checks are soft: `data && data.result && …`).
-crates/bt-app/          the Slint app (**the only UI**, M4 — in progress). `ui/app.slint` +
+crates/bt-app/          the Slint app (**the only UI**, M4 — **DONE**). `ui/app.slint` +
                         `src/main.rs` (wiring) + `src/highlight.rs` (ported from the M1 spike) +
                         `src/ui_model.rs` (**pure** mapping, does NOT import slint, so it is unit-testable
                         offline — that is the part of M4 CI can actually regress).
@@ -164,8 +164,20 @@ crates/bt-app/          the Slint app (**the only UI**, M4 — in progress). `ui
                         Two new Slint traps: `root` inside a component means *that component*, not the window
                         (forward via a `callback` + `x(idx) => { root.y(idx); }`); and `VecModel`'s
                         `row_count`/`set_row_data` are **`Model` trait** methods — `use slint::Model;`.
-                        ⏳ Not done yet: `--selftest` (so CI only proves the .slint compiles + ui_model works,
-                        NOT that the window renders).
+                        ⚠️ Two RUNTIME bugs that compile/cargo-test/clippy CANNOT see, found by `--selftest`:
+                        (a) a bare `tokio::spawn` in a callback PANICS — Slint's event-loop thread is not
+                        inside a tokio runtime (`there is no reactor running…`), so the app must hold its own
+                        `Runtime` and use the local `spawn()` wrapper; (b) `enable_all()` only opens the IO
+                        driver if tokio's **`net`** feature is on, or reqwest fails at runtime with
+                        "IO driver not enabled". Both are now in place.
+                        ✅ `--selftest` (this crate's CI gate, run with `SLINT_BACKEND=winit-software`) drives
+                        the SAME wiring as the real app (`wire(ui)` is shared — otherwise it would test a
+                        parallel implementation) with a fake registry (one provider with no magnets → lazy
+                        resolve, one with inline magnets, one that always fails) + a local qB stub, walking
+                        search → per-provider status → row model → lazy magnet → push. It forces a
+                        **synchronous** repaint every tick and counts them (`paints_ok == ticks &&
+                        paints_err == 0`) so a "never actually repainted" fake-green run cannot pass.
+                        12 assertions; exits 1 on failure.
 
 bt-torznab is **not built** this round (D17: leave an abstraction hook only)
 ```

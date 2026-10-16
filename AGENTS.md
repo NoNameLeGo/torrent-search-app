@@ -40,9 +40,10 @@ Electron mode: `npm run electron` (picks a free port automatically, no collision
 `main` 上的 Node/Express + Electron/Tauri 实现继续可用；Rust 版每搬完一块就替代一块。
 
 **📊 进度快照（2026-10-11）**：**16 个 provider 已搬**（5 JSON + 11 HTML），
-CI **397 passed / 0 failed**（clippy + fmt 均为硬门）；探针 **126 条 / 17 fixture**；
-**聚合层 = 100%（M2）、下载器 = 100%（M3）、UI = 第一部分（M4 进行中：能编译 + 映射层有回归，
-`--selftest` 未做）**（provider 核心已有 16 个家底）。
+CI **397 passed / 0 failed + M4 全链路自检 12/12**（clippy + fmt 均为硬门）；
+探针 **126 条 / 17 fixture**；
+**聚合层 = 100%（M2）、下载器 = 100%（M3）、UI = 100%（M4：能编译 + 映射层单测 + 全链路自检）**
+（provider 核心已有 16 个家底）。
 
 🔴 **2026-10-11 目标重订 —— 动手前先读 `docs/ROADMAP.md`。**
 那一轮追问推翻了旧路线的隐含假设（「能搜到东西」就是目标），结论是：
@@ -74,8 +75,8 @@ M0 ✅ run_mirrors 提取（净 −73 行）
 M1 ✅ 验 Slint 风险（#13548）—— **未复现，Slint 可用**（2026-10-16，见下面「Slint 探针结论」）
 M2 ✅ 聚合层 + Provider trait（2026-10-16，347 tests；**D5「聚合层跑通」的门已满足**）
 M3 ✅ bt-downloaders（2026-10-16，4 客户端 / 34 条离线测试）
-M4 ⬅️ bt-app Slint MVP（**进行中**：UI + 接线 + 映射层已落地，`--selftest` 待做）
-M5 引擎体检 → 砍掉死的              M6 差分验证（必须早于删 Node）
+M4 ✅ bt-app Slint MVP（2026-10-16，UI + 接线 + 映射层 + **全链路 --selftest 12/12**）
+M5 ⬅️ 引擎体检 → 砍掉死的            M6 差分验证（必须早于删 Node）
 M7 打包 + GitHub Release
 ```
 
@@ -325,7 +326,7 @@ HTML 组是唯一有「选择器语义可能与 cheerio 不一致」风险的地
 axios 把解析不了的正文退化成字符串 ⇒「2xx + 非 JSON」算**成功**（软检查）、
 JS 真值语义（`aria2` 的 `error: 0/""/false` 都是假）。详见 commit `c3fe36a`。
 
-**🟡 M4 进行中（2026-10-16 第一部分）—— `crates/bt-app` 落地，CI 397 tests / 0 failed。**
+**🟢 M4 已完工（2026-10-16）—— 见下面的「M4 完成」块。**
 `ui/app.slint`（**唯一的 UI**）+ `src/main.rs`（接线）+ `src/highlight.rs`（从 M1 spike 原样搬来）
 + `src/ui_model.rs`（纯映射层，**不 import slint**，11 条单测）。317→397 条测试里
 新增 15 条，全在 `ui_model` / `highlight` 上 —— GUI 渲染路径 CI 测不了，但那两层的**行为**
@@ -359,12 +360,27 @@ provider 都没改**；同一个要求传播到四处泛型约束（`BoxFuture` 
 用户的滚动位置顶回去）。回调里用 `as_weak()` 而不是 `clone_strong()`：
 回调存在组件内部，强引用会成环、组件永不释放。
 
-**⏳ M4 还没做完的那一步：`--selftest`。** 目前 CI 只能证明「`.slint` 编译通过 +
-映射层单测通过」，**不能**证明窗口真的渲染正确、全链路真的通。
-下一步 = 照 M1 的套路加 `--selftest`（假 provider + 本地桩下载器，跑通
-搜索→列表→取磁力→推送；必须**强制重绘**才算数，见「Slint 探针结论」里那个
-"timer 驱动的重绘从不重绘"的假绿陷阱），并在 `rust.yml` 里加一步
-`SLINT_BACKEND=winit-software` 跑它。
+**✅ M4 完成（2026-10-16）—— `--selftest` 全链路自检 12/12 通过；CI 397 tests + 自检都是硬门。**
+自检走**和真程序同一条接线**（把 `main()` 里的回调抽成 `wire(ui)` 共用 —— 否则验的是
+一个平行实现，等于没验），只换数据源：假注册表（alpha 3 条**无**磁力 / beta 2 条
+**自带**磁力 / gamma **故意失败**）+ 本地 qB 桩。
+于是 `搜索 → 每站状态 → 行模型 → 惰性取磁力 → 推送到下载器` 真的跑了一遍。
+
+**🔴 自检证明了自己的价值：它抓到两个「编译期 / cargo test / clippy 全绿也发现不了」的运行期 bug。**
+
+1. **回调里裸用 `tokio::spawn` 会 panic。** Slint 的事件循环线程**不在**任何 tokio
+   运行时上下文里 ⇒ 真程序**一点搜索就崩**（`there is no reactor running…`）。
+   修法：自己持有运行时，用 `spawn()` 包装。
+2. **`enable_all()` 要靠 tokio 的 `net` 特性才会打开 IO driver**，少了它 reqwest 在
+   运行期报 `IO driver not enabled` —— 同样编译期不报。bt-app 的 tokio features 补了 `net`。
+
+**自检还抓到两条「断言自己写错」**（说明它不是摆设，真的会 FAIL）：
+① 拿**未编码**的磁力去 match 请求体（体里是 `encodeURIComponent` 之后的）；
+② 用 `ticks > 3` 这种**魔数**钉重绘 —— 链路快时 3 跳就跑完，那种写法本身就是 flaky，
+改成钉「每跳都重绘成功 && 走完三个阶段」。
+
+**防假绿**（M1 的教训）：每跳调 `Window::take_snapshot()` **强制同步重绘并计数**，
+要求 `paints_ok == ticks && paints_err == 0 && ticks >= 3`。
 **provider 线仍然后置**（D13），不是主推进方向。
 
 ### 📌 M2 开工前勘明（2026-10-16）—— **已执行完毕，留档备查**
