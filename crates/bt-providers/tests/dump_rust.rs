@@ -214,7 +214,7 @@ async fn dump_rust() {
 
         // 这一侧"实际用过的 origin"就是本地 base
         let origins = vec![base.clone()];
-        all.push(canon_outcome(spec, &out, &origins));
+        all.push(canon_outcome(&spec, &out, &origins));
     }
 
     let json = serde_json::to_string_pretty(&Value::Array(all)).expect("序列化失败");
