@@ -38,7 +38,7 @@ use bt_core::TorrentResult;
 use futures::future::FutureExt;
 use futures::stream::{FuturesUnordered, StreamExt};
 
-use crate::{Provider, ProviderReport, ProviderState, ProviderStatus};
+use crate::{Provider, ProviderReport, ProviderState, ProviderStatus, SearchOutcome};
 
 /// JS `MAX_CONCURRENT`（`src/providers/index.js:221-223`）。
 ///
