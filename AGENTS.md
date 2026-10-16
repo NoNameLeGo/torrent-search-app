@@ -123,7 +123,7 @@ M7 ✅ 打包 + GitHub Release（2026-10-16 —— **v0.3.6-beta 首发**，四�
 | `test/providers.test.js` 没人跑**而且早就坏了** | 不在 `npm test` 里、无 workflow 提及；`mockHTTP` 拿 RegExp 去 `startsWith` ⇒ 用例真的打外网 | 删除（覆盖在 `test/run.js` 里全有） |
 | `check-workflows.py` 不查 workflow 引用的脚本是否存在 | 正是 `docs/CI_FAILURES.md` #1 的故障形态（workflow 在、脚本不在） | 加 `check_scripts_exist`，`python3 scripts/check-workflows.py` 实测 13 条全 OK + 负向用例会报 |
 | 文档自相矛盾 | `AGENTS.md:660` 写「下次开工 = M2」而 `:190` 已记 M2 完成；`:1765` 还写「下一个里程碑是 M1」（相隔 1600 行）；`:223` 写「bt-torznab 还没做」而 crate 早在；`AGENT_HANDBOOK.md` 引用两个**不存在**的脚本 | 逐条改正（并把不存在的 `scripts/diff-providers.mjs` 换成真的 `scripts/diff/*.cjs` + `dump_rust`） |
-| 版本两个真源不一致 | workspace `version = "0.0.1"` ⇒ 拿到 0.3.7-beta 的人**在 exe 属性里看到 0.0.1**；`Cargo.lock` 不在仓库而发版跑 `cargo build --release`（**无 `--locked`**） | `Cargo.toml` → `0.3.7-beta`（与 `package.json` 一致）+ `release-check.js` 加机器判据 + 新建 `lockfile.yml` 生成锁文件（后续可加 `--locked`） |
+| 版本两个真源不一致 | workspace `version = "0.0.1"` ⇒ 拿到 0.3.7-beta 的人**在 exe 属性里看到 0.0.1**；`Cargo.lock` 不在仓库而发版跑 `cargo build --release`（**无 `--locked`**） | `Cargo.toml` → `0.3.7-beta`（与 `package.json` 一致）+ `release-check.js` 加机器判据 + `Cargo.lock` **已入库**（`lockfile.yml` 生成，6781 行）且 `rust.yml` / `rust-size.yml` / `release.yml` 的 cargo 命令**都加了 `--locked`** |
 
 其他：`package.json` 里 4 个指向**不存在**的 `src-tauri/` 的脚本 + `@tauri-apps/cli` 依赖已删（main 上根本没有那个目录 ⇒ 每次 `npm ci` 白装）；`server.js` 给所有 async 路由加 `wrap()` 转 `next(err)` + 加 4 参错误中间件（Express 4 不转发 rejected promise，而 node≥22 下未处理拒绝会**终止进程**；默认错误页还会回显栈与绝对路径）；`electron/main.js` 的 `shell.openExternal` 加 `^(https?|magnet):` 白名单（`esc()` 只挡 HTML、不挡 scheme）；`aggregate.rs` 的 `catch_unwind` 把 **`search()` 调用本身**包进闭包（旧写法只包住返回的 future ⇒ 同步段 panic 仍带走整轮聚合，而唯一那条用例把 panic 放在了 future 里所以全绿）。
 

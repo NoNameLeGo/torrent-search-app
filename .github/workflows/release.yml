@@ -137,7 +137,9 @@ jobs:
           # ⚠️ 就用 RUSTFLAGS 传，**别**写进 .cargo/config.toml：
           # 那会让所有本地/CI 构建（含测试）都跟着变，而这里只需要发布产物是静态的。
           RUSTFLAGS: -C target-feature=+crt-static
-        run: cargo build --release -p bt-app --bin bt-search
+        # ⚠️ 发版产物必须由**钉死的依赖**编译出来：没有 `--locked` 时
+        # `Cargo.lock` 只是「顺便被用一下」，依赖漂了也没人知道。
+        run: cargo build --release --locked -p bt-app --bin bt-search
 
       - name: 报体积（S1 的证据）
         shell: bash

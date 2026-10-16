@@ -41,7 +41,9 @@ jobs:
           workspaces: '. -> target'
 
       - name: cargo test
-        run: cargo test --workspace
+        # ⚠️ `--locked`：Cargo.lock 已入库（`lockfile.yml` 生成），门就必须按它跑 ——
+        # 否则「CI 绿」证明的是「当时 crates.io 上那套依赖能编译」。
+        run: cargo test --workspace --locked
 
       # M4：bt-app 的**全链路**自检（无网、无人、无窗口）。
       # 光靠 `cargo test` 证明不了「窗口真能渲染、接线真通」——M4 就在这儿漏过一个
@@ -52,7 +54,7 @@ jobs:
         env:
           SLINT_BACKEND: winit-software
           RUST_BACKTRACE: "1"
-        run: cargo run -p bt-app --bin bt-search -- --selftest
+        run: cargo run --locked -p bt-app --bin bt-search -- --selftest
 
       # ---- M6 差分验证：Rust 侧 vs Node 侧，**逐字段**比 ----
       # 两侧对**同一批 fixture** 各导出一份规范化 JSON，再逐字段比较；差异未命中
@@ -72,7 +74,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p .cache/diff
-          cargo test -p bt-providers --test dump_rust -- --ignored --nocapture
+          cargo test --locked -p bt-providers --test dump_rust -- --ignored --nocapture
 
       # 11 家 HTML provider 的 Node 侧要 `cheerio`。
       # ⚠️ `--omit=dev` 是刻意的：devDeps 里的 electron / electron-builder / tauri-cli
@@ -111,7 +113,7 @@ jobs:
       # 首轮先不做 -D warnings，避免被 lint 噪音挡住"移植是否等价"这个主要信号。
       # 稳定下来后再收紧。
       - name: cargo clippy
-        run: cargo clippy --workspace --all-targets
+        run: cargo clippy --workspace --all-targets --locked
 
       - name: cargo fmt --check
         run: cargo fmt --all -- --check

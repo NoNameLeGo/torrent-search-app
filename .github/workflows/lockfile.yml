@@ -7,6 +7,8 @@ name: Cargo.lock (生成/刷新)
 #
 # 跑一次、把 Cargo.lock 提交回触发它的分支之后，`rust.yml` / `release.yml` /
 # `rust-size.yml` 那几条构建命令就能加 `--locked` 把依赖钉死。
+# ⚠️ 2026-10-16：这三条**已经加了 `--locked`**（本 workflow 自己那一行
+# `cargo generate-lockfile` 当然不能加 —— 它就是来重新生成它的）。
 # 以后升级依赖（改任何 `Cargo.toml`）也用它刷新一次。
 #
 # ⚠️ 生成在 Linux 上完全没问题：`Cargo.lock` 是**平台无关**的依赖图快照。

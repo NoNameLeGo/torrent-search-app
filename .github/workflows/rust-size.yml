@@ -62,11 +62,13 @@ jobs:
           # 后者会让所有构建（含测试）都跟着变，而这里只需要发布产物是静态的。
           RUSTFLAGS: -C target-feature=+crt-static
           CARGO_TARGET_DIR: target-static
-        run: cargo build --release -p bt-app --bin bt-search
+        # ⚠️ `--locked`：体积门必须量「钉死的那套依赖」，否则依赖一升体积就漂了。
+        run: cargo build --release --locked -p bt-app --bin bt-search
 
       - name: 构建 B —— 动态 CRT（隔离出 lto/strip 的净收益）
         env:
           CARGO_TARGET_DIR: target
+        # 这条**故意不加 `--locked`**：它只是用来隔离 lto/strip 的净收益。
         run: cargo build --release -p bt-app --bin bt-search
 
       # #3 **体积回归门。**
