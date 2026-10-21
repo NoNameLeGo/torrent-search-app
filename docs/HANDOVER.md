@@ -1,24 +1,26 @@
-# 交接说明（写于 2026-10-16 收盘）
+# 交接说明（写于 2026-10-16 收盘，2026-10-21 更新）
 
 > 这份是**给下一个接手的人/AI** 的现状快照。历史决策在 `AGENTS.md`（很长，按需查），
 > 设计目标在 `docs/ROADMAP.md`，CI 事故总账在 `docs/CI_FAILURES.md`。
 
 ## 一句话状态
 
-`main` = **`2dbf9f6` + 2026-10-21 那一轮**。Rust 主线功能面已 100%（M0–M7 全通过），
-**当前在补发版链上的门**：`rust-size.yml` 的 `paths` 漏了 `Cargo.lock`、
-`release-check.js` 不校验 lock 文件 —— 两者都已修（见下面「2026-10-21 这一轮」）。
-工作区干净、`main` 与 `origin/main` 同步。
+`main` = **`676df4d`**（2026-10-21）。Rust 主线功能面 100%（M0–M7 全通过），
+发版链上那两个缺口（体积门 `paths` 漏 `Cargo.lock`、`release-check.js` 不校验 lock）
+已修并**实测通过**，`v0.3.10-beta` 已发出。工作区干净、`main` 与 `origin/main` 同步。
 
-**最新发布 = `v0.3.8-beta`**（2026-10-16 11:21 UTC，GitHub 上 Latest）。
+**最新发布 = `v0.3.10-beta`**（2026-10-21 15:57 UTC，GitHub Latest，tag `v0.3.10-beta` → `676df4d`）。
+产物 5 个 + `latest.yml`：
+`BT-Search-Rust-0.3.10-beta.exe`（18.5MB，体积门 25MB 内）/ `.zip`、
+`BT-Search-Electron-Setup-0.3.10-beta.exe`（96MB）、`BT-Search-Electron-Portable.zip`（146MB）、
+`BT-Search-Tauri-Setup-0.3.10-beta.exe`（29.7MB —— **名字与内容都对**，`feat/tauri` 三处版本已同步到 0.3.10）。
 
-⚠️ **`v0.3.9-beta` 从未发布成功** —— 此前本文件写「已发 Latest」是**错的**，更正如下：
+⚠️ **`v0.3.9-beta` 从未发布成功**（历史更正，别再照旧文档复述）：
 那次发版 run（`38897429252`）里 `electron` / `tauri` 两个 job 都绿，
-只有 `Build Rust app` 失败：`895520a` 把版本 bump 到 0.3.9 却**没同步 `Cargo.lock`**，
+只有 `Build Rust app` 失败 —— `895520a` 把版本 bump 到 0.3.9 却**没同步 `Cargo.lock`**，
 `cargo build --release --locked` 直接报 `cannot update the lock file`；
-`Publish to GitHub Release` 因此被 skip ⇒ **tag 打了、release 没生成**，
-之后 tag 被删（本地与 origin 现在都没有 `v0.3.9-beta`）。
-⇒ 下一版走 **`v0.3.10-beta`**（仓库规矩：不重打同名 tag）。
+`Publish to GitHub Release` 因此被 skip ⇒ **tag 打了、release 没生成**，之后 tag 被删。
+那次的修复（`2dbf9f6` 补 lock）**当时没被任何门验证过**，本轮才真正跑绿。
 
 ## 这台机器上的硬约束（先读，否则会白折腾）
 
@@ -61,11 +63,25 @@
 `feat/tauri` 的三处版本号（`tauri.conf.json` 是**真源** / `src-tauri/Cargo.toml` / `package.json`）
 同步到同一版本 —— 否则发版出来的 Tauri 安装包会顶着旧版本号（`AGENTS.md` §C 记过这个坑）。
 
+**结果（都实测过，不是推断）**：
+
+| 步骤 | 证据 |
+|---|---|
+| main 五道门 | `Rust (test)` 3m52s ✅ · `Rust exe size` **12m+ ✅**（这次真的跑完了 —— 它由 `Cargo.lock` 触发，`--locked` 通过）· `Node (test)` ✅ · `Build Windows 发行包` ✅ · `CI guard` ✅ |
+| `feat/tauri` 版本 | `Tauri Build (validate)` ✅（run `39627044618`） |
+| 发版 | run `39629141627` **success**；`gh release view` 五个资产全在，Tauri 包名 = `0.3.10-beta` |
+| 体积 | `BT-Search-Rust-0.3.10-beta.exe` = **19,398,144 字节（18.5MB）**，门限 25MB |
+
+⚠️ 顺带踩到一个 git 坑（记下来省下一个人半小时）：`git worktree add <dir> refs/heads/<branch>`
+用**完整 ref** 传进去会得到 **detached HEAD**，commit 不落到分支上 ——
+于是 `git push origin refs/heads/<branch>` 报 `Everything up-to-date`（推的是没动过的旧引用）。
+要么传短分支名，要么 `git push origin HEAD:refs/heads/<branch>`。
+
 ## 还挂着的事（按「值得动」排序）
 
-1. **`v0.3.10-beta` 待发**（不是 0.3.9 —— 那个版本从未发布成功，tag 也已删除）。
-   顺序：先让 main 上的 `Rust (test)` + `Rust exe size` 绿（后者现在会因 `Cargo.lock` 触发），
-   再打 tag，别在门红的情况下打。**绝不重打同名 tag**（仓库规矩）。
+1. ✅ **已发 `v0.3.10-beta`**（2026-10-21）—— 含 0.3.8 之后的全部修复。下次照本轮顺序走：
+   `npm run release:check`（现在会拦 lock 不同步）→ 等 main 五道门绿 → 打 tag。
+   **绝不重打同名 tag**（仓库规矩）。
 2. ✅ **已修**（本会话）：每个索引器一行「停用 / 启用」。~~索引器不能单独停用~~（真·产品缺口）。原文留档：`config_store::StoredIndexer.enabled` 与 `bt_torznab::IndexerConfig.enabled` 字段都在、`add_indexer`（`crates/bt-app/src/main.rs:854`）恒写 `true`，而 `crates/bt-app/ui/app.slint:365-390` 只有「添加 / 清空」两个按钮 ⇒ 某个索引器坏了只能全部清掉重加。最小做法：给每行加个开关 + `set_indexer_enabled` 回调 + `save_indexers`。
 3. **S2「零运行时依赖」还差人工那一次**：`rust-size.yml` 已机器断言「无 vcruntime140/msvcp140」，但 `docs/ROADMAP.md:47` 的判据是**拷到干净 Windows 双击** —— 需要在虚拟机/另一台机上做。
 4. **S3/S4 的性能目标还是「待你确认」**（`docs/ROADMAP.md:50-51`：冷启动 < 1s、空闲内存 < 100MB）—— 得先真机量一次。
