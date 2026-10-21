@@ -592,10 +592,11 @@ fn registry_matches_the_js_registry_order_and_flags() {
     );
 
     // 旗标逐条核对过（见 AGENTS.md 勘明 ⑦）
+    // `dmhy` 在 JS 里是 `paginated: true`（2026-10-21 搬入）；`subsplease` 不是。
     let paginated: Vec<&str> = list.iter().filter(|p| p.paginated).map(|p| p.id).collect();
-    assert_eq!(paginated, ["nyaa", "limetorrents", "rutor"]);
+    assert_eq!(paginated, ["nyaa", "dmhy", "limetorrents", "rutor"]);
 
-    // 全部 enabled（JS 的 17 条都是 enabled: true）
+    // 全部 enabled（JS 的 19 条都是 enabled: true）
     assert!(list.iter().all(|p| p.enabled));
 
     // ⚠️ **恰好一家 demo，且它是最后一条** —— JS 里 `demo` 是唯一个 page>1 的豁免分支
@@ -623,6 +624,8 @@ fn registry_matches_the_js_registry_order_and_flags() {
     assert_eq!(name_of("audiobookbay"), "AudioBookBay");
     assert_eq!(name_of("internetarchive"), "InternetArchive");
     assert_eq!(name_of("zeromagnet"), "ZeroMagnet");
+    assert_eq!(name_of("dmhy"), "DMHY");
+    assert_eq!(name_of("subsplease"), "SubsPlease");
     assert_eq!(name_of("demo"), "Demo (offline)", "JS demo.js 的 name");
 }
 
