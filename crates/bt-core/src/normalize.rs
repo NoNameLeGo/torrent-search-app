@@ -194,6 +194,13 @@ fn parse_absolute_date(s: &str) -> Option<i64> {
     if let Ok(dt) = DateTime::parse_from_rfc3339(s) {
         return Some(dt.timestamp_millis());
     }
+    // RFC 1123 / RFC 2822（`Sun, 27 Sep 2026 16:50:17 +0000`）—— 2026-10-21 加：
+    // subsplease 的 `release_date` 就是这个形状，而 JS 的 `Date.parse` 认得它。
+    // 少了这一支，Rust 侧日期会变成 `—`，而 JS 侧有值（`subsplease.rs` 落地时暴露）。
+    // `parse_from_rfc2822` 与 RFC 1123 的日期写法兼容（月名缩写 + 带时区偏移）。
+    if let Ok(dt) = DateTime::parse_from_rfc2822(s) {
+        return Some(dt.timestamp_millis());
+    }
     for f in [
         "%Y-%m-%dT%H:%M:%S",
         "%Y-%m-%d %H:%M:%S",

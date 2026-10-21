@@ -3,9 +3,9 @@
 //! 各站点 provider 的集合，一文件一站（对齐 `src/providers/*.js` 的组织方式）。
 //!
 //! ## 现状
-//! 已搬 **16 个站点**（对齐 `src/providers/*.js`）：
+//! 已搬 **17 个站点**（对齐 `src/providers/*.js`）：
 //!
-//! - **JSON 组（5）**：`tpb`、`knaben`、`torrentscsv`、`yts`、`internetarchive`
+//! - **JSON 组（6）**：`tpb`、`knaben`、`torrentscsv`、`yts`、`internetarchive`、`subsplease`
 //! - **HTML 组（11）**：`linuxtracker`、`filemood`、`rutor`、`audiobookbay`、`therarbg`、
 //!   `limetorrents`、`torrent9`、`oxtorrent`、`nyaa`、`megapeer`、`zeromagnet`
 //!
@@ -37,6 +37,7 @@ pub mod nyaa;
 pub mod oxtorrent;
 pub mod registry;
 pub mod rutor;
+pub mod subsplease;
 pub mod therarbg;
 pub mod torrent9;
 pub mod torrentscsv;

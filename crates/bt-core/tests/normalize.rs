@@ -112,6 +112,28 @@ fn parse_date_absolute() {
     assert_eq!(parse_date(None), None, "null / undefined");
 }
 
+/// RFC 1123 / RFC 2822（带时区偏移）—— subsplease 的 `release_date` 就是它。
+///
+/// JS 的 `Date.parse("Sun, 27 Sep 2026 16:50:17 +0000")` 有值，所以 Rust 也必须有；
+/// 2026-10-21 移植 subsplease 时才发现这一支缺失（当时返回 None ⇒ 日期显示 `—`）。
+#[test]
+fn parse_date_rfc2822_with_offset() {
+    let expected = chrono::Utc
+        .with_ymd_and_hms(2026, 9, 27, 16, 50, 17)
+        .single()
+        .expect("构造 UTC 时间")
+        .timestamp_millis();
+    assert_eq!(pd("Sun, 27 Sep 2026 16:50:17 +0000"), Some(expected));
+
+    // 非零偏移要按偏移换算（+0800 的 00:50:17 = UTC 前一天 16:50:17）
+    let shifted = chrono::Utc
+        .with_ymd_and_hms(2026, 9, 26, 16, 50, 17)
+        .single()
+        .expect("构造 UTC 时间")
+        .timestamp_millis();
+    assert_eq!(pd("Sun, 27 Sep 2026 00:50:17 +0800"), Some(shifted));
+}
+
 /// JS 在最后会落 `Date.parse(s)`，它能认「日 月缩写 年」这类写法。
 /// rutor 的 `ru_date` 正好产出 `30 Jun 26` —— 2026-10-09 移植 rutor 时才发现
 /// Rust 缺这一支（当时那里返回 None）。
