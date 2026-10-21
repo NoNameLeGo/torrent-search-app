@@ -51,7 +51,7 @@ Electron mode: `npm run electron` (picks a free port automatically, no collision
 CI 全绿 + M4 全链路自检 12/12（clippy + fmt 均为硬门；**具体测试数看最近一次 `rust.yml` 日志** —— 本文件里出现的数字都是快照，别当现值）；
 探针 **126 条 / 17 fixture**；
 **聚合层 = 100%（M2）、下载器 = 100%（M3）、UI = 100%（M4）、引擎体检 = 100%（M5，结论「不砍」）、
-差分 = 100%（M6，16 家全量 0 处未豁免差异）、打包 = 100%（M7，v0.3.6/v0.3.9-beta 已发）**
+差分 = 100%（M6，16 家全量 0 处未豁免差异）、打包 = 100%（M7，v0.3.6 / v0.3.8-beta 已发）**
 ⇒ **没有"下一个里程碑"了** —— 往后是审计/加固（见 §「Rust 侧遗留清单」）。
 Node 版整套仍在 `main` 上共存（D18：那道门（M6）已经开了，但"删"是按**函数粒度**的，还没开始）。
 
@@ -89,7 +89,7 @@ M4 ✅ bt-app Slint MVP（2026-10-16，UI + 接线 + 映射层 + **全链路 --s
 M5 ✅ 引擎体检（2026-10-16 —— **结论是「一个都不砍」**，见「provider 探活」；
 单边 403 不足以判死）
 M6 ✅ 差分验证（2026-10-16 —— **16 家全量、0 处未豁免差异**，门已放开到全量）
-M7 ✅ 打包 + GitHub Release（2026-10-16 —— **v0.3.6-beta 首发**，四套产物；**v0.3.9-beta** 带上 windows 子系统修复（不再弹控制台）+ Torznab 界面 + 离线 demo 引擎）
+M7 ✅ 打包 + GitHub Release（2026-10-16 —— **v0.3.6-beta 首发**，四套产物；**v0.3.8-beta** 带上 windows 子系统修复（不再弹控制台）+ Torznab 界面 + 离线 demo 引擎）
 ```
 
 ### 🧹 2026-10-16 审计修复（50 条发现 → 三组已收口，15 HIGH 全部核验）
@@ -289,7 +289,7 @@ HTML 解析器只在 foreign content（SVG/MathML）里认自闭合标签，
 1. **第一次诊断（"bump 错了文件：Tauri 取 `tauri.conf.json` 而非 `package.json`"）—— 是对的。**
    我后来把它写成了"那是错的"，**那句才是错的**（就是下面这段）。
 2. **第二次诊断（"提交根本没到远端，CI 构建的是旧的 `feat/tauri`"）—— 也对，但只解释了一部分。**
-3. **定案证据（v0.3.9-beta）**：这次我把 `feat/tauri` 的 `package.json` 改成了 `0.3.7-beta`
+3. **定案证据（v0.3.7-beta 那次）**：这次我把 `feat/tauri` 的 `package.json` 改成了 `0.3.7-beta`
    并且**确认推送成功**（`git show feat/tauri:package.json` = 0.3.7-beta），
    可发出来的安装包**仍然叫 `BT-Search-Tauri-Setup-0.3.6-beta.exe`**。
    去读 `release.yml` 才看到真源：
@@ -308,9 +308,14 @@ HTML 解析器只在 foreign content（SVG/MathML）里认自闭合标签，
 - **"改对了"要有产物证据**：`feat/tauri` 的 `package.json` 确实是 0.3.7-beta（那次是真的推上去了），
   但**产品名没变** —— 只有下载下来的文件名能证明改对了。
 
-**已发布的 v0.3.9-beta 是既成事实**（规则：绝不重打同一个 tag，也**不重命名那个资产** ——
-改名会让文件名说 0.3.7 而安装包内部仍写 0.3.6，那是造假）。
-那个安装包的**内容**与 v0.3.6-beta 相同（Tauri 线这两版没改过代码），只是名字里的版本号旧了。
+**⚠️ 2026-10-21 更正：`v0.3.9-beta` 并没有发布成功。**
+那次发版 run（`38897429252`）里 `electron` / `tauri` 两个 job 都绿，只有
+`Build Rust app` 在 `cargo build --release --locked` 处失败 —— `895520a` bump 了
+`Cargo.toml`/`package.json` 却**没同步 `Cargo.lock`**；`Publish` 因此被 skip，
+tag 事后删除 ⇒ **当前最新发布仍是 `v0.3.8-beta`**，下一版走 `v0.3.10-beta`。
+详见 `docs/HANDOVER.md`「2026-10-21 这一轮」。
+**规则本身不变**：绝不重打同名 tag，也**不重命名已发布的资产**（改名会让文件名与
+安装包内部版本对不上，那是造假）。`v0.3.6-beta` 那次 Tauri 包名字写旧了是既成事实。
 
 **⚠️ 教训（与 `gh` 的 403 同一类）**：**本仓库有分支没有 upstream 跟踪
 （`main` / `feat/tauri`）—— 推它们必须显式 `git push origin <branch>`，

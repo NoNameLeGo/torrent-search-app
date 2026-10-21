@@ -11,7 +11,7 @@ exclude = ["src-tauri", "spike"]
 # 而发布产物名会写成 `BT-Search-Rust-<版本>.exe`。0.0.1 是占位初值，一直没改，
 # 导致拿到 v0.3.7-beta 的人在属性里看到 0.0.1（大小写/格式差异都不算错，但一致才好对账）。
 # `ci-guard.yml` 会拦住两者不一致的提交。
-version = "0.3.9-beta"
+version = "0.3.10-beta"
 edition = "2021"
 rust-version = "1.80"
 license = "GPL-3.0"
