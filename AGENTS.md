@@ -47,7 +47,7 @@ Electron mode: `npm run electron` (picks a free port automatically, no collision
 本项目**推倒重开、用 Rust 重写**，在 `feat/rust` 上进行，长期长成主分支。
 `main` 上的 Node/Express + Electron/Tauri 实现继续可用；Rust 版每搬完一块就替代一块。
 
-**📊 进度快照（2026-10-16 —— **`main` 已是 Rust 主线，M0–M7 全部完成**）**：**16 个 provider 已搬**（5 JSON + 11 HTML），
+**📊 进度快照（2026-10-21 —— **`main` 已是 Rust 主线，M0–M7 全部完成**）**：**18 个 provider 已搬**（6 JSON + 12 HTML），
 CI 全绿 + M4 全链路自检 12/12（clippy + fmt 均为硬门；**具体测试数看最近一次 `rust.yml` 日志** —— 本文件里出现的数字都是快照，别当现值）；
 探针 **126 条 / 17 fixture**；
 **聚合层 = 100%（M2）、下载器 = 100%（M3）、UI = 100%（M4）、引擎体检 = 100%（M5，结论「不砍」）、
@@ -1035,6 +1035,20 @@ scripts/gh-retry.sh workflow run fetch-fixture.yml --ref feat/rust \
 probe 用 `rows.count == 0` 把事实钉住）。
 
 ⚠️ 因此在 `bt-providers` 里**不要**实现 `1337x`：写出来只会是一个永远报错的 provider。
+
+### ⛔ `sukebei.js` —— 2026-10-21 实测：**两侧都探不通，暂不搬**
+
+`sukebei` 的解析逻辑与 `nyaa.js` 几乎相同（都是 `table.torrent-list` + 磁力在行里），
+本来是最便宜的一家。但实测：
+
+| 出口 | 结果 |
+|---|---|
+| 本机 | `curl` 直接 `000`（DNS/连接失败） |
+| **CI**（`fetch-fixture.yml`，干净机房 IP） | `curl` **超时**（exit 28，60s 上限） |
+
+⇒ 连真实快照都拿不到，写出来也无法验证（更别说用户那边能不能用）。
+**先挂着**，等哪天两侧有任一侧通了再搬。同类待办：`mikan` / `eztv`（本机 `000` / `403`，
+CI 尚未测）—— 搬之前先跑一次 `fetch-fixture.yml`，通不了就别写。
 
 ### 🐞 移植中发现的上游 bug（JS 版既有，值得单独修）
 

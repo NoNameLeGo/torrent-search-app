@@ -561,8 +561,10 @@ fn registry_matches_the_js_registry_order_and_flags() {
     let list = registry::list();
 
     // 顺序 = JS REGISTRY 里已搬的那些的相对顺序（= UI 显示顺序）
-    // ⚠️ 17 条：16 个站点 + **demo**。JS 的 REGISTRY 里 demo 也是**最后一条**
+    // ⚠️ 19 条：18 个站点 + **demo**。JS 的 REGISTRY 里 demo 也是**最后一条**
     // （`src/providers/index.js:121`），所以这里也放最后。
+    // `dmhy` / `subsplease` 是 2026-10-21 搬的，按 JS 顺序插在 `torrentscsv` 之后
+    // （JS 里它们之间还夹着 animetosho / bangumimoe / mikan 等**尚未搬**的站点）。
     let ids: Vec<&str> = list.iter().map(|p| p.id).collect();
     assert_eq!(
         ids,
@@ -572,6 +574,8 @@ fn registry_matches_the_js_registry_order_and_flags() {
             "yts",
             "knaben",
             "torrentscsv",
+            "dmhy",
+            "subsplease",
             "limetorrents",
             "therarbg",
             "rutor",

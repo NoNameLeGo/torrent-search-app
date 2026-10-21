@@ -24,9 +24,9 @@
 - **双击不弹命令行窗口** —— release 构建用的是 Windows GUI 子系统，
   CI 里同样有机器断言（`dumpbin /headers` 查子系统）；
 - **原生 UI**（Slint，非 WebView），启动快、内存低；
-- 引擎层与 Node 版**逐字段对齐** —— 16 家 provider 的每一项结果与 Node 版完全一致
+- 引擎层与 Node 版**逐字段对齐** —— M6 差分覆盖的 16 家 provider，每一项结果与 Node 版完全一致
   （`.github/workflows/rust.yml` 里有 16 家 × 15 字段的全量差分门，
-  只有若干**已登记的有意分歧**例外）。
+  只有若干**已登记的有意分歧**例外；2026-10-21 之后新搬的 `subsplease` / `dmhy` 尚未接入该门）。
 
 **已经能用的功能**
 
