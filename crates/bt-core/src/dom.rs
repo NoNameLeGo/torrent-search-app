@@ -29,6 +29,7 @@
 //! 语义等价性由 `tests/dom_probes.rs` 对着真实 fixture 与 cheerio 逐条比对
 //! （探针清单 `test/fixtures/html-probes.json`，cheerio 侧实现见 `scripts/html-probes.mjs`）。
 
+use scraper::node::Node;
 use scraper::{Html, Selector};
 // `select` 在 Html 上可能是固有方法，也可能是 Selectable trait 提供的；
 // 多导入一个 trait 最多是个未使用告警，比编译失败划算。
@@ -91,6 +92,25 @@ pub fn text(el: ElementRef<'_>) -> String {
 /// 对应 `$(el).text().trim()`。
 pub fn text_trim(el: ElementRef<'_>) -> String {
     text(el).trim().to_string()
+}
+
+/// 对应 cheerio 的 `ownText`：**只取直接子文本节点**，不含后代元素里的文本。
+///
+/// cheerio 的 `$(el).contents()` 会把文本节点和元素节点一起列出来，
+/// provider 里那个 `ownText` 就是「只挑 `node.type === 'text'` 的拼起来」。
+///
+/// 为什么需要它（`dmhy` 落地时暴露）：站上会给命中的关键词套
+/// `<span class="keyword">`，而 `.text()` 会把它们一起拼进来 ——
+/// JS 侧的 `ownText` 反而是**丢掉**高亮部分的。为了与 JS 逐字一致，
+/// 这里必须同样只取直接文本节点（结果是标题里少掉关键词，属于上游行为）。
+pub fn own_text(el: ElementRef<'_>) -> String {
+    let mut out = String::new();
+    for child in el.children() {
+        if let Node::Text(t) = child.value() {
+            out.push_str(&t.text);
+        }
+    }
+    out.trim().to_string()
 }
 
 /// 对应 `$(el).attr(name)`。**值已解码实体**（`&amp;` → `&`、`&#39;` → `'`）。
