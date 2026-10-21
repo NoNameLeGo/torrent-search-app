@@ -28,6 +28,13 @@ on:
     branches: [main]
     paths:
       - 'Cargo.toml'
+      # ⚠️ `Cargo.lock` 必须在这里（2026-10-21 补）：
+      # 本 workflow 用 `cargo build --release --locked` 编译，而 lock 文件与
+      # `Cargo.toml` 的 version 不同步时 **--locked 会直接报错**。
+      # 2026-10-16 那次 `895520a` 把版本 bump 到 0.3.9 却没同步 lock ⇒ 这道门红了；
+      # 而修它的 `2dbf9f6` 只改了 `Cargo.lock`，不在 paths 里 ⇒ **修复从未被这道门验证过**。
+      # 光改 lock 也能让体积门有意义（换依赖版本正是体积会变的场景）。
+      - 'Cargo.lock'
       - 'crates/**'
       - '.github/workflows/rust-size.yml'
   workflow_dispatch:

@@ -97,6 +97,32 @@ check(
   !!cargoVersion && cargoVersion === version,
   `Cargo.toml 版本与 package.json 一致（Cargo.toml=${cargoVersion || '?'} / package.json=${version || '?'}）`
 );
+
+// 6c) Cargo.lock 里工作区各 crate 的版本也必须跟着走。
+// 为什么（2026-10-21 加，来自一次真事故）：发版构建用的是
+// `cargo build --release --locked`，而 **--locked 会拒绝任何需要改 lock 的情况**。
+// v0.3.9-beta 那次只 bump 了 Cargo.toml / package.json、忘了 Cargo.lock，
+// 于是发版 job 在 `cargo build` 第一步就 `error: cannot update the lock file`，
+// Publish 被 skip ⇒ **tag 打了、release 却没生成**，而文档里写着"已发 Latest"。
+// 本机没有 cargo（无法 `cargo generate-lockfile`），所以这里只做**机器判据**，
+// 真需要重算 lock 时走 CI 的 `lockfile.yml`。
+let lockBad = [];
+try {
+  const lock = fs.readFileSync(path.join(__dirname, '..', 'Cargo.lock'), 'utf8');
+  const re = /\[\[package\]\]\s*\nname = "(bt-[^"]+)"\s*\nversion = "([^"]+)"/g;
+  let m;
+  while ((m = re.exec(lock)) !== null) {
+    if (m[2] !== version) lockBad.push(`${m[1]}=${m[2]}`);
+  }
+  check(
+    lockBad.length === 0 && !!version,
+    lockBad.length === 0
+      ? `Cargo.lock 工作区版本一致（= ${version || '?'}）`
+      : `Cargo.lock 工作区版本没跟上 package.json=${version}：${lockBad.join(', ')}（--locked 构建会直接失败）`
+  );
+} catch (e) {
+  check(false, `读不到 Cargo.lock（${e.message}）—— --locked 构建需要它入库`);
+}
 if (lastTag && version && lastTag !== `v${version}`) {
   console.log(`   ⚠️ 最近 tag（${lastTag}）与当前版本（v${version}）不一致 —— 确认是真的忘了 bump，还是刚发完下一轮`);
 }
