@@ -34,6 +34,8 @@ Thumbs.db
 # agent / 本地工具数据（非项目文件，不入库）
 # .workbuddy/ 是本项目的记忆库，其余是各 agent 工具的本地状态
 .workbuddy/
+# 同类：WorkBuddy 的工作区记忆（memory/ 日志与长期笔记），同样是本地状态
+.workbuddy-ai/
 .dsh-meow/
 .dsh-vision-toolkit/
 .agents/
