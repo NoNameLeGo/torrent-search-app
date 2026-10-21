@@ -107,6 +107,18 @@ fn parse_date_special_phrases() {
 fn parse_date_absolute() {
     // 2024-01-15T00:00:00Z
     assert_eq!(pd("2024-01-15"), Some(1_705_276_800_000), "ISO date");
+    // 斜杠格式：带秒与**不带秒**都要认（dmhy 给的是 `2026/09/28 16:47`）
+    assert_eq!(
+        pd("2026/09/28 16:47"),
+        Some(
+            chrono::Utc
+                .with_ymd_and_hms(2026, 9, 28, 16, 47, 0)
+                .single()
+                .expect("构造 UTC 时间")
+                .timestamp_millis()
+        ),
+        "斜杠 + 无秒（JS 的 Date.parse 认得）"
+    );
     assert_eq!(pd("not a date"), None, "invalid string");
     assert_eq!(pd(""), None, "empty string");
     assert_eq!(parse_date(None), None, "null / undefined");

@@ -206,6 +206,10 @@ fn parse_absolute_date(s: &str) -> Option<i64> {
         "%Y-%m-%d %H:%M:%S",
         "%Y-%m-%d %H:%M",
         "%Y/%m/%d %H:%M:%S",
+        // 2026-10-21 补：dmhy 的日期是 `2026/09/28 16:47`（**斜杠 + 无秒**），
+        // 上面只有带秒的斜杠格式 ⇒ 会掉成 None（而 JS 的 `Date.parse` 认得）。
+        // 移植 dmhy 时 CI 报出来的：`date_text` 成了 `—`。
+        "%Y/%m/%d %H:%M",
     ] {
         if let Ok(naive) = NaiveDateTime::parse_from_str(s, f) {
             return Some(Utc.from_utc_datetime(&naive).timestamp_millis());
