@@ -43,9 +43,10 @@ async fn first_row_fields_match_the_js_pipeline() {
     let r = &out.results[0];
 
     assert_eq!(r.provider, "mikan");
-    // 标题里的 `&#x6D77;&#x8D3C;&#x738B;` 必须被解码成「海賊王」
+    // 标题里的 `&#x6D77;&#x8D3C;&#x738B;` 必须被解码成「海贼王」（**简体** ——
+    // 与 dmhy 那家的繁体「海賊王」不是同一个字，别照抄）
     assert!(
-        r.name.starts_with("[Skymoon-Raws][One Piece 海賊王][1180]"),
+        r.name.starts_with("[Skymoon-Raws][One Piece 海贼王][1180]"),
         "实体没解码？实际：{}",
         r.name
     );
