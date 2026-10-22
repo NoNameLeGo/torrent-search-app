@@ -4,12 +4,12 @@
 //! 83KB / 30 个 show / 90 个 download 条目 / 90 条带磁力）：
 //! 用 `?f=search&tz=$&s=one piece` 取回。
 //!
-//! ## 一处**有意**的差异（顺序）
+//! ## 顺序：**与 JS 逐条一致**（2026-10-22 修）
 //!
-//! JS 用 `Object.entries()`（服务端给的顺序），Rust 侧 `serde_json::Map` 是 `BTreeMap`
-//! （**按 show 名排序**）。内容完全一致，只是同一屏里先后不同 —— 原因与代价写在
-//! `subsplease.rs` 文件头。所以下面断言的是**排序后**的第一条
-//! （`One Piece - 1152`），而不是 fixture 里的第一条（`One Piece - 1180`）。
+//! 这里原来断言的是「按 show 名排序」后的第一条（`One Piece - 1152`）—— 那是
+//! `serde_json::Map`（`BTreeMap`）的副作用。接 M6 差分时发现顺序不同会让逐行对齐
+//! 整列错位，于是改成自定义 `Deserialize` 保留**文档顺序**（见 `subsplease.rs` 文件头）。
+//! 现在第一条 = fixture 里的第一条 = `One Piece - 1180`（JS 也是这条）。
 
 mod common;
 
@@ -20,8 +20,8 @@ use common::fixture;
 /// 30 个 show × 3 个画质（480/720/1080）= 90 条。
 const EXPECTED_RESULTS: usize = 90;
 
-/// 排序后的第一条（`BTreeMap` 顺序）。
-const FIRST_SHOW: &str = "One Piece - 1152";
+/// fixture 里的第一条（= 服务端给的顺序 = JS 的顺序）。
+const FIRST_SHOW: &str = "One Piece - 1180";
 
 #[tokio::test]
 async fn parses_the_real_fixture() {
@@ -44,14 +44,15 @@ async fn first_row_fields_match_the_js_pipeline() {
 
     assert_eq!(r.provider, "subsplease");
     // name = `${showName} [${res}p]`，res 取 downloads 里的 `res`
-    assert_eq!(r.name, "One Piece - 1152 [480p]");
+    assert_eq!(r.name, "One Piece - 1180 [480p]");
 
-    // 体积**不在响应里**，从磁力的 `xl=` 抠出来
-    assert_eq!(r.size, Some(381_904_004));
-    assert!(r.size_text.ends_with("MB"), "size_text = {}", r.size_text);
+    // 体积**不在响应里**，从磁力的 `xl=` 抠出来（382937687 字节）
+    assert_eq!(r.size, Some(382_937_687));
+    // ⚠️ `size_text` 是重算后的显示值（≥100 时取整）：365.2 MB → "365 MB"
+    assert_eq!(r.size_text, "365 MB");
 
     // RFC 1123 → 时间戳（UTC 日期部分）
-    assert_eq!(r.date_text, "2025-12-07");
+    assert_eq!(r.date_text, "2026-09-27");
     assert!(
         r.date.is_some(),
         "Date.parse 认得 RFC 1123，Rust 也必须认得"
@@ -60,7 +61,7 @@ async fn first_row_fields_match_the_js_pipeline() {
     // detailUrl = `${base}/${page}?ep=${episode}&res=${res}`
     assert_eq!(
         r.detail_url.as_deref(),
-        Some(format!("{base}/one-piece?ep=1152&res=480").as_str())
+        Some(format!("{base}/one-piece?ep=1180&res=480").as_str())
     );
 
     assert_eq!(r.category.as_deref(), Some("Anime"));
@@ -70,7 +71,7 @@ async fn first_row_fields_match_the_js_pipeline() {
         .magnet
         .as_deref()
         .unwrap_or_default()
-        .starts_with("magnet:?xt=urn:btih:SYYPTDS3DXJFXE4HIKBMCZYZEDSXTJD7"));
+        .starts_with("magnet:?xt=urn:btih:7MQKREFLWT6YWI7ZNTB434YSGIXXTORD"));
 
     // ⚠️ 这个站给的是 **base32** hash（32 字符，含 M/Q/K 这类字母），
     // 而 `extractInfoHash` 只认 hex 32~40 位 ⇒ 两侧都是 `null`。
@@ -96,28 +97,33 @@ async fn one_show_expands_to_one_row_per_quality() {
     assert_eq!(
         names,
         vec![
-            "One Piece - 1152 [480p]",
-            "One Piece - 1152 [720p]",
-            "One Piece - 1152 [1080p]",
+            "One Piece - 1180 [480p]",
+            "One Piece - 1180 [720p]",
+            "One Piece - 1180 [1080p]",
         ],
         "顺序 = downloads 数组顺序（JS 也是这个顺序）"
     );
     // 每个画质的 detailUrl 只有 res 不同
     assert_eq!(
         rows[2].detail_url.as_deref(),
-        Some(format!("{base}/one-piece?ep=1152&res=1080").as_str())
+        Some(format!("{base}/one-piece?ep=1180&res=1080").as_str())
     );
 }
 
-/// 文档里写明的顺序差异，用测试钉住 —— 免得以后有人以为"顺序错了"。
+/// 顺序必须与 JS 一致（**文档顺序**，不是按名字排序）。
+/// 这条测试是 2026-10-22 那次修复的回归防线。
 #[tokio::test]
-async fn divergence_result_order_is_sorted_by_show_name() {
+async fn result_order_follows_the_document_not_the_alphabet() {
     let url = common::oneshot(200, &fixture("subsplease-one-piece.json")).await;
     let base = url.trim_end_matches('/').to_string();
 
     let out = subsplease::search_at(&HttpClient::new(), &base, "one piece").await;
 
-    // 按 show 名（去掉 "[480p]" 这类后缀）取出出现顺序，必须是**升序**
+    // 第一条必须是 fixture 里的第一条（`One Piece - 1180`），
+    // 而不是按名字排序后最小的那条（`One Piece - 1152`）
+    assert_eq!(out.results[0].name, "One Piece - 1180 [480p]");
+
+    // 而且整个序列**不是**按 show 名升序 —— 反过来证明我们没有偷偷排序
     let mut shows: Vec<String> = Vec::new();
     for r in &out.results {
         let show = r.name.split(" [").next().unwrap_or("").to_string();
@@ -127,12 +133,7 @@ async fn divergence_result_order_is_sorted_by_show_name() {
     }
     let mut sorted = shows.clone();
     sorted.sort();
-    assert_eq!(
-        shows, sorted,
-        "Rust 侧按 show 名排序（BTreeMap），JS 侧是插入序"
-    );
-    // 并且第一条**不是** fixture 里的第一条（`One Piece - 1180`）
-    assert_eq!(out.results[0].name, "One Piece - 1152 [480p]");
+    assert_ne!(shows, sorted, "顺序应保持文档顺序，不该是按名字排序的结果");
 }
 
 #[tokio::test]

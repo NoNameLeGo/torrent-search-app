@@ -8,9 +8,8 @@
 // ⚠️ `match` 用真实 URL 的正则片段，**别写得太松**：`/knaben/` 这种会把
 // 任何带 knaben 的 URL 都吃下，将来 provider 多打一个端点就被静默喂错 fixture。
 //
-// 目前只覆盖 **5 个 JSON provider** —— 它们不需要 `cheerio`，所以本机（无
-// `node_modules`）就能跑。11 个 HTML provider 需要 cheerio，只能在 CI 里跑，
-// 见 `htmlProviders()` 里那段 TODO。
+// JSON provider **不需要 `cheerio`**，所以本机（无 `node_modules`）就能跑；
+// HTML provider 需要 cheerio，只能在 CI 里跑（`npm ci --omit=dev`）。
 
 const fs = require('node:fs');
 const path = require('node:path');
@@ -57,6 +56,14 @@ const JSON_PROVIDERS = [
         kind: 'json',
       },
     ],
+  },
+  {
+    id: 'subsplease',
+    module: '../../src/providers/subsplease.js',
+    query: 'one piece',
+    page: 1,
+    // ⚠️ `tz=$` 是**字面量哨兵**（上游 Kotlin 就是这么发的），不是变量
+    rules: [{ match: /subsplease\.org\/api/, file: 'subsplease-one-piece.json', kind: 'json' }],
   },
   {
     id: 'internetarchive',
@@ -163,6 +170,28 @@ const HTML_PROVIDERS = [
     page: 1,
     rules: [{ match: /megapeer\.vip/, file: 'megapeer-1080p.html', kind: 'html' }],
   },
+  // ---- 2026-10-21/22 新搬的三家（fixture 都是 CI 抓的真实页）----
+  {
+    id: 'dmhy',
+    module: '../../src/providers/dmhy.js',
+    query: 'one piece',
+    page: 1,
+    rules: [{ match: /share\.dmhy\.org/, file: 'dmhy-one-piece.html', kind: 'html' }],
+  },
+  {
+    id: 'mikan',
+    module: '../../src/providers/mikan.js',
+    query: 'one piece',
+    page: 1,
+    rules: [{ match: /mikanani\.me/, file: 'mikan-one-piece.html', kind: 'html' }],
+  },
+  {
+    id: 'animetosho',
+    module: '../../src/providers/animetosho.js',
+    query: 'one piece',
+    page: 1,
+    rules: [{ match: /animetosho\.org/, file: 'animetosho-one-piece.html', kind: 'html' }],
+  },
   {
     id: 'zeromagnet',
     module: '../../src/providers/zeromagnet.js',
@@ -172,7 +201,7 @@ const HTML_PROVIDERS = [
   },
 ];
 
-/** 全部 16 家。⚠️ 这个数是「已移植」的家数 —— 改了 provider 集合这里要跟着改。 */
+/** 全部 20 家。⚠️ 这个数是「已移植」的家数 —— 改了 provider 集合这里要跟着改。 */
 function allProviders() {
   return [...JSON_PROVIDERS, ...HTML_PROVIDERS];
 }

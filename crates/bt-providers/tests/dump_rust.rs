@@ -1,4 +1,4 @@
-//! M6 差分验证的 **Rust 侧导出器** —— 把 16 个已移植 provider 的搜索结果导成规范化 JSON。
+//! M6 差分验证的 **Rust 侧导出器** —— 把 20 个已移植 provider 的搜索结果导成规范化 JSON。
 //!
 //! ⚠️ **这不是回归测试，是差分工具**，所以 `#[ignore]`：
 //! `cargo test --workspace` 不会碰它（否则每次跑测试都刷一大坨 JSON）；
@@ -38,8 +38,9 @@ mod common;
 use bt_core::http::HttpClient;
 use bt_core::TorrentResult;
 use bt_providers::{
-    audiobookbay, filemood, internetarchive, knaben, limetorrents, linuxtracker, megapeer, nyaa,
-    oxtorrent, rutor, therarbg, torrent9, torrentscsv, tpb, yts, zeromagnet, SearchOutcome,
+    animetosho, audiobookbay, dmhy, filemood, internetarchive, knaben, limetorrents, linuxtracker,
+    megapeer, mikan, nyaa, oxtorrent, rutor, subsplease, therarbg, torrent9, torrentscsv, tpb, yts,
+    zeromagnet, SearchOutcome,
 };
 use serde_json::{json, Value};
 
@@ -84,6 +85,8 @@ fn specs() -> Vec<Spec> {
             "internetarchive-ubuntu.synthetic.json",
             "ubuntu",
         ),
+        // 2026-10-22 新增：JSON API，一次请求
+        spec("subsplease", "subsplease-one-piece.json", "one piece"),
         // ---- 11 个 HTML provider（需要 cheerio，只能在 CI 跑）----
         spec("linuxtracker", "linuxtracker-linux.html", "linux"),
         spec("filemood", "filemood-ubuntu.html", "ubuntu"),
@@ -109,6 +112,11 @@ fn specs() -> Vec<Spec> {
             ..spec("megapeer", "megapeer-1080p.html", "1080p")
         },
         spec("zeromagnet", "zeromagnet-ubuntu.html", "ubuntu"),
+        // ---- 2026-10-21/22 新搬的四家（两家 JSON 之外的三家 HTML）----
+        // ⚠️ 这几份 fixture 都是 **CI 抓的真实页**（本机对 dmhy / mikan / animetosho 都不通）
+        spec("dmhy", "dmhy-one-piece.html", "one piece"),
+        spec("mikan", "mikan-one-piece.html", "one piece"),
+        spec("animetosho", "animetosho-one-piece.html", "one piece"),
     ]
 }
 
@@ -134,6 +142,11 @@ async fn run(spec: &Spec, http: &HttpClient, base: &str) -> SearchOutcome {
         "nyaa" => nyaa::search_at(http, base, spec.query, spec.page).await,
         "megapeer" => megapeer::search_at(http, base, spec.query).await,
         "zeromagnet" => zeromagnet::search_at(http, base, spec.query).await,
+        // ⚠️ `dmhy` 收四个参数（它带分页）；另三家是三个
+        "dmhy" => dmhy::search_at(http, base, spec.query, spec.page).await,
+        "mikan" => mikan::search_at(http, base, spec.query).await,
+        "animetosho" => animetosho::search_at(http, base, spec.query).await,
+        "subsplease" => subsplease::search_at(http, base, spec.query).await,
         other => panic!("dump_rust 没覆盖 {other}（加了 provider 就同步 SPECS）"),
     }
 }

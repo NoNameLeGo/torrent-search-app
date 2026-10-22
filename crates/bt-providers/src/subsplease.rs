@@ -24,18 +24,26 @@
 //! 2. **`tz=$` 是字面量哨兵**，不是 shell 变量 —— 上游 Kotlin 就是这么发的
 //!    （`/api?f=search&tz=$&s=<query>`），照抄。写成 `tz=` 或省略都会让服务端改行为。
 //!
-//! ## 有意 divergence（1 处）
+//! ## 曾经的一处 divergence —— 2026-10-22 已修掉
 //!
 //! **结果顺序**：JS 用 `Object.entries()`（插入序 = 服务端给的顺序），
-//! Rust 侧 `serde_json::Map` 默认是 `BTreeMap`（**按 show 名排序**）。
-//! 要完全对齐得开 `serde_json/preserve_order`（引入 indexmap ⇒ `Cargo.lock` 要重算，
-//! 而本机没有 cargo），收益只是顺序 —— 所以这里接受差异并写明。
-//! 对用户可见的影响：同一屏里结果的先后不同，内容完全一致。
+//! 而 `serde_json::Map` 默认是 `BTreeMap`（**按 show 名排序**）。
+//! 原来只把它写进注释当"接受的差异"；后来要接 M6 差分才明白它不能留 ——
+//! 差分是**逐行按下标对齐**的，顺序不同会让整列错位、报出上百条假差异。
+//!
+//! 修法（不引新依赖）：[`Shows`] 用自定义 `Deserialize` 把顶层对象读成
+//! `Vec<(String, Value)>`。`serde_json` 的 `MapAccess` 本来就按**文档顺序**吐 entry，
+//! 所以不需要 `preserve_order` 特性（那会引 `indexmap` ⇒ `Cargo.lock` 要重算，
+//! 而本机没有 cargo）。
+
+use std::fmt;
 
 use bt_core::http::{HttpClient, JsonResponse};
 use bt_core::normalize::{
     encode_uri_component, extract_info_hash, normalize, NumOrText, RawResult,
 };
+use serde::de::{MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
 use serde_json::Value;
 
 use crate::value::v2string;
@@ -43,6 +51,35 @@ use crate::SearchOutcome;
 
 /// 站点根（JS 的 `BASE`）。注意路径是 `/api`，不是 `/api/`。
 pub const API: &str = "https://subsplease.org";
+
+/// 顶层对象，**保留文档顺序**（见文件头）。
+///
+/// 为什么不用 `serde_json::Map`：它默认是 `BTreeMap`（按 key 排序），
+/// 而 JS 的 `Object.entries()` 是插入序 ⇒ 顺序不同、差分逐行对齐会整列错位。
+struct Shows(Vec<(String, Value)>);
+
+impl<'de> Deserialize<'de> for Shows {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = Shows;
+
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a JSON object（show 名 → 该 show 的下载信息）")
+            }
+
+            fn visit_map<A: MapAccess<'de>>(self, mut m: A) -> Result<Shows, A::Error> {
+                let mut out = Vec::new();
+                // `MapAccess` 按**文档顺序**吐 entry —— 这正是 JS 的插入序
+                while let Some((k, v)) = m.next_entry::<String, Value>()? {
+                    out.push((k, v));
+                }
+                Ok(Shows(out))
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
 
 /// 用默认端点搜索。
 pub async fn search(http: &HttpClient, query: &str, _page: u32) -> SearchOutcome {
@@ -54,7 +91,7 @@ pub async fn search_at(http: &HttpClient, api: &str, query: &str) -> SearchOutco
     // ⚠️ `tz=$` 里的 `$` 是**字面量**，不是格式化占位符 —— 它不在 `{}` 里，format! 不会碰它。
     let url = format!("{api}/api?f=search&tz=$&s={}", encode_uri_component(query));
 
-    let resp: JsonResponse<Value> = http.get_json(&url, None).await;
+    let resp: JsonResponse<Shows> = http.get_json(&url, None).await;
     if let Some(e) = &resp.error {
         return SearchOutcome::err(format!("SubsPlease unreachable ({e})"));
     }
@@ -64,12 +101,9 @@ pub async fn search_at(http: &HttpClient, api: &str, query: &str) -> SearchOutco
     let Some(root) = resp.data.as_ref() else {
         return SearchOutcome::ok(Vec::new());
     };
-    let Some(shows) = root.as_object() else {
-        return SearchOutcome::ok(Vec::new());
-    };
 
     let mut results = Vec::new();
-    for (show_name, anime) in shows {
+    for (show_name, anime) in &root.0 {
         // JS: `if (!animeObj || typeof animeObj !== 'object') continue;`
         if !anime.is_object() {
             continue;

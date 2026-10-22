@@ -88,11 +88,12 @@ jobs:
         shell: bash
         run: npm ci --omit=dev
 
-      - name: M6 导出 Node 侧并比较（全 16 家）
+      - name: M6 导出 Node 侧并比较（全 20 家）
         shell: bash
         run: |
           set -euo pipefail
-          # 🎉 **2026-10-16：门已放开到 16 家全量。**
+          # 🎉 **2026-10-16：门已放开到 16 家全量；2026-10-22 扩到 20 家**
+          # （新增 subsplease / dmhy / mikan / animetosho，四家的 fixture 都是真实快照）。
           #
           # 首次全量跑（同一天早些时候）曾抓到 111 处未命中白名单的差异，
           # triage 期间门收在 5 家上（`--json-only` + `--only`）。现在那些都清掉了：
