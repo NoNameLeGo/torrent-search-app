@@ -48,7 +48,13 @@ async fn first_row_fields_match_the_js_pipeline() {
         "`<wbr/>` 不该被当成空格"
     );
 
-    assert_eq!(r.size_text, "1.874 GB");
+    // ⚠️ 站上原文是 `1.874 GB`，但 `size_text` 是**按字节重算再格式化**的结果
+    // （JS 的 `formatSize(parseSize(...))` 也是这个口径）⇒ 1.874 GB → "1.9 GB"。
+    // 断言原文 `1.874 GB` 会红 —— 那不是 bug，是显示口径。
+    // 同理不写死 `size` 的字节数：它是从**文本** `1.874 GB` 反算出来的，
+    // 与 `div.size` 那个 `title="… 2,012,372,487 bytes"` 不是同一个来源（JS 也没用它）。
+    assert_eq!(r.size_text, "1.9 GB");
+    assert!(r.size.is_some());
 
     // 06/05/2026 → 2026-05-06 **本地** 00:00
     let expected_date = Local
