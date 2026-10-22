@@ -27,6 +27,16 @@ on:
         description: '存成哪个文件，必须在 test/fixtures/ 下'
         required: true
         type: string
+      method:
+        description: 'HTTP 方法，默认 GET（POST 类 API 站如 bangumimoe / knaben 要填 POST）'
+        required: false
+        default: GET
+        type: string
+      body:
+        description: 'POST 的请求体，原样发送（例如 {"query":"one piece"}）；GET 留空'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: write
@@ -55,14 +65,21 @@ jobs:
         env:
           TARGET_URL: ${{ inputs.url }}
           TARGET_PATH: ${{ inputs.path }}
+          METHOD: ${{ inputs.method }}
+          BODY: ${{ inputs.body }}
         run: |
           UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
           mkdir -p "$(dirname "$TARGET_PATH")"
-          code=$(curl -sS -L --max-time 60 --compressed \
-                   -A "$UA" \
-                   -H 'Accept-Language: en-US,en;q=0.9' \
-                   -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' \
-                   -w '%{http_code}' -o "$TARGET_PATH" "$TARGET_URL")
+          # ⚠️ 用数组拼 curl 参数：BODY 里有引号/花括号，拼字符串会被 shell 再解释一遍。
+          args=(-sS -L --max-time 60 --compressed
+                -A "$UA"
+                -H 'Accept-Language: en-US,en;q=0.9'
+                -H 'Accept: application/json,text/html;q=0.9,*/*;q=0.8')
+          [ "$METHOD" != "GET" ] && args+=(-X "$METHOD")
+          if [ -n "$BODY" ]; then
+            args+=(-H 'Content-Type: application/json' --data "$BODY")
+          fi
+          code=$(curl "${args[@]}" -w '%{http_code}' -o "$TARGET_PATH" "$TARGET_URL")
           size=$(wc -c < "$TARGET_PATH")
           echo "HTTP $code → $TARGET_PATH（$size 字节）"
           echo "---- 开头 300 字节（自己看一眼是不是挑战页/停放页）----"
