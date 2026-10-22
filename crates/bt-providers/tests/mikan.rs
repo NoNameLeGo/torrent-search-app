@@ -68,7 +68,8 @@ async fn first_row_fields_match_the_js_pipeline() {
         Some("5a46994e26102dd7d1c48ef8c14e4282df61f2e6")
     );
 
-    assert_eq!(r.size_text, "457.9 MB");
+    // 站上原文 `457.9MB`，`size_text` 是重算后的显示值（≥100 时取整）⇒ "458 MB"
+    assert_eq!(r.size_text, "458 MB");
     assert_eq!(r.date_text, "2026-09-28");
     assert_eq!(r.category.as_deref(), Some("Anime"));
     assert_eq!(
