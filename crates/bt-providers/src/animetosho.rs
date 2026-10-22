@@ -185,10 +185,10 @@ fn parse_date(raw: Option<&str>) -> Option<i64> {
     }
     let lower = s.to_ascii_lowercase();
     if lower.starts_with("today") {
-        return Some(chrono::Utc::now().timestamp_millis());
+        return Some(Utc::now().timestamp_millis());
     }
     if lower.starts_with("yesterday") {
-        return Some(chrono::Utc::now().timestamp_millis() - 86_400_000);
+        return Some(Utc::now().timestamp_millis() - 86_400_000);
     }
 
     let first = s.split_whitespace().next().unwrap_or("");
