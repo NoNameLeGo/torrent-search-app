@@ -47,7 +47,7 @@ Electron mode: `npm run electron` (picks a free port automatically, no collision
 本项目**推倒重开、用 Rust 重写**，在 `feat/rust` 上进行，长期长成主分支。
 `main` 上的 Node/Express + Electron/Tauri 实现继续可用；Rust 版每搬完一块就替代一块。
 
-**📊 进度快照（2026-10-21 —— **`main` 已是 Rust 主线，M0–M7 全部完成**）**：**18 个 provider 已搬**（6 JSON + 12 HTML），
+**📊 进度快照（2026-10-21 —— **`main` 已是 Rust 主线，M0–M7 全部完成**）**：**20 个 provider 已搬**（6 JSON + 14 HTML），
 CI 全绿 + M4 全链路自检 12/12（clippy + fmt 均为硬门；**具体测试数看最近一次 `rust.yml` 日志** —— 本文件里出现的数字都是快照，别当现值）；
 探针 **126 条 / 17 fixture**；
 **聚合层 = 100%（M2）、下载器 = 100%（M3）、UI = 100%（M4）、引擎体检 = 100%（M5，结论「不砍」）、
