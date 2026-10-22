@@ -83,10 +83,10 @@ pub fn normalize_api_url(url: &str) -> String {
     while u.ends_with('/') {
         u.pop();
     }
-    /// `/\/api$/i`
-    ///
-    /// ⚠️ **不能裸切字节**：`u[u.len() - 4..]` 在多字节字符中间会 **panic**
-    ///（用户填 `http://localhost:9117/中文` 就中招，而且每次搜索都复发）。
+    // `/\/api$/i`
+    //
+    // ⚠️ **不能裸切字节**：`u[u.len() - 4..]` 在多字节字符中间会 **panic**
+    //（用户填 `http://localhost:9117/中文` 就中招，而且每次搜索都复发）。
     let ends_with_api = u
         .get(u.len().saturating_sub(4)..)
         .is_some_and(|t| t.eq_ignore_ascii_case("/api"));

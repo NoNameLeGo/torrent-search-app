@@ -234,8 +234,6 @@ impl Provider for Demo {
 mod tests {
     use super::*;
 
-    use crate::Provider as _;
-
     /// 钉死的"现在" ⇒ 日期可以断言到毫秒。
     const NOW: i64 = 1_800_000_000_000;
 
