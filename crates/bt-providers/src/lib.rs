@@ -3,11 +3,11 @@
 //! 各站点 provider 的集合，一文件一站（对齐 `src/providers/*.js` 的组织方式）。
 //!
 //! ## 现状
-//! 已搬 **18 个站点**（对齐 `src/providers/*.js`）：
+//! 已搬 **20 个站点**（对齐 `src/providers/*.js`）：
 //!
 //! - **JSON 组（6）**：`tpb`、`knaben`、`torrentscsv`、`yts`、`internetarchive`、`subsplease`
-//! - **HTML 组（12）**：`linuxtracker`、`filemood`、`rutor`、`audiobookbay`、`therarbg`、
-//!   `limetorrents`、`torrent9`、`oxtorrent`、`nyaa`、`megapeer`、`zeromagnet`、`dmhy`
+//! - **HTML 组（14）**：`linuxtracker`、`filemood`、`rutor`、`audiobookbay`、`therarbg`、
+//!   `limetorrents`、`torrent9`、`oxtorrent`、`nyaa`、`megapeer`、`zeromagnet`、`dmhy`、`mikan`、`animetosho`
 //!
 //! ## 抽象：已提取的共用件 + [`Provider`] trait
 //!
@@ -25,6 +25,7 @@
 //! - 结果必须过 `bt_core::normalize::normalize()` 再返回
 
 pub mod aggregate;
+pub mod animetosho;
 pub mod audiobookbay;
 pub mod demo;
 pub mod dmhy;
@@ -34,6 +35,7 @@ pub mod knaben;
 pub mod limetorrents;
 pub mod linuxtracker;
 pub mod megapeer;
+pub mod mikan;
 pub mod nyaa;
 pub mod oxtorrent;
 pub mod registry;

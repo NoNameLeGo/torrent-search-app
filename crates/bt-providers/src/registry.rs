@@ -108,7 +108,7 @@ macro_rules! site {
 }
 
 // ---------------------------------------------------------------------------
-// 18 个已搬站点（顺序 = JS REGISTRY 顺序，= UI 显示顺序）
+// 20 个已搬站点（顺序 = JS REGISTRY 顺序，= UI 显示顺序）
 // ---------------------------------------------------------------------------
 
 site!(Tpb, tpb, "tpb", "The Pirate Bay");
@@ -116,7 +116,9 @@ site!(Nyaa, nyaa, "nyaa", "NYAA", paginated);
 site!(Yts, yts, "yts", "YTS", browseable);
 site!(Knaben, knaben, "knaben", "Knaben");
 site!(TorrentsCsv, torrentscsv, "torrentscsv", "TorrentsCSV");
+site!(AnimeTosho, animetosho, "animetosho", "AnimeTosho");
 site!(Dmhy, dmhy, "dmhy", "DMHY", paginated);
+site!(Mikan, mikan, "mikan", "Mikan");
 site!(SubsPlease, subsplease, "subsplease", "SubsPlease");
 site!(
     LimeTorrents,
@@ -163,7 +165,9 @@ pub fn registry() -> Vec<Box<dyn Provider>> {
         Box::new(Yts),
         Box::new(Knaben),
         Box::new(TorrentsCsv),
+        Box::new(AnimeTosho),
         Box::new(Dmhy),
+        Box::new(Mikan),
         Box::new(SubsPlease),
         Box::new(LimeTorrents),
         Box::new(TheRarBg),
