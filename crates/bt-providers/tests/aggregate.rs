@@ -561,7 +561,7 @@ fn registry_matches_the_js_registry_order_and_flags() {
     let list = registry::list();
 
     // 顺序 = JS REGISTRY 里已搬的那些的相对顺序（= UI 显示顺序）
-    // ⚠️ 21 条：20 个站点 + **demo**。JS 的 REGISTRY 里 demo 也是**最后一条**
+    // ⚠️ 22 条：21 个站点 + **demo**。JS 的 REGISTRY 里 demo 也是**最后一条**
     // （`src/providers/index.js:121`），所以这里也放最后。
     // `dmhy` / `subsplease` 是 2026-10-21 搬的，按 JS 顺序插在 `torrentscsv` 之后
     // （JS 里它们之间还夹着 animetosho / bangumimoe / mikan 等**尚未搬**的站点）。
@@ -575,6 +575,7 @@ fn registry_matches_the_js_registry_order_and_flags() {
             "knaben",
             "torrentscsv",
             "animetosho",
+            "bangumimoe",
             "dmhy",
             "mikan",
             "subsplease",
@@ -598,7 +599,7 @@ fn registry_matches_the_js_registry_order_and_flags() {
     let paginated: Vec<&str> = list.iter().filter(|p| p.paginated).map(|p| p.id).collect();
     assert_eq!(paginated, ["nyaa", "dmhy", "limetorrents", "rutor"]);
 
-    // 全部 enabled（JS 的 21 条都是 enabled: true）
+    // 全部 enabled（JS 的 22 条都是 enabled: true）
     assert!(list.iter().all(|p| p.enabled));
 
     // ⚠️ **恰好一家 demo，且它是最后一条** —— JS 里 `demo` 是唯一个 page>1 的豁免分支
@@ -629,6 +630,7 @@ fn registry_matches_the_js_registry_order_and_flags() {
     assert_eq!(name_of("dmhy"), "DMHY");
     assert_eq!(name_of("mikan"), "Mikan");
     assert_eq!(name_of("animetosho"), "AnimeTosho");
+    assert_eq!(name_of("bangumimoe"), "Bangumi.Moe");
     assert_eq!(name_of("subsplease"), "SubsPlease");
     assert_eq!(name_of("demo"), "Demo (offline)", "JS demo.js 的 name");
 }

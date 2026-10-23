@@ -66,6 +66,21 @@ const JSON_PROVIDERS = [
     rules: [{ match: /subsplease\.org\/api/, file: 'subsplease-one-piece.json', kind: 'json' }],
   },
   {
+    id: 'bangumimoe',
+    module: '../../src/providers/bangumimoe.js',
+    query: 'one piece',
+    page: 1,
+    // POST —— URL 就是 API 本身，body 是 `{"query": …}`
+    rules: [
+      {
+        // 只匹配主机 + 路径前缀（别用 `^https:` 那种要转义的写法 —— 之前被脚本吃坏过一次）
+        match: /bangumi\.moe\/api\/v2\/torrent\/search/,
+        file: 'bangumimoe-one-piece.json',
+        kind: 'json',
+      },
+    ],
+  },
+  {
     id: 'internetarchive',
     module: '../../src/providers/internetarchive.js',
     query: 'ubuntu',
@@ -201,7 +216,7 @@ const HTML_PROVIDERS = [
   },
 ];
 
-/** 全部 20 家。⚠️ 这个数是「已移植」的家数 —— 改了 provider 集合这里要跟着改。 */
+/** 全部 21 家。⚠️ 这个数是「已移植」的家数 —— 改了 provider 集合这里要跟着改。 */
 function allProviders() {
   return [...JSON_PROVIDERS, ...HTML_PROVIDERS];
 }
