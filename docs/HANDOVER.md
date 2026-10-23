@@ -5,14 +5,15 @@
 
 ## 一句话状态
 
-`main` = **`43ca39c`**（2026-10-23）。Rust 主线功能面 100%（M0–M7 全通过），
-发版链已稳定：`v0.3.10` / `v0.3.11` / `v0.3.12` 连续三版一次成功。
+`main` = **`740a7ed`**（2026-10-23）。Rust 主线功能面 100%（M0–M7 全通过），
+发版链已稳定：`v0.3.10` → `v0.3.11` → `v0.3.12` → **`v0.3.13`** 连续四版一次成功。
 工作区干净、`main` 与 `origin/main` 同步。
 
-**最新发布 = `v0.3.12-beta`**（2026-10-23 04:5x UTC，GitHub Latest，tag `v0.3.12-beta` → `43ca39c`）。
-产物 6 个：`BT-Search-Rust-0.3.12-beta.exe`（18.6MB，体积门 25MB 内）/ `.zip`、
-`BT-Search-Electron-Setup-0.3.12-beta.exe`（96MB）+ `.blockmap`、`BT-Search-Electron-Portable.zip`（146MB）、
-`BT-Search-Tauri-Setup-0.3.12-beta.exe`（29.7MB —— 名字与内容都对）。
+**最新发布 = `v0.3.13-beta`**（2026-10-23 05:31 UTC，GitHub Latest，tag `v0.3.13-beta` → `740a7ed`）。
+产物 6 个：`BT-Search-Rust-0.3.13-beta.exe`（18.6MB，体积门 25MB 内）/ `.zip`、
+`BT-Search-Electron-Setup-0.3.13-beta.exe`（96MB）+ `.blockmap`、`BT-Search-Electron-Portable.zip`（146MB）、
+`BT-Search-Tauri-Setup-0.3.13-beta.exe`（29.7MB —— 名字与内容都对）。
+本版内容：**nyaa 终于能拿到磁力**（原来恒 null）+ `audiobookbay` 的 size/date 不再双丢。
 
 ⚠️ **`latest.yml` 从 0.3.11 起就没了**（0.3.10 有）。机制已查清，不是玄学：
 
