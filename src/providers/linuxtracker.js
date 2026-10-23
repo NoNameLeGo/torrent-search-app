@@ -65,10 +65,20 @@ async function searchOne(base, query) {
     const tds = $tr.find('td').toArray();
     if (tds.length < 6) return; // not a main-table row
 
-    const dateText    = tds[3] ? $(tds[3]).text().trim() : '';
-    const sizeText    = tds[4] ? $(tds[4]).text().trim() : '';
-    const seedersText = tds[6] ? $(tds[6]).text().trim() : '';
-    const leechersText= tds[7] ? $(tds[7]).text().trim() : '';
+    // ⚠️ 2026-10-23 修：「展开描述行」有 **19 个 td**，列含义与主表不同，而且值带文字前缀
+    // （cheerio 真值见 html-probes 的 expanded.all_rows）：
+    //   [2] "Added On: 09/08/2026"   [4] "Size: 16.13 MB"
+    //   [6] "Seeds 7"                [8] "Leechers 0"
+    // 主表行（9 个 td）是：[3] 日期 [4] 大小 [6] 种子 [7] 下载。
+    // 原来一律按 9 格读 ⇒ 这类行的 size/date/peers 全是空。
+    const expanded = tds.length >= 15;
+    const cellText = (i) => (tds[i] ? $(tds[i]).text().trim() : '');
+    const afterLabel = (s, label) => (s.startsWith(label) ? s.slice(label.length).trim() : s);
+
+    const dateText     = expanded ? afterLabel(cellText(2), 'Added On:') : cellText(3);
+    const sizeText     = expanded ? afterLabel(cellText(4), 'Size:')     : cellText(4);
+    const seedersText  = expanded ? afterLabel(cellText(6), 'Seeds')     : cellText(6);
+    const leechersText = expanded ? afterLabel(cellText(8), 'Leechers')  : cellText(7);
 
     results.push(normalize({
       provider: 'linuxtracker',

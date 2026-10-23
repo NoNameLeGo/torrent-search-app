@@ -135,9 +135,9 @@ async fn every_result_has_a_magnet() {
     }
 }
 
-/// 「展开的描述行」被保留，但字段是退化的 —— **JS 也是这个结果**，别当 bug 修。
+/// 「展开的描述行」（19 个 td）走单独列映射 —— 2026-10-23 修好后四个字段都能解析。
 #[tokio::test]
-async fn expanded_description_row_keeps_degraded_fields_like_js() {
+async fn expanded_description_row_uses_its_own_column_map() {
     let body = fixture("linuxtracker-linux.html");
     let url = common::oneshot(200, &body).await;
 
@@ -150,15 +150,19 @@ async fn expanded_description_row_keeps_degraded_fields_like_js() {
     else {
         panic!("该有这条（19 个 td 的展开行，名字非空所以会保留）");
     };
-    assert_eq!(
-        r.size, None,
-        "该行的 tds[4] 是 \"Size: 16.13 MB\"，解析不出数字"
-    );
-    assert_eq!(r.size_text, "—");
-    assert_eq!(r.seeders, None);
-    assert_eq!(r.leechers, None);
-    assert_eq!(r.date, None);
-    assert_eq!(r.date_text, "—");
+    // `Size: 16.13 MB` / `Seeds 7` / `Leechers 0` / `Added On: 09/08/2026`
+    // 前缀剥掉后都成了正常值（修之前四个全是空）
+    assert_eq!(r.size_text, "16.1 MB");
+    assert!(r.size.is_some());
+    assert_eq!(r.seeders, Some(7));
+    assert_eq!(r.leechers, Some(0));
+    // `09/08/2026` 是 DD/MM/YYYY ⇒ 2026-08-09 本地零点（不断言 date_text：那是 UTC 格式）
+    let expected = chrono::Local
+        .with_ymd_and_hms(2026, 8, 9, 0, 0, 0)
+        .single()
+        .expect("构造本地时间")
+        .timestamp_millis();
+    assert_eq!(r.date, Some(expected));
 }
 
 // ---- 请求契约 -------------------------------------------------------------

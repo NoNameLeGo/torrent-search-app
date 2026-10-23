@@ -15,9 +15,20 @@
 //! [2] 下载  [3] 日期 DD/MM/YYYY  [4] 大小  [5] 上传者  [6] seeders  [7] leechers  [8] 推荐人
 //! ```
 //!
-//! ⚠️ 主表里还夹着**展开的描述行**（19 个 td，列含义完全不同：`Added On: …` / `Size: …` /
-//! `Seeds 7` …）。这类行只要名字链接非空就会被保留，于是 size/seeders 落在错误的列上、
-//! 解析不出数字 —— **这是 JS 的既有行为，本移植照抄**，免得"修好"之后和 Node 版对不上。
+//! ## ✅ 「展开描述行」已于 2026-10-23 修掉（JS + Rust 两版一起改）
+//!
+//! 主表里夹着**展开的描述行**（**19 个 td**，列含义与主表不同，值还带文字前缀）：
+//!
+//! ```text
+//! [2] "Added On: 09/08/2026"   [4] "Size: 16.13 MB"
+//! [6] "Seeds 7"                [8] "Leechers 0"
+//! ```
+//!
+//! 原来一律按主表的 9 格读 ⇒ 这类行的 size/date/seeders/leechers 全空。
+//! 真值来自 cheerio 探针 `expanded.all_rows`（见 `test/fixtures/html-probes.expected.json`）。
+//!
+//! ⚠️ **不能靠"跳过这些行"解决**：实测 `4MLinux 52 0 core iso` 全页只出现一次，
+//! 说明它是**唯一一条真实结果**，跳过等于丢结果。
 //!
 //! 详情页 URL 的 `id` 参数就是 40 位 infoHash，所以不必再请求一次详情页。
 
@@ -34,6 +45,11 @@ pub const DOMAINS: &[&str] = &["https://linuxtracker.org"];
 
 /// 主表行至少有这么多单元格才认（与 JS 的 `tds.length < 6` 一致）。
 const MIN_CELLS: usize = 6;
+
+/// 「展开描述行」的 td 数门槛（实测 **19**）。这类行是**真实结果**（不是重复行 ——
+/// 实测 `4MLinux 52 0 core iso` 全页只出现一次），只是列布局不同，所以要单独映射。
+/// 主表行是 9 个 td、侧栏 Top10 是 2 个，用 `>= 15` 区分足够安全。
+const EXPANDED_CELLS: usize = 15;
 
 /// 名字链接的选择器（与 JS 逐字一致：含侧栏 Top10 的 2-td 行，靠 `MIN_CELLS` 过滤）。
 const NAME_LINKS: &str = r#"td.lista a[href*="torrent-details"]"#;
@@ -179,16 +195,39 @@ fn parse_dom(base: &str, dom: &Dom) -> Vec<TorrentResult> {
         }
         let cell = |i: usize| tds.get(i).map(|e| text_trim(*e)).unwrap_or_default();
 
+        // 2026-10-23 修：「展开描述行」有 **19 个 td**，列含义与主表不同，且值带文字前缀
+        // （cheerio 真值见 `html-probes` 的 `expanded.all_rows`）：
+        //   [2] "Added On: 09/08/2026"   [4] "Size: 16.13 MB"
+        //   [6] "Seeds 7"                [8] "Leechers 0"
+        // 主表行（9 个 td）是：[3] 日期 [4] 大小 [6] 种子 [7] 下载。
+        let expanded = tds.len() >= EXPANDED_CELLS;
+        let after_label = |s: String, label: &str| -> String {
+            match s.strip_prefix(label) {
+                Some(rest) => rest.trim().to_string(),
+                None => s,
+            }
+        };
+        let (date_text, size_text, seeders_text, leechers_text) = if expanded {
+            (
+                after_label(cell(2), "Added On:"),
+                after_label(cell(4), "Size:"),
+                after_label(cell(6), "Seeds"),
+                after_label(cell(8), "Leechers"),
+            )
+        } else {
+            (cell(3), cell(4), cell(6), cell(7))
+        };
+
         results.push(normalize(&RawResult {
             provider: "linuxtracker".to_string(),
             id: None,
             name: Some(name),
             info_hash,
             magnet: None,
-            size: Some(NumOrText::Text(cell(4))),
-            seeders: Some(NumOrText::Text(cell(6))),
-            leechers: Some(NumOrText::Text(cell(7))),
-            date: parse_eu_date(&cell(3)),
+            size: Some(NumOrText::Text(size_text)),
+            seeders: Some(NumOrText::Text(seeders_text)),
+            leechers: Some(NumOrText::Text(leechers_text)),
+            date: parse_eu_date(&date_text),
             category: Some("Apps".to_string()),
             detail_url,
             files: None,
@@ -355,10 +394,9 @@ mod tests {
             .starts_with("magnet:?xt=urn:btih:5a2759c4"));
     }
 
-    /// 展开的描述行（19 个 td）列含义不同：size/seeders 落在错误列上 → 解析不出数字。
-    /// JS 也是这个结果，**别"修"**。
+    /// 展开的描述行（19 个 td）走单独映射：值带前缀（`Size:` / `Seeds` / `Leechers` / `Added On:`）。
     #[test]
-    fn expanded_description_rows_yield_degraded_fields_like_js() {
+    fn expanded_description_rows_use_their_own_column_map() {
         let html = r#"<table><tr>
             <td class="lista">icon</td>
             <td class="lista"><a href="index.php?page=torrent-details&id=ff818211de0ec5ad17349c6d0f4c1e8a058ba0f9">4MLinux 52 0 core iso</a></td>
@@ -384,12 +422,13 @@ mod tests {
         assert_eq!(out.len(), 1, "名字非空 → 会被保留（与 JS 一致）");
         let r = &out[0];
         assert_eq!(r.name, "4MLinux 52 0 core iso");
-        assert_eq!(r.size, None, "\"Size: 16.13 MB\" 解析不出数字");
-        assert_eq!(r.size_text, "—");
-        assert_eq!(r.seeders, None, "\"Seeds 7\" 解析不出数字");
-        assert_eq!(r.leechers, None);
-        assert_eq!(r.date, None);
-        assert_eq!(r.date_text, "—");
+        // 2026-10-23 修好后：前缀被剥掉，四个字段都真的解析出来了
+        assert_eq!(r.size_text, "16.1 MB");
+        assert!(r.size.is_some(), "size_text = {}", r.size_text);
+        assert_eq!(r.seeders, Some(7));
+        assert_eq!(r.leechers, Some(0));
+        // `09/08/2026` 按 DD/MM/YYYY 解析（本地零点），所以不断言 date_text
+        assert!(r.date.is_some(), "date_text = {}", r.date_text);
     }
 
     /// 绝对链接原样返回，相对链接按 [`join_base`] 拼接。
