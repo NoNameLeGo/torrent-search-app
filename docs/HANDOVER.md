@@ -106,8 +106,12 @@
    导致列索引整体错位一格 ⇒ size/date 全空、**seeders 变成 2009**（把日期串喂给 parseInt）。
    修法：磁力在整行里找、索引改 3/4/5/6。**为什么现在敢修**：这是数据级 bug，不是外观差异；
    两侧同轮改，差分门仍一致（它比的是「同一份 fixture 下两边是否相同」）。
-   ⚠️ **同一类还有两处没修**（见 `AGENTS.md` 的上游 bug 表）：
-   `audiobookbay` 的 size/date 双丢、`linuxtracker` 的 19-td 展开行列错位 —— 都是数据级。
+   ✅ **同类另两处也已在同一天修完**（见 `AGENTS.md` 的上游 bug 表）：
+   `audiobookbay` 的 size/date 双丢（按字段名切，不再按 `\n` 切）、
+   `linuxtracker` 的 19-td 展开行列错位（单独列映射 + 剥前缀）。
+   ⚠️ linuxtracker 那条**不能靠"跳过行"修** —— 实测那个 torrent 全页只出现一次，
+   是唯一一条真实结果；做法是给 19 格行单独映射，真值由新加的 cheerio 探针
+   `expanded.all_rows` 在 CI 里 dump 出来。
 2. **`fetch-fixture.yml` 支持 POST**（可选 `method` / `body`）—— 否则 `bangumimoe` 这类只吃
    POST 的 API 站连快照都抓不到。curl 参数必须用**数组**拼，body 里的引号会被 shell 再解释。
 3. **探活结论**（别再白试）：`tokyotoshokan` CI 也 403（Cloudflare）；`sukebei` 超时、
