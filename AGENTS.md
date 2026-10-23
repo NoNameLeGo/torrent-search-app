@@ -1056,7 +1056,7 @@ CI 尚未测）—— 搬之前先跑一次 `fetch-fixture.yml`，通不了就�
 |---|---|---|
 | `linuxtracker.js` 的 `detailUrl` | `` `${base}${href}` `` 而 base 无结尾斜杠 → `https://linuxtracker.orgindex.php?…` **死链，点开 404**（抓取不受影响，所以一直没暴露） | **修掉**（`join_base` 补斜杠）+ 单列 divergence 测试 |
 | `linuxtracker.js` 的 `parseEuDate` | 用 `new Date(y,m-1,d)`（本地时区零点），而 `dateText` 按 UTC 格式化 → **东八区显示早一天**（站上 28/04 显示 04-27） | **照抄**（纯显示问题，且与时区绑定；要修得两版一起改） |
-| `linuxtracker.js` 的列索引 | 主表里夹着 19 个 td 的「展开描述行」，列含义不同 → 这些结果的 size/seeders 落在错误列上 | **照抄**（否则与 Node 版对不上） |
+| `linuxtracker.js` 的列索引 | 主表里夹着 19 个 td 的「展开描述行」，列含义不同 → 这些结果的 size/seeders 落在错误列上 | ⏳ **待修（2026-10-23 已勘明做法，但没动手）**：⚠️ **不能靠跳过解决** —— 实测 `4MLinux 52 0 core iso` 这个名字**全页只出现一次**，说明那行是**唯一一条真实结果**，跳过就丢结果。正确做法是给 19-td 行单独一张列映射（已知 `tds[4]` 是 `"Size: 16.13 MB"` 带前缀），然后两版一起改。⚠️ 本机没有 cheerio，这个映射只能靠 fixture + 现有测试反推，改动前先把 19 个格子逐格 dump 出来看 |
 | `audiobookbay.js` 的 size/date | `infoText.split('\n')` 想按行切字段，但页面靠 `<br />` 分隔，而 **cheerio 的 `.text()` 不给 `<br>` 补换行**（探针 `info.first_text` 实证：整段挤成一行）→ size 恒 `null`；又因 `else if`，date 被赋成整段垃圾串（`Date.parse` → NaN → `null`）。**两个站上真实存在的字段全丢** | ✅ **2026-10-23 修掉（两版一起改）**：改成按**字段名**切（取标签之后、下一个已知标签之前），`19.24 GBs` / `1 Sep 2026` 都能解析。数据级 bug，不是外观差异 |
 | `therarbg.js` 的 `categoryFromRaw` | `switch` 只列了 `Anime/Apps/Books/Games/Movies/Music/XXX/Tv` 八个**精确**拼写，站上大量分类（`E-books`、`Other`、`TV`…）一律落 `Other` —— 实测 fixture 第 3 行站上写 `E-books`，归一化后变成 `Other` | **照抄**（分类只是给前端的粗粒度提示；要修该拉全量分类表，不是改一行） |
 | `limetorrents.js` 的 `categoryFromRaw` | 同一个毛病，而且更彻底 —— `switch` 只认 `TV`/`Movie`/`Music`/`App`/`E-book`/`Anime`/`Games`，而站上写的是 `TV shows`/`E-books`/`Applications`（探针 `datecell.texts` 实证）→ **40 条结果全落 `Other`** | **照抄**（同上；测试里连“整页没有一个非 Other 的分类”都钉住了） |
