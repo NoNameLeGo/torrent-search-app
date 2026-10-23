@@ -19,9 +19,9 @@
 //! ⚠️ 那个 `<p>` 只在前两个兄弟都在时才是第 3 个孩子（`nth-child` 数的是**所有**孩子，
 //! 不是只数 `p`）。cheerio 侧 `info.count = 9` 确认 9 条全都命中。
 //!
-//! ## ⚠️ 上游 bug：size 与 date 这一版永远是空的（照抄，未修）
+//! ## ✅ 上游 bug 已于 2026-10-23 修掉（JS + Rust 两版一起改）
 //!
-//! JS 是这么写的：
+//! 原来 JS 是这么写的：
 //!
 //! ```js
 //! const infoText = $(p).text();                       // ← 这里没有换行
@@ -39,15 +39,12 @@
 //! Posted: 1 Sep 2026Format: MP3 / Bitrate: 128 KbpsFile Size: 19.24 GBs
 //! ```
 //!
-//! 整段挤成一行 → `startsWith('File Size:')` 为假 → **size 恒为 null**；
-//! 而它确实以 `Posted:` 开头，于是 `date` 被赋成整段垃圾串（还会因为 `else if`
-//! 永远走不到 File Size 那一支）。`Date.parse(…垃圾串)` = NaN → 最终 `date: null`。
+//! 整段挤成一行 ⇒ `startsWith('File Size:')` 为假（**size 恒 null**），
+//! 而它确实以 `Posted:` 开头 ⇒ `date` 被赋成整段垃圾串（`Date.parse` → NaN → null）。
+//! **两个站上真实存在的字段全丢** —— 这是数据级 bug，不是外观差异，所以现在修。
 //!
-//! 实测 `src/lib/normalize.js` 的输出：`sizeText: "—"`、`dateText: "—"`、`needsMagnet: true`。
-//! **本移植逐字照抄这个行为**（阶段一的验收点是「与 Node 版逐字段一致」，且这属于
-//! 「数据缺失 / 纯显示」而不是 `linuxtracker` 那种死链功能性 bug）。
-//! 真要修，两版一起改：把 `split('\n')` 换成按字段名切分即可（本文件 `<mod tests>` 里
-//! 有一条 `split_info` 的正确行为测试，改的时候照它写）。
+//! 修法（两版同轮）：不再按 `\n` 切，改成按**字段名**切 ——
+//! 取标签之后、下一个已知标签之前的那一段（见 [`field_after`]）。
 //!
 //! ## 磁力是惰性的
 //!
@@ -162,28 +159,42 @@ fn parse_post(dom: &Dom, post: ElementRef<'_>, base: &str) -> Option<TorrentResu
     }))
 }
 
-/// 复刻 JS 对 `infoText` 的 `split('\n')` + `if/else if` 链。
-///
-/// ⚠️ 真实页面上这段文本**没有换行**（见文件头），所以实际只有一条 line、
-/// 且它不以 `File Size:` 开头 —— 结果就是 `(None, Some(垃圾串))`。别"顺手修好"，
-/// 修了就和 Node 版对不上了；要修两版一起改。
-fn split_info(info_text: &str) -> (Option<NumOrText>, Option<NumOrText>) {
-    let mut size: Option<NumOrText> = None;
-    let mut date: Option<NumOrText> = None;
+/// 这一格文本里出现的**所有**字段标签（切分时要在这里面找「下一个标签」）。
+const INFO_LABELS: [&str; 4] = ["Posted:", "Format:", "Bitrate:", "File Size:"];
 
-    for raw_line in info_text.split('\n') {
-        let line = raw_line.trim();
-        if line.is_empty() {
+/// 取 `label` 之后、**下一个已知标签**之前的那一段（trim 后；空则 `None`）。
+///
+/// 这是 2026-10-23 那次修复的核心：页面用 `<br />` 分隔字段，而 `.text()` 不给
+/// `<br>` 补换行 ⇒ 按 `\n` 切分只能得到一条。按标签切则不受分隔符影响。
+fn field_after(text: &str, label: &str) -> Option<String> {
+    let start = text.find(label)? + label.len();
+    let rest = &text[start..];
+    let mut end = rest.len();
+    for other in INFO_LABELS {
+        if other == label {
             continue;
         }
-        // 顺序照抄：File Size 在前，Posted 在 else if 里
-        if let Some(rest) = line.strip_prefix("File Size:") {
-            size = Some(NumOrText::Text(strip_trailing_s(rest.trim())));
-        } else if let Some(rest) = line.strip_prefix("Posted:") {
-            date = Some(NumOrText::Text(rest.trim().to_string()));
+        if let Some(i) = rest.find(other) {
+            if i < end {
+                end = i;
+            }
         }
     }
+    let v = rest[..end].trim();
+    if v.is_empty() {
+        None
+    } else {
+        Some(v.to_string())
+    }
+}
 
+/// 从 `infoText` 里切出 size / date（2026-10-23 起按字段名切，见文件头）。
+///
+/// - size 走 JS 的 `.replace(/s$/, '')`：站上写 `19.24 GBs` ⇒ `19.24 GB`；
+/// - date 形如 `1 Sep 2026`，交给 `bt_core::parse_date` 的「月名」分支（按本地时区零点）。
+fn split_info(info_text: &str) -> (Option<NumOrText>, Option<NumOrText>) {
+    let size = field_after(info_text, "File Size:").map(|s| NumOrText::Text(strip_trailing_s(&s)));
+    let date = field_after(info_text, "Posted:").map(NumOrText::Text);
     (size, date)
 }
 
@@ -324,31 +335,26 @@ mod tests {
         assert_eq!(results[0].name, "ok");
     }
 
-    /// ⚠️ 上游行为钉住：真页面那段文本没有换行 → size 恒空、date 是整段垃圾串。
+    /// ✅ 2026-10-23 修好后：同一段**没有换行**的真实文本，两个字段都能切出来。
     #[test]
-    fn the_real_pages_info_text_loses_both_size_and_date() {
+    fn the_real_pages_info_text_now_yields_both_fields() {
         let (size, date) = split_info(REAL_INFO_TEXT);
-        assert_eq!(size, None, "JS 的 else if 让 File Size 那一支永远走不到");
-        // JS: `line.substring('Posted:'.length).trim()` —— 只切掉 "Posted:" 五个字，
-        // 后面的 Format / File Size 全被当成日期
-        let expected_date = REAL_INFO_TEXT
-            .strip_prefix("Posted: ")
-            .expect("REAL_INFO_TEXT 该以 Posted: 开头");
-        assert_eq!(date, Some(NumOrText::Text(expected_date.to_string())));
+        assert_eq!(size, Some(NumOrText::Text("19.24 GB".to_string())));
+        assert_eq!(date, Some(NumOrText::Text("1 Sep 2026".to_string())));
     }
 
-    /// 上面那条垃圾 date 经 `normalize` 之后确实是空的（与 JS 实测一致）。
+    /// 经 `normalize` 之后 size/date 都真的落地了（修之前两个都是 `—`）。
     #[test]
-    fn normalize_turns_the_garbage_date_into_nothing() {
+    fn normalize_now_keeps_size_and_date() {
         let out = one("Book", "/abss/x/", REAL_INFO_TEXT);
-        assert_eq!(out[0].size, None);
-        assert_eq!(out[0].size_text, "—");
-        assert_eq!(out[0].date, None);
-        assert_eq!(out[0].date_text, "—");
+        assert!(out[0].size.is_some(), "size_text = {}", out[0].size_text);
+        assert_eq!(out[0].size_text, "19.2 GB");
+        assert!(out[0].date.is_some(), "date_text = {}", out[0].date_text);
+        // 磁力仍然是惰性的（列表页没有 info hash）
+        assert!(out[0].needs_magnet);
     }
 
-    /// 若字段真的各占一行（`split_info` 被修好后的目标行为），两个字段都该能解析出来。
-    /// 这条测试是给「两版一起修」那天用的参照。
+    /// 字段各占一行时也要能切（按标签切，与分隔符无关）。
     #[test]
     fn split_info_parses_one_field_per_line() {
         let (size, date) = split_info("Posted: 1 Sep 2026\nFormat: MP3\nFile Size: 19.24 GBs");

@@ -9,8 +9,10 @@
 //! `titles.first_3_texts`、`titles.attrs_first_3`、`info.count = 9`、
 //! `info.first_text`），字段结果再由 `src/lib/normalize.js` 实测输出对齐。
 //!
-//! ⚠️ **本站的 size / date 恒为空**（上游 bug，见 `audiobookbay.rs` 文件头），
-//! 所以断言写的是 `size: None` / `size_text: "—"`，不是"懒得测"。
+//! ✅ 2026-10-23：上游那个「size/date 全丢」的 bug 已修（JS + Rust 同轮）。
+//! 页面用 `<br />` 分隔字段而 `.text()` 不补换行，原来按 `\n` 切只能得到一条 ⇒
+//! 两个字段都拿不到。现在按**字段名**切，`19.24 GBs` / `1 Sep 2026` 都能解析出来。
+//! 详情见 `audiobookbay.rs` 文件头。
 //!
 //! 详情页那边只用了 `select("td")` / `text_trim` / `closest_tag` / `find` / `nth`
 //! —— 全都被 `crates/bt-core/src/dom.rs` 的单测或探针钉住；
@@ -20,6 +22,8 @@ mod common;
 
 use bt_core::http::HttpClient;
 use bt_providers::audiobookbay;
+// `with_ymd_and_hms` 是 TimeZone trait 上的方法
+use chrono::TimeZone;
 
 use common::fixture;
 
@@ -90,11 +94,17 @@ async fn first_row_fields_match_the_js_pipeline() {
         "没有 hash 时 id 用名字"
     );
 
-    // ⚠️ 上游 bug：这段文本没有换行，size/date 两个字段都拿不到（见 provider 文件头）
-    assert_eq!(r.size, None);
-    assert_eq!(r.size_text, "—");
-    assert_eq!(r.date, None);
-    assert_eq!(r.date_text, "—");
+    // ✅ 修好后：`File Size: 19.24 GBs` / `Posted: 1 Sep 2026` 都能解析
+    assert!(r.size.is_some(), "size_text = {}", r.size_text);
+    assert_eq!(r.size_text, "19.2 GB");
+    assert!(r.date.is_some(), "date_text = {}", r.date_text);
+    // 日期按**本地时区零点**解析（对齐 JS 的 `new Date(y, m-1, d)`）⇒ 不能写死 date_text
+    let expected_date = chrono::Local
+        .with_ymd_and_hms(2026, 9, 1, 0, 0, 0)
+        .single()
+        .expect("构造本地时间")
+        .timestamp_millis();
+    assert_eq!(r.date, Some(expected_date));
 
     assert_eq!(r.seeders, None, "站点列表页不显示 peers");
     assert_eq!(r.leechers, None);
