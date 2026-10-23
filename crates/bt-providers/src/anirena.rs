@@ -209,14 +209,17 @@ pub async fn resolve_magnet(http: &HttpClient, detail_url: &str) -> MagnetOutcom
         };
     };
 
-    let dom = Dom::parse(&html);
-    let Some(href) = dom
-        .select("div.td-actions > a:nth-child(1)")
-        .into_iter()
-        .next()
-        .and_then(|a| attr(a, "href"))
-        .filter(|h| !h.is_empty())
-    else {
+    // ⚠️ `Dom`（scraper）**不是 `Send`**，不能跨 `.await` 持有 —— 所以先用一个块
+    // 把 href 取出来，块结束时 `dom` 就析构了，后面的 await 才安全。
+    let href = {
+        let dom = Dom::parse(&html);
+        dom.select("div.td-actions > a:nth-child(1)")
+            .into_iter()
+            .next()
+            .and_then(|a| attr(a, "href"))
+            .filter(|h| !h.is_empty())
+    };
+    let Some(href) = href else {
         return MagnetOutcome {
             magnet: None,
             info_hash: None,
