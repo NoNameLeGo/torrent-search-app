@@ -101,5 +101,5 @@
 - `crates/` 里 **TODO/FIXME 0 处**。
 - 测试规模：Rust **478**（`bt-core` / `bt-providers` / `bt-downloaders` / `bt-torznab` / `bt-app`）+ M4 `--selftest` 全链路 + M6 差分（`m6-diff.yml`，探针不是门）。**别把某个数字抄进文档当现值**，要看就查最近一次 `rust.yml` 日志。
 - workflow 共 **14 条**，`python3 scripts/check-workflows.py` 全绿（含体积、YAML、`on:`/`jobs:`、以及**引用的脚本是否存在**）。
-- 引擎：Rust 版 **20 家**（2026-10-21/22 新增 `subsplease` / `dmhy` / `mikan` / `animetosho`；**20 家全部在 M6 差分门里**（逐字段比对，0 处未豁免差异））；Node 版 **40 家**仍在（`D18`：留着作对照，删除是按**函数粒度**的，还没开始）。
+- 引擎：Rust 版 **21 家**（2026-10-21/23 新增 `subsplease` / `dmhy` / `mikan` / `animetosho` / `bangumimoe`；**21 家全部在 M6 差分门里**，逐字段比对 0 处未豁免差异）；Node 版 **40 家**仍在（`D18`：留着作对照，删除是按**函数粒度**的，还没开始）。
 - 分支：`main`（Rust 主线）· `legacy/node-electron`（存档，停在 `9b9461c`）· `feat/rust`（合并后已与 main 同源）· `feat/tauri`（Tauri 壳，**有 69 个独有提交，必须保留**）· `spike/slint-ui`（M1 证据）。
