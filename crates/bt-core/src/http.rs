@@ -48,6 +48,9 @@ pub fn pick_ua() -> &'static str {
 pub struct ReqOpts {
     headers: Vec<(String, String)>,
     timeout: Option<Duration>,
+    /// `Some(false)` ⇒ 关掉自动跳转（`anirena` 的磁力链接是个 302 到 `magnet:` 的地址，
+    /// 跟着跳会变成协议错误，只能自己读 `Location`）。
+    follow_redirects: Option<bool>,
 }
 
 impl ReqOpts {
@@ -64,6 +67,15 @@ impl ReqOpts {
         self.timeout = Some(timeout);
         self
     }
+
+    /// 关掉自动跳转 —— 3xx 会原样返回，跳转目标在 [`TextResponse::location`] 里。
+    ///
+    /// 对应 JS 的 `maxRedirects: 0`（`anirena.js` 的 `followToMagnet`）。
+    #[must_use]
+    pub fn no_redirect(mut self) -> Self {
+        self.follow_redirects = Some(false);
+        self
+    }
 }
 
 /// `get_text` 的返回。
@@ -75,6 +87,9 @@ pub struct TextResponse {
     /// 保留这个行为是为了两边可逐字对照；所有 provider 也都不在 error 路径上读 status。
     pub status: Option<u16>,
     pub error: Option<String>,
+    /// 响应头里的 `Location`（只在 `no_redirect()` 时有意义）。
+    /// ⚠️ 3xx 也会填 —— 那种情况下 `error` 同时是 Some，调用方按需取。
+    pub location: Option<String>,
 }
 
 impl TextResponse {
@@ -83,6 +98,7 @@ impl TextResponse {
             html: None,
             status: None,
             error: Some(error),
+            location: None,
         }
     }
 
@@ -203,6 +219,9 @@ impl HttpClient {
         if let Some(t) = opts.and_then(|o| o.timeout) {
             req = req.timeout(t);
         }
+        if opts.and_then(|o| o.follow_redirects) == Some(false) {
+            req = req.redirect(reqwest::redirect::Policy::none());
+        }
         req
     }
 
@@ -212,14 +231,23 @@ impl HttpClient {
         match req.send().await {
             Ok(res) => {
                 let status = res.status();
+                // 先取 `Location`：3xx（`no_redirect()` 时）也要能读到
+                let location = res
+                    .headers()
+                    .get(reqwest::header::LOCATION)
+                    .and_then(|v| v.to_str().ok())
+                    .map(str::to_string);
                 if !status.is_success() {
-                    return TextResponse::fail(http_status_error(status));
+                    let mut out = TextResponse::fail(http_status_error(status));
+                    out.location = location;
+                    return out;
                 }
                 match res.text().await {
                     Ok(t) => TextResponse {
                         html: Some(t),
                         status: Some(status.as_u16()),
                         error: None,
+                        location,
                     },
                     Err(e) => TextResponse::fail(map_err(&e)),
                 }

@@ -1,4 +1,4 @@
-//! M6 差分验证的 **Rust 侧导出器** —— 把 22 个已移植 provider 的搜索结果导成规范化 JSON。
+//! M6 差分验证的 **Rust 侧导出器** —— 把 23 个已移植 provider 的搜索结果导成规范化 JSON。
 //!
 //! ⚠️ **这不是回归测试，是差分工具**，所以 `#[ignore]`：
 //! `cargo test --workspace` 不会碰它（否则每次跑测试都刷一大坨 JSON）；
@@ -38,9 +38,9 @@ mod common;
 use bt_core::http::HttpClient;
 use bt_core::TorrentResult;
 use bt_providers::{
-    animetosho, audiobookbay, bangumimoe, dmhy, filemood, internetarchive, knaben, limetorrents,
-    linuxtracker, megapeer, mikan, nekobt, nyaa, oxtorrent, rutor, subsplease, therarbg, torrent9,
-    torrentscsv, tpb, yts, zeromagnet, SearchOutcome,
+    animetosho, anirena, audiobookbay, bangumimoe, dmhy, filemood, internetarchive, knaben,
+    limetorrents, linuxtracker, megapeer, mikan, nekobt, nyaa, oxtorrent, rutor, subsplease,
+    therarbg, torrent9, torrentscsv, tpb, yts, zeromagnet, SearchOutcome,
 };
 use serde_json::{json, Value};
 
@@ -118,6 +118,7 @@ fn specs() -> Vec<Spec> {
         // ⚠️ 这几份 fixture 都是 **CI 抓的真实页**（本机对 dmhy / mikan / animetosho 都不通）
         spec("dmhy", "dmhy-one-piece.html", "one piece"),
         spec("mikan", "mikan-one-piece.html", "one piece"),
+        spec("anirena", "anirena-one-piece.html", "one piece"),
         spec("animetosho", "animetosho-one-piece.html", "one piece"),
         spec("nekobt", "nekobt-one-piece.html", "one piece"),
     ]
@@ -149,6 +150,7 @@ async fn run(spec: &Spec, http: &HttpClient, base: &str) -> SearchOutcome {
         "dmhy" => dmhy::search_at(http, base, spec.query, spec.page).await,
         "mikan" => mikan::search_at(http, base, spec.query).await,
         "animetosho" => animetosho::search_at(http, base, spec.query).await,
+        "anirena" => anirena::search_at(http, base, spec.query).await,
         "nekobt" => nekobt::search_at(http, base, spec.query).await,
         "subsplease" => subsplease::search_at(http, base, spec.query).await,
         "bangumimoe" => bangumimoe::search_at(http, base, spec.query).await,

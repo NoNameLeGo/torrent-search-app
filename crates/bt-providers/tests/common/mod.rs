@@ -127,3 +127,28 @@ pub async fn oneshot_capture_bytes(
 fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack.windows(needle.len()).position(|w| w == needle)
 }
+
+/// 只回一个 **302 + `Location`** 的服务 —— 专测「不跟随跳转、自己读 Location」。
+///
+/// 场景：`anirena` 的磁力链接是个 302 到 `magnet:` 的地址（对应 JS 的
+/// `maxRedirects: 0` + 读 `res.headers.location`）。reqwest 默认会跟过去，
+/// 然后因为 `magnet:` 不是 http 协议而报错 —— 所以这个桩必须**不跟**才对得上。
+pub async fn oneshot_redirect(location: &str) -> String {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let location = location.to_string();
+
+    tokio::spawn(async move {
+        let Ok((mut sock, _)) = listener.accept().await else {
+            return;
+        };
+        let mut buf = [0u8; 2048];
+        let _ = sock.read(&mut buf).await;
+        let resp = format!(
+            "HTTP/1.1 302 Found\r\nLocation: {location}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+        );
+        let _ = sock.write_all(resp.as_bytes()).await;
+    });
+
+    format!("http://{addr}")
+}
