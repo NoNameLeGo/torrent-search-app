@@ -48,9 +48,6 @@ pub fn pick_ua() -> &'static str {
 pub struct ReqOpts {
     headers: Vec<(String, String)>,
     timeout: Option<Duration>,
-    /// `Some(false)` ⇒ 关掉自动跳转（`anirena` 的磁力链接是个 302 到 `magnet:` 的地址，
-    /// 跟着跳会变成协议错误，只能自己读 `Location`）。
-    follow_redirects: Option<bool>,
 }
 
 impl ReqOpts {
@@ -65,15 +62,6 @@ impl ReqOpts {
     #[must_use]
     pub fn timeout(mut self, timeout: Duration) -> Self {
         self.timeout = Some(timeout);
-        self
-    }
-
-    /// 关掉自动跳转 —— 3xx 会原样返回，跳转目标在 [`TextResponse::location`] 里。
-    ///
-    /// 对应 JS 的 `maxRedirects: 0`（`anirena.js` 的 `followToMagnet`）。
-    #[must_use]
-    pub fn no_redirect(mut self) -> Self {
-        self.follow_redirects = Some(false);
         self
     }
 }
@@ -156,7 +144,7 @@ impl Default for HttpClient {
 }
 
 impl HttpClient {
-    fn build(timeout: Duration) -> reqwest::Client {
+    fn build(timeout: Duration, redirects: reqwest::redirect::Policy) -> reqwest::Client {
         let mut headers = HeaderMap::new();
         headers.insert(ACCEPT_LANGUAGE, HeaderValue::from_static("en-US,en;q=0.9"));
         headers.insert(
@@ -167,24 +155,38 @@ impl HttpClient {
         );
         reqwest::Client::builder()
             .timeout(timeout)
-            .redirect(reqwest::redirect::Policy::limited(MAX_REDIRECTS))
+            .redirect(redirects)
             .default_headers(headers)
             .build()
             // 只有在 TLS 后端初始化失败时才会到这里，属于启动期硬故障
             .expect("reqwest::Client 构建失败")
     }
 
+    /// 造一个**不跟随跳转**的客户端：3xx 原样返回，跳转目标在 [`TextResponse::location`]。
+    ///
+    /// 对应 JS 的 `maxRedirects: 0`（`anirena.js` 的 `followToMagnet`）：
+    /// 那个磁力锚点是个 302 到 `magnet:` 的地址，跟着跳会被 reqwest 当成不支持的协议。
+    /// ⚠️ reqwest 的跳转策略只能设在 **Client** 上、不能按请求设 —— 所以才需要这个方法。
+    pub fn without_redirects() -> Self {
+        Self {
+            client: Self::build(DEFAULT_TIMEOUT, reqwest::redirect::Policy::none()),
+        }
+    }
+
     /// 默认 10 秒超时 / 最多 5 次跳转 / 浏览器式 Accept 头 —— 与 JS 版一致。
     pub fn new() -> Self {
         Self {
-            client: Self::build(DEFAULT_TIMEOUT),
+            client: Self::build(
+                DEFAULT_TIMEOUT,
+                reqwest::redirect::Policy::limited(MAX_REDIRECTS),
+            ),
         }
     }
 
     /// 换一个默认超时（测试验证超时路径时用）。
     pub fn with_timeout(timeout: Duration) -> Self {
         Self {
-            client: Self::build(timeout),
+            client: Self::build(timeout, reqwest::redirect::Policy::limited(MAX_REDIRECTS)),
         }
     }
 
@@ -218,9 +220,6 @@ impl HttpClient {
         let mut req = self.client.request(method, url).headers(hm);
         if let Some(t) = opts.and_then(|o| o.timeout) {
             req = req.timeout(t);
-        }
-        if opts.and_then(|o| o.follow_redirects) == Some(false) {
-            req = req.redirect(reqwest::redirect::Policy::none());
         }
         req
     }

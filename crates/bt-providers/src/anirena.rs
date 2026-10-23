@@ -230,7 +230,7 @@ pub async fn resolve_magnet(http: &HttpClient, detail_url: &str) -> MagnetOutcom
         format!("{BASE}{href}")
     };
 
-    match follow_to_magnet(http, &abs).await {
+    match follow_to_magnet(&abs).await {
         Some(m) => MagnetOutcome {
             info_hash: bt_core::normalize::extract_info_hash(Some(&m)),
             magnet: Some(m),
@@ -248,9 +248,10 @@ pub async fn resolve_magnet(http: &HttpClient, detail_url: &str) -> MagnetOutcom
 ///
 /// ⚠️ 必须**关掉自动跳转**（`ReqOpts::no_redirect()`），否则 reqwest 会跟着跳到
 /// `magnet:` 然后报「不支持的协议」—— 那正是 JS 用 `maxRedirects: 0` 避开的事。
-async fn follow_to_magnet(http: &HttpClient, source_url: &str) -> Option<String> {
-    let opts = bt_core::http::ReqOpts::default().no_redirect();
-    let resp = http.get_text(source_url, Some(&opts)).await;
+async fn follow_to_magnet(source_url: &str) -> Option<String> {
+    // ⚠️ reqwest 的跳转策略只能设在 Client 上，所以这里用一个「不跟随跳转」的实例
+    let no_redirect = HttpClient::without_redirects();
+    let resp = no_redirect.get_text(source_url, None).await;
     // 3xx 时 `error` 也是 Some，但 `location` 照样有值 —— 所以这里不看 error
     resp.location.filter(|l| l.starts_with("magnet:"))
 }
