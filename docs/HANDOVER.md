@@ -5,15 +5,16 @@
 
 ## 一句话状态
 
-`main` = **`740a7ed`**（2026-10-23）。Rust 主线功能面 100%（M0–M7 全通过），
-发版链已稳定：`v0.3.10` → `v0.3.11` → `v0.3.12` → **`v0.3.13`** 连续四版一次成功。
+`main` = **`6916c8c`**（2026-10-23）。Rust 主线功能面 100%（M0–M7 全通过），
+发版链已稳定：`v0.3.10` → `v0.3.11` → `v0.3.12` → `v0.3.13` → **`v0.3.14`** 连续五版一次成功。
 工作区干净、`main` 与 `origin/main` 同步。
 
-**最新发布 = `v0.3.13-beta`**（2026-10-23 05:31 UTC，GitHub Latest，tag `v0.3.13-beta` → `740a7ed`）。
-产物 6 个：`BT-Search-Rust-0.3.13-beta.exe`（18.6MB，体积门 25MB 内）/ `.zip`、
-`BT-Search-Electron-Setup-0.3.13-beta.exe`（96MB）+ `.blockmap`、`BT-Search-Electron-Portable.zip`（146MB）、
-`BT-Search-Tauri-Setup-0.3.13-beta.exe`（29.7MB —— 名字与内容都对）。
-本版内容：**nyaa 终于能拿到磁力**（原来恒 null）+ `audiobookbay` 的 size/date 不再双丢。
+**最新发布 = `v0.3.14-beta`**（2026-10-23 06:2x UTC，GitHub Latest，tag `v0.3.14-beta` → `6916c8c`）。
+产物 6 个：`BT-Search-Rust-0.3.14-beta.exe`（18.6MB，体积门 25MB 内）/ `.zip`、
+`BT-Search-Electron-Setup-0.3.14-beta.exe`（96MB）、`BT-Search-Electron-Portable.zip`（146MB）、
+`BT-Search-Tauri-Setup-0.3.14-beta.exe`（29.7MB）、**`latest.yml`**。
+本版内容：`linuxtracker` 的「展开描述行」列映射修复 + 第 23 家引擎 `anirena`。
+（`v0.3.13` 带的是 nyaa 磁力修复 + audiobookbay 的 size/date 修复。）
 
 ⚠️ **`latest.yml` 从 0.3.11 起就没了**（0.3.10 有）。机制已查清，不是玄学：
 
@@ -26,6 +27,10 @@
 **2026-10-23 实测证据**：发版过程中 `gh release list` 能看到一个 **Draft** `0.3.13-beta`
 （`build.yml` 的 electron-builder 默认建 draft），最终留下的是 `draft=false` 那份，
 而 `latest.yml` 数量 = 0 —— 与上表推断一致。
+
+**同一天的 `v0.3.14-beta` 反过来验证了「谁最后跑完谁决定」**：这次 **有** `latest.yml`（383B）、
+却**没有** `.exe.blockmap`。所以资产集是**竞态**结果，不是固定形态 ——
+`0.3.11/0.3.12/0.3.13` 缺 latest.yml、`0.3.14` 有；blockmap 则相反。
 
 **实际影响 ≈ 0**：全仓没有任何 `electron-updater` / `autoUpdater` 引用 ⇒ 没有自动更新在读它。
 真要修（二选一，都得下次发版验证）：
