@@ -247,8 +247,8 @@ mod tests {
     const MAGNET: &str = "magnet:?xt=urn:btih:45008e48c8800b7d7643337b2e70a634e4c69f6a&dn=x";
 
     #[test]
-    fn parses_a_row_with_the_same_off_by_two_indices_as_the_js() {
-        // 名字格里**故意不放**磁力（和真实页面一样），磁力放在 Link 格
+    fn parses_a_row_with_the_fixed_indices() {
+        // 磁力放在 Link 格（和真实页面一样），名字格里没有
         let rows = row(
             "Koha Live CD",
             "/view/96659",
@@ -267,23 +267,22 @@ mod tests {
         assert_eq!(r.detail_url.as_deref(), Some("https://nyaa.si/view/96659"));
         assert_eq!(r.category.as_deref(), Some("Software - Applications"));
 
-        // ⚠️ 列错位的三个后果（照抄 JS）
-        assert_eq!(r.size, None, "读到的是空串的 Link 格");
-        assert_eq!(r.size_text, "—");
-        assert_eq!(r.date, None, "读到的是 \"624.0 MiB\"");
-        assert_eq!(r.date_text, "—");
-        assert_eq!(r.seeders, Some(2009), "读到的是日期串 \"2009-11-03 07:03\"");
-        assert_eq!(r.leechers, Some(0), "读到的其实是真 seeders（这行也是 0）");
+        // 2026-10-23 修：列索引 3/4/5/6（原来是 2..5，全体错位一格）
+        assert_eq!(r.size, Some(654_311_424), "624.0 MiB");
+        assert_eq!(r.size_text, "624 MB");
+        assert_eq!(r.date, Some(1_257_231_780_000), "2009-11-03 07:03 UTC");
+        assert_eq!(r.date_text, "2009-11-03");
+        assert_eq!(r.seeders, Some(0), "不再是 2009（那是在读日期串）");
+        assert_eq!(r.leechers, Some(0));
 
-        // ⚠️ 磁力在名字格找不到 → 恒 null
+        // 但这一行**没有**磁力（`row(..., None, ...)`），所以仍要惰性解析
         assert_eq!(r.magnet, None);
-        assert_eq!(r.info_hash, None);
         assert!(r.needs_magnet);
     }
 
-    /// 磁力即使**就放在名字格里**（真实页面不是这样），JS 的索引错位也照样影响别的字段。
+    /// 2026-10-23 起磁力在**整行**范围内找，放哪一格都能命中。
     #[test]
-    fn a_magnet_in_the_name_cell_would_be_found() {
+    fn a_magnet_anywhere_in_the_row_is_found() {
         let rows = format!(
             r##"<tr><td><a href="/?c=6_1" title="Anime">c</a></td>
                  <td colspan="2"><a href="/view/1" title="n">n</a>
@@ -298,6 +297,10 @@ mod tests {
             Some("45008e48c8800b7d7643337b2e70a634e4c69f6a")
         );
         assert!(!out[0].needs_magnet, "有磁力就不需要惰性解析");
+        // 同一行的其它字段也按修正后的索引取
+        assert_eq!(out[0].seeders, Some(7));
+        assert_eq!(out[0].leechers, Some(1));
+        assert_eq!(out[0].date_text, "2020-01-01");
     }
 
     #[test]
