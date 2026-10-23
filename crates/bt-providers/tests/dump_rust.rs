@@ -39,7 +39,7 @@ use bt_core::http::HttpClient;
 use bt_core::TorrentResult;
 use bt_providers::{
     animetosho, audiobookbay, bangumimoe, dmhy, filemood, internetarchive, knaben, limetorrents,
-    linuxtracker, megapeer, mikan, nyaa, oxtorrent, rutor, subsplease, therarbg, torrent9,
+    linuxtracker, megapeer, mikan, nekobt, nyaa, oxtorrent, rutor, subsplease, therarbg, torrent9,
     torrentscsv, tpb, yts, zeromagnet, SearchOutcome,
 };
 use serde_json::{json, Value};
