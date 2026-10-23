@@ -89,6 +89,25 @@
 于是 `git push origin refs/heads/<branch>` 报 `Everything up-to-date`（推的是没动过的旧引用）。
 要么传短分支名，要么 `git push origin HEAD:refs/heads/<branch>`。
 
+## 2026-10-23 这一轮：搬了 6 家 + 修掉 nyaa 的数据级 bug
+
+**引擎 16 → 22 家**（`subsplease` / `dmhy` / `mikan` / `animetosho` / `bangumimoe` / `nekobt`），
+全部同步进 M6 差分门 ⇒ **22 家全量、0 处未豁免差异**。发了 `v0.3.12-beta`。
+
+三件值得记的事：
+
+1. **`nyaa` 的三处上游 bug 已修（JS + Rust 同轮）**。原来照抄的结果是：
+   磁力在 Link 格而代码在名字格里找 ⇒ **结果里根本没有磁力**；名字格带 `colspan="2"`
+   导致列索引整体错位一格 ⇒ size/date 全空、**seeders 变成 2009**（把日期串喂给 parseInt）。
+   修法：磁力在整行里找、索引改 3/4/5/6。**为什么现在敢修**：这是数据级 bug，不是外观差异；
+   两侧同轮改，差分门仍一致（它比的是「同一份 fixture 下两边是否相同」）。
+   ⚠️ **同一类还有两处没修**（见 `AGENTS.md` 的上游 bug 表）：
+   `audiobookbay` 的 size/date 双丢、`linuxtracker` 的 19-td 展开行列错位 —— 都是数据级。
+2. **`fetch-fixture.yml` 支持 POST**（可选 `method` / `body`）—— 否则 `bangumimoe` 这类只吃
+   POST 的 API 站连快照都抓不到。curl 参数必须用**数组**拼，body 里的引号会被 shell 再解释。
+3. **探活结论**（别再白试）：`tokyotoshokan` CI 也 403（Cloudflare）；`sukebei` 超时、
+   `bitsearch` 520、`eztv` 403。剩下可试的约 12 家。
+
 ## 还挂着的事（按「值得动」排序）
 
 1. ✅ **已发 `v0.3.10-beta`**（2026-10-21）—— 含 0.3.8 之后的全部修复。下次照本轮顺序走：
