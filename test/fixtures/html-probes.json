@@ -93,6 +93,15 @@
           "id": "td_lista.count",
           "op": "count",
           "selector": "td.lista"
+        },
+        {
+          "id": "expanded.all_rows",
+          "op": "row_cells",
+          "selector": "td.lista a[href*=\"torrent-details\"]",
+          "closest": "tr",
+          "within": "td",
+          "limit": 25,
+          "note": "2026-10-23 为修「19 个 td 的展开行」加的：把前 25 行的每格都 dump 出来，看清那张列映射"
         }
       ]
     },
