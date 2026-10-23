@@ -5,15 +5,27 @@
 
 ## 一句话状态
 
-`main` = **`676df4d`**（2026-10-21）。Rust 主线功能面 100%（M0–M7 全通过），
-发版链上那两个缺口（体积门 `paths` 漏 `Cargo.lock`、`release-check.js` 不校验 lock）
-已修并**实测通过**，`v0.3.10-beta` 已发出。工作区干净、`main` 与 `origin/main` 同步。
+`main` = **`43ca39c`**（2026-10-23）。Rust 主线功能面 100%（M0–M7 全通过），
+发版链已稳定：`v0.3.10` / `v0.3.11` / `v0.3.12` 连续三版一次成功。
+工作区干净、`main` 与 `origin/main` 同步。
 
-**最新发布 = `v0.3.10-beta`**（2026-10-21 15:57 UTC，GitHub Latest，tag `v0.3.10-beta` → `676df4d`）。
-产物 5 个 + `latest.yml`：
-`BT-Search-Rust-0.3.10-beta.exe`（18.5MB，体积门 25MB 内）/ `.zip`、
-`BT-Search-Electron-Setup-0.3.10-beta.exe`（96MB）、`BT-Search-Electron-Portable.zip`（146MB）、
-`BT-Search-Tauri-Setup-0.3.10-beta.exe`（29.7MB —— **名字与内容都对**，`feat/tauri` 三处版本已同步到 0.3.10）。
+**最新发布 = `v0.3.12-beta`**（2026-10-23 04:5x UTC，GitHub Latest，tag `v0.3.12-beta` → `43ca39c`）。
+产物 6 个：`BT-Search-Rust-0.3.12-beta.exe`（18.6MB，体积门 25MB 内）/ `.zip`、
+`BT-Search-Electron-Setup-0.3.12-beta.exe`（96MB）+ `.blockmap`、`BT-Search-Electron-Portable.zip`（146MB）、
+`BT-Search-Tauri-Setup-0.3.12-beta.exe`（29.7MB —— 名字与内容都对）。
+
+⚠️ **`latest.yml` 从 0.3.11 起就没了**（0.3.10 有）。机制已查清，不是玄学：
+
+| 谁 | 干什么 | 是否产出 `latest.yml` |
+|---|---|---|
+| `build.yml`（tag 触发） | `npm run dist -- --publish=onTag`，**自己发 Release** | **会**（electron-builder 发布时才写） |
+| `release.yml` 的 electron job | `npm run dist -- --publish=never` | **不会**（日志里只有 `building block map`） |
+| `release.yml` 的 publish job | 先 `gh release delete`（保留 tag）再用自己的 6 个产物重建 | 于是 build.yml 那份 `latest.yml` 被连带删掉 |
+
+**实际影响 ≈ 0**：全仓没有任何 `electron-updater` / `autoUpdater` 引用 ⇒ 没有自动更新在读它。
+真要修（二选一，都得下次发版验证）：
+① 去掉 `release.yml` 里那步 `gh release delete`（软 props 会按文件名合并，重复发同一 tag 时才会留下旧文件）；
+② 反过来让 `release.yml` 的 electron job 也产出并上传 `latest.yml`（需要 electron-builder 在 `--publish=never` 下也生成它 —— 目前不会，得加 `--config.publish` 之类的技巧，不如①稳）。
 
 ⚠️ **`v0.3.9-beta` 从未发布成功**（历史更正，别再照旧文档复述）：
 那次发版 run（`38897429252`）里 `electron` / `tauri` 两个 job 都绿，
