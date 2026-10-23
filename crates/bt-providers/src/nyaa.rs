@@ -26,23 +26,21 @@
 //! [7] 0   ← downloads
 //! ```
 //!
-//! ## ⚠️ 上游 bug（照抄，未修）—— 这一站一次踩了三个
+//! ## ✅ 上游 bug 已于 2026-10-23 修掉（JS + Rust 两版一起改）
 //!
-//! 1. **列错位**：JS 读 `tds.eq(2)/eq(3)/eq(4)/eq(5)`，以为它们是 Size/Date/Seeders/Leechers，
-//!    但 `colspan` 把评论列合掉之后它们实际是 **Link/Size/Date/Seeders**：
-//!    - `size` 拿到 **Link 格（空串）** → `sizeText: "—"`
-//!    - `date` 拿到 **`"624.0 MiB"`** → `parseDate` 解析不出 → `dateText: "—"`
-//!    - `seeders` 拿到 **`"2009-11-03 07:03"`** → `parseInt` 给出 **2009**（实测 JS 就是这个数）
-//!    - `leechers` 拿到的是**真 seeders**（这一行两格都是 0，所以没露馅）
-//! 2. **磁力找错地方**：`nameCell.find('a[href^="magnet:"]')` 在 `tds.eq(1)`（名字格）里找，
-//!    而磁力在 `tds.eq(2)`（Link 格）里（fixture 里实测全页只有那一条）→ **magnet 恒为 null**、
-//!    `needsMagnet` 恒为 true。
-//! 3. 由 2 派生：`nyaa.js` **没有 `resolveMagnet`**，于是前端那个「获取磁力」按钮会打到
-//!    `/api/magnet` → 该 provider 无 resolver → 回退到 1337x 的（已死）→ 报错。
-//!    **也就是说 nyaa 的结果目前拿不到磁力。**
+//! 原来这里照抄了三个 bug（验收点是「与 Node 版逐字段一致」，所以当时没动）：
 //!
-//! 三条都照抄（阶段一的验收点是「与 Node 版逐字段一致」）；测试里把「seeders=2009」这种
-//! 荒诞值也钉住了，免得以后有人以为是 Rust 侧写错。
+//! 1. **列错位**：JS 读 `tds.eq(2..5)`，但 `colspan` 把评论列合掉之后它们实际是
+//!    **Link/Size/Date/Seeders** ⇒ `sizeText: "—"`、`dateText: "—"`、
+//!    `seeders: 2009`（把日期串 `2009-11-03 07:03` 喂给 `parseInt`）。
+//! 2. **磁力找错地方**：在名字格里找 `a[href^="magnet:"]`，而磁力在 Link 格里 ⇒
+//!    `magnet` 恒 null、`needsMagnet` 恒 true。
+//! 3. 由 2 派生：本站**没有 `resolveMagnet`**，于是前端「获取磁力」会一路失败
+//!    （`/api/magnet` → 无 resolver → 回退到已死的 1337x → 报错）。
+//!
+//! **为什么现在能修**：这三条是**数据级** bug（结果里没有磁力、字段是错的），
+//! 不是「外观差异」。修法两版同步：磁力改成在**整行**里找、列索引改成 3/4/5/6。
+//! 因为两侧一起改，M6 差分门仍然逐字段一致（它比的是「同一份 fixture 下两边是否相同」）。
 //!
 //! ## 分页
 //!
@@ -66,7 +64,7 @@ const ROWS: &str = "table.torrent-list tbody tr";
 /// 名字格里的详情页链接。
 const VIEW_LINK: &str = r#"a[href^="/view/"]"#;
 
-/// 名字格里的磁力（⚠️ JS 就在这里找，所以恒找不到 —— 真磁力在 Link 格里）。
+/// 磁力（⚠️ 2026-10-23 修：在**整行**里找。原来在名字格里找，恒找不到）。
 const MAGNET_LINK: &str = r#"a[href^="magnet:"]"#;
 
 /// 用默认域名搜索。`page` **原样进 URL**（JS 没做 `coercePage`）。
@@ -158,10 +156,9 @@ fn parse_row(dom: &Dom, row: ElementRef<'_>, base: &str) -> Option<TorrentResult
         })
         .unwrap_or_default();
 
-    // ⚠️ JS 在**名字格**里找磁力 —— 实测那里没有（磁力在 Link 格）→ 恒为 None。
-    // 照抄，别"顺手修好"，修了就和 Node 版对不上。
+    // 磁力在 Link 格里 —— 在**整行**范围内找（2026-10-23 修，原来只在名字格里找）
     let magnet = dom
-        .find(name_cell, MAGNET_LINK)
+        .find(row, MAGNET_LINK)
         .into_iter()
         .next()
         .and_then(|a| attr(a, "href"))
@@ -172,11 +169,11 @@ fn parse_row(dom: &Dom, row: ElementRef<'_>, base: &str) -> Option<TorrentResult
         .filter(|h| !h.is_empty())
         .map(|href| format!("{base}{href}"));
 
-    // ⚠️ 下面四个索引是 JS 的 `tds.eq(2..5)`，因为 `colspan` 而**全部错位**（见文件头）
-    let size = cell_text(&tds, 2);
-    let date = cell_text(&tds, 3);
-    let seeders = cell_text(&tds, 4);
-    let leechers = cell_text(&tds, 5);
+    // 列索引 3/4/5/6（2026-10-23 修：原来照抄 JS 的 2..5，因 `colspan` 全体错位一格）
+    let size = cell_text(&tds, 3);
+    let date = cell_text(&tds, 4);
+    let seeders = cell_text(&tds, 5);
+    let leechers = cell_text(&tds, 6);
 
     Some(normalize(&RawResult {
         provider: "nyaa".to_string(),

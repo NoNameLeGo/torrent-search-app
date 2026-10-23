@@ -36,20 +36,27 @@ async function search(query, { page = 1 } = {}) {
       tds.eq(0).find('a').first().attr('title') ||
       null;
 
-    const $magnet = nameCell.find('a[href^="magnet:"]').first();
+    // ⚠️ 2026-10-23 修：磁力在 **Link 格**（第 3 个 td），不在名字格。
+    // 原来在 `nameCell` 里找 ⇒ 恒 null ⇒ needsMagnet 恒 true，而本站又没有
+    // resolveMagnet ⇒ 前端「获取磁力」会一路失败。两版（JS + Rust）同轮一起改。
+    const $magnet = $row.find('a[href^="magnet:"]').first();
     const magnet = $magnet.attr('href') || null;
     const viewHref = $view.attr('href');
     const detailUrl = viewHref ? `${BASE}${viewHref}` : null;
 
     const infoHash = extractInfoHash(magnet);
 
+    // ⚠️ 2026-10-23 修列错位：名字格带 `colspan="2"`，一行只有 **8 个 td**
+    // （分类 / 名字 / Link / Size / Date / Seeders / Leechers / Completed），
+    // 而原来按 9 列读 `eq(2..5)` ⇒ size 读到空的 Link 格、date 读到 "624.0 MiB"、
+    // seeders 读到日期串（parseInt 后变成 2009）。正确索引是 3/4/5/6。
     results.push(normalize({
       provider: 'nyaa',
       name,
-      size: tds.eq(2).text(),
-      date: tds.eq(3).text(),
-      seeders: tds.eq(4).text(),
-      leechers: tds.eq(5).text(),
+      size: tds.eq(3).text(),
+      date: tds.eq(4).text(),
+      seeders: tds.eq(5).text(),
+      leechers: tds.eq(6).text(),
       magnet,
       infoHash,
       detailUrl,

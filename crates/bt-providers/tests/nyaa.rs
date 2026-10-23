@@ -6,13 +6,16 @@
 //!
 //! 期望值来自 cheerio 1.2.0 的真值（`test/fixtures/html-probes.json` 的
 //! `rows.count = 1`、`rows.first_3_rows`（**8 个 td**，名字格带 `colspan="2"`）、
-//! `view_links.*`、`cat_titles.attrs_first_3`（`Software - Applications`）、
-//! `namecell_magnets.count = 0`、`td3..td6.texts`），再由 `src/lib/normalize.js`
-//! 实测出 `sizeText` / `dateText` / `seeders`。
+//! `view_links.*`、`cat_titles.attrs_first_3`（`Software - Applications`））。
 //!
-//! ⚠️ **本站的点：JS 的列索引全是错的**（`colspan` 把评论列合掉了，一行只有 8 个 td，
-//! 而 JS 按 9 列读）→ `sizeText`/`dateText` 空、`seeders` 变成 2009。
-//! 测试把这些荒诞值也钉住，免得以后有人以为是 Rust 侧写错（详见 `nyaa.rs` 文件头）。
+//! ## 2026-10-23：三处上游 bug 已修（JS + Rust 两版一起改）
+//!
+//! 之前这里钉的是「seeders=2009」「magnet=null」这类**荒诞值**（照抄上游）。
+//! 但它们是数据级 bug：结果里没有磁力、size/date 全空、seeders 是年份。
+//! 修法：磁力在**整行**里找、列索引改 3/4/5/6。因为两侧同轮改，
+//! M6 差分门（同一份 fixture 下两边逐字段比）仍然一致。
+//!
+//! 所以现在断言的是**页面上真实的数据**：`624.0 MiB` / `2009-11-03` / `0` / 那条磁力。
 
 mod common;
 
@@ -37,7 +40,7 @@ async fn parses_the_real_fixture() {
 }
 
 #[tokio::test]
-async fn the_single_row_matches_the_js_pipeline_bug_for_bug() {
+async fn the_single_row_now_carries_the_real_data() {
     let url = common::oneshot(200, &fixture("nyaa-ubuntu.html")).await;
     let base = url.trim_end_matches('/').to_string();
 
@@ -46,39 +49,34 @@ async fn the_single_row_matches_the_js_pipeline_bug_for_bug() {
 
     assert_eq!(r.provider, "nyaa");
     assert_eq!(r.name, NAME);
-    assert_eq!(r.id, format!("nyaa:{NAME}"));
     assert_eq!(
         r.detail_url.as_deref(),
         Some(format!("{base}/view/96659").as_str())
     );
     assert_eq!(r.category.as_deref(), Some("Software - Applications"));
 
-    // ⚠️ 列错位：size 读到空的 Link 格、date 读到 "624.0 MiB"
-    assert_eq!(r.size, None);
-    assert_eq!(r.size_text, "—");
-    assert_eq!(r.date, None);
-    assert_eq!(r.date_text, "—");
+    // 列索引修正后（3=Size / 4=Date / 5=Seeders / 6=Leechers）
+    assert_eq!(r.size, Some(654_311_424), "624.0 MiB");
+    assert_eq!(r.size_text, "624 MB");
+    assert_eq!(r.date, Some(1_257_231_780_000), "2009-11-03 07:03 UTC");
+    assert_eq!(r.date_text, "2009-11-03");
+    assert_eq!(r.seeders, Some(0), "这一行真的是 0（不是 2009 了）");
+    assert_eq!(r.leechers, Some(0));
 
-    // ⚠️ seeders 读到日期串 "2009-11-03 07:03" → parseInt = 2009（JS 实测就是这个数）
-    assert_eq!(r.seeders, Some(2009));
-    assert_eq!(r.leechers, Some(0), "读到的是真 seeders，这一行恰好也是 0");
-
-    // ⚠️ 磁力在 Link 格，而 JS 在名字格里找 → 恒空
-    assert_eq!(r.magnet, None);
-    assert_eq!(r.info_hash, None);
-    assert!(r.needs_magnet);
-    assert_eq!(r.files, None);
-
-    // 真正的数据其实都在页面上（探针 rows.first_3_rows 钉着）：
-    //   td[2] 里有 magnet:?xt=urn:btih:45008e48c8800b7d7643337b2e70a634e4c69f6a
-    //   td[3] = "624.0 MiB"、td[4] = "2009-11-03 07:03"、td[5] = 真 seeders
-    let html = fixture("nyaa-ubuntu.html");
+    // 磁力现在拿得到（在 Link 格里找）
+    let magnet = r.magnet.as_deref().unwrap_or_default();
     assert!(
-        html.contains("45008e48c8800b7d7643337b2e70a634e4c69f6a"),
-        "磁力确实在页面上（只是在 Link 格，JS 找错格）"
+        magnet.starts_with("magnet:?xt=urn:btih:45008e48c8800b7d7643337b2e70a634e4c69f6a"),
+        "实际：{magnet}"
     );
-    assert!(html.contains("624.0 MiB"), "真 size 在页面上");
-    assert!(html.contains("2009-11-03 07:03"), "真日期在页面上");
+    assert_eq!(
+        r.info_hash.as_deref(),
+        Some("45008e48c8800b7d7643337b2e70a634e4c69f6a")
+    );
+    assert!(!r.needs_magnet, "有磁力就不该再标 needs_magnet");
+    // id 从 hash 派生（有 hash 时不再用名字）
+    assert_eq!(r.id, "nyaa:45008e48c8800b7d7643337b2e70a634e4c69f6a");
+    assert_eq!(r.files, None, "第 8 格是 downloads，JS 不读");
 }
 
 /// 钉住请求 URL：`{base}/?f=0&c=0_0&q=<query>&page=<page>`。

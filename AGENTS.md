@@ -1068,7 +1068,7 @@ CI 尚未测）—— 搬之前先跑一次 `fetch-fixture.yml`，通不了就�
 | `megapeer.js` 的列索引 | 50 行里 7 行多一格评论数（恒在 td3）→ `td:nth-child(3)` 当 size 在那些行取到评论数、`td:nth-child(4)` 的 peers 落空 | **修掉**（「倒数第 2 格 = size、最后一格 = peers」）+ divergence 测试 |
 | `zeromagnet.js` 的数据白扔 | `td:nth-child(2)` 的 `result-meta` 里就有 `6.2GB` / `2026-08-07`，JS 只传 `name`/`detailUrl`/`category:'Porn'`，全丢（探针 `meta_sizes`/`meta_dates` 把「拿得到却不用」钉住） | **照抄**（与 oxtorrent/torrent9 同款毛病） |
 | `nyaa.js` 的列索引 | 名字那格带 `colspan="2"`（评论列被并掉），一行只有 **8 个 td**，而 JS 按 9 列读 `tds.eq(2..5)` → 实际落到 Link/Size/Date/Seeders：`sizeText` 恒 `—`、`dateText` 恒 `—`、**`seeders` 变成日期串里的 2009**（实测 JS 真给这个数） | **照抄**（测试把 `seeders = Some(2009)` 都钉住了，免得以后有人以为 Rust 写错） |
-| `nyaa.js` 的磁力 | `nameCell.find('a[href^="magnet:"]')` 在**名字格**里找，而磁力在 `tds.eq(2)`（Link 格）→ **magnet 恒 `null`、`needsMagnet` 恒 true**；而 `nyaa.js` **又没有 `resolveMagnet`**，于是前端「获取磁力」会打到 `/api/magnet` → 无 resolver → 回退到已死的 1337x → 报错。**结论：nyaa 现在拿不到磁力** | **照抄**（真要修：把搜索范围改成整行 + 补一个 `resolveMagnet`，两版一起改） |
+| `nyaa.js` 的磁力 + 列错位 | ① `nameCell.find('a[href^="magnet:"]')` 在**名字格**里找，而磁力在 `tds.eq(2)`（Link 格）→ **magnet 恒 `null`、`needsMagnet` 恒 true**，而 `nyaa.js` 又没有 `resolveMagnet` ⇒ 前端「获取磁力」一路失败；② 名字格带 `colspan="2"`，一行只有 **8 个 td**，而 JS 按 9 列读 `eq(2..5)` ⇒ size 拿到空的 Link 格、date 拿到 `624.0 MiB`、**seeders 变成 2009**（把日期串喂给 `parseInt`） | ✅ **2026-10-23 修掉（两版一起改）**：磁力改成在**整行**里找、列索引改 3/4/5/6。这是**数据级** bug（结果里根本没磁力），不是外观差异 —— 修完 M6 差分门仍逐字段一致（两侧同轮改） |
 
 口径：**功能性 bug（死链）就修，纯显示问题先照抄** —— 三条都在代码注释里写明了理由。
 - HTML fixture 现状：
