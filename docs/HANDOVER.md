@@ -23,6 +23,10 @@
 | `release.yml` 的 electron job | `npm run dist -- --publish=never` | **不会**（日志里只有 `building block map`） |
 | `release.yml` 的 publish job | 先 `gh release delete`（保留 tag）再用自己的 6 个产物重建 | 于是 build.yml 那份 `latest.yml` 被连带删掉 |
 
+**2026-10-23 实测证据**：发版过程中 `gh release list` 能看到一个 **Draft** `0.3.13-beta`
+（`build.yml` 的 electron-builder 默认建 draft），最终留下的是 `draft=false` 那份，
+而 `latest.yml` 数量 = 0 —— 与上表推断一致。
+
 **实际影响 ≈ 0**：全仓没有任何 `electron-updater` / `autoUpdater` 引用 ⇒ 没有自动更新在读它。
 真要修（二选一，都得下次发版验证）：
 ① 去掉 `release.yml` 里那步 `gh release delete`（软 props 会按文件名合并，重复发同一 tag 时才会留下旧文件）；
