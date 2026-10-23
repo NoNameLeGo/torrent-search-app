@@ -208,6 +208,13 @@ const HTML_PROVIDERS = [
     rules: [{ match: /animetosho\.org/, file: 'animetosho-one-piece.html', kind: 'html' }],
   },
   {
+    id: 'nekobt',
+    module: '../../src/providers/nekobt.js',
+    query: 'one piece',
+    page: 1,
+    rules: [{ match: /nekobt\.to/, file: 'nekobt-one-piece.html', kind: 'html' }],
+  },
+  {
     id: 'zeromagnet',
     module: '../../src/providers/zeromagnet.js',
     query: 'ubuntu',
@@ -216,7 +223,7 @@ const HTML_PROVIDERS = [
   },
 ];
 
-/** 全部 21 家。⚠️ 这个数是「已移植」的家数 —— 改了 provider 集合这里要跟着改。 */
+/** 全部 22 家。⚠️ 这个数是「已移植」的家数 —— 改了 provider 集合这里要跟着改。 */
 function allProviders() {
   return [...JSON_PROVIDERS, ...HTML_PROVIDERS];
 }
