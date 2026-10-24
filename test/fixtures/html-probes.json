@@ -871,6 +871,79 @@
           "selector": "a[href^=\"magnet:\"]"
         }
       ]
+    },
+    {
+      "file": "xxxtracker-one-piece.html",
+      "note": "真实结果页（2026-10-24 由 CI 抓取，q=one+piece）。源文件是 XHTML、<table width=\"100%\"> 下**没有 tbody**（解析器会补）。表头行 class=backgr，数据行 class 在 gai/tum 之间交替。**一行只有 4 个 td**：第 2 格带 colspan=\"2\"（源码写 `colspan = \"2\"`，带空格，照样生效）。第 2 格里依次是 a(magnet) / a.downgif / a(详情+名字) —— JS 的 `a:nth-child(3)` 就是这个第 3 个 a。第 4 格的元素子节点顺序是 span.green / img / span.red ⇒ JS 的 `span:nth-child(2)` **匹配不到**，这就是 leechers 恒空的原因（照抄，见 provider 文件头）。",
+      "probes": [
+        {
+          "id": "rows.count",
+          "op": "count",
+          "selector": "table > tbody > tr"
+        },
+        {
+          "id": "rows.first_3_cells",
+          "op": "row_cells",
+          "selector": "table > tbody > tr",
+          "closest": "tr",
+          "within": "td",
+          "limit": 3
+        },
+        {
+          "id": "name_links.count",
+          "op": "count",
+          "selector": "td:nth-child(2) > a:nth-child(3)"
+        },
+        {
+          "id": "name_links.first_text",
+          "op": "text_first",
+          "selector": "td:nth-child(2) > a:nth-child(3)"
+        },
+        {
+          "id": "name_links.first_href",
+          "op": "attr_first",
+          "selector": "td:nth-child(2) > a:nth-child(3)",
+          "attr": "href"
+        },
+        {
+          "id": "magnet_links.first_href",
+          "op": "attr_first",
+          "selector": "td:nth-child(2) > a:nth-child(1)",
+          "attr": "href"
+        },
+        {
+          "id": "sizes.first_3",
+          "op": "texts",
+          "selector": "td:nth-child(3)",
+          "limit": 3
+        },
+        {
+          "id": "seeders.first_3",
+          "op": "texts",
+          "selector": "td:nth-child(4) > span:nth-child(1)",
+          "limit": 3
+        },
+        {
+          "id": "leechers.first_3",
+          "op": "texts",
+          "selector": "td:nth-child(4) > span:nth-child(2)",
+          "limit": 3
+        },
+        {
+          "id": "dates.first_3",
+          "op": "texts",
+          "selector": "td:nth-child(1)",
+          "limit": 3
+        },
+        {
+          "id": "peer_spans.first_2_rows",
+          "op": "row_cells",
+          "selector": "table > tbody > tr",
+          "closest": "tr",
+          "within": "span",
+          "limit": 2
+        }
+      ]
     }
   ]
 }
