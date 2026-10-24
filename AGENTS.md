@@ -89,7 +89,7 @@ M4 ✅ bt-app Slint MVP（2026-10-16，UI + 接线 + 映射层 + **全链路 --s
 M5 ✅ 引擎体检（2026-10-16 —— **结论是「一个都不砍」**，见「provider 探活」；
 单边 403 不足以判死）
 M6 ✅ 差分验证（2026-10-16 起 16 家；**2026-10-23 已扩到 23 家** —— 新增的七家逐字段全等，0 处未豁免差异）
-M7 ✅ 打包 + GitHub Release（2026-10-16 —— **v0.3.6-beta 首发**，四套产物；**v0.3.8-beta** 带上 windows 子系统修复（不再弹控制台）+ Torznab 界面 + 离线 demo 引擎；**v0.3.12-beta**（2026-10-23）带上 mikan / animetosho / bangumimoe / nekobt 四家新引擎，共 22 家；**v0.3.13-beta** 带上 nyaa 磁力修复 + audiobookbay 的 size/date 修复）
+M7 ✅ 打包 + GitHub Release（2026-10-16 —— **v0.3.6-beta 首发**，四套产物；**v0.3.8-beta** 带上 windows 子系统修复（不再弹控制台）+ Torznab 界面 + 离线 demo 引擎；**v0.3.12-beta**（2026-10-23）带上 mikan / animetosho / bangumimoe / nekobt 四家新引擎，共 22 家；**v0.3.13-beta** 带上 nyaa 磁力修复 + audiobookbay 的 size/date 修复；**v0.3.14-beta** 带上 linuxtracker 的展开行列映射 + 第 23 家 `anirena`）
 ```
 
 ### 🧹 2026-10-16 审计修复（50 条发现 → 三组已收口，15 HIGH 全部核验）
@@ -181,7 +181,7 @@ M7 ✅ 打包 + GitHub Release（2026-10-16 —— **v0.3.6-beta 首发**，四�
 
 ----
 
-想"静态 20 家 + 运行期动态的（Torznab / demo / 测试注入）并成一份集合"时，
+想"静态 23 家 + 运行期动态的（Torznab / demo / 测试注入）并成一份集合"时，
 撞到的是这一条 —— **不是 `Send`**（`pub trait Provider: Send + Sync` ✅、
 `Vec<Box<dyn Provider>>` 可以 move 进后台任务 ✅），而是：
 
@@ -1438,19 +1438,24 @@ NODE_TLS_REJECT_UNAUTHORIZED=0 node --use-env-proxy scripts/provider-health.mjs
 **`eztv` 的 451**（Unavailable For Legal Reasons）是法律性封锁 —— 写多少 UA 都没用，
 和 Cloudflare 的 403 要分开对待。
 
-### 🚧 受阻引擎清单（2026-10-09，**先记下来，以后再看有没有办法**）
+### 🚧 受阻引擎清单（2026-10-09 初版，**2026-10-24 已核对并剔除已搬的**）
 
-用户口径：**先搬能用的，不能用的记录在案**。按「有没有救」分四档：
+用户口径：**先搬能用的，不能用的记录在案**。按「有没有救」分四档。
+⚠️ 本表**只列仍未搬的**：`anirena` / `nekobt` / `mikan` / `animetosho` / `subsplease` / `bangumimoe`
+已于 2026-10-21/23 落地（见上面的进度快照），从原表 C/D 档里移出了 —— 它们当初被判「不通」
+多半只是粗判标记或空 JSON 的结果，**不要拿旧结论当死站证据**。
 
 | 档 | 引擎 | 现象 | 还有什么办法 |
 |---|---|---|---|
 | **A. 基本没救** | `eztv` | **451 法律性封锁**（两个环境都是） | 没有。法律性封锁不是技术问题 |
 | | `blueroms` / `torrentdatabase` / `uindex` / `1337x` | **Cloudflare 403**（两个环境都是） | 参考 1337x 小节那四条路（换环境抓 fixture / 第三方 API / 浏览器自动化 / 放弃），成本都高 |
-| **B. 机房 IP 被拦，本机可用** | `tpb` / `limetorrents` / `therarbg` / `torrent9` / `oxtorrent` | 本机 ✅ 出结果，CI ⛔ 403 | **不是问题** —— 用户在家里跑就能用。只是别拿 CI 的 403 当真相 |
-| **C. 两个环境都不通** | `anirena` / `bitsearch` / `bt4g` / `mypornclub` / `tokyotoshokan` / `torrentdownload` / `torrentdownloads` / `torrentkitty` / `xxxclub` | CI ⛔ 403，本机 timeout/连不上 | CI 全 403 → 大概率也是 Cloudflare；要确认得**换个住宅 IP 的环境**再探一次 |
-| | `sukebei` / `nekobt` | 两边都连不上（`UND_ERR_CONNECT_TIMEOUT` / timeout） | 确认域名是否还活着（`sukebei` 是 `nyaa.si` 的子域，可能一起被网络层挡了） |
-| **D. 页面在但拿不到结果行** | `animetosho` / `mikan` | 两边都 200，但粗判 0 行 | **不是坏事** —— 很可能只是我的粗判标记（数 `<tr`）跟它们的结构不符。按站点核一遍真实选择器即可 |
-| | `anilibria` / `subsplease` / `bangumimoe` | 200 但响应只有 2~55 字节 | 空 JSON（`[]`）—— 说明接口通、只是这个关键词没结果。**换关键词再探一次就能定性** |
+| **B. 机房 IP 被拦，本机可用** | `tpb` / `limetorrents` / `therarbg` / `torrent9` / `oxtorrent` | 本机 ✅ 出结果，CI ⛔ 403 | **不是问题** —— 用户在家里跑就能用。只是别拿 CI 的 403 当真相（这 5 家**都已搬**） |
+| **C. 两个环境都不通** | `bitsearch` / `bt4g` / `mypornclub` / `tokyotoshokan` / `torrentdownload` / `torrentdownloads` / `torrentkitty` / `xxxclub` | CI ⛔ 403，本机 timeout/连不上 | CI 全 403 → 大概率也是 Cloudflare；要确认得**换个住宅 IP 的环境**再探一次 |
+| | `sukebei` | 两边都连不上（`UND_ERR_CONNECT_TIMEOUT` / timeout） | 确认域名是否还活着（`sukebei` 是 `nyaa.si` 的子域，可能一起被网络层挡了） |
+| **D. 页面在但拿不到结果行** | `anilibria` | 200 但响应只有 2~55 字节 | 空 JSON（`[]`）—— 说明接口通、只是这个关键词没结果。**换关键词再探一次就能定性** |
+| **未入表（有搬的价值）** | `xxxtracker` / `btdigg` | `xxxtracker` CI 200 / 1 行；`btdigg` 429（限流） | 两家都**还能试**，只是按 D13「不再盲搬」有意推迟。要动先跑 `fetch-fixture.yml` 拿真快照 |
+
+⇒ 未移植 17 家的分布：A 5 + C 9 + D 1 + 有救但推迟 2 = 17。
 
 **重新评估的触发条件**（满足任一条就该重探，不用等）：
 1. 探活里某个引擎从 ⛔/❌ 变成 200+有行（可能只是它自己换了域名/放开了）

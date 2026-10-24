@@ -5,7 +5,7 @@
 
 ## 一句话状态
 
-`main` = **`6916c8c`**（2026-10-23）。Rust 主线功能面 100%（M0–M7 全通过），
+`main` = **`6916c8c`**（2026-10-23；2026-10-24 核对时其后只有文档提交 `9141602`，代码未动）。Rust 主线功能面 100%（M0–M7 全通过），
 发版链已稳定：`v0.3.10` → `v0.3.11` → `v0.3.12` → `v0.3.13` → **`v0.3.14`** 连续五版一次成功。
 工作区干净、`main` 与 `origin/main` 同步。
 
@@ -147,4 +147,4 @@
 - 测试规模：Rust **478**（`bt-core` / `bt-providers` / `bt-downloaders` / `bt-torznab` / `bt-app`）+ M4 `--selftest` 全链路 + M6 差分（`m6-diff.yml`，探针不是门）。**别把某个数字抄进文档当现值**，要看就查最近一次 `rust.yml` 日志。
 - workflow 共 **14 条**，`python3 scripts/check-workflows.py` 全绿（含体积、YAML、`on:`/`jobs:`、以及**引用的脚本是否存在**）。
 - 引擎：Rust 版 **23 家**（2026-10-21/23 新增 `subsplease` / `dmhy` / `mikan` / `animetosho` / `bangumimoe` / `nekobt` / `anirena`；**23 家全部在 M6 差分门里**，逐字段比对 0 处未豁免差异）；Node 版 **40 家**仍在（`D18`：留着作对照，删除是按**函数粒度**的，还没开始）。
-- 分支：`main`（Rust 主线）· `legacy/node-electron`（存档，停在 `9b9461c`）· `feat/rust`（合并后已与 main 同源）· `feat/tauri`（Tauri 壳，**有 69 个独有提交，必须保留**）· `spike/slint-ui`（M1 证据）。
+- 分支：`main`（Rust 主线）· `legacy/node-electron`（存档，停在 `9b9461c`）· `feat/rust`（合并后已与 main 同源）· `feat/tauri`（Tauri 壳，**有 78 个独有提交，必须保留**）· `spike/slint-ui`（M1 证据，3 个独有提交）。
