@@ -93,8 +93,8 @@ jobs:
         run: |
           set -euo pipefail
           # 🎉 **2026-10-16：门已放开到 16 家全量；2026-10-22 扩到 20 家；
-          # 10-23 起 21 家；2026-10-24 核对 = 23 家**
-          # （新增 subsplease / dmhy / mikan / animetosho / bangumimoe / nekobt / anirena）。
+          # 10-23 起 21 家；2026-10-24 起 24 家**
+          # （新增 subsplease / dmhy / mikan / animetosho / bangumimoe / nekobt / anirena / xxxtracker）。
           # ⚠️ 步骤名**不写家数** —— 它已经过期过两次（16→20→21）。
           #
           # 首次全量跑（同一天早些时候）曾抓到 111 处未命中白名单的差异，

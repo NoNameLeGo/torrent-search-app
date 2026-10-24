@@ -1,7 +1,7 @@
-name: M6 diff (全部 23 家，**不是门**)
+name: M6 diff (全部 24 家，**不是门**)
 
-# 目的：M6 的**全量**差分报告 —— Rust 侧 vs Node 侧，23 家逐字段比。
-# ⚠️ 家数跟着 `bt_providers::registry()` 走（2026-10-24 = 23）。加引擎时记得同步这里。
+# 目的：M6 的**全量**差分报告 —— Rust 侧 vs Node 侧，24 家逐字段比。
+# ⚠️ 家数跟着 `bt_providers::registry()` 走（2026-10-24 = 24）。加引擎时记得同步这里。
 #
 # ⚠️ **这个 workflow 刻意只挂 `workflow_dispatch`**：它是**探针**，不是门。
 # 理由与 `live-smoke.yml` / `provider-health.yml` 相同 —— 结果需要人看，

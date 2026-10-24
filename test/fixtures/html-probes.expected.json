@@ -1018,5 +1018,55 @@
     "magnet_inputs.count": 1,
     "magnet_inputs.first_value": "magnet:?xt=urn:btih:01c137287d6f0ed05a56742dae794f632c79ff3d&dn=ubuntu-24.04.4-desktop-amd64.iso&tr=https%3A%2F%2Ftorrent.ubuntu.com%2Fannounce&tr=https%3A%2F%2Fipv6.torrent.ubuntu.com%2Fannounce",
     "magnet_links.count": 1
+  },
+  "xxxtracker-one-piece.html": {
+    "rows.count": 101,
+    "rows.first_3_cells": [
+      [
+        "Добавлен",
+        "Название",
+        "Размер",
+        "Пиры"
+      ],
+      [
+        "18 Окт 26",
+        "Honey April - Honey's First Creampie and BBC / BBC Surprise (2026) SiteRip",
+        "1.03 GB",
+        "7  3"
+      ],
+      [
+        "18 Окт 26",
+        "Misty Stone - Fucking in the couch with her bubble butt (2015) SiteRip",
+        "539.13 MB",
+        "0  0"
+      ]
+    ],
+    "name_links.count": 100,
+    "name_links.first_text": "Honey April - Honey's First Creampie and BBC / BBC Surprise (2026) SiteRip",
+    "name_links.first_href": "/torrent/119076/",
+    "magnet_links.first_href": "magnet:?xt=urn:btih:ec3ba0e839485f06fdff4d694230fa198bb28b16&dn=BBCSurprise_-_Honey_April_-_Honeys_First_Creamp.torrent&tr=udp://open.stealth.si:80/announce&tr=http%3A%2F%2Fretracker.local%2Fannounce",
+    "sizes.first_3": [
+      "Размер",
+      "1.03 GB",
+      "539.13 MB"
+    ],
+    "seeders.first_3": [
+      "7",
+      "0",
+      "3"
+    ],
+    "leechers.first_3": [],
+    "dates.first_3": [
+      "Добавлен",
+      "18 Окт 26",
+      "18 Окт 26"
+    ],
+    "peer_spans.first_2_rows": [
+      [],
+      [
+        "7",
+        "3"
+      ]
+    ]
   }
 }

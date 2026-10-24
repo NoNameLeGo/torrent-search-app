@@ -228,9 +228,17 @@ const HTML_PROVIDERS = [
     page: 1,
     rules: [{ match: /9mag\.net/, file: 'zeromagnet-ubuntu.html', kind: 'html' }],
   },
+  {
+    // 2026-10-24：第 24 家。fixture 由 CI 抓（本机对 xxxtor.com 不通）
+    id: 'xxxtracker',
+    module: '../../src/providers/xxxtracker.js',
+    query: 'one piece',
+    page: 1,
+    rules: [{ match: /xxxtor\.com/, file: 'xxxtracker-one-piece.html', kind: 'html' }],
+  },
 ];
 
-/** 全部 23 家。⚠️ 这个数是「已移植」的家数 —— 改了 provider 集合这里要跟着改。 */
+/** 全部 24 家。⚠️ 这个数是「已移植」的家数 —— 改了 provider 集合这里要跟着改。 */
 function allProviders() {
   return [...JSON_PROVIDERS, ...HTML_PROVIDERS];
 }
