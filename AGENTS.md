@@ -47,11 +47,11 @@ Electron mode: `npm run electron` (picks a free port automatically, no collision
 本项目**推倒重开、用 Rust 重写**，在 `feat/rust` 上进行，长期长成主分支。
 `main` 上的 Node/Express + Electron/Tauri 实现继续可用；Rust 版每搬完一块就替代一块。
 
-**📊 进度快照（2026-10-21 —— **`main` 已是 Rust 主线，M0–M7 全部完成**）**：**23 个 provider 已搬**（7 JSON + 16 HTML），
+**📊 进度快照（2026-10-24 —— **`main` 已是 Rust 主线，M0–M7 全部完成**）**：**24 个 provider 已搬**（7 JSON + 17 HTML），
 CI 全绿 + M4 全链路自检 12/12（clippy + fmt 均为硬门；**具体测试数看最近一次 `rust.yml` 日志** —— 本文件里出现的数字都是快照，别当现值）；
-探针 **126 条 / 17 fixture**；
+探针 **138 条 / 18 fixture**；
 **聚合层 = 100%（M2）、下载器 = 100%（M3）、UI = 100%（M4）、引擎体检 = 100%（M5，结论「不砍」）、
-差分 = 100%（M6，**23 家全量** 0 处未豁免差异）、打包 = 100%（M7，v0.3.6 / v0.3.8 / v0.3.10 / v0.3.12 / v0.3.13 / **v0.3.14-beta** 已发）**
+差分 = 100%（M6，**24 家全量** 0 处未豁免差异）、打包 = 100%（M7，v0.3.6 / v0.3.8 / v0.3.10 / v0.3.12 / v0.3.13 / **v0.3.14-beta** 已发）**
 ⇒ **没有"下一个里程碑"了** —— 往后是审计/加固（见 §「Rust 侧遗留清单」）。
 Node 版整套仍在 `main` 上共存（D18：那道门（M6）已经开了，但"删"是按**函数粒度**的，还没开始）。
 
@@ -88,7 +88,7 @@ M3 ✅ bt-downloaders（2026-10-16，4 客户端 / 34 条离线测试）
 M4 ✅ bt-app Slint MVP（2026-10-16，UI + 接线 + 映射层 + **全链路 --selftest 12/12**）
 M5 ✅ 引擎体检（2026-10-16 —— **结论是「一个都不砍」**，见「provider 探活」；
 单边 403 不足以判死）
-M6 ✅ 差分验证（2026-10-16 起 16 家；**2026-10-23 已扩到 23 家** —— 新增的七家逐字段全等，0 处未豁免差异）
+M6 ✅ 差分验证（2026-10-16 起 16 家；**2026-10-23 扩到 23 家、2026-10-24 到 24 家** —— 新增的逐字段全等，0 处未豁免差异）
 M7 ✅ 打包 + GitHub Release（2026-10-16 —— **v0.3.6-beta 首发**，四套产物；**v0.3.8-beta** 带上 windows 子系统修复（不再弹控制台）+ Torznab 界面 + 离线 demo 引擎；**v0.3.12-beta**（2026-10-23）带上 mikan / animetosho / bangumimoe / nekobt 四家新引擎，共 22 家；**v0.3.13-beta** 带上 nyaa 磁力修复 + audiobookbay 的 size/date 修复；**v0.3.14-beta** 带上 linuxtracker 的展开行列映射 + 第 23 家 `anirena`）
 ```
 
@@ -181,7 +181,7 @@ M7 ✅ 打包 + GitHub Release（2026-10-16 —— **v0.3.6-beta 首发**，四�
 
 ----
 
-想"静态 23 家 + 运行期动态的（Torznab / demo / 测试注入）并成一份集合"时，
+想"静态 24 家 + 运行期动态的（Torznab / demo / 测试注入）并成一份集合"时，
 撞到的是这一条 —— **不是 `Send`**（`pub trait Provider: Send + Sync` ✅、
 `Vec<Box<dyn Provider>>` 可以 move 进后台任务 ✅），而是：
 
@@ -324,7 +324,7 @@ tag 事后删除 ⇒ **当前最新发布仍是 `v0.3.8-beta`**，下一版走 `
 
 **D. 不是遗留，是设计（别再当欠账）**：D17 Torznab 本期不做 · D18 Node 版留着
 （M6 已完成 ⇒ 那道门开了，但"删"是按**函数粒度**的，还没开始）·
-M5 那 5 个 403 是**机房 IP 被拦**不是死站 · Rust 版 **23 家 vs Node 40 家**已如实写明。
+M5 那 5 个 403 是**机房 IP 被拦**不是死站 · Rust 版 **24 家 vs Node 40 家**已如实写明。
 
 **🟡 M6 进行中（2026-10-16）—— 差分 harness 建成，5 个 JSON provider 首次真跑就零差异。**
 
@@ -1453,9 +1453,10 @@ NODE_TLS_REJECT_UNAUTHORIZED=0 node --use-env-proxy scripts/provider-health.mjs
 | **C. 两个环境都不通** | `bitsearch` / `bt4g` / `mypornclub` / `tokyotoshokan` / `torrentdownload` / `torrentdownloads` / `torrentkitty` / `xxxclub` | CI ⛔ 403，本机 timeout/连不上 | CI 全 403 → 大概率也是 Cloudflare；要确认得**换个住宅 IP 的环境**再探一次 |
 | | `sukebei` | 两边都连不上（`UND_ERR_CONNECT_TIMEOUT` / timeout） | 确认域名是否还活着（`sukebei` 是 `nyaa.si` 的子域，可能一起被网络层挡了） |
 | **D. 页面在但拿不到结果行** | `anilibria` | 200 但响应只有 2~55 字节 | 空 JSON（`[]`）—— 说明接口通、只是这个关键词没结果。**换关键词再探一次就能定性** |
-| **未入表（有搬的价值）** | `xxxtracker` / `btdigg` | `xxxtracker` CI 200 / 1 行；`btdigg` 429（限流） | 两家都**还能试**，只是按 D13「不再盲搬」有意推迟。要动先跑 `fetch-fixture.yml` 拿真快照 |
+| **未入表（有搬的价值）** | `btdigg` | 429（限流，不是封锁） | **还能试**，只是按 D13「不再盲搬」有意推迟。要动先跑 `fetch-fixture.yml` 拿真快照 |
 
-⇒ 未移植 17 家的分布：A 5 + C 9 + D 1 + 有救但推迟 2 = 17。
+⇒ 未移植 16 家的分布：A 5 + C 9 + D 1 + 有救但推迟 1 = 16。
+（`xxxtracker` 已于 2026-10-24 搬入，是本表里**唯一一家**「探活就能出结果」的 —— 见 `crates/bt-providers/src/xxxtracker.rs`。）
 
 **重新评估的触发条件**（满足任一条就该重探，不用等）：
 1. 探活里某个引擎从 ⛔/❌ 变成 200+有行（可能只是它自己换了域名/放开了）
