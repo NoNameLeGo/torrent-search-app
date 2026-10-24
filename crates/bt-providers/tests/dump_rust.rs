@@ -40,7 +40,7 @@ use bt_core::TorrentResult;
 use bt_providers::{
     animetosho, anirena, audiobookbay, bangumimoe, dmhy, filemood, internetarchive, knaben,
     limetorrents, linuxtracker, megapeer, mikan, nekobt, nyaa, oxtorrent, rutor, subsplease,
-    therarbg, torrent9, torrentscsv, tpb, yts, zeromagnet, SearchOutcome,
+    therarbg, torrent9, torrentscsv, tpb, xxxtracker, yts, zeromagnet, SearchOutcome,
 };
 use serde_json::{json, Value};
 
@@ -121,6 +121,8 @@ fn specs() -> Vec<Spec> {
         spec("anirena", "anirena-one-piece.html", "one piece"),
         spec("animetosho", "animetosho-one-piece.html", "one piece"),
         spec("nekobt", "nekobt-one-piece.html", "one piece"),
+        // 2026-10-24：第 24 家（fixture 由 CI 抓，本机对 xxxtor.com 不通）
+        spec("xxxtracker", "xxxtracker-one-piece.html", "one piece"),
     ]
 }
 
@@ -152,6 +154,7 @@ async fn run(spec: &Spec, http: &HttpClient, base: &str) -> SearchOutcome {
         "animetosho" => animetosho::search_at(http, base, spec.query).await,
         "anirena" => anirena::search_at(http, base, spec.query).await,
         "nekobt" => nekobt::search_at(http, base, spec.query).await,
+        "xxxtracker" => xxxtracker::search_at(http, base, spec.query).await,
         "subsplease" => subsplease::search_at(http, base, spec.query).await,
         "bangumimoe" => bangumimoe::search_at(http, base, spec.query).await,
         other => panic!("dump_rust 没覆盖 {other}（加了 provider 就同步 SPECS）"),
