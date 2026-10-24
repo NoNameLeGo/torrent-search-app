@@ -10,11 +10,15 @@ use crate::{
     http, js_truthy, json_or_text, net_err, status_err, with_path, Config, PushOutcome, TIMEOUT,
 };
 
-/// 发一次 JSON-RPC 并取出 `result`。
+/// 发一次 JSON-RPC 并取出 `result`，同时带回真实 HTTP 状态码。
 ///
 /// 请求体照 JS：`{ jsonrpc:'2.0', id:'ts', method, params }`，
 /// 其中 `params = [...secret, ...业务参数]` —— **token 是平铺进数组的**，不是嵌套的。
-async fn call(cfg: &Config, method: &str, params: Vec<Value>) -> Result<Value, String> {
+///
+/// ⚠️ 为什么要把状态码带出来：JS 在 `push` 里**硬编码 200**，而这里照抄会让 UI 显示
+/// 「已推送到 aria2（HTTP 200）」—— 那是个编造的数字。aria2 正常确实回 200，
+/// 但"编造"和"读到"在出问题时是两回事（2026-10-16 审计 #12）。
+async fn call(cfg: &Config, method: &str, params: Vec<Value>) -> Result<(Value, u16), String> {
     let url = with_path(&cfg.url, "/jsonrpc");
 
     let mut all: Vec<Value> = Vec::new();
@@ -40,6 +44,7 @@ async fn call(cfg: &Config, method: &str, params: Vec<Value>) -> Result<Value, S
     if !resp.status().is_success() {
         return Err(status_err(resp.status()));
     }
+    let status = resp.status().as_u16();
 
     let data = json_or_text(resp).await?;
 
@@ -58,16 +63,15 @@ async fn call(cfg: &Config, method: &str, params: Vec<Value>) -> Result<Value, S
         }
     }
 
-    Ok(data.get("result").cloned().unwrap_or(Value::Null))
+    Ok((data.get("result").cloned().unwrap_or(Value::Null), status))
 }
 
 pub(crate) async fn push(cfg: &Config, magnet: &str) -> Result<PushOutcome, String> {
     // ⚠️ **双层数组**：`aria2.addUri` 的**第一个参数本身是「URL 数组」**，
     // 而 JSON-RPC 的 `params` 也是数组 —— JS 写的就是 `[[magnet]]`。
     // 少一层就变成"把字符串当 URL 列表"，aria2 会报参数错。
-    call(cfg, "aria2.addUri", vec![json!([magnet])]).await?;
-    // JS 这里硬编码 200。
-    Ok(PushOutcome { status: 200 })
+    let (_result, status) = call(cfg, "aria2.addUri", vec![json!([magnet])]).await?;
+    Ok(PushOutcome { status })
 }
 
 pub(crate) async fn test(cfg: &Config) -> Result<(), String> {

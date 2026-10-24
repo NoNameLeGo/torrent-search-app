@@ -196,17 +196,19 @@ jobs:
           path: artifacts
           merge-multiple: true
 
-      # 若该 tag 已存在旧 Release，先删掉它（保留 tag），避免 softprops 追加产物
-      # 导致新旧文件名共存。正常按顺序递增版本时这步是 no-op；只有显式覆盖重发才生效。
-      - name: Delete existing release for this tag (keep tag)
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        run: |
-          gh release delete "${{ github.ref_name }}" \
-            --repo "${{ github.repository }}" --yes \
-            2>/dev/null && echo "已删除同名旧 Release（tag 保留）" \
-            || echo "无同名旧 Release，跳过"
+      # ⚠️ **这里刻意不删同名旧 Release**（2026-10-24 删掉了原 `gh release delete` 步骤）。
+      #
+      # 原步骤的注释说"避免 softprops 追加产物导致新旧文件名共存" —— **这个担心不成立**：
+      # `softprops/action-gh-release` 的 `overwrite_files` **默认为 true**，同名资产会原地覆盖；
+      # 而且它**复用**同 tag 的既有 Release（是 `build.yml` 的 electron-builder 先建的那个），
+      # 复用 draft 时在 `draft` 未显式设置的情况下会把它发布出去。
+      #
+      # 反过来，原来那步 `gh release delete` 是 `latest.yml` 时有时无的**直接原因**：
+      # 两个 workflow 都监听 tag push，`build.yml` 先建 Release 并放上 `latest.yml`，
+      # 随后这里把整个 Release 删掉、只用本 job 的 6 个产物重建 ⇒ `latest.yml` 连带消失。
+      # 删掉本步骤后两侧合并到同一个 Release，资产是并集。
+      #
+      # 仓库规矩是"绝不重打同名 tag"，所以"覆盖重发"这个场景本来就不该发生。
 
       - name: Build release body
         env:

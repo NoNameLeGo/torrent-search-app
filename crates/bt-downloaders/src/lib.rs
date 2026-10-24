@@ -412,7 +412,11 @@ pub(crate) fn js_truthy(v: &Value) -> bool {
 /// 与 JS **逐字对齐**的是协议层的文案：`登录失败（用户名或密码错误）` /
 /// `Transmission: xxx` / `aria2: xxx` / `Gopeed: xxx` —— 那些才是我们自己写的。
 pub(crate) fn net_err(e: reqwest::Error) -> String {
-    format!("请求下载器失败 ({e})")
+    // ⚠️ **不能直接 `format!("{e}")`** —— reqwest 的 `Display` 会带上**完整 URL**，
+    // 而下载器地址常把凭据放在 query 里（`?token=…`）或内嵌 basic-auth；
+    // 这段文案会进 UI 状态行、`--health` 落盘历史和日志（2026-10-16 审计 #14）。
+    // `without_url()` 只剥掉 URL，底层原因（DNS / 连接 / TLS / 超时）原样保留。
+    format!("请求下载器失败 ({})", e.without_url())
 }
 
 /// 非 2xx 的文案。⚠️ 见 [`net_err`]：axios 会说 `Request failed with status code N`，

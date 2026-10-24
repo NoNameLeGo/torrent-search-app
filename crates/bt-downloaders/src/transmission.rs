@@ -14,7 +14,10 @@ use crate::{http, json_or_text, net_err, status_err, with_path, Config, PushOutc
 const SESSION_HEADER: &str = "x-transmission-session-id";
 
 /// 发一次 RPC。409 → 取会话 id 重发**一次**；拿不到 id 就当错误（照 JS 的 rethrow）。
-async fn call(cfg: &Config, body: &Value) -> Result<Value, String> {
+///
+/// 返回值带上**真实** HTTP 状态码 —— JS 在 `push` 里硬编码 200，
+/// 照抄会让 UI 显示一个编造的数字（2026-10-16 审计 #12）。
+async fn call(cfg: &Config, body: &Value) -> Result<(Value, u16), String> {
     let url = with_path(&cfg.url, "/transmission/rpc");
 
     let resp = send(&url, cfg, body, None).await?;
@@ -22,7 +25,8 @@ async fn call(cfg: &Config, body: &Value) -> Result<Value, String> {
         if !resp.status().is_success() {
             return Err(status_err(resp.status()));
         }
-        return json_or_text(resp).await;
+        let status = resp.status().as_u16();
+        return Ok((json_or_text(resp).await?, status));
     }
 
     let sid = resp
@@ -40,7 +44,8 @@ async fn call(cfg: &Config, body: &Value) -> Result<Value, String> {
     if !resp.status().is_success() {
         return Err(status_err(resp.status()));
     }
-    json_or_text(resp).await
+    let status = resp.status().as_u16();
+    Ok((json_or_text(resp).await?, status))
 }
 
 /// 造并发出一次请求。`sid` 为 `Some` 时带上会话头（重发那一次）。
@@ -84,17 +89,16 @@ fn check_result(data: &Value) -> Result<(), String> {
 }
 
 pub(crate) async fn push(cfg: &Config, magnet: &str) -> Result<PushOutcome, String> {
-    let data = call(
+    let (data, status) = call(
         cfg,
         &json!({ "method": "torrent-add", "arguments": { "filename": magnet } }),
     )
     .await?;
     check_result(&data)?;
-    // JS 这里硬编码 200（不取真实状态码）。
-    Ok(PushOutcome { status: 200 })
+    Ok(PushOutcome { status })
 }
 
 pub(crate) async fn test(cfg: &Config) -> Result<(), String> {
-    let data = call(cfg, &json!({ "method": "session-get" })).await?;
+    let (data, _status) = call(cfg, &json!({ "method": "session-get" })).await?;
     check_result(&data)
 }

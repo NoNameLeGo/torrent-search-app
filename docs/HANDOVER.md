@@ -122,6 +122,21 @@
 3. **探活结论**（别再白试）：`tokyotoshokan` CI 也 403（Cloudflare）；`sukebei` 超时、
    `bitsearch` 520、`eztv` 403。剩下可试的约 12 家。
 
+## 2026-10-24 收尾：审计 LOW + `latest.yml` 竞态
+
+一次只读进度核查之后的清账，四项改动都不改行为、只改"说谎的地方"：
+
+| 改动 | 之前 | 之后 |
+|---|---|---|
+| `release.yml` 删掉 `gh release delete` 步骤 | 两个 workflow 都监听 tag push：`build.yml` 先建 Release 并放上 `latest.yml`，随后 `release.yml` 把整个 Release 删掉、只用自己 6 个产物重建 ⇒ `latest.yml` 连带消失 | 两侧合并到同一个 Release（`softprops/action-gh-release` **复用**同 tag 的既有 Release，且 `overwrite_files` 默认 true ⇒ 同名资产原地覆盖）。仓库规矩"绝不重打同名 tag"，所以"新旧文件共存"这个原担心不成立 |
+| `aria2.rs` / `transmission.rs` 的 `push` | 硬编码 `PushOutcome { status: 200 }`（照抄 JS），UI 显示「已推送到 aria2（HTTP 200）」是个**编造的数字** | 两个 `call()` 都改成 `Result<(Value, u16), String>`，把**真实**响应状态码带出来（审计 #12） |
+| `bt-downloaders/src/lib.rs` 的 `net_err` | `format!("请求下载器失败 ({e})")` —— reqwest 的 `Display` **带完整 URL**，而下载器地址常把 token 放 query、或内嵌 basic-auth；这段文案会进 UI 状态行 / `--health` 历史 / 日志 | `e.without_url()`（审计 #14） |
+| `bt-torznab/src/lib.rs` 的 `text()` | `Node::text()` **只返回第一个 text 子节点** ⇒ `<title>a<b>x</b>c</title>` 静默丢掉 `c` | 拼接全部后代文本节点，与 cheerio 的 `.text()` 一致（审计 #15） |
+
+**仍然「明确不修」**：`push_same_name_indexers_collapse_into_one_id`（审计 #11）——
+UI 按**名字**去重，同名索引器不会共存，撞 id 只可能来自手改 `indexers.json`；
+真要做先定 id 方案 + 迁移已有文件。理由见下面「明确不修」表。
+
 ## 还挂着的事（按「值得动」排序）
 
 1. ✅ **已发 `v0.3.10-beta`**（2026-10-21）—— 含 0.3.8 之后的全部修复。下次照本轮顺序走：

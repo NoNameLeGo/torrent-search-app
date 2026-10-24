@@ -102,9 +102,18 @@ fn read_item(item: Node<'_, '_>) -> RawItem {
             .find(|c| c.is_element() && c.tag_name().name() == tag)
     };
     // 元素的文本，trim 后为空就算"没有"
+    //
+    // ⚠️ **不能用 `Node::text()`**：它只返回**第一个** text 子节点，
+    // 于是 `<title>a<b>x</b>c</title>` 会静默丢掉 `c`（审计 #15）。
+    // 这里拼接全部后代文本节点，与 cheerio 的 `.text()` 语义一致。
     let text = |tag: &str| -> Option<String> {
         child(tag)
-            .and_then(|c| c.text())
+            .map(|c| {
+                c.descendants()
+                    .filter(|d| d.is_text())
+                    .filter_map(|d| d.text())
+                    .collect::<String>()
+            })
             .map(|t| t.trim().to_string())
             .filter(|t| !t.is_empty())
     };
