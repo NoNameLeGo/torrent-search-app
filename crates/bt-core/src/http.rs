@@ -226,33 +226,21 @@ impl HttpClient {
 
     /// GET 一段文本（HTML）。永不失败返回 —— 失败看 `error`。
     pub async fn get_text(&self, url: &str, opts: Option<&ReqOpts>) -> TextResponse {
-        let req = self.request(reqwest::Method::GET, url, opts);
-        match req.send().await {
-            Ok(res) => {
-                let status = res.status();
-                // 先取 `Location`：3xx（`no_redirect()` 时）也要能读到
-                let location = res
-                    .headers()
-                    .get(reqwest::header::LOCATION)
-                    .and_then(|v| v.to_str().ok())
-                    .map(str::to_string);
-                if !status.is_success() {
-                    let mut out = TextResponse::fail(http_status_error(status));
-                    out.location = location;
-                    return out;
-                }
-                match res.text().await {
-                    Ok(t) => TextResponse {
-                        html: Some(t),
-                        status: Some(status.as_u16()),
-                        error: None,
-                        location,
-                    },
-                    Err(e) => TextResponse::fail(map_err(&e)),
-                }
-            }
-            Err(e) => TextResponse::fail(map_err(&e)),
-        }
+        send_text(self.request(reqwest::Method::GET, url, opts)).await
+    }
+
+    /// POST 一个 `application/x-www-form-urlencoded` body，返回文本（HTML）。
+    ///
+    /// 有些老站点（EmpireCMS 的 `/e/search/index.php`）只认表单 POST，不认 GET；
+    /// `post_json` 的 JSON body 也不对。这里只加 form body，UA/超时/错误映射
+    /// 与 [`get_text`] 完全一致。
+    pub async fn post_form(
+        &self,
+        url: &str,
+        form: &[(&str, &str)],
+        opts: Option<&ReqOpts>,
+    ) -> TextResponse {
+        send_text(self.request(reqwest::Method::POST, url, opts).form(form)).await
     }
 
     /// GET 并解析 JSON。
@@ -274,6 +262,36 @@ impl HttpClient {
     ) -> JsonResponse<T> {
         let req = self.request(reqwest::Method::POST, url, opts).json(body);
         send_json(req).await
+    }
+}
+
+/// 发送请求并把响应体当文本读 —— [`get_text`] / [`post_form`] 的公共后半段。
+async fn send_text(req: reqwest::RequestBuilder) -> TextResponse {
+    match req.send().await {
+        Ok(res) => {
+            let status = res.status();
+            // 先取 `Location`：3xx（`no_redirect()` 时）也要能读到
+            let location = res
+                .headers()
+                .get(reqwest::header::LOCATION)
+                .and_then(|v| v.to_str().ok())
+                .map(str::to_string);
+            if !status.is_success() {
+                let mut out = TextResponse::fail(http_status_error(status));
+                out.location = location;
+                return out;
+            }
+            match res.text().await {
+                Ok(t) => TextResponse {
+                    html: Some(t),
+                    status: Some(status.as_u16()),
+                    error: None,
+                    location,
+                },
+                Err(e) => TextResponse::fail(map_err(&e)),
+            }
+        }
+        Err(e) => TextResponse::fail(map_err(&e)),
     }
 }
 

@@ -561,7 +561,7 @@ fn registry_matches_the_js_registry_order_and_flags() {
     let list = registry::list();
 
     // 顺序 = JS REGISTRY 里已搬的那些的相对顺序（= UI 显示顺序）
-    // ⚠️ 27 条：26 个站点 + **demo**。JS 的 REGISTRY 里 demo 也是**最后一条**
+    // ⚠️ 28 条：27 个站点 + **demo**。JS 的 REGISTRY 里 demo 也是**最后一条**
     // （`src/providers/index.js:121`），所以这里也放最后。
     // `dmhy` / `subsplease` 是 2026-10-21 搬的，按 JS 顺序插在 `torrentscsv` 之后
     // （JS 里它们之间还夹着 animetosho / bangumimoe / mikan 等**尚未搬**的站点）。
@@ -597,6 +597,7 @@ fn registry_matches_the_js_registry_order_and_flags() {
             // 2026-10-25：BD电影首发 / POMO（Rust 独有；Node 侧没有对应实现，不进 M6 差分）
             "bdflixs",
             "pomo",
+            "cilixiong",
             "demo",
         ]
     );

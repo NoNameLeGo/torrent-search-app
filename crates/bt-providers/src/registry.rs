@@ -108,7 +108,7 @@ macro_rules! site {
 }
 
 // ---------------------------------------------------------------------------
-// 26 个站点（前 24 个 = JS REGISTRY 顺序 = UI 显示顺序；bdflixs / pomo 是 Rust 独有，追加在末尾）
+// 27 个站点（前 24 个 = JS REGISTRY 顺序 = UI 显示顺序；bdflixs / pomo / cilixiong 是 Rust 独有，追加在末尾）
 // ---------------------------------------------------------------------------
 
 site!(Tpb, tpb, "tpb", "The Pirate Bay");
@@ -154,6 +154,7 @@ site!(MegaPeer, megapeer, "megapeer", "MegaPeer", magnet);
 site!(Xxxtracker, xxxtracker, "xxxtracker", "XXXTracker");
 site!(Bdflixs, bdflixs, "bdflixs", "BD电影首发", magnet);
 site!(Pomo, pomo, "pomo", "POMO", magnet);
+site!(Cilixiong, cilixiong, "cilixiong", "磁力熊", magnet);
 
 /// 静态注册表。**顺序 = UI 显示顺序**（见文件头）。
 ///
@@ -192,6 +193,7 @@ pub fn registry() -> Vec<Box<dyn Provider>> {
         Box::new(Xxxtracker),
         Box::new(Bdflixs),
         Box::new(Pomo),
+        Box::new(Cilixiong),
         // 最后一条，与 JS REGISTRY 一致（那边的 demo 也是最后一项）
         Box::new(crate::demo::Demo),
     ]
