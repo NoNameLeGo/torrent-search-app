@@ -601,6 +601,7 @@ dependencies = [
 name = "bt-app"
 version = "0.3.15-beta"
 dependencies = [
+ "arboard",
  "bt-core",
  "bt-downloaders",
  "bt-providers",
