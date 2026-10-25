@@ -95,13 +95,12 @@ pub async fn resolve_magnet(http: &HttpClient, detail_url: &str) -> MagnetOutcom
     };
 
     let dom = Dom::parse(&html);
+    // ⚠️ POMO 的磁力在 `data-url` 上（`<a href="javascript:;" data-url="magnet:...">`），
+    // 不在 href。两个都查，顺序 href → data-url。
     let magnet = dom.select("a").into_iter().find_map(|a| {
-        let href = attr(a, "href")?;
-        if href.starts_with("magnet:") {
-            Some(href)
-        } else {
-            None
-        }
+        ["href", "data-url"]
+            .iter()
+            .find_map(|key| attr(a, key).filter(|v| v.starts_with("magnet:")))
     });
 
     match magnet {
