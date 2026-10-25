@@ -9,6 +9,10 @@
 //! - **HTML 组（17）**：`linuxtracker`、`filemood`、`rutor`、`audiobookbay`、`therarbg`、
 //!   `limetorrents`、`torrent9`、`oxtorrent`、`nyaa`、`megapeer`、`zeromagnet`、`dmhy`、`mikan`、`animetosho`、`nekobt`、`anirena`、`xxxtracker`
 //!
+//! 另有 **Video 模式（独立 trait，不在这 24 家之内）**：[`video`] —— 通用 MacCMS 适配器，
+//! 只返回「标题 + 详情页 URL」，供 UI 打开系统浏览器。BT 与 Video **不混在一个 trait** 里：
+//! 前者的行操作是「推送到下载器」，后者只有「打开网页」。
+//!
 //! ## 抽象：已提取的共用件 + [`Provider`] trait
 //!
 //! - ✅ [`run_mirrors`]：镜像回退的公共实现（2026-10-11 从 10 份逐字副本里提上来）
@@ -49,6 +53,7 @@ pub mod torrent9;
 pub mod torrentscsv;
 pub mod tpb;
 pub mod value;
+pub mod video;
 pub mod xxxtracker;
 pub mod yts;
 pub mod zeromagnet;
