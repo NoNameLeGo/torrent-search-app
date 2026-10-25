@@ -43,6 +43,14 @@ export struct VideoRow {
     provider: string,
 }
 
+// 一条网盘搜索结果（Pan 模式）。点击打开网盘链接并复制提取码。
+export struct PanRow {
+    idx: int,
+    title: string,
+    meta: string,
+    provider: string,
+}
+
 // 每站状态 —— 形状对齐 `bt_providers::ProviderStatus`（`ok` / `error` / `pending`）。
 // ⚠️ 字形与颜色都由 **Rust 侧算好**（ui_model.rs），.slint 里不写三元表达式。
 export struct ProviderChip {
@@ -321,6 +329,67 @@ component VideoCard inherits Rectangle {
     }
 }
 
+// 一条网盘结果（Pan 模式）：没有勾选/推送 —— 打开链接 + 复制提取码。
+component PanCard inherits Rectangle {
+    in property <PanRow> item;
+    callback open(int);
+
+    height: 76px;
+    background: transparent;
+
+    VerticalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        spacing: 0px;
+
+        HorizontalLayout {
+            vertical-stretch: 1;
+            spacing: 12px;
+
+            VerticalLayout {
+                horizontal-stretch: 1;
+                alignment: center;
+                spacing: 4px;
+
+                Text {
+                    text: item.title;
+                    color: Theme.text;
+                    font-size: 14px;
+                    wrap: word-wrap;
+                }
+
+                Text {
+                    text: item.meta;
+                    color: Theme.sub;
+                    font-size: 11px;
+                }
+            }
+
+            Text {
+                text: item.provider;
+                width: 96px;
+                font-size: 11px;
+                color: Theme.accent;
+                vertical-alignment: center;
+            }
+
+            AppButton {
+                label: "打开 / 复制";
+                width: 104px;
+                height: 30px;
+                text-size: 11px;
+                primary: true;
+                clicked => { root.open(item.idx); }
+            }
+        }
+
+        Rectangle {
+            height: 1px;
+            background: Theme.surface1;
+        }
+    }
+}
+
 // 一站状态的小条。
 component ProviderRow inherits Rectangle {
     in property <ProviderChip> item;
@@ -414,9 +483,14 @@ export component AppWindow inherits Window {
     in-out property <[ResultRow]> rows;
     // Video 模式（在线影视搜索 → 打开网页）。与 BT 的 rows 分开，互不污染。
     in-out property <[VideoRow]> video-rows;
-    in-out property <bool> video-mode: false;
+    in-out property <[PanRow]> pan-rows;
+    // 0 = 磁力 / 1 = 视频 / 2 = 网盘
+    in-out property <int> mode: 0;
     // 视频源数量（Rust 侧从 video::registry() 填，避免空态文案写死）
     in-out property <int> video-sites: 0;
+    in-out property <string> pansou-url: "http://127.0.0.1:8888";
+    in-out property <string> pansou-token: "";
+    in-out property <string> pansou-status: "默认 127.0.0.1:8888";
     in-out property <[ProviderChip]> providers;
     in-out property <[SiteToggle]> sites;
     in-out property <[Chip]> sorts;
@@ -455,8 +529,10 @@ export component AppWindow inherits Window {
 
     callback search(string);
     // 磁力 / 视频 两个 tab 的切换；以及 Video 行的「打开网页」。
-    callback switch-mode(bool);
+    callback switch-mode(int);
     callback open-video(int);
+    callback open-pan(int);
+    callback save-pansou();
     callback push-row(int);
     callback pick-kind(string);
     callback detect-downloader();
@@ -529,7 +605,7 @@ export component AppWindow inherits Window {
                     width: 56px;
                     height: 26px;
                     text-size: 11px;
-                    primary: !root.video-mode;
+                    primary: root.mode == 0;
                     clicked => { root.switch-mode(false); }
                 }
 
@@ -538,7 +614,7 @@ export component AppWindow inherits Window {
                     width: 56px;
                     height: 26px;
                     text-size: 11px;
-                    primary: root.video-mode;
+                    primary: root.mode == 1;
                     clicked => { root.switch-mode(true); }
                 }
 
@@ -569,7 +645,7 @@ export component AppWindow inherits Window {
 
                     LineEdit {
                         horizontal-stretch: 1;
-                        placeholder-text: root.video-mode ? "片名（回车搜索在线影视）" : "关键词（回车搜索）";
+                        placeholder-text: root.mode == 1 ? "片名（回车搜索在线影视）" : (root.mode == 2 ? "网盘资源关键词（回车搜索）" : "关键词（回车搜索）");
                         text <=> root.query;
                         accepted(t) => { root.search(t); }
                     }
@@ -588,7 +664,7 @@ export component AppWindow inherits Window {
                         label: "第 \{root.page} 页 · 下一页";
                         width: 124px;
                         height: 34px;
-                        visible: !root.video-mode;
+                        visible: root.mode == 0;
                         active: !root.searching && root.has-more;
                         clicked => { root.next-page(); }
                     }
@@ -681,6 +757,23 @@ export component AppWindow inherits Window {
                 }
 
                 HorizontalLayout {
+                    spacing: 6px;
+                    Text { text: "网盘"; color: Theme.sub; font-size: 11px; vertical-alignment: center; }
+                    LineEdit {
+                        horizontal-stretch: 1;
+                        placeholder-text: "PanSou 地址，例 http://127.0.0.1:8888";
+                        text <=> root.pansou-url;
+                    }
+                    LineEdit {
+                        width: 130px;
+                        placeholder-text: "Token（可空）";
+                        text <=> root.pansou-token;
+                    }
+                    AppButton { label: "保存"; height: 26px; text-size: 11px; clicked => { root.save-pansou(); } }
+                    Text { text: root.pansou-status; color: Theme.sub; font-size: 11px; vertical-alignment: center; }
+                }
+
+                HorizontalLayout {
                     spacing: 10px;
                     Text {
                         text: root.indexer-status;
@@ -726,7 +819,7 @@ export component AppWindow inherits Window {
                 // ⚠️ ListView 不是布局，直接挂在 Rectangle 下不会铺满 —— 套一层 VerticalLayout
                 VerticalLayout {
                     ListView {
-                        visible: !root.video-mode;
+                        visible: root.mode == 0;
                         vertical-stretch: 1;
                         for row in root.rows : ResultCard {
                             item: row;
@@ -738,11 +831,21 @@ export component AppWindow inherits Window {
 
                     // Video 模式：独立的列表，不参与勾选/推送。
                     ListView {
-                        visible: root.video-mode;
+                        visible: root.mode == 1;
                         vertical-stretch: 1;
                         for row in root.video-rows : VideoCard {
                             item: row;
                             open(idx) => { root.open-video(idx); }
+                        }
+                    }
+
+                    // Pan 模式：独立的列表，点击打开网盘链接 + 复制提取码。
+                    ListView {
+                        visible: root.mode == 2;
+                        vertical-stretch: 1;
+                        for row in root.pan-rows : PanCard {
+                            item: row;
+                            open(idx) => { root.open-pan(idx); }
                         }
                     }
 
@@ -809,7 +912,7 @@ export component AppWindow inherits Window {
 
                     // ---- 屏 02 空态：还没结果时的海报（文案全静态，只有引擎数取自模型）----
                     Rectangle {
-                        visible: !root.video-mode && (root.rows.length == 0);
+                        visible: root.mode == 0 && (root.rows.length == 0);
                         vertical-stretch: 1;
                         background: transparent;
 
@@ -848,7 +951,7 @@ export component AppWindow inherits Window {
 
                     // ---- Video 模式空态 ----
                     Rectangle {
-                        visible: root.video-mode && (root.video-rows.length == 0);
+                        visible: root.mode == 1 && (root.video-rows.length == 0);
                         vertical-stretch: 1;
                         background: transparent;
 
@@ -884,12 +987,51 @@ export component AppWindow inherits Window {
                             }
                         }
                     }
+
+                    // ---- Pan 模式空态 ----
+                    Rectangle {
+                        visible: root.mode == 2 && (root.pan-rows.length == 0);
+                        vertical-stretch: 1;
+                        background: transparent;
+
+                        VerticalLayout {
+                            alignment: center;
+                            padding: 44px;
+                            spacing: 8px;
+
+                            Text {
+                                text: "一个关键词";
+                                font-size: 36px;
+                                font-weight: 300;
+                                color: Theme.text;
+                            }
+
+                            Text {
+                                text: "搜网盘。";
+                                font-size: 36px;
+                                font-weight: 700;
+                                color: Theme.mauve;
+                            }
+
+                            Text {
+                                text: "PanSou · 夸克 / 百度 / 阿里 / UC / 115 / PikPak…";
+                                font-size: 12px;
+                                color: Theme.sub;
+                            }
+
+                            Text {
+                                text: "先在设置里填 PanSou 地址（默认 127.0.0.1:8888）";
+                                font-size: 11px;
+                                color: Theme.dim;
+                            }
+                        }
+                    }
                 }
             }
 
             Rectangle {
                 width: 300px;
-                visible: !root.detail-open && !root.video-mode;
+                visible: !root.detail-open && root.mode == 0;
                 background: Theme.mantle;
                 border-radius: 12px;
                 border-width: 1px;
@@ -1069,7 +1211,7 @@ export component AppWindow inherits Window {
                 spacing: 10px;
 
                 Text {
-                    text: root.video-mode ? "共 \{root.total} 条 · 在线影视" : "共 \{root.total} 条 · 第 \{root.page} 页";
+                    text: root.mode == 1 ? "共 \{root.total} 条 · 在线影视" : (root.mode == 2 ? "共 \{root.total} 条 · 网盘" : "共 \{root.total} 条 · 第 \{root.page} 页");
                     color: Theme.dim;
                     font-size: 10px;
                     vertical-alignment: center;

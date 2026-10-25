@@ -58,6 +58,7 @@ use std::sync::OnceLock;
 use bt_core::http::HttpClient;
 use bt_downloaders::{self as downloaders, Config, Kind};
 use bt_providers::aggregate::{self, SearchArgs};
+use bt_providers::pan;
 use bt_providers::video;
 use bt_providers::{registry as provider_registry, Provider};
 // ⚠️ `Model` 这个 trait 必须在作用域里：`VecModel` 的 `row_count` / `set_row_data`
@@ -213,6 +214,13 @@ struct UiState {
     video_items: Vec<video::VideoItem>,
     /// Video 搜索的代数围栏（与 [`Self::search_gen`] 同一套理由）。
     video_gen: u64,
+    /// Pan 模式（网盘）：独立的模型 + 权威数据 + 代数围栏。
+    pan_model: Rc<VecModel<PanRow>>,
+    pan_items: Vec<pan::PanItem>,
+    pan_gen: u64,
+    /// PanSou 端点与 token（方案 A：外部服务；从 pansou.json 读，设置里改）。
+    pansou_url: String,
+    pansou_token: String,
     /// 本轮搜索的关键词（用来算高亮 markup）
     query: String,
     /// 高亮色。⚠️ 高亮是**烘进 markup** 的，所以换主题必须整体重建这里的 markup
@@ -248,6 +256,11 @@ thread_local! {
         video_model: Rc::new(VecModel::from(Vec::new())),
         video_items: Vec::new(),
         video_gen: 0,
+        pan_model: Rc::new(VecModel::from(Vec::new())),
+        pan_items: Vec::new(),
+        pan_gen: 0,
+        pansou_url: "http://127.0.0.1:8888".to_string(),
+        pansou_token: String::new(),
         query: String::new(),
         accent: "#fab387".to_string(),
         downloader: None,
@@ -296,6 +309,41 @@ fn to_video_row(idx: usize, item: &video::VideoItem) -> VideoRow {
         title: item.title.clone().into(),
         meta: "在线影视 · 点击打开原站".to_string().into(),
         provider: video_site_name(&item.provider).to_string().into(),
+    }
+}
+
+/// 网盘类型 → 展示名。
+fn pan_type_label(t: &str) -> &'static str {
+    match t {
+        "quark" => "夸克",
+        "baidu" => "百度",
+        "aliyun" => "阿里",
+        "uc" => "UC",
+        "115" => "115",
+        "pikpak" => "PikPak",
+        "xunlei" => "迅雷",
+        "123" => "123",
+        "tianyi" => "天翼",
+        "guangya" => "光雅",
+        "mobile" => "移动",
+        "magnet" => "磁力",
+        "ed2k" => "ED2K",
+        _ => "网盘",
+    }
+}
+
+/// `PanItem` → `.slint` 的 `PanRow`。
+fn to_pan_row(idx: usize, item: &pan::PanItem) -> PanRow {
+    let label = pan_type_label(&item.pan_type);
+    PanRow {
+        idx: idx as i32,
+        title: item.title.clone().into(),
+        meta: match &item.code {
+            Some(c) => format!("{label} · 提取码 {c}"),
+            None => format!("{label} · 无提取码"),
+        }
+        .into(),
+        provider: label.to_string().into(),
     }
 }
 
@@ -405,14 +453,14 @@ fn sync_small(ui: &AppWindow, st: &UiState) {
     // ⚠️ `total` 报的是**视图**条数（屏幕上真有几行），不是 `rows.len()` ——
     // 筛选状态下两者不同，显示后者会让用户以为筛坏了。
     // Video 模式下报 video_items 的长度（两个模型互不相干）。
-    let total = if ui.get_video_mode() {
-        st.video_items.len()
-    } else {
-        st.app.view().len()
+    let total = match ui.get_mode() {
+        1 => st.video_items.len(),
+        2 => st.pan_items.len(),
+        _ => st.app.view().len(),
     };
     ui.set_total(total as i32);
-    // Video 模式下 BT 的 chips/分页不该覆盖视频状态 —— 两个模式的「忙碌/状态」分开。
-    if !ui.get_video_mode() {
+    // 非 BT 模式下 BT 的 chips/分页不该覆盖当前模式的状态。
+    if ui.get_mode() == 0 {
         ui.set_searching(st.app.chips.iter().any(|c| c.tone == Tone::Dim));
         ui.set_status_text(st.status.clone().into());
         // ① 分页
@@ -723,7 +771,7 @@ fn start_video_search(ui: &AppWindow, query: String) {
             let Some(ui) = weak.upgrade() else { return };
             STATE.with(|s| {
                 let mut st = s.borrow_mut();
-                if st.video_gen != gen || !ui.get_video_mode() {
+                if st.video_gen != gen || ui.get_mode() != 1 {
                     return;
                 }
 
@@ -781,6 +829,99 @@ fn open_url(url: &str) -> bool {
     #[cfg(not(target_os = "windows"))]
     {
         false
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 网盘搜索（Pan 模式 → PanSou 客户端）
+// ---------------------------------------------------------------------------
+
+/// 开始一轮 Pan 搜索。**在 UI 线程调用**。
+fn start_pan_search(ui: &AppWindow, query: String) {
+    let weak = ui.as_weak();
+    close_detail(ui);
+
+    let (gen, q, base, token) = STATE.with(|s| {
+        let mut st = s.borrow_mut();
+        st.selected.clear();
+        st.pan_items.clear();
+        st.pan_model = Rc::new(VecModel::from(Vec::new()));
+        ui.set_selected_count(0);
+        ui.set_pan_rows(ModelRc::from(st.pan_model.clone()));
+        ui.set_total(0);
+        ui.set_searching(true);
+        ui.set_has_more(false);
+        st.status = "网盘搜索中…".to_string();
+        ui.set_status_text(st.status.clone().into());
+
+        st.pan_gen += 1;
+        (
+            st.pan_gen,
+            query,
+            st.pansou_url.clone(),
+            st.pansou_token.clone(),
+        )
+    });
+
+    spawn(async move {
+        let token = if token.trim().is_empty() {
+            None
+        } else {
+            Some(token.as_str())
+        };
+        let client = pan::PanSouClient::new(&base, token);
+        let out = client.search(http(), &q, 200).await;
+
+        let _ = slint::invoke_from_event_loop(move || {
+            let Some(ui) = weak.upgrade() else { return };
+            STATE.with(|s| {
+                let mut st = s.borrow_mut();
+                if st.pan_gen != gen || ui.get_mode() != 2 {
+                    return;
+                }
+
+                st.pan_items = out.results;
+                let rows: Vec<PanRow> = st
+                    .pan_items
+                    .iter()
+                    .enumerate()
+                    .map(|(i, it)| to_pan_row(i, it))
+                    .collect();
+                st.pan_model = Rc::new(VecModel::from(rows));
+                ui.set_pan_rows(ModelRc::from(st.pan_model.clone()));
+                ui.set_total(st.pan_items.len() as i32);
+                ui.set_searching(false);
+
+                st.status = match out.error {
+                    Some(e) => format!("网盘搜索失败：{e}"),
+                    None if st.pan_items.is_empty() => "网盘搜索：0 条".to_string(),
+                    None => format!("网盘搜索：{} 条", st.pan_items.len()),
+                };
+                ui.set_status_text(st.status.clone().into());
+            });
+        });
+    });
+}
+
+/// 打开一条网盘结果：打开链接；有提取码就顺手复制。
+fn open_pan(ui: &AppWindow, idx: i32) {
+    let item = STATE.with(|s| s.borrow().pan_items.get(idx as usize).cloned());
+    let Some(item) = item else { return };
+
+    if !open_url(&item.url) {
+        let msg = format!("打不开这个链接：{}", item.url);
+        STATE.with(|s| s.borrow_mut().status = msg.clone());
+        ui.set_status_text(msg.into());
+        return;
+    }
+
+    match &item.code {
+        Some(code) => copy_text(ui, code, format!("已打开网盘，提取码 {code} 已复制")),
+        None => {
+            let msg = "已打开网盘链接".to_string();
+            STATE.with(|s| s.borrow_mut().status = msg.clone());
+            ui.set_status_text(msg.into());
+        }
     }
 }
 
@@ -1467,8 +1608,23 @@ fn wire(ui: &AppWindow) {
         let st = s.borrow();
         ui.set_rows(ModelRc::from(st.rows_model.clone()));
         ui.set_video_rows(ModelRc::from(st.video_model.clone()));
+        ui.set_pan_rows(ModelRc::from(st.pan_model.clone()));
     });
     ui.set_video_sites(video::registry().len() as i32);
+
+    // PanSou 配置（方案 A：外部服务；默认 127.0.0.1:8888）。
+    let (pansou_url, pansou_token) = match config_store::load_pansou() {
+        Some(p) if !p.url.trim().is_empty() => (p.url, p.token),
+        Some(p) => ("http://127.0.0.1:8888".to_string(), p.token),
+        None => ("http://127.0.0.1:8888".to_string(), String::new()),
+    };
+    STATE.with(|s| {
+        let mut st = s.borrow_mut();
+        st.pansou_url = pansou_url.clone();
+        st.pansou_token = pansou_token.clone();
+    });
+    ui.set_pansou_url(pansou_url.into());
+    ui.set_pansou_token(pansou_token.into());
 
     ui.set_downloader_status("未配置（点「探测」或手填地址后「保存」）".into());
 
@@ -1476,11 +1632,11 @@ fn wire(ui: &AppWindow) {
         let weak = ui.as_weak();
         ui.on_search(move |q| {
             if let Some(ui) = weak.upgrade() {
-                if ui.get_video_mode() {
-                    start_video_search(&ui, q.to_string());
-                } else {
+                match ui.get_mode() {
+                    1 => start_video_search(&ui, q.to_string()),
+                    2 => start_pan_search(&ui, q.to_string()),
                     // ① 新搜索一律从第 1 页开始
-                    start_search(&ui, q.to_string(), 1);
+                    _ => start_search(&ui, q.to_string(), 1),
                 }
             }
         });
@@ -1488,24 +1644,24 @@ fn wire(ui: &AppWindow) {
     // 磁力 / 视频 tab 切换。两个模式各有各的模型与代数围栏，互不干扰。
     {
         let weak = ui.as_weak();
-        ui.on_switch_mode(move |video| {
+        ui.on_switch_mode(move |mode| {
             if let Some(ui) = weak.upgrade() {
                 close_detail(&ui);
-                ui.set_video_mode(video);
+                ui.set_mode(mode);
                 ui.set_has_more(false);
                 ui.set_searching(false);
                 STATE.with(|s| {
                     let st = s.borrow();
-                    let n = if video {
-                        st.video_items.len()
-                    } else {
-                        st.app.view().len()
+                    let n = match mode {
+                        1 => st.video_items.len(),
+                        2 => st.pan_items.len(),
+                        _ => st.app.view().len(),
                     };
                     ui.set_total(n as i32);
-                    let text = if video {
-                        format!("在线影视：{n} 条")
-                    } else {
-                        st.status.clone()
+                    let text = match mode {
+                        1 => format!("在线影视：{n} 条"),
+                        2 => format!("网盘：{n} 条"),
+                        _ => st.status.clone(),
                     };
                     ui.set_status_text(text.into());
                 });
@@ -1532,6 +1688,42 @@ fn wire(ui: &AppWindow) {
                     STATE.with(|s| s.borrow_mut().status = msg.clone());
                     ui.set_status_text(msg.into());
                 }
+            }
+        });
+    }
+    // 网盘：打开链接 + 复制提取码。
+    {
+        let weak = ui.as_weak();
+        ui.on_open_pan(move |idx| {
+            if let Some(ui) = weak.upgrade() {
+                open_pan(&ui, idx);
+            }
+        });
+    }
+    // PanSou 端点保存（方案 A：外部服务；地址/token 落 pansou.json）。
+    {
+        let weak = ui.as_weak();
+        ui.on_save_pansou(move || {
+            if let Some(ui) = weak.upgrade() {
+                let url = ui.get_pansou_url().to_string();
+                let token = ui.get_pansou_token().to_string();
+                let url = if url.trim().is_empty() {
+                    "http://127.0.0.1:8888".to_string()
+                } else {
+                    url.trim().to_string()
+                };
+                let msg = match config_store::save_pansou(&url, &token) {
+                    Ok(()) => format!("网盘配置已保存：{url}"),
+                    Err(e) => format!("网盘配置保存失败：{e}"),
+                };
+                STATE.with(|s| {
+                    let mut st = s.borrow_mut();
+                    st.pansou_url = url.clone();
+                    st.pansou_token = token.clone();
+                    st.status = msg.clone();
+                });
+                ui.set_pansou_status(msg.clone().into());
+                ui.set_status_text(msg.into());
             }
         });
     }

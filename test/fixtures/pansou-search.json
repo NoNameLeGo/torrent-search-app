@@ -1,0 +1,31 @@
+{
+  "total": 3,
+  "results": [],
+  "merged_by_type": {
+    "quark": [
+      {
+        "url": "https://pan.quark.cn/s/aaa111",
+        "password": "1234",
+        "note": "流浪地球2 4K 原盘",
+        "datetime": "2026-10-20T10:00:00Z",
+        "source": "tg:test_channel"
+      },
+      {
+        "url": "https://pan.quark.cn/s/bbb222",
+        "password": "",
+        "note": "流浪地球 2019 1080P",
+        "datetime": "2026-10-19T10:00:00Z",
+        "source": "plugin:test"
+      }
+    ],
+    "baidu": [
+      {
+        "url": "https://pan.baidu.com/s/ccc333",
+        "password": "abcd",
+        "note": "流浪地球 合集",
+        "datetime": "2026-10-18T10:00:00Z",
+        "source": "tg:test_channel"
+      }
+    ]
+  }
+}

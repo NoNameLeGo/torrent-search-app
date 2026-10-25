@@ -136,6 +136,45 @@ pub fn save(kind: Kind, c: &Config) -> Result<(), String> {
     write_atomic(&path, &text).map_err(|e| format!("写入失败：{e}"))
 }
 
+/// PanSou 的落盘形状（方案 A：外部服务）。
+///
+/// 单独一个 `pansou.json`，不塞进 `config.json` —— 与索引器同一个理由：
+/// 下载器 / 搜索源是两件事，一个文件坏了不该连累另一个。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct StoredPansou {
+    /// 空 ⇒ 用默认 `http://127.0.0.1:8888`（调用方兜底）。
+    #[serde(default)]
+    pub url: String,
+    /// 开了认证时的 Bearer token；**明文**，与下载器/索引器同口径。
+    #[serde(default)]
+    pub token: String,
+}
+
+/// `%APPDATA%\bt-search\pansou.json`。
+pub fn pansou_path() -> Option<PathBuf> {
+    Some(data_dir()?.join("pansou.json"))
+}
+
+/// 读 PanSou 配置。**任何一步失败都只是 `None`** —— 调用方用默认地址兜底。
+pub fn load_pansou() -> Option<StoredPansou> {
+    let text = std::fs::read_to_string(pansou_path()?).ok()?;
+    serde_json::from_str(&text).ok()
+}
+
+/// 保存 PanSou 配置。返回 `Err(人话)` 供状态栏显示。
+pub fn save_pansou(url: &str, token: &str) -> Result<(), String> {
+    let path = pansou_path().ok_or_else(|| "取不到 %APPDATA%，配置没保存".to_string())?;
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| format!("建目录失败：{e}"))?;
+    }
+    let text = serde_json::to_string_pretty(&StoredPansou {
+        url: url.trim().to_string(),
+        token: token.trim().to_string(),
+    })
+    .map_err(|e| format!("序列化失败：{e}"))?;
+    write_atomic(&path, &text).map_err(|e| format!("写入失败：{e}"))
+}
+
 /// 一个 Torznab 索引器的落盘形状（⑤）。
 ///
 /// ⚠️ 字段与 `bt_torznab::IndexerConfig` 一一对应，但**不直接复用**那个类型 ——
