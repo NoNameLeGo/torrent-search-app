@@ -47,6 +47,7 @@ pub mod mikan;
 pub mod nekobt;
 pub mod nyaa;
 pub mod oxtorrent;
+pub mod pomo;
 pub mod registry;
 pub mod rutor;
 pub mod subsplease;
