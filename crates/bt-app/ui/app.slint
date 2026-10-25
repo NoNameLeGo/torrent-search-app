@@ -97,6 +97,43 @@ export global Theme {
     out property <color> card:     #181825;
 }
 
+// 自绘按钮。std-widgets 的 `Button` **没有 `color`**（老坑，见文件头），
+// 而设计稿要紫底 CTA ⇒ 只能用 Rectangle + Text + TouchArea 拼一个。
+// ⚠️ 不用 `enabled`：那是内建属性名；这里用 `active` 同时管配色与点击。
+// ⚠️ 位置必须**在第一个使用它的组件之前** —— Slint 按声明顺序解析，放后面会报
+// `Unknown element 'AppButton'`（2026-10-25 CI 40174701768 就栽在这）。
+component AppButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> primary: false;
+    in property <bool> active: true;
+    in property <length> text-size: 12px;
+    callback clicked;
+
+    height: 30px;
+    border-radius: 6px;
+    border-width: 1px;
+    background: !root.active ? Theme.surface0 : (root.primary ? Theme.mauve : Theme.surface1);
+    border-color: !root.active ? Theme.surface0 : (root.primary ? Theme.mauve : Theme.surface0);
+
+    Text {
+        text: root.label;
+        font-size: root.text-size;
+        color: !root.active ? Theme.dim : (root.primary ? Theme.crust : Theme.subtext);
+        width: parent.width;
+        height: parent.height;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    TouchArea {
+        clicked => {
+            if (root.active) {
+                root.clicked();
+            }
+        }
+    }
+}
+
 // 一条结果行。
 // ⚠️ 必须**转发** push：组件里的 `root` 指的是这个组件实例，不是窗口。
 component ResultCard inherits Rectangle {
@@ -297,41 +334,6 @@ component RailLabel inherits Text {
     color: Theme.dim;
     height: 14px;
     vertical-alignment: center;
-}
-
-// 自绘按钮。std-widgets 的 `Button` **没有 `color`**（老坑，见文件头），
-// 而设计稿要紫底 CTA ⇒ 只能用 Rectangle + Text + TouchArea 拼一个。
-// ⚠️ 不用 `enabled`：那是内建属性名；这里用 `active` 同时管配色与点击。
-component AppButton inherits Rectangle {
-    in property <string> label;
-    in property <bool> primary: false;
-    in property <bool> active: true;
-    in property <length> text-size: 12px;
-    callback clicked;
-
-    height: 30px;
-    border-radius: 6px;
-    border-width: 1px;
-    background: !root.active ? Theme.surface0 : (root.primary ? Theme.mauve : Theme.surface1);
-    border-color: !root.active ? Theme.surface0 : (root.primary ? Theme.mauve : Theme.surface0);
-
-    Text {
-        text: root.label;
-        font-size: root.text-size;
-        color: !root.active ? Theme.dim : (root.primary ? Theme.crust : Theme.subtext);
-        width: parent.width;
-        height: parent.height;
-        horizontal-alignment: center;
-        vertical-alignment: center;
-    }
-
-    TouchArea {
-        clicked => {
-            if (root.active) {
-                root.clicked();
-            }
-        }
-    }
 }
 
 export component AppWindow inherits Window {
