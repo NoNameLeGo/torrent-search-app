@@ -606,7 +606,7 @@ export component AppWindow inherits Window {
                     height: 26px;
                     text-size: 11px;
                     primary: root.mode == 0;
-                    clicked => { root.switch-mode(false); }
+                    clicked => { root.switch-mode(0); }
                 }
 
                 AppButton {
@@ -615,7 +615,7 @@ export component AppWindow inherits Window {
                     height: 26px;
                     text-size: 11px;
                     primary: root.mode == 1;
-                    clicked => { root.switch-mode(true); }
+                    clicked => { root.switch-mode(1); }
                 }
 
                 Rectangle {
