@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="referrer" content="no-referrer">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <title>搜索结果: 流浪地球 - 宅男影视 - 极简版</title>
+    <style>
+        /* 基础重置与你原本一致 */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; -webkit-font-smoothing: antialiased; background-color: #0f1c1a; color: #ffffff; min-height: 100vh; display: flex; flex-direction: column; position: relative; touch-action: manipulation;}
+        body.no-scroll { position: fixed; width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; }
+        a { text-decoration: none; color: inherit; }
+        ::-webkit-scrollbar { width: 0px; height: 0px; display: none; }
+        html, body { -ms-overflow-style: none; scrollbar-width: none; }
+        .truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .hide { display: none !important; }
+        .show-flex { display: flex !important; }
+
+        .bg-layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; overflow: hidden; background: #0f1c1a; }
+        .bg-layer img { width: 100%; height: 100%; object-fit: cover; opacity: 0.5; }
+        .bg-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(15,28,26,0.7), rgba(15,28,26,0.9), rgba(15,28,26,1)); }
+
+        .main-container { margin: 0 auto; width: 100%; max-width: 1152px; padding: 4rem 1rem 6rem 1rem; position: relative; z-index: 10; flex: 1; display: flex; flex-direction: column; align-items: center; }
+        @media (min-width: 1024px) { .main-container { padding-top: 6rem; } }
+
+        .logo-wrap { text-align: center; margin-bottom: 1.25rem; user-select: none; cursor: default; display: flex; flex-direction: column; align-items: center; }
+        .logo-title { font-size: 1.875rem; font-weight: 900; letter-spacing: 0.05em; background: linear-gradient(to right, #a7f3d0, #10b981); -webkit-background-clip: text; color: transparent; filter: drop-shadow(0 10px 8px rgba(0,0,0,0.2)); }
+        .logo-sub { margin-top: 0.5rem; font-size: 9px; letter-spacing: 0.3em; color: rgba(52, 211, 153, 0.6); font-weight: 500; text-transform: uppercase; }
+
+        .category-tags { display: flex; justify-content: center; align-items: center; gap: 10px; width: 100%; max-width: 360px; margin-bottom: 1rem; user-select: none; }
+        @media (min-width: 640px) { .category-tags { gap: 1.5rem; } }
+        .tag-item { position: relative; padding: 6px 8px; background: transparent; display: inline-flex; align-items: center; gap: 6px; }
+        .glow-dot { width: 6px; height: 6px; border-radius: 50%; background-color: #10b981; box-shadow: 0 0 4px #10b981, 0 0 10px rgba(16, 185, 129, 0.6), 0 0 20px rgba(16, 185, 129, 0.3); }
+        .tag-text { color: #71717a; font-size: 15px; font-weight: 500; }
+
+        .search-wrapper { width: 100%; margin-bottom: 1rem; }
+        .search-form { width: 100%; }
+        .search-box-pill { width: 88%; max-width: 420px; height: 46px; border-radius: 23px; background-color: rgba(255,255,255,0.08); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); margin: 0 auto; position: relative; transition: all 0.3s; }
+        .search-box-pill:focus-within { background-color: rgba(255,255,255,0.95); box-shadow: 0 10px 30px rgba(0,0,0,0.3); transform: scale(1.02); }
+        #search-input { width: 100%; height: 100%; color: #fff; background: transparent; border: none; outline: none; text-align: center; font-size: 16px; padding: 0 46px; border-radius: 23px; -webkit-appearance: none; caret-color: #10b981; }
+        .search-box-pill:focus-within #search-input { color: #111; }
+        #search-input::placeholder { color: rgba(255,255,255,0.4); }
+        .search-box-pill:focus-within #search-input::placeholder { color: transparent; }
+        .search-btn { background: transparent; border: none; outline: none; cursor: pointer; color: #fff; opacity: 0; pointer-events: none; transition: all 0.3s ease; position: absolute; right: 16px; top: 50%; transform: translateY(-50%) scale(0.8); }
+        .search-btn svg { width: 20px; height: 20px; transition: transform 0.2s; }
+        .search-btn:hover svg { transform: scale(1.1); }
+        .search-box-pill:focus-within .search-btn, #search-input:not(:placeholder-shown) + .search-btn { opacity: 1; pointer-events: auto; transform: translateY(-50%) scale(1); }
+        .search-box-pill:focus-within .search-btn { color: #000; }
+        .search-source-switch { display: flex; justify-content: center; align-items: center; gap: 7px; margin: 12px auto 0; padding: 4px; width: fit-content; max-width: 100%; border-radius: 18px; background: rgba(0,0,0,0.22); border: 1px solid rgba(255,255,255,0.08); }
+        .search-source-option { position: relative; cursor: pointer; user-select: none; }
+        .search-source-option input { position: absolute; opacity: 0; pointer-events: none; }
+        .search-source-option span { display: block; padding: 6px 11px; border-radius: 14px; color: #8f9b98; font-size: 12px; line-height: 1; white-space: nowrap; transition: color .2s, background .2s, box-shadow .2s; }
+        .search-source-option input:checked + span { color: #fff; background: #10b981; box-shadow: 0 4px 14px rgba(16,185,129,.28); }
+        .search-source-option:active span { transform: scale(.97); }
+
+        .loading-wrap { flex-direction: column; align-items: center; margin-top: 1.5rem; width: 100%; transition: opacity 0.3s; }
+        .spinner { animation: spin 1s linear infinite; height: 2rem; width: 2rem; color: #10b981; }
+        .spinner circle { opacity: 0.25; }
+        .spinner path { opacity: 0.75; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .loading-text { margin-top: 1rem; color: #34d399; font-size: 0.875rem; letter-spacing: 0.1em; font-weight: 500; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+
+        .result-section { width: 100%; margin-bottom: 2rem; margin-top: 1rem; display: flex; flex-direction: column; align-items: center; transition: opacity 0.3s; }
+        .empty-result { text-align: center; padding: 5rem 0; width: 100%; color: rgba(255,255,255,0.6); font-size: 0.875rem; }
+        .grid-container { display: grid; grid-template-columns: repeat(auto-fit, 105px); gap: 0.8rem; width: 100%; justify-content: center; }
+        @media (min-width: 640px) { .grid-container { grid-template-columns: repeat(auto-fit, 130px); gap: 1.5rem 1.2rem; max-width: 700px; } }
+
+        .card { display: flex; flex-direction: column; gap: 0.375rem; cursor: pointer; transition: all 0.3s; }
+        .card-img-wrap { position: relative; border-radius: 8px; overflow: hidden; aspect-ratio: 2/3; background-color: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); transition: all 0.3s; }
+        .card:hover .card-img-wrap { box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3); border-color: rgba(16, 185, 129, 0.3); }
+        .card-img-wrap img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s; }
+        .card:hover .card-img-wrap img { transform: scale(1.05); }
+        .card-tags { position: absolute; top: 4px; right: 4px; display: flex; gap: 4px; z-index: 10; }
+        .tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; line-height: 1; opacity: 0.9; }
+        .tag-site { background: rgba(0,0,0,0.7); color: #e5e7eb; border: 1px solid rgba(255,255,255,0.2); }
+        .tag-green { background: #10b981; color: #fff; }
+        .tag-red { background: rgba(239, 68, 68, 0.9); color: #fff; }
+        .card-title { font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.9); text-align: center; padding: 0 4px; transition: color 0.3s; }
+        .card:hover .card-title { color: #34d399; }
+
+        .site-footer { width: 100%; text-align: center; margin-top: auto; padding: 20px 0 40px 0; position: relative; z-index: 10; }
+        .contact-link { color: #71717a; font-size: 13px; transition: color 0.3s; display: inline-flex; align-items: center; gap: 4px; }
+        .contact-link:hover { color: #10b981; }
+
+        .floating-history-btn { position: fixed; right: 16px; bottom: 90px; width: 38px; height: 38px; border-radius: 50%; background: rgba(20, 30, 28, 0.85); backdrop-filter: blur(16px); border: 1px solid rgba(16, 185, 129, 0.4); display: flex; align-items: center; justify-content: center; color: #10b981; z-index: 9998; cursor: pointer; transition: all 0.3s; }
+        .floating-history-btn:hover { transform: scale(1.1) translateY(-4px); background: rgba(16, 185, 129, 0.2); color: #fff; }
+        .floating-history-btn svg { width: 22px; height: 22px; }
+
+        .history-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 10000; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+        .history-overlay.active { opacity: 1; pointer-events: auto; }
+        .history-modal { max-height: 80vh; display: flex; flex-direction: column; padding: 14px 16px; max-width: 330px; width: 90%; background: rgba(20, 30, 28, 0.95); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); transform: translateY(20px) scale(0.95); transition: all 0.3s; }
+        .history-overlay.active .history-modal { transform: translateY(0) scale(1); }
+        .history-title { font-size: 16px; color: #fff; margin-bottom: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .history-list { overflow-y: auto; flex: 1; margin: 10px 0; display: flex; flex-direction: column; gap: 10px; }
+        .history-list::-webkit-scrollbar { width: 4px; display: block; }
+        .history-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+        .history-item { display: flex; gap: 12px; background: rgba(255,255,255,0.03); padding: 8px; border-radius: 8px; align-items: center; }
+        .history-pic { width: 44px; height: 60px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+        .history-info { flex: 1; min-width: 0; }
+        .history-item-title { color: #e4e4e7; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .history-time { color: #71717a; font-size: 12px; }
+        .history-actions { display: flex; justify-content: center; width: 100%; margin-top: 16px; }
+        .history-close-button { width: 100%; background: rgba(255,255,255,0.05); border: none; color: #a1a1aa; font-size: 15px; cursor: pointer; padding: 10px 0; border-radius: 8px; transition: background .3s; }
+        
+        /* 优化：手机端宽度舒展占满(92%)，电脑端保持自适应内容(fit-content) */
+        .glass-announcement { position: fixed; bottom: -150px; left: 50%; transform: translateX(-50%); width: 92%; max-width: 450px; background: rgba(20, 30, 28, 0.85); backdrop-filter: blur(16px); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); display: flex; padding: 16px; z-index: 9999; opacity: 0; transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); align-items: flex-start; }
+        @media (min-width: 640px) { .glass-announcement { width: fit-content; min-width: 320px; } }
+        .glass-announcement.show { bottom: 24px; opacity: 1; }
+        .announce-icon { width: 32px; height: 32px; border-radius: 50%; background: rgba(16, 185, 129, 0.15); display: flex; align-items: center; justify-content: center; color: #10b981; margin-right: 14px; flex-shrink: 0; animation: pulse-icon 2s infinite; }
+        .announce-icon svg { width: 16px; height: 16px; }
+        @keyframes pulse-icon { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
+        /* 修改：给内容区右侧加上内边距，防止文字和右上角的关闭按钮重叠 */
+        .announce-content { flex: 1; display: flex; flex-direction: column; gap: 6px; padding-right: 28px; }
+        .announce-line { margin: 0; font-size: 13px; color: #a1a1aa; line-height: 1.5; }
+        .text-glow { background: linear-gradient(to right, #6ee7b7, #10b981); -webkit-background-clip: text; color: transparent; font-weight: 800; }
+        .domain-link { color: #10b981; font-weight: 700; border-bottom: 1px dashed rgba(16, 185, 129, 0.5); }
+        
+        /* 修改：开启绝对定位，固定在右上角 */
+        .announce-close { position: absolute; top: 12px; right: 12px; background: transparent; border: none; color: #71717a; cursor: pointer; padding: 4px; border-radius: 50%; transition: all 0.3s; display: flex; align-items: center; justify-content: center; }
+        .announce-close:hover { color: #e4e4e7; background: rgba(255,255,255,0.1); }
+    </style>
+</head>
+<body class=""> 
+    
+    <div class="bg-layer">
+        <img src="/bg.jpg" alt="bg">
+        <div class="bg-overlay"></div>
+    </div>
+
+    <main class="main-container">
+        <div class="logo-wrap">
+            <h1 class="logo-title">宅男影视</h1>
+            <div class="logo-sub">WWW.ZNYS.TOP</div>
+        </div>
+
+        <div class="category-tags">
+            <div class="tag-item"><div class="glow-dot"></div><span class="tag-text">电影</span></div>
+            <div class="tag-item"><div class="glow-dot"></div><span class="tag-text">电视剧</span></div>
+            <div class="tag-item"><div class="glow-dot"></div><span class="tag-text">动漫</span></div>
+            <div class="tag-item"><div class="glow-dot"></div><span class="tag-text">综艺</span></div>
+        </div>
+
+        <div class="search-wrapper">
+            <form action="index.php" method="GET" class="search-form" onsubmit="return handleSearch(event)">
+                <div class="search-box-pill">
+                    <input type="text" name="wd" id="search-input" value="流浪地球" placeholder="输入你想看的影片名称" autocomplete="off">
+                    <button type="submit" class="search-btn">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                    </button>
+                </div>
+                                <div class="search-source-switch" aria-label="选择搜索源">
+                                        <label class="search-source-option">
+                        <input type="radio" name="source" value="official" checked>
+                        <span>官解资源</span>
+                    </label>
+                                        <label class="search-source-option">
+                        <input type="radio" name="source" value="bf" >
+                        <span>BF资源</span>
+                    </label>
+                                        <label class="search-source-option">
+                        <input type="radio" name="source" value="xg" >
+                        <span>XG资源</span>
+                    </label>
+                                    </div>
+                            </form>
+        </div>
+
+        <div id="loading-indicator" class="loading-wrap hide">
+            <svg class="spinner" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span class="loading-text">正在使用所选资源搜索中...</span>
+        </div>
+
+                <section id="search-result-section" class="result-section">
+                            <div class="grid-container">
+                                            <a href="play.php?id=51971&source=official" class="card" title="播放《流浪地球》">
+                            <div class="card-img-wrap">
+                                <img src="https://i0.hdslb.com/bfs/bangumi/image/67fdef589fc71b7b13db02400519b02d581779b0.png" alt="海报" loading="lazy">
+                                <div class="card-tags">
+                                    <span class="tag tag-site">官采</span>
+                                    <span class="tag tag-red">超清</span>
+                                </div>
+                            </div>
+                            <h2 class="card-title truncate">流浪地球</h2>
+                        </a>
+                                            <a href="play.php?id=45972&source=official" class="card" title="播放《《流浪地球》优酷独家幕后记录》">
+                            <div class="card-img-wrap">
+                                <img src="http://m.ykimg.com/050E00005D14254A425BD9189F203780" alt="海报" loading="lazy">
+                                <div class="card-tags">
+                                    <span class="tag tag-site">官采</span>
+                                    <span class="tag tag-red">超清</span>
+                                </div>
+                            </div>
+                            <h2 class="card-title truncate">《流浪地球》优酷独家幕后记录</h2>
+                        </a>
+                                            <a href="play.php?id=27389&source=official" class="card" title="播放《流浪地球》">
+                            <div class="card-img-wrap">
+                                <img src="https://3img.hitv.com/preview/sp_images/2020/06/30/20200630115840086.jpg" alt="海报" loading="lazy">
+                                <div class="card-tags">
+                                    <span class="tag tag-site">官采</span>
+                                    <span class="tag tag-red">超清</span>
+                                </div>
+                            </div>
+                            <h2 class="card-title truncate">流浪地球</h2>
+                        </a>
+                                            <a href="play.php?id=27263&source=official" class="card" title="播放《流浪地球：飞跃2020特别版》">
+                            <div class="card-img-wrap">
+                                <img src="https://0img.hitv.com/preview/sp_images/2020/11/24/20201124104017697.jpg" alt="海报" loading="lazy">
+                                <div class="card-tags">
+                                    <span class="tag tag-site">官采</span>
+                                    <span class="tag tag-red">超清</span>
+                                </div>
+                            </div>
+                            <h2 class="card-title truncate">流浪地球：飞跃2020特别版</h2>
+                        </a>
+                                            <a href="play.php?id=21120&source=official" class="card" title="播放《流浪地球2》">
+                            <div class="card-img-wrap">
+                                <img src="http://i0.hdslb.com/bfs/bangumi/image/67fdef589fc71b7b13db02400519b02d581779b0.png" alt="海报" loading="lazy">
+                                <div class="card-tags">
+                                    <span class="tag tag-site">官采</span>
+                                    <span class="tag tag-red">超清</span>
+                                </div>
+                            </div>
+                            <h2 class="card-title truncate">流浪地球2</h2>
+                        </a>
+                                            <a href="play.php?id=20703&source=official" class="card" title="播放《流浪地球2》">
+                            <div class="card-img-wrap">
+                                <img src="https://1img.hitv.com/preview/internettv/sp_images/ott/2020/11/27/dianying/353601/20201127175428795-new.jpg" alt="海报" loading="lazy">
+                                <div class="card-tags">
+                                    <span class="tag tag-site">官采</span>
+                                    <span class="tag tag-red">超清</span>
+                                </div>
+                            </div>
+                            <h2 class="card-title truncate">流浪地球2</h2>
+                        </a>
+                                            <a href="play.php?id=11403&source=official" class="card" title="播放《流浪地球2：再次冒险》">
+                            <div class="card-img-wrap">
+                                <img src="https://vcover-vt-pic.puui.qpic.cn/vcover_vt_pic/0/mzc00200qio4xf81730693770699/0" alt="海报" loading="lazy">
+                                <div class="card-tags">
+                                    <span class="tag tag-site">官采</span>
+                                    <span class="tag tag-red">超清</span>
+                                </div>
+                            </div>
+                            <h2 class="card-title truncate">流浪地球2：再次冒险</h2>
+                        </a>
+                                            <a href="play.php?id=8891&source=official" class="card" title="播放《流浪地球3(上》">
+                            <div class="card-img-wrap">
+                                <img src="https://vcover-vt-pic.puui.qpic.cn/vcover_vt_pic/0/mzc00200a4m2z361744770006200/0" alt="海报" loading="lazy">
+                                <div class="card-tags">
+                                    <span class="tag tag-site">官采</span>
+                                    <span class="tag tag-red">超清</span>
+                                </div>
+                            </div>
+                            <h2 class="card-title truncate">流浪地球3(上</h2>
+                        </a>
+                                    </div>
+                    </section>
+            </main>
+
+    <footer class="site-footer">
+        <a class="contact-link" href="https://t.me/znystop" target="_blank" rel="noopener noreferrer">
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M22 2 11 13"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m22 2-7 20-4-9-9-4Z"></path></svg>
+            纸飞机联系方式
+        </a>
+    </footer>
+
+    <button class="floating-history-btn" onclick="openHistory()" title="本地播放记录">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+    </button>
+
+    <div id="js-history-overlay" class="history-overlay" onclick="if(event.target === this) closeHistory()">
+        <div class="history-modal">
+            <div class="history-title" style="justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <svg width="20" height="20" fill="none" stroke="#10b981" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    本地播放记录
+                </div>
+                <button onclick="clearHistory()" style="background: none; border: none; color: #71717a; font-size: 12px; cursor: pointer;">清空</button>
+            </div>
+            <div id="history-list" class="history-list"></div>
+            <div class="history-actions">
+                <button class="history-close-button" onclick="closeHistory()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+        <div id="js-announcement" class="glass-announcement">
+        <div class="announce-icon">
+            <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+        </div>
+        <div class="announce-content">
+            <p class="announce-line highlight"><span class="text-glow">欢迎来到宅男影视</span></p><p class="announce-line">好用请分享给您身边的朋友,独乐乐不如众乐乐。</p>            
+                        <p class="announce-line mt-1">
+                <a href="https://znys.top/" target="_blank" class="domain-link">记住本站永久发布页域名,永不失联 znys.top</a>
+            </p>
+                    </div>
+        <button class="announce-close" onclick="closeAnnouncement()" title="关闭">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+    </div>
+    
+    <script>
+        function handleSearch(event) {
+            const inputVal = document.getElementById('search-input').value.trim();
+            if (!inputVal) { event.preventDefault(); return false; }
+            event.preventDefault();
+            document.getElementById('loading-indicator').classList.remove('hide');
+            document.getElementById('loading-indicator').classList.add('show-flex');
+            const resultSection = document.getElementById('search-result-section');
+            if (resultSection) { resultSection.style.opacity = '0.2'; resultSection.style.pointerEvents = 'none'; }
+            // 留出一帧渲染“正在全网为您搜索中”提示，再提交搜索请求。
+            setTimeout(() => event.target.submit(), 60);
+            return false;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('input[name="source"]').forEach(input => {
+                input.addEventListener('change', () => {
+                    if (document.getElementById('search-input').value.trim()) {
+                        input.form.requestSubmit();
+                    }
+                });
+            });
+            const todayStr = new Date().toDateString();
+            if (localStorage.getItem('hideZnysAnnounceDate') !== todayStr) {
+                setTimeout(() => {
+                    const popup = document.getElementById('js-announcement');
+                    if (popup) popup.classList.add('show');
+                }, 1500);
+            }
+        });
+
+        function closeAnnouncement() {
+            const popup = document.getElementById('js-announcement');
+            if (popup) {
+                popup.classList.remove('show');
+                localStorage.setItem('hideZnysAnnounceDate', new Date().toDateString());
+            }
+        }
+
+        function openHistory() {
+            document.body.classList.remove('no-scroll'); renderHistory();
+            document.getElementById('js-history-overlay').classList.add('active');
+        }
+        function closeHistory() { document.getElementById('js-history-overlay').classList.remove('active'); }
+        function clearHistory() {
+            if(confirm('确定要清空所有本地播放记录吗？')) { localStorage.removeItem('znys_play_history'); renderHistory(); }
+        }
+
+        function renderHistory() {
+            const listContainer = document.getElementById('history-list');
+            let history = JSON.parse(localStorage.getItem('znys_play_history') || '[]');
+            if (history.length === 0) { listContainer.innerHTML = '<div class="history-empty text-gray-500 text-center py-8 text-sm">暂无播放记录，快去观看影片吧~</div>'; return; }
+            history.sort((a, b) => b.time - a.time);
+            listContainer.innerHTML = history.map(item => {
+                let date = new Date(item.time);
+                let timeStr = `${date.getMonth()+1}-${date.getDate()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+                const escape = value => String(value || '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+                return `<a href="${escape(item.url)}" class="history-item"><img src="${escape(item.pic)}" class="history-pic" onerror="this.src='/bg.jpg'"><div class="history-info"><div class="history-item-title">${escape(item.title)}</div><div class="history-time">观看至：${escape(item.episode || '正片')}</div><div class="history-time">上次观看: ${timeStr}</div></div></a>`;
+            }).join('');
+        }
+    </script>
+    <script> var _mtj = _mtj || []; (function () { var mtj = document.createElement("script"); mtj.src = "https://node60.aizhantj.com:21233/tjjs/?k=e5gnw5wktyf"; var s = document.getElementsByTagName("script")[0]; s.parentNode.insertBefore(mtj, s); })(); </script>
+</body>
+</html>

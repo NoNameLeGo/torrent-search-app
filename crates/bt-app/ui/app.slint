@@ -415,6 +415,8 @@ export component AppWindow inherits Window {
     // Video 模式（在线影视搜索 → 打开网页）。与 BT 的 rows 分开，互不污染。
     in-out property <[VideoRow]> video-rows;
     in-out property <bool> video-mode: false;
+    // 视频源数量（Rust 侧从 video::registry() 填，避免空态文案写死）
+    in-out property <int> video-sites: 0;
     in-out property <[ProviderChip]> providers;
     in-out property <[SiteToggle]> sites;
     in-out property <[Chip]> sorts;
@@ -863,7 +865,7 @@ export component AppWindow inherits Window {
                             }
 
                             Text {
-                                text: "搜 3 家在线影视站。";
+                                text: "搜 \{root.video-sites} 家在线影视站。";
                                 font-size: 36px;
                                 font-weight: 700;
                                 color: Theme.mauve;

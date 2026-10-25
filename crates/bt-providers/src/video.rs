@@ -110,6 +110,22 @@ pub static DIDAHd: MacCmsSite = MacCmsSite {
     search_path: "/search/-------------.html?wd={q}",
 };
 
+/// 追影（`zhuiying3.cc`）。实测 2026-10-25：`/index.php/vod/search.html?wd=`。
+pub static ZHUIYING: MacCmsSite = MacCmsSite {
+    id: "zhuiying",
+    name: "追影",
+    base: "https://zhuiying3.cc",
+    search_path: "/index.php/vod/search.html?wd={q}",
+};
+
+/// 宅男影视（`zndy.top`）。实测 2026-10-25：`/index.php/vod/search.html?wd=`。
+pub static ZNDY: MacCmsSite = MacCmsSite {
+    id: "zndy",
+    name: "宅男影视",
+    base: "https://zndy.top",
+    search_path: "/index.php/vod/search.html?wd={q}",
+};
+
 /// 结果列表的选择器链 —— **按顺序尝试，取第一个非空的**。
 ///
 /// 只列实测过的两种模板；新增模板时在这里加一条，并补一份 fixture 测试。
@@ -120,6 +136,10 @@ const SELECTOR_CHAINS: &[&str] = &[
     "ul#searchList > li > div.detail > h4.title > a",
     // myui 的另一种写法（没有 id 的列表）
     "ul.myui-vodlist__media > li > div.detail > h4.title > a",
+    // 追影：结果列表里的 /video/ 链接（缩略图锚点只有 title 属性，靠 anchor_title 兜底）
+    "div.search-list a[href^=\"/video/\"]",
+    // 宅男影视：结果区里的 a.card（标题在子 h2.card-title 里）
+    "section#search-result-section a.card[href^=\"play.php\"]",
 ];
 
 /// 一个在线影视搜索源。
@@ -187,14 +207,7 @@ pub async fn search_at(
             continue;
         }
 
-        let title = {
-            let t = text_trim(a);
-            if t.is_empty() {
-                attr(a, "title").unwrap_or_default().trim().to_string()
-            } else {
-                t
-            }
-        };
+        let title = anchor_title(&dom, a);
         if title.is_empty() {
             continue;
         }
@@ -215,6 +228,37 @@ pub async fn search_at(
     }
 
     VideoSearchOutcome::ok(results)
+}
+
+/// 取一条结果的标题：优先卡片里的 `h2/h3/h4`，其次锚文本，最后 `title` 属性。
+///
+/// 三种真实形态：
+/// - 宅男：`<a class="card"><h2 class="card-title">流浪地球</h2></a>`（锚文本含「官采 超清」徽章）
+/// - 追影缩略图：`<a title="流浪地球"><img></a>`（锚文本为空）
+/// - APP/独播库：`<h4><a>流浪地球</a></h4>`（锚文本就是标题）
+fn anchor_title(dom: &Dom, a: ElementRef<'_>) -> String {
+    // 1) 卡片里的标题元素（宅男的 h2.card-title）
+    for sel in ["h2", "h3", "h4"] {
+        if let Some(h) = dom.find(a, sel).into_iter().next() {
+            let t = text_trim(h);
+            if !t.is_empty() {
+                return t;
+            }
+        }
+    }
+    // 2) 海报锚点（追影缩略图）：锚文本是「电影 正片」这类徽章，`title` 才是片名
+    if !dom.find(a, "img").is_empty() {
+        if let Some(t) = attr(a, "title").filter(|t| !t.trim().is_empty()) {
+            return t.trim().to_string();
+        }
+    }
+    // 3) 普通标题锚点（APP / 独播库 / 追影标题）
+    let t = text_trim(a);
+    if !t.is_empty() {
+        return t;
+    }
+    // 4) 最后兜底
+    attr(a, "title").unwrap_or_default().trim().to_string()
 }
 
 /// 按选择器链收集候选锚点；第一条非空即停。
@@ -285,8 +329,16 @@ macro_rules! video_site {
 video_site!(AppMovie, APPMOVIE);
 video_site!(Dbku, DBKU);
 video_site!(DidaHd, DIDAHd);
+video_site!(Zhuiying, ZHUIYING);
+video_site!(Zndy, ZNDY);
 
 /// 静态注册表。**顺序 = UI 显示顺序**（与 BT 的 [`crate::registry`] 同口径）。
 pub fn registry() -> Vec<Box<dyn VideoProvider>> {
-    vec![Box::new(AppMovie), Box::new(Dbku), Box::new(DidaHd)]
+    vec![
+        Box::new(AppMovie),
+        Box::new(Dbku),
+        Box::new(DidaHd),
+        Box::new(Zhuiying),
+        Box::new(Zndy),
+    ]
 }

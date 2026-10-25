@@ -1468,6 +1468,7 @@ fn wire(ui: &AppWindow) {
         ui.set_rows(ModelRc::from(st.rows_model.clone()));
         ui.set_video_rows(ModelRc::from(st.video_model.clone()));
     });
+    ui.set_video_sites(video::registry().len() as i32);
 
     ui.set_downloader_status("未配置（点「探测」或手填地址后「保存」）".into());
 

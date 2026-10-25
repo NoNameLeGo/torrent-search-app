@@ -12,7 +12,7 @@
 mod common;
 
 use bt_core::http::HttpClient;
-use bt_providers::video::{self, DIDAHd, APPMOVIE, DBKU};
+use bt_providers::video::{self, DIDAHd, APPMOVIE, DBKU, ZHUIYING, ZNDY};
 use common::fixture;
 
 /// 每条结果的公共断言：provider 对、标题非空、URL 是绝对地址、无重复。
@@ -85,6 +85,42 @@ async fn parses_didahd_fixture() {
     assert!(!out.results.is_empty());
 }
 
+#[tokio::test]
+async fn parses_zhuiying_fixture() {
+    let url = common::oneshot(200, &fixture("zhuiying-search.html")).await;
+    let base = url.trim_end_matches('/').to_string();
+
+    let out = video::search_at(&HttpClient::new(), &base, &ZHUIYING, "流浪地球", 1).await;
+
+    assert_well_formed(&out, "zhuiying", &base);
+    assert!(!out.results.is_empty());
+    assert!(
+        out.results.iter().any(|r| r.title.contains("流浪地球")),
+        "结果里没有命中词：{:?}",
+        out.results.iter().map(|r| &r.title).collect::<Vec<_>>()
+    );
+}
+
+#[tokio::test]
+async fn parses_zndy_fixture() {
+    let url = common::oneshot(200, &fixture("zndy-search.html")).await;
+    let base = url.trim_end_matches('/').to_string();
+
+    let out = video::search_at(&HttpClient::new(), &base, &ZNDY, "流浪地球", 1).await;
+
+    assert_well_formed(&out, "zndy", &base);
+    assert!(
+        out.results.len() >= 2,
+        "只解析出 {} 条，明显偏少",
+        out.results.len()
+    );
+    assert!(
+        out.results.iter().any(|r| r.title.contains("流浪地球")),
+        "标题里没有命中词：{:?}",
+        out.results.iter().map(|r| &r.title).collect::<Vec<_>>()
+    );
+}
+
 /// 搜索 URL 契约：路径 + `wd=` 编码 + 第 2 页的 `&page=`。
 #[tokio::test]
 async fn request_url_contract() {
@@ -133,5 +169,5 @@ async fn page_without_rows_is_not_an_error() {
 #[test]
 fn registry_is_stable() {
     let ids: Vec<_> = video::registry().iter().map(|p| p.id()).collect();
-    assert_eq!(ids, vec!["appmovie", "dbku", "didahd"]);
+    assert_eq!(ids, vec!["appmovie", "dbku", "didahd", "zhuiying", "zndy"]);
 }
