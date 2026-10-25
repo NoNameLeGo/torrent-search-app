@@ -5,9 +5,8 @@
 
 ## 一句话状态
 
-`main` = **`6916c8c`**（2026-10-23；2026-10-24 核对时其后只有文档提交 `9141602`，代码未动）。Rust 主线功能面 100%（M0–M7 全通过），
-发版链已稳定：`v0.3.10` → `v0.3.11` → `v0.3.12` → `v0.3.13` → **`v0.3.14`** 连续五版一次成功。
-工作区干净、`main` 与 `origin/main` 同步。
+`main` = **`bfd7504`**（2026-10-24，`feat/xxxtracker` 合并；2026-10-25 核对时工作区干净、与 `origin/main` 同步）。
+Rust 主线功能面 100%（M0–M7 全通过），发版链已稳定：`v0.3.10` → `v0.3.11` → `v0.3.12` → `v0.3.13` → **`v0.3.14`** 连续五版一次成功。
 
 **最新发布 = `v0.3.14-beta`**（2026-10-23 06:2x UTC，GitHub Latest，tag `v0.3.14-beta` → `6916c8c`）。
 产物 6 个：`BT-Search-Rust-0.3.14-beta.exe`（18.6MB，体积门 25MB 内）/ `.zip`、
@@ -15,6 +14,11 @@
 `BT-Search-Tauri-Setup-0.3.14-beta.exe`（29.7MB）、**`latest.yml`**。
 本版内容：`linuxtracker` 的「展开描述行」列映射修复 + 第 23 家引擎 `anirena`。
 （`v0.3.13` 带的是 nyaa 磁力修复 + audiobookbay 的 size/date 修复。）
+
+⚠️ **`main` 比这个 tag 多 9 个提交（2026-10-24），下一版待发**：第 24 家引擎 `xxxtracker`
++ 审计收尾（`202562b` 删掉 `release.yml` 的 `gh release delete`，修 `latest.yml` 竞态）。
+版本号目前仍是 `0.3.14-beta` ⇒ 发下一版时要 bump 到 `0.3.15-beta`（`Cargo.toml`/`package.json`/`Cargo.lock`
+五处 + `feat/tauri` 三处）。⚠️ `202562b` 那个修复**尚未被任何一次发版验证**，只有下次发版能确认。
 
 ⚠️ **`latest.yml` 从 0.3.11 起就没了**（0.3.10 有）。机制已查清，不是玄学：
 
@@ -48,7 +52,7 @@
 
 | 约束 | 事实 |
 |---|---|
-| **没有 cargo** | `/d/Vibe-Coding/.cargo` 不存在 ⇒ `cargo build/test/clippy` **本机跑不了**，一律走 CI；`AGENTS.md` 也明令不在本机编译（C 盘剩 31G / D 盘剩 41G） |
+| **没有 cargo** | `/d/Vibe-Coding/.cargo` 不存在 ⇒ `cargo build/test/clippy` **本机跑不了**，一律走 CI；`AGENTS.md` 也明令不在本机编译（2026-10-25 实测：C 盘剩 **15G**/96% 用、D 盘剩 **119G**/82% 用） |
 | **rustfmt 能单跑** | `/d/Vibe-Coding/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin/rustfmt.exe --edition 2021 <files>`（**必须带 edition**；先就地跑一遍再 `--check`，能省一轮 CI） |
 | **没有 node_modules** | `node test/run.js` 跑不了（`src/lib/http.js` 要 axios）；`node test/normalize.test.js` 能跑（零依赖）。Node 测试的真门是 CI 的 `node.yml` |
 | `gh` 间歇 403 | 一律 `scripts/gh-retry.sh <原样的 gh 参数>` |

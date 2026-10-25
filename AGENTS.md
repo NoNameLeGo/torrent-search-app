@@ -16,11 +16,12 @@ Electron mode: `npm run electron` (picks a free port automatically, no collision
 ## 🏗️ 构建约束 — 先读这条（硬规则，2026-10-04 用户明令）
 
 **不要在本机编译任何东西。** 用户原话：「不要在本地新增什么构建环境什么的，我电脑没空间了」。
-实测磁盘（2026-10-07）：C: 301G / 剩 **31G**（90% 用），D: 653G / 剩 **41G**（94% 用）—— **两个盘都快满了，不只是 C**。
+实测磁盘（2026-10-07）：C: 301G / 剩 **31G**（90% 用），D: 653G / 剩 **41G**（94% 用）；
+**2026-10-25 复测：C 剩 15G（96% 用）、D 剩 119G（82% 用）** —— C 更紧了，这条约束只会更硬。
 
 凡会产出 `target/` / `dist/` / `node_modules/` 或联网拉依赖的命令
 （`cargo build`、`cargo test`、`npm install`、`npm run dist` …）：**先问用户，默认改走 GitHub Actions**。
-不要因为「D 盘反正还有 41G」就自作主张开跑。
+不要因为「D 盘还有余量」就自作主张开跑。
 
 **注**：本机的 `CARGO_HOME`（`D:\Vibe-Coding\.cargo`）已被清理，`cargo` 已不在 PATH 上；
 `RUSTUP_HOME`（`D:\Vibe-Coding\.rustup`）的 toolchain 还在但缺 shim。
@@ -916,18 +917,19 @@ provider 都没改**；同一个要求传播到四处泛型约束（`BoxFuture` 
 fixture 靠 CI 抓（`fetch-fixture.yml`），探针链路支持 **per-fixture 编码声明**
 （条目里的 `encoding` 字段，megapeer 是第一个 windows-1251）。
 
-**候选状态（2026-10-11）**：
+**候选状态（更新于 2026-10-25）**：
 
 | 候选 | 状态 |
 |---|---|
-| `dmhy` | ⏸️ **暂缓** —— CI 抓取连试 3 次全部 60s 超时（0 字节；主页也一样）；agent 沙箱直连也 `fetch failed`。站点自己挂了/在维护，**不是**「本机不通但 CI 通」那一类。过些天再试 |
+| `dmhy` | ✅ **已搬完（2026-10-23）** —— 2026-10-11 那次「CI 连试 3 次 60s 超时」是站点自己在维护，后来恢复 |
 | `zeromagnet`（CI 29 行） | ✅ 已搬完（2026-10-11） |
-| `xxxtracker`（CI 1 行） | ⏸️ provider 线最前，但 **provider 线整体后置**（D13：先摸存活再砍；当前里程碑是 **M1 验 Slint**，不是再搬一个） |
-| `sukebei` / `nekobt` | 排队（域名是死是活待确认） |
+| `xxxtracker`（CI 1 行） | ✅ **已搬完（2026-10-24，第 24 家）** —— 本表里唯一一家「探活就能出结果」的 |
+| `nekobt` | ✅ **已搬完（2026-10-23）** |
+| `sukebei` | ⏸️ 2026-10-23 探活**超时**，仍排队（域名死活待确认） |
 
 ⚠️ **B 组序号口径**：序号把 `#0 地基` 与 `#10 1337x（跳过）` 都算进去了，
 所以「B 组第 12 个」= `zeromagnet` = **第 11 个真搬的 HTML provider**（commit message 里也是这个口径）。
-**别把序号当数量**：HTML 侧实际只搬了 11 个，全仓合计 16 个。
+**别把序号当数量**：HTML 侧实际搬了 **17 个**、JSON 侧 **7 个**，**全仓合计 24 个**（2026-10-24 核对）。
 
 抓 fixture 的姿势（本机不通的站点，`zeromagnet` 即为例）：
 

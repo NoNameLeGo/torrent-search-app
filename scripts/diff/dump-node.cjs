@@ -85,9 +85,9 @@ async function dumpOne(spec) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
 
-  // 默认跑**全部 16 家** —— CI 走的就是这条，所以「cheerio 没装」会在 CI 里**响**
+  // 默认跑**全部 24 家** —— CI 走的就是这条，所以「cheerio 没装」会在 CI 里**响**
   // （`require 失败: Cannot find module 'cheerio'` → fatal → 非零退出）。
-  // `--json-only` 只给本机用：本机不装 node_modules，11 家 HTML provider 跑不了。
+  // `--json-only` 只给本机用：本机不装 node_modules，17 家 HTML provider 跑不了。
   const pool = args.jsonOnly
     ? allProviders().filter((s) => !s.rules.some((r) => r.kind === 'html'))
     : allProviders();
@@ -119,7 +119,7 @@ async function main() {
   // 有 fatal 就是 harness 自己的问题（fixture 缺失/require 失败），必须非零退出
   if (out.some((o) => o.fatal)) process.exit(1);
   if (args.jsonOnly) {
-    console.error('提示：--json-only 只跑了 5 个 JSON provider；CI 里跑的是全部 16 家');
+    console.error('提示：--json-only 只跑了 7 个 JSON provider；CI 里跑的是全部 24 家');
   }
 }
 

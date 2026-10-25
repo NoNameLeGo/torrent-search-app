@@ -179,7 +179,7 @@ return !!p.paginated;                                         // 否则按 pagin
 ### 2.2 `Provider` trait
 
 形状与理由见 `docs/ROADMAP.md` §2.4。要点：
-- `search` 必需；**`resolve_magnet` 用默认方法**表达「可选能力」（6/16 家有）
+- `search` 必需；**`resolve_magnet` 用默认方法**表达「可选能力」（2026-10-11 时 6/16 家有；2026-10-24 为 **7/24**）
 - `paginated` / `browseable` 有默认值，单个 provider 覆盖
 - ⚠️ 引入 trait 会让 16 个 provider **各加一个 impl，代码量净增** —— 这不是为省行数，是为了让聚合层与 D17（Torznab 口子）成立
 
@@ -259,10 +259,12 @@ scripts/gh-retry.sh run view --job=<JOB_ID> --log | grep -E '^\| `'
 ### 6.1 做法（G1：fixture 回放差分，不打真站）
 
 ```
-scripts/diff/{fixtures.cjs, compare.cjs, node.cjs, run.cjs}      ← ✅ 实际落地的是这四件套
+scripts/diff/{fixtures.cjs, dump-node.cjs, compare.cjs}   ← 三件套（喂 fixture / 导出 Node 侧 / 逐字段比）
+  ├─ 另有 `canonical.cjs`（两侧统一成 Rust 的 snake_case 15 字段）、`http-stub.cjs`（axios 桩）、
+  │     `whitelist.json`（豁免表）
   ├─ 对每个 test/fixtures/<site>-<query>.{json,html}（两张手写表，见 fixtures.cjs 表头）
-  ├─ Node 侧：require.cache 预填一个 **axios 桩**再 require provider（⚠️ **不是** createMockHTTP
-  │            —— 这样本机零依赖也能跑），dump 成规范化 JSON
+  ├─ Node 侧：require.cache 预填一个 **axios 桩**再 require provider（⚠️ **不是** createMockHTTP），dump 成规范化 JSON
+  │            ⚠️ 只有 **JSON provider** 能在本机（无 node_modules）跑；HTML provider 要 cheerio，只能在 CI 跑
   ├─ Rust 侧：`cargo test -p bt-providers --test dump_rust` 写 JSON（⚠️ **不是** `--example
   │            dump_provider`；CWD 用 CARGO_MANIFEST_DIR 上溯两级解析，别依赖调用方 CWD）
   └─ 逐字段 diff；差异必须命中「已知 divergence 白名单」，否则非零退出

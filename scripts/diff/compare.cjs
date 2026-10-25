@@ -58,7 +58,7 @@ function parseArgs(argv) {
       // 「**本次比哪些**」——逗号分隔。
       // ⚠️ 这是**显式作用域**，不是放宽检查：列表**内**的 provider 仍要求两侧都在
       //（少一边 = 结构性失败）。需要它的原因是 triage 期间两侧覆盖面可以不同
-      //（Rust 已 16 家、CI 里的 Node 只跑 5 家 JSON）。
+      //（triage 那轮 Rust 已 16 家、CI 里的 Node 只跑 5 家 JSON；2026-10-24 已两侧全量 24 家）。
       out.only = String(argv[++i] || '')
         .split(',')
         .map((s) => s.trim())

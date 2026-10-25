@@ -243,7 +243,7 @@ function allProviders() {
   return [...JSON_PROVIDERS, ...HTML_PROVIDERS];
 }
 
-/** 兼容旧调用点：返回 HTML 那 11 家。 */
+/** 兼容旧调用点：返回 HTML 那 17 家。 */
 function htmlProviders() {
   return HTML_PROVIDERS;
 }
