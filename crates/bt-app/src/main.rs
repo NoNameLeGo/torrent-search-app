@@ -280,6 +280,31 @@ fn to_slint_row(r: &RowData) -> ResultRow {
     }
 }
 
+/// `RowData` → 详情面板（屏 03）的扁平属性。
+///
+/// ⚠️ 只取 `RowData` 里**已有的原始字段**（`magnet` / `info_hash` / `detail_url`），
+/// 不从 `meta` 反解 —— `meta` 是给人看的格式化文本（见 ui_model 的注释）。
+/// 磁力可能为空：那 6 家要惰性解析，空串就照空串显示，不编造。
+fn show_detail(ui: &AppWindow, r: &crate::ui_model::RowData) {
+    ui.set_detail_open(true);
+    ui.set_detail_idx(r.idx);
+    ui.set_detail_title(r.title_plain.clone().into());
+    ui.set_detail_meta(r.meta.clone().into());
+    ui.set_detail_provider(r.provider.clone().into());
+    ui.set_detail_seeds(r.seeds);
+    ui.set_detail_leechers(r.leechers);
+    ui.set_detail_infohash(r.info_hash.clone().unwrap_or_default().into());
+    ui.set_detail_magnet(r.magnet.clone().unwrap_or_default().into());
+    ui.set_detail_url(r.detail_url.clone().unwrap_or_default().into());
+    ui.set_detail_action(r.action.label().into());
+}
+
+/// 关详情面板。新搜索 / 重排 / 关按钮都要调 —— 否则详情还指着旧 `idx`，
+/// 而重排会重编号 `idx`（同 `push_row` 里那条 key vs idx 的教训）。
+fn close_detail(ui: &AppWindow) {
+    ui.set_detail_open(false);
+}
+
 fn to_slint_chip(ui: &AppWindow, c: &ChipData) -> ProviderChip {
     ProviderChip {
         id: c.id.clone().into(),
@@ -355,6 +380,8 @@ fn sync_small(ui: &AppWindow, st: &UiState) {
 fn start_search(ui: &AppWindow, query: String, page: u32) {
     let weak = ui.as_weak();
     let accent = accent_hex(ui);
+    // 屏 03：新搜索一律收起详情（旧行可能已经不在结果里了）
+    close_detail(ui);
 
     // ③ 先看用户勾了哪些。`None` = 全勾（不筛选）—— 与 JS 同口径。
     let (picked, none) = STATE.with(|s| {
@@ -562,6 +589,8 @@ fn pick_sort(ui: &AppWindow, id: String) {
     let Some(key) = SortKey::parse(&id) else {
         return;
     };
+    // 重排会重编号 idx ⇒ 详情必须收起（否则按钮会把磁力推到别的行上）
+    close_detail(ui);
     STATE.with(|s| {
         let mut st = s.borrow_mut();
         let q = st.query.clone();
@@ -573,6 +602,8 @@ fn pick_sort(ui: &AppWindow, id: String) {
 
 /// #1 点一个分类 chip（`id` 是空串 = 全部）。**不改 `rows`**，只改视图。
 fn pick_category(ui: &AppWindow, id: String) {
+    // 视图会换成子集、idx 重新编号 ⇒ 同上，收起详情
+    close_detail(ui);
     STATE.with(|s| {
         let mut st = s.borrow_mut();
         st.app
@@ -1127,6 +1158,28 @@ fn wire(ui: &AppWindow) {
         ui.on_toggle_indexer(move |id| {
             if let Some(ui) = weak.upgrade() {
                 toggle_indexer(&ui, id.as_str());
+            }
+        });
+    }
+    // 屏 03：打开详情（按 idx 取权威 Vec 的那一行）/ 关闭。
+    {
+        let weak = ui.as_weak();
+        ui.on_open_row(move |idx| {
+            if let Some(ui) = weak.upgrade() {
+                STATE.with(|s| {
+                    let st = s.borrow();
+                    if let Some(row) = st.app.row(idx) {
+                        show_detail(&ui, row);
+                    }
+                });
+            }
+        });
+    }
+    {
+        let weak = ui.as_weak();
+        ui.on_close_detail(move || {
+            if let Some(ui) = weak.upgrade() {
+                close_detail(&ui);
             }
         });
     }

@@ -1,14 +1,17 @@
-// bt-app —— 真正的应用界面（M4）。唯一的 UI，对齐 docs/ROADMAP.md §2.2。
+// bt-app —— 应用界面。唯一的 UI，对齐 docs/ROADMAP.md §2.2 与设计稿
+// 「BT 聚合搜索 · Rust 界面重设计」（Ardot file 740017630029174）。
 //
 // ⚠️ 这里只用 M1 spike 已经**实测过**的元素：std-widgets 的 LineEdit / Button / ListView，
-// 加上内置的 Text / Rectangle / 布局。刻意不用 ComboBox / ScrollView 之类没在
-// 本机验证过的控件 —— 本机没有编译器，Slint API 写错的代价是一轮 CI。
+// 加上内置的 Text / Rectangle / 布局。刻意不用 ComboBox / ScrollView 之类没在本机验证过的
+// 控件 —— 本机没有编译器，Slint API 写错的代价是一轮 CI。
 //
-// ⚠️ 两条 M1 踩出来的硬约束（AGENTS.md「Slint 探针结论」）：
+// ⚠️ 四条硬约束（踩过或差点踩）：
 //   1. 富文本属性类型必须是 `styled-text`（不是 `string`）—— 高亮是 Rust 侧
 //      `StyledText::from_markdown()` 构造的 markup，`@markdown()` 会把插值整体转义。
-//   2. **别在 `init` 里写全局属性** —— 会形成属性依赖环，实测 200 条数据触发 2628 次实例化。
-//      所以这里没有任何 `init`。
+//   2. **别在 `init` 里写全局属性** —— 会形成属性依赖环（实测 200 条数据触发 2628 次实例化）。
+//   3. std-widgets 的 `Button` **没有 `color`** —— 颜色只能落在 `Text` / `Rectangle` 上。
+//   4. `Theme.hl` 是 Rust 侧关键词高亮的**唯一来源**（main.rs `accent_hex`）；改名即静默变色。
+//      同理 `ok` / `err` / `sub` 由 `tone_color` 读取，不能删。
 
 import { LineEdit, Button, ListView } from "std-widgets.slint";
 
@@ -29,8 +32,7 @@ export struct ResultRow {
 }
 
 // 每站状态 —— 形状对齐 `bt_providers::ProviderStatus`（`ok` / `error` / `pending`）。
-// ⚠️ 字形与颜色都由 **Rust 侧算好**（ui_model.rs），.slint 里不写三元表达式 ——
-// 少一处 Slint 语法风险，而且那三档的措辞本来就该跟 Rust 的状态枚举绑在一起。
+// ⚠️ 字形与颜色都由 **Rust 侧算好**（ui_model.rs），.slint 里不写三元表达式。
 export struct ProviderChip {
     id: string,
     name: string,
@@ -39,107 +41,142 @@ export struct ProviderChip {
     tone: color,
 }
 
-// 站点开关的一行（③ 用户级站点选择）。
-// ⚠️ 同样：文案（`✓ tpb` / `○ tpb`）与颜色都由 **Rust 侧算好**（`SiteData::label`），
-// 这里只负责显示与点击 —— `.slint` 里不写条件表达式。
+// 站点开关的一行（③ 用户级站点选择）。文案与颜色同样由 Rust 算好。
 export struct SiteToggle {
     id: string,
     label: string,
     tone: color,
 }
 
-export global Theme {
-    // Catppuccin Mocha（与 spike 一致，不自己造色）
-    out property <color> bg:       #1e1e2e;
-    out property <color> card:     #313244;
-    out property <color> text:     #cdd6f4;
-    out property <color> sub:      #9399b2;
-    out property <color> accent:   #89b4fa;
-    out property <color> hl:       #f9e2af;
-    out property <color> surface1: #45475a;
-    out property <color> ok:       #a6e3a1;
-    out property <color> err:      #f38ba8;
+// 排序键 / 分类 chip。文案（含方向箭头与"选中"标记）由 Rust 侧算好。
+export struct Chip {
+    id: string,
+    label: string,
 }
 
-// 一条结果卡片。
+// ⑤ 一行索引器（Torznab）。文案全由 Rust 算好（含 ✓/✗ 与"停用/启用"）。
+// `id` 是身份（用 URL），不要用下标。
+export struct IndexerRow {
+    id: string,
+    label: string,
+    action: string,
+}
+
+// 详情面板（屏 03）用**扁平属性**而不是 struct：struct 性质的 property 需要初值，
+// 而 `styled-text` 的初值写法没在本机验证过 —— 本机没编译器，不值得赌。
+// 数据全部来自 `ui_model::RowData` 里已有的原始字段（magnet / info_hash / detail_url）。
+
+// Catppuccin Mocha —— 只用官方 token，不自己造中间色。
+// 语义分工（设计稿定稿）：mauve = 操作/选中，peach = 命中词，green = 做种，
+// blue = 来源链接，maroon = 低做种，red = 失败/超时。
+export global Theme {
+    out property <color> crust:    #11111b;
+    out property <color> mantle:   #181825;
+    out property <color> base:     #1e1e2e;
+    out property <color> surface0: #313244;
+    out property <color> surface1: #45475a;
+    out property <color> dim:      #585b70;
+    out property <color> sub:      #7f849c;
+    out property <color> subtext:  #a6adc8;
+    out property <color> text:     #cdd6f4;
+    out property <color> mauve:    #cba6f7;
+    out property <color> peach:    #fab387;
+    out property <color> green:    #a6e3a1;
+    out property <color> blue:     #89b4fa;
+    out property <color> maroon:   #eba0ac;
+    out property <color> ok:       #a6e3a1;
+    out property <color> err:      #f38ba8;
+    // ⚠️ Rust 侧读取的三个名字：hl（高亮）/ accent（链接）/ bg·card（旧布局用）
+    out property <color> hl:       #fab387;
+    out property <color> accent:   #89b4fa;
+    out property <color> bg:       #11111b;
+    out property <color> card:     #181825;
+}
+
+// 一条结果行。
+// ⚠️ 必须**转发** push：组件里的 `root` 指的是这个组件实例，不是窗口。
 component ResultCard inherits Rectangle {
     in property <ResultRow> item;
-    // ⚠️ 必须**转发**出去：组件里的 `root` 指的是这个组件实例，不是窗口。
-    // 直接写 `root.push-row(...)` 会编译不过（窗口上没这个回调）。
     callback push(int);
+    // 打开详情面板（屏 03）。同样要转发。
+    callback open(int);
 
-    height: 74px;
-    background: Theme.card;
-    border-radius: 6px;
-    border-width: 1px;
-    border-color: Theme.surface1;
+    height: 88px;
+    background: transparent;
 
-    HorizontalLayout {
-        padding: 8px;
-        spacing: 8px;
+    VerticalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        spacing: 0px;
 
-        // 左侧：seeders
-        Rectangle {
-            width: 54px;
-            background: Theme.surface1;
-            border-radius: 4px;
+        HorizontalLayout {
+            vertical-stretch: 1;
+            spacing: 12px;
 
-            VerticalLayout {
-                alignment: center;
-                spacing: 0px;
-                Text {
-                    text: "\{item.seeds}";
-                    color: Theme.accent;
-                    font-size: 15px;
-                    font-weight: 700;
-                    horizontal-alignment: center;
-                }
-                Text {
-                    text: "seeds";
-                    color: Theme.sub;
-                    font-size: 9px;
-                    horizontal-alignment: center;
-                }
-            }
-        }
-
-        // 中间：标题（富文本 + 自动换行）+ 元信息
-        VerticalLayout {
-            alignment: center;
-            spacing: 3px;
-
-            StyledText {
-                text: item.title-markup;
-                default-color: Theme.text;
-                default-font-size: 14px;
-                // 两条以内，超了省略 —— 中文标题 + 高亮 + 换行正是 M1 压过的组合
-                max-lines: 2;
-            }
-
+            // 做种数：整行的视觉锚点（设计稿的「海报数字」）
             Text {
-                text: item.meta;
-                color: Theme.sub;
-                font-size: 11px;
+                text: "\{item.seeds}";
+                width: 64px;
+                font-size: 20px;
+                font-weight: 700;
+                color: Theme.green;
+                vertical-alignment: center;
             }
-        }
 
-        // 右侧：来源 + 动作按钮
-        VerticalLayout {
-            width: 150px;
-            alignment: center;
-            spacing: 4px;
+            // 标题（富文本 + 自动换行）+ 元信息
+            VerticalLayout {
+                horizontal-stretch: 1;
+                alignment: center;
+                spacing: 4px;
 
+                StyledText {
+                    text: item.title-markup;
+                    default-color: Theme.text;
+                    default-font-size: 14px;
+                    // 两条以内，超了省略 —— 中文标题 + 高亮 + 换行正是 M1 压过的组合
+                    max-lines: 2;
+                }
+
+                Text {
+                    text: item.meta;
+                    color: Theme.sub;
+                    font-size: 11px;
+                }
+            }
+
+            // 来源站
             Text {
                 text: item.provider;
-                color: Theme.accent;
+                width: 96px;
                 font-size: 11px;
-                horizontal-alignment: center;
+                color: Theme.accent;
+                vertical-alignment: center;
             }
 
-            Button {
-                text: item.action-label;
-                clicked => { root.push(item.idx); }
+            // 动作（Rust 决定文案：取磁力/推送/解析中）+ 详情
+            HorizontalLayout {
+                spacing: 6px;
+
+                Button {
+                    text: "详情";
+                    width: 64px;
+                    height: 30px;
+                    clicked => { root.open(item.idx); }
+                }
+
+                Button {
+                    text: item.action-label;
+                    width: 112px;
+                    height: 30px;
+                    clicked => { root.push(item.idx); }
+                }
             }
+        }
+
+        // 行分隔线
+        Rectangle {
+            height: 1px;
+            background: Theme.surface1;
         }
     }
 }
@@ -148,15 +185,15 @@ component ResultCard inherits Rectangle {
 component ProviderRow inherits Rectangle {
     in property <ProviderChip> item;
 
-    height: 22px;
+    height: 20px;
     background: transparent;
 
     HorizontalLayout {
-        spacing: 4px;
+        spacing: 6px;
         Text {
             text: item.glyph;
             color: item.tone;
-            font-size: 11px;
+            font-size: 10px;
             vertical-alignment: center;
         }
         Text {
@@ -168,27 +205,23 @@ component ProviderRow inherits Rectangle {
         }
         Text {
             text: item.detail;
-            color: Theme.sub;
+            color: Theme.dim;
             font-size: 10px;
             vertical-alignment: center;
         }
     }
 }
 
-// 一个站点开关。
-// ⚠️ **`Button` 没有 `color` 属性** —— CI 抓到过 `Unknown property color in Button`
-// （std-widgets 的 Button 只认 text/enabled/icon/primary…）。所以颜色只能落在 `Text` 上，
-// 按钮单独放右边。这正是"只用 M1 验过的元素"那条规矩要防的：本机没编译器，猜 API 就是一轮 CI。
+// 一个站点开关。`Button` 没有 `color`，所以颜色在 Text 上、按钮单独放右边。
 component SiteRow inherits Rectangle {
     in property <SiteToggle> item;
-    // 又是那个坑：组件里的 `root` 不是窗口 ⇒ 必须转发
     callback toggle(string);
 
-    height: 26px;
+    height: 22px;
     background: transparent;
 
     HorizontalLayout {
-        spacing: 4px;
+        spacing: 6px;
 
         Text {
             text: item.label;
@@ -200,55 +233,38 @@ component SiteRow inherits Rectangle {
 
         Button {
             text: "切换";
-            width: 56px;
+            width: 48px;
+            height: 22px;
             clicked => { root.toggle(item.id); }
         }
     }
 }
 
-// 排序键 / 分类 chip 的一行。文案（含方向箭头 `↓` 与"选中"的方括号）都由
-// **Rust 侧算好** —— `.slint` 里不写条件表达式，少一处语法风险。
-// ⚠️ 只用 Button 的 `text` + `clicked`：std-widgets 的 Button **没有 `color`**（CI 抓到过）。
-export struct Chip {
-    id: string,
-    label: string,
-}
-
-// ⑤ 一行索引器（Torznab）。**文案全由 Rust 算好**（含 ✓/✗ 状态标记与按钮上的
-// "停用"/"启用"）—— 本文件不写条件表达式，少一处语法风险（见上面 Chip 的注释）。
-//
-// ⚠️ `id` 是身份（用 URL —— 没有 URL 的条目在读配置时就被丢掉了，所以它必然非空），
-// 用它而不是**下标**：`for ix[i] in …` 那种带索引的写法本文件还没用过，
-// 而"只能靠 CI 验证"的语法不该在没编译器的时候当首例（这条教训见文件头）。
-//
-// ⚠️ `enabled` 不只是显示：它回到 `Provider::enabled()`，聚合层的 `resolve_targets`
-// 会据此**跳过**该索引器（`crates/bt-providers/src/aggregate.rs` 的 `if !p.enabled()`）。
-// 与 JS 在 `dynamicTorznabProviders()` 创建时就滤掉是等价口径。
-export struct IndexerRow {
-    id: string,
-    label: string,
-    action: string,
-}
-
+// 排序 / 分类 chip。
+// ⚠️ `can-pick` 不只是美观：搜索期间重排会让增量 push 的 `skip` 错位（见 main.rs 的注释）。
 component ChipRow inherits Rectangle {
     in property <Chip> item;
-    /// 搜索进行中要置灰 —— **不是**美观问题：
-    /// 排序会重编号 `idx`、筛选会把模型换成 `view()`（子集），而搜索中回报是**按
-    /// `rows` 下标增量 push** 的（`for r in rows.iter().skip(row_count())`）——
-    /// 搜索期间重排一次，那个 `skip` 就会推开重复行 / 漏行。
-    /// （不用 `enabled` 这个名字：它是内建属性名，怕碰。）
     in property <bool> can-pick: true;
-    // 老坑：组件里的 `root` 不是窗口 ⇒ 必须转发
     callback pick(string);
 
-    height: 24px;
+    height: 26px;
     background: transparent;
 
     Button {
         text: item.label;
+        horizontal-stretch: 1;
+        height: 26px;
         enabled: root.can-pick;
         clicked => { root.pick(item.id); }
     }
+}
+
+// 右栏的小标题
+component RailLabel inherits Text {
+    font-size: 10px;
+    color: Theme.dim;
+    height: 14px;
+    vertical-alignment: center;
 }
 
 export component AppWindow inherits Window {
@@ -256,7 +272,6 @@ export component AppWindow inherits Window {
     in-out property <[ResultRow]> rows;
     in-out property <[ProviderChip]> providers;
     in-out property <[SiteToggle]> sites;
-    // #1 排序键（4 个）与分类 chip（数量随结果变）
     in-out property <[Chip]> sorts;
     in-out property <[Chip]> cats;
     in-out property <bool> searching: false;
@@ -266,223 +281,341 @@ export component AppWindow inherits Window {
     in-out property <string> downloader-user: "";
     in-out property <string> downloader-secret: "";
     in-out property <string> downloader-status: "未配置下载器";
-    // ⑤ Torznab 索引器：三个输入 + 一行状态。⚠️ **只用已验证的控件**
-    // （LineEdit / Button / Text）—— `Button` 没有 `color` 那条教训见文件头。
     in-out property <string> indexer-name: "";
     in-out property <string> indexer-url: "";
     in-out property <string> indexer-key: "";
     in-out property <string> indexer-status: "未配置索引器";
-    // 已配的索引器清单（每行一个「停用/启用」）—— 之前只有「添加/清空」，
-    // 某个索引器坏了只能全清重加。
     in-out property <[IndexerRow]> indexers;
     in-out property <int> total: 0;
-    // ① 分页：当前页码（1 起）+ 引擎层回的 has_more（决定「下一页」能不能点）
     in-out property <int> page: 1;
     in-out property <bool> has-more: false;
+    // 屏 03 详情面板（扁平属性；见 struct 区的注释）。Rust 侧在打开/关闭/新搜索/重排时写。
+    in-out property <bool> detail-open: false;
+    in-out property <int> detail-idx: -1;
+    in-out property <string> detail-title: "";
+    in-out property <string> detail-meta: "";
+    in-out property <string> detail-provider: "";
+    in-out property <int> detail-seeds: 0;
+    in-out property <int> detail-leechers: 0;
+    in-out property <string> detail-infohash: "";
+    in-out property <string> detail-magnet: "";
+    in-out property <string> detail-url: "";
+    in-out property <string> detail-action: "";
+    // 纯 UI 状态：配置区开合。Rust 侧不读它，默认收起 —— 主界面只留搜索与结果。
+    in-out property <bool> config-open: false;
 
     callback search(string);
     callback push-row(int);
     callback pick-kind(string);
     callback detect-downloader();
     callback save-downloader();
-    // ⑤ 索引器：加一个 / 清空全部 / 停用启用某一个（按 URL 认身份）
     callback add-indexer();
     callback clear-indexers();
     callback toggle-indexer(string);
-    // ①③ 新回调
     callback next-page();
     callback toggle-site(string);
-    // #1 排序 / 分类
     callback pick-sort(string);
     callback pick-category(string);
+    // 屏 03
+    callback open-row(int);
+    callback close-detail();
 
     title: "BT 聚合搜索";
-    width: 1180px;
-    height: 800px;
-    background: Theme.bg;
+    width: 1280px;
+    height: 832px;
+    background: Theme.crust;
     // CJK 靠它 + 系统字体回退（spike 实测可行）
     default-font-family: "Microsoft YaHei";
     default-font-size: 13px;
 
     VerticalLayout {
-        padding: 10px;
-        spacing: 8px;
+        spacing: 0px;
 
-        // ---- 搜索行 ----
-        HorizontalLayout {
-            spacing: 6px;
-            LineEdit {
-                horizontal-stretch: 1;
-                placeholder-text: "关键词（回车搜索）";
-                text <=> root.query;
-                accepted(t) => { root.search(t); }
-            }
-            Button {
-                text: root.searching ? "搜索中…" : "搜索";
-                enabled: !root.searching;
-                clicked => { root.search(root.query); }
-            }
-            // ① 分页。⚠️ `has-more` 来自**引擎层**的 has_more（不是"这页满了"的猜测）——
-            // 各家有自己的回退规则（`paginated()` + 显式表态），`aggregate_has_more` 已经
-            // 按 JS 的口径算好了，UI 只负责显示。
-            Button {
-                text: "第 \{root.page} 页 · 下一页";
-                enabled: !root.searching && root.has-more;
-                clicked => { root.next-page(); }
-            }
-        }
+        // ---- 顶栏 ----
+        Rectangle {
+            height: 40px;
+            background: Theme.mantle;
 
-        // ⚠️ 状态行**单独一行**：它是"一条都没有"时唯一告诉用户该干什么的地方
-        //（「网络层不通 / 站点层失败 / 换关键词」），之前挤在搜索行里只有 230px，
-        // 正好把那段最有用的话截掉。
-        Text {
-            text: root.status-text;
-            color: Theme.sub;
-            horizontal-stretch: 1;
-        }
+            HorizontalLayout {
+                padding-left: 20px;
+                padding-right: 16px;
+                spacing: 10px;
 
-        // ---- 下载器行（MVP：种类 4 个按钮 + url + 凭据 + 探测/保存）----
-        HorizontalLayout {
-            spacing: 6px;
-            Text { text: "下载器"; color: Theme.sub; vertical-alignment: center; }
-            Button { text: "qB";  clicked => { root.pick-kind("qbittorrent"); } }
-            Button { text: "TR";  clicked => { root.pick-kind("transmission"); } }
-            Button { text: "aria2"; clicked => { root.pick-kind("aria2"); } }
-            Button { text: "Gopeed"; clicked => { root.pick-kind("gopeed"); } }
-            Text {
-                text: root.downloader-kind;
-                color: Theme.accent;
-                vertical-alignment: center;
-                width: 96px;
-            }
-            LineEdit {
-                horizontal-stretch: 1;
-                placeholder-text: "地址，例 http://localhost:8080";
-                text <=> root.downloader-url;
-            }
-            LineEdit {
-                width: 96px;
-                placeholder-text: "用户名";
-                text <=> root.downloader-user;
-            }
-            LineEdit {
-                width: 110px;
-                placeholder-text: "密码 / token";
-                text <=> root.downloader-secret;
-            }
-            Button { text: "探测"; clicked => { root.detect-downloader(); } }
-            Button { text: "保存"; clicked => { root.save-downloader(); } }
-            Text {
-                text: root.downloader-status;
-                color: Theme.sub;
-                vertical-alignment: center;
-                width: 180px;
-            }
-        }
+                Rectangle {
+                    width: 18px;
+                    height: 18px;
+                    border-radius: 4px;
+                    background: Theme.mauve;
+                }
 
-        // ---- 索引器行（⑤ Torznab：Jackett / Prowlarr / *arr）----
-        //
-        // 「添加」= 按名字去重后写进 %APPDATA%\bt-search\indexers.json **并立刻生效**
-        // （重建动态 provider 工厂，不用重启）。名字留空就用地址当代名。
-        // 「清空」= 全删（含文件）。
-        HorizontalLayout {
-            spacing: 6px;
-            Text { text: "索引器"; color: Theme.sub; vertical-alignment: center; }
-            LineEdit {
-                width: 120px;
-                placeholder-text: "名字，例 Jackett";
-                text <=> root.indexer-name;
-            }
-            LineEdit {
-                horizontal-stretch: 1;
-                placeholder-text: "Torznab 地址，例 http://localhost:9117";
-                text <=> root.indexer-url;
-            }
-            LineEdit {
-                width: 130px;
-                placeholder-text: "API key";
-                text <=> root.indexer-key;
-            }
-            Button { text: "添加"; clicked => { root.add-indexer(); } }
-            Button { text: "清空"; clicked => { root.clear-indexers(); } }
-            Text {
-                text: root.indexer-status;
-                color: Theme.sub;
-                vertical-alignment: center;
-                width: 240px;
-            }
-        }
-
-        // ---- 已配索引器清单：每个一个「停用 / 启用」----
-        //
-        // 为什么需要：之前只有「添加 / 清空」—— 某个索引器坏了（key 失效 / 站点下线）
-        // 只能把**全部**清掉重加。停用 = 留着配置但先别搜它（`Provider::enabled()`）。
-        //
-        // ⚠️ 文案（含 ✓/✗ 与"停用"/"启用"）**由 Rust 算好** —— 本文件不写条件表达式。
-        HorizontalLayout {
-            spacing: 10px;
-            for ix in root.indexers : HorizontalLayout {
-                spacing: 4px;
                 Text {
-                    text: ix.label;
-                    color: Theme.sub;
+                    text: "BT 聚合搜索";
+                    font-size: 12px;
+                    font-weight: 600;
+                    color: Theme.text;
                     vertical-alignment: center;
                 }
+
+                Text {
+                    text: "RUST";
+                    font-size: 9px;
+                    color: Theme.dim;
+                    vertical-alignment: center;
+                }
+
+                Rectangle {
+                    horizontal-stretch: 1;
+                }
+
                 Button {
-                    text: ix.action;
-                    clicked => { root.toggle-indexer(ix.id); }
+                    text: root.config-open ? "收起" : "设置";
+                    width: 64px;
+                    height: 26px;
+                    clicked => { root.config-open = !root.config-open; }
                 }
             }
         }
 
-        // ---- 主体：结果列表 + 右侧（站点开关 + 每站状态）----
-        HorizontalLayout {
-            spacing: 8px;
+        // ---- 搜索区 ----
+        Rectangle {
+            background: Theme.crust;
 
-            ListView {
+            VerticalLayout {
+                padding: 16px;
+                spacing: 10px;
+
+                HorizontalLayout {
+                    spacing: 8px;
+
+                    LineEdit {
+                        horizontal-stretch: 1;
+                        placeholder-text: "关键词（回车搜索）";
+                        text <=> root.query;
+                        accepted(t) => { root.search(t); }
+                    }
+
+                    Button {
+                        text: root.searching ? "搜索中…" : "搜索";
+                        width: 88px;
+                        enabled: !root.searching;
+                        clicked => { root.search(root.query); }
+                    }
+
+                    // ① 分页：`has-more` 来自引擎层，不是"这页满了"的猜测
+                    Button {
+                        text: "第 \{root.page} 页 · 下一页";
+                        width: 124px;
+                        enabled: !root.searching && root.has-more;
+                        clicked => { root.next-page(); }
+                    }
+                }
+
+                // ⚠️ 状态行单独一行：它是"一条都没有"时唯一告诉用户该干什么的地方
+                Text {
+                    text: root.status-text;
+                    color: Theme.sub;
+                    font-size: 11px;
+                }
+            }
+        }
+
+        // ---- 配置区（默认收起；顶栏「设置」切换）----
+        Rectangle {
+            visible: root.config-open;
+            background: Theme.mantle;
+            border-width: 1px;
+            border-color: Theme.surface0;
+
+            VerticalLayout {
+                padding: 12px;
+                spacing: 8px;
+
+                HorizontalLayout {
+                    spacing: 6px;
+                    Text { text: "下载器"; color: Theme.sub; font-size: 11px; vertical-alignment: center; }
+                    Button { text: "qB";  clicked => { root.pick-kind("qbittorrent"); } }
+                    Button { text: "TR";  clicked => { root.pick-kind("transmission"); } }
+                    Button { text: "aria2"; clicked => { root.pick-kind("aria2"); } }
+                    Button { text: "Gopeed"; clicked => { root.pick-kind("gopeed"); } }
+                    Text {
+                        text: root.downloader-kind;
+                        color: Theme.mauve;
+                        font-size: 11px;
+                        width: 96px;
+                        vertical-alignment: center;
+                    }
+                    Text {
+                        text: root.downloader-status;
+                        color: Theme.sub;
+                        font-size: 11px;
+                        horizontal-stretch: 1;
+                        vertical-alignment: center;
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: 6px;
+                    LineEdit {
+                        horizontal-stretch: 1;
+                        placeholder-text: "地址，例 http://localhost:8080";
+                        text <=> root.downloader-url;
+                    }
+                    LineEdit {
+                        width: 96px;
+                        placeholder-text: "用户名";
+                        text <=> root.downloader-user;
+                    }
+                    LineEdit {
+                        width: 110px;
+                        placeholder-text: "密码 / token";
+                        text <=> root.downloader-secret;
+                    }
+                    Button { text: "探测"; clicked => { root.detect-downloader(); } }
+                    Button { text: "保存"; clicked => { root.save-downloader(); } }
+                }
+
+                HorizontalLayout {
+                    spacing: 6px;
+                    Text { text: "索引器"; color: Theme.sub; font-size: 11px; vertical-alignment: center; }
+                    LineEdit {
+                        width: 120px;
+                        placeholder-text: "名字，例 Jackett";
+                        text <=> root.indexer-name;
+                    }
+                    LineEdit {
+                        horizontal-stretch: 1;
+                        placeholder-text: "Torznab 地址，例 http://localhost:9117";
+                        text <=> root.indexer-url;
+                    }
+                    LineEdit {
+                        width: 130px;
+                        placeholder-text: "API key";
+                        text <=> root.indexer-key;
+                    }
+                    Button { text: "添加"; clicked => { root.add-indexer(); } }
+                    Button { text: "清空"; clicked => { root.clear-indexers(); } }
+                }
+
+                HorizontalLayout {
+                    spacing: 10px;
+                    Text {
+                        text: root.indexer-status;
+                        color: Theme.sub;
+                        font-size: 11px;
+                        vertical-alignment: center;
+                    }
+                    for ix in root.indexers : HorizontalLayout {
+                        spacing: 4px;
+                        Text {
+                            text: ix.label;
+                            color: Theme.sub;
+                            font-size: 11px;
+                            vertical-alignment: center;
+                        }
+                        Button {
+                            text: ix.action;
+                            clicked => { root.toggle-indexer(ix.id); }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ---- 主体：结果列表 + 右栏（站点 / 排序 / 分类 / 引擎）----
+        HorizontalLayout {
+            vertical-stretch: 1;
+            padding-left: 20px;
+            padding-right: 20px;
+            padding-bottom: 14px;
+            spacing: 16px;
+
+            // 列表外壳：圆角 + 描边（行自己画分隔线）
+            Rectangle {
                 horizontal-stretch: 1;
-                for row in root.rows : ResultCard {
-                    item: row;
-                    // 转发：卡片上的 push 回到窗口的 push-row
-                    push(idx) => { root.push-row(idx); }
+                background: Theme.mantle;
+                border-radius: 12px;
+                border-width: 1px;
+                border-color: Theme.surface0;
+
+                // ⚠️ ListView 不是布局，直接挂在 Rectangle 下不会铺满 —— 套一层 VerticalLayout
+                VerticalLayout {
+                    ListView {
+                        vertical-stretch: 1;
+                        for row in root.rows : ResultCard {
+                            item: row;
+                            push(idx) => { root.push-row(idx); }
+                            open(idx) => { root.open-row(idx); }
+                        }
+                    }
+
+                    // ---- 屏 02 空态：还没结果时的海报（文案全静态，只有引擎数取自模型）----
+                    Rectangle {
+                        visible: root.rows.length == 0;
+                        vertical-stretch: 1;
+                        background: transparent;
+
+                        VerticalLayout {
+                            alignment: center;
+                            padding: 44px;
+                            spacing: 8px;
+
+                            Text {
+                                text: "一个关键词";
+                                font-size: 36px;
+                                font-weight: 300;
+                                color: Theme.text;
+                            }
+
+                            Text {
+                                text: "扫完 \{root.providers.length} 个站点。";
+                                font-size: 36px;
+                                font-weight: 700;
+                                color: Theme.mauve;
+                            }
+
+                            Text {
+                                text: "磁力聚合 · 跨站去重 · 直推 qBittorrent / Transmission / aria2 / Gopeed";
+                                font-size: 12px;
+                                color: Theme.sub;
+                            }
+
+                            Text {
+                                text: "在搜索框输入关键词，回车开始";
+                                font-size: 11px;
+                                color: Theme.dim;
+                            }
+                        }
+                    }
                 }
             }
 
             Rectangle {
-                width: 240px;
-                background: Theme.card;
-                border-radius: 6px;
+                width: 300px;
+                visible: !root.detail-open;
+                background: Theme.mantle;
+                border-radius: 12px;
+                border-width: 1px;
+                border-color: Theme.surface0;
 
                 VerticalLayout {
-                    padding: 6px;
-                    spacing: 2px;
+                    padding: 14px;
+                    spacing: 6px;
 
-                    // ③ 站点开关。默认全选；点一下切换。
-                    // 取消到零个时 Rust 侧**不发搜索**（不是"搜全部"）—— 见 ui_model 的注释。
-                    Text {
-                        text: "站点（点击切换）";
-                        color: Theme.sub;
-                        font-size: 11px;
-                    }
+                    RailLabel { text: "站点（点击切换）"; }
 
+                    // 取消到零个时 Rust 侧**不发搜索**（不是"搜全部"）—— 见 ui_model 注释
                     ListView {
-                        height: 190px;
+                        height: 148px;
                         for s in root.sites : SiteRow {
                             item: s;
                             toggle(id) => { root.toggle-site(id); }
                         }
                     }
 
-                    // #1 排序。点一下排序、同一个键再点一下翻方向（箭头由 Rust 加）。
-                    // ⚠️ 只有 4 个键但要放得下箭头，所以高度给足 4 行。
-                    Text {
-                        text: "排序（再点一次反向）";
-                        color: Theme.sub;
-                        font-size: 11px;
-                    }
+                    RailLabel { text: "排序（再点一次反向）"; }
 
                     ListView {
-                        height: 104px;
+                        height: 96px;
                         for s in root.sorts : ChipRow {
                             item: s;
                             can-pick: !root.searching;
@@ -490,17 +623,10 @@ export component AppWindow inherits Window {
                         }
                     }
 
-                    // #1 分类筛选。第一个恒为「全部」。
-                    // ⚠️ 分类数随结果变（可能十几个），这里给它固定高度 + ListView 自己滚 ——
-                    // 不用 `for` 平铺，免得撑爆布局（`for` 在普通布局里也是没验过的写法）。
-                    Text {
-                        text: "分类";
-                        color: Theme.sub;
-                        font-size: 11px;
-                    }
+                    RailLabel { text: "分类"; }
 
                     ListView {
-                        height: 130px;
+                        height: 104px;
                         for c in root.cats : ChipRow {
                             item: c;
                             can-pick: !root.searching;
@@ -508,16 +634,161 @@ export component AppWindow inherits Window {
                         }
                     }
 
-                    Text {
-                        text: "共 \{root.total} 条";
-                        color: Theme.sub;
-                        font-size: 11px;
-                    }
+                    RailLabel { text: "引擎"; }
 
                     ListView {
                         vertical-stretch: 1;
                         for p in root.providers : ProviderRow { item: p; }
                     }
+                }
+            }
+
+            // ---- 屏 03 详情面板：占右栏位置（同一时刻只显示一个）----
+            Rectangle {
+                visible: root.detail-open;
+                width: 460px;
+                background: Theme.mantle;
+                border-radius: 12px;
+                border-width: 1px;
+                border-color: Theme.surface0;
+
+                VerticalLayout {
+                    padding: 20px;
+                    spacing: 10px;
+
+                    HorizontalLayout {
+                        spacing: 8px;
+
+                        Text {
+                            text: "详情";
+                            font-size: 10px;
+                            color: Theme.dim;
+                            vertical-alignment: center;
+                            horizontal-stretch: 1;
+                        }
+
+                        Button {
+                            text: "关闭";
+                            width: 64px;
+                            height: 26px;
+                            clicked => { root.close-detail(); }
+                        }
+                    }
+
+                    Text {
+                        text: root.detail-title;
+                        font-size: 17px;
+                        font-weight: 600;
+                        color: Theme.text;
+                    }
+
+                    Text {
+                        text: root.detail-meta;
+                        font-size: 11px;
+                        color: Theme.sub;
+                    }
+
+                    HorizontalLayout {
+                        spacing: 16px;
+
+                        Text {
+                            text: "做种 \{root.detail-seeds}";
+                            font-size: 11px;
+                            color: Theme.green;
+                            vertical-alignment: center;
+                        }
+
+                        Text {
+                            text: "下载 \{root.detail-leechers}";
+                            font-size: 11px;
+                            color: Theme.text;
+                            vertical-alignment: center;
+                        }
+
+                        Text {
+                            text: "来源 \{root.detail-provider}";
+                            font-size: 11px;
+                            color: Theme.accent;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    Text {
+                        text: "INFOHASH";
+                        font-size: 10px;
+                        color: Theme.dim;
+                    }
+
+                    Text {
+                        text: root.detail-infohash;
+                        font-size: 10px;
+                        color: Theme.text;
+                    }
+
+                    Text {
+                        text: "磁力";
+                        font-size: 10px;
+                        color: Theme.dim;
+                    }
+
+                    Text {
+                        text: root.detail-magnet;
+                        font-size: 10px;
+                        color: Theme.sub;
+                    }
+
+                    Text {
+                        text: "详情页";
+                        font-size: 10px;
+                        color: Theme.dim;
+                    }
+
+                    Text {
+                        text: root.detail-url;
+                        font-size: 10px;
+                        color: Theme.accent;
+                    }
+
+                    // 把主按钮推到底部
+                    Rectangle {
+                        vertical-stretch: 1;
+                    }
+
+                    Button {
+                        text: root.detail-action;
+                        height: 40px;
+                        clicked => { root.push-row(root.detail-idx); }
+                    }
+                }
+            }
+        }
+
+        // ---- 状态栏 ----
+        Rectangle {
+            height: 28px;
+            background: Theme.mantle;
+
+            HorizontalLayout {
+                padding-left: 20px;
+                padding-right: 20px;
+                spacing: 10px;
+
+                Text {
+                    text: "共 \{root.total} 条 · 第 \{root.page} 页";
+                    color: Theme.dim;
+                    font-size: 10px;
+                    vertical-alignment: center;
+                }
+
+                Rectangle {
+                    horizontal-stretch: 1;
+                }
+
+                Text {
+                    text: "Ctrl K 搜索 · Ctrl D 推送";
+                    color: Theme.dim;
+                    font-size: 10px;
+                    vertical-alignment: center;
                 }
             }
         }
