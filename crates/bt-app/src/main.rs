@@ -51,6 +51,7 @@ mod ui_model;
 slint::include_modules!();
 
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::rc::Rc;
 use std::sync::OnceLock;
 
@@ -224,6 +225,9 @@ struct UiState {
     /// 追加进已清空的列表，而且是用**新关键词**去高亮；它的收尾还会把新搜索的状态行与
     /// `has_more` 盖掉。
     search_gen: u64,
+    /// 批量勾选的结果 —— **存 key 不存 idx**：排序/筛选会重编号 idx（同 push_row 的教训），
+    /// key 才是这一行一生不变的标识。
+    selected: HashSet<u64>,
 }
 
 thread_local! {
@@ -236,11 +240,12 @@ thread_local! {
         // 而 `From<Vec<T>>` 是 M1 spike 里已经用过的那条路径。
         rows_model: Rc::new(VecModel::from(Vec::new())),
         query: String::new(),
-        accent: "#f9e2af".to_string(),
+        accent: "#fab387".to_string(),
         downloader: None,
         indexers: Vec::new(),
         status: "就绪".to_string(),
         search_gen: 0,
+        selected: HashSet::new(),
     });
 }
 
@@ -267,9 +272,10 @@ fn tone_color(ui: &AppWindow, tone: Tone) -> slint::Color {
 /// ⚠️ `title_markup` 在这里才从 markdown 串变成 `StyledText` ——
 /// 转换必须发生在 UI 线程（`StyledText` 是 UI 侧的东西），
 /// 而 markdown 串本身在 `ui_model` 里就能算、能单测。
-fn to_slint_row(r: &RowData) -> ResultRow {
+fn to_slint_row(r: &RowData, selected: &HashSet<u64>) -> ResultRow {
     ResultRow {
         idx: r.idx,
+        selected: selected.contains(&r.key),
         title_markup: markup_to_styled(&r.title_markup),
         title_plain: r.title_plain.clone().into(),
         meta: r.meta.clone().into(),
@@ -342,7 +348,12 @@ fn to_slint_chip_row(c: &crate::ui_model::Chip) -> Chip {
 /// 另外排序会**重编号 `idx`**（见 `ui_model::sort_rows`），所以必须整块重建 ——
 /// 只更新现有行的内容会让 `idx` 和显示对不上，点一行会推错东西。
 fn rebuild_rows_model(ui: &AppWindow, st: &mut UiState) {
-    let view: Vec<ResultRow> = st.app.view().iter().map(|r| to_slint_row(r)).collect();
+    let view: Vec<ResultRow> = st
+        .app
+        .view()
+        .iter()
+        .map(|r| to_slint_row(r, &st.selected))
+        .collect();
     st.rows_model = Rc::new(VecModel::from(view));
     ui.set_rows(ModelRc::from(st.rows_model.clone()));
 }
@@ -382,6 +393,9 @@ fn start_search(ui: &AppWindow, query: String, page: u32) {
     let accent = accent_hex(ui);
     // 屏 03：新搜索一律收起详情（旧行可能已经不在结果里了）
     close_detail(ui);
+    // 新搜索 = 新的一批行（key 重新发号），勾选没有继承的意义
+    STATE.with(|s| s.borrow_mut().selected.clear());
+    ui.set_selected_count(0);
 
     // ③ 先看用户勾了哪些。`None` = 全勾（不筛选）—— 与 JS 同口径。
     let (picked, none) = STATE.with(|s| {
@@ -498,7 +512,7 @@ fn start_search(ui: &AppWindow, query: String, page: u32) {
                         // `searching` 时是灰的（见 `.slint`），搜索中没人能把模型重排成
                         // `view()`（那样长度就对不上，`skip` 会推开重复行）。
                         for r in st.app.rows.iter().skip(st.rows_model.row_count()) {
-                            st.rows_model.push(to_slint_row(r));
+                            st.rows_model.push(to_slint_row(r, &st.selected));
                         }
                         st.status = st.app.summary(true);
                         sync_small(&ui, &st);
@@ -604,6 +618,14 @@ fn pick_sort(ui: &AppWindow, id: String) {
 fn pick_category(ui: &AppWindow, id: String) {
     // 视图会换成子集、idx 重新编号 ⇒ 同上，收起详情
     close_detail(ui);
+    // 被筛掉的行还留在「勾选」里会让批量操作作用到看不见的行上 ⇒ 换分类就清空
+    STATE.with(|s| {
+        let mut st = s.borrow_mut();
+        if !st.selected.is_empty() {
+            st.selected.clear();
+            ui.set_selected_count(0);
+        }
+    });
     STATE.with(|s| {
         let mut st = s.borrow_mut();
         st.app
@@ -785,12 +807,178 @@ fn refresh_row(st: &UiState, key: u64) {
         let view = st.app.view();
         view.iter()
             .position(|r| r.key == key)
-            .map(|pos| (pos, to_slint_row(view[pos])))
+            .map(|pos| (pos, to_slint_row(view[pos], &st.selected)))
     };
     let Some((pos, row)) = found else {
         return;
     };
     st.rows_model.set_row_data(pos, row);
+}
+
+// ---------------------------------------------------------------------------
+// 批量选择（勾选 → 批量推送 / 导出 CSV）
+// ---------------------------------------------------------------------------
+
+/// 当前**视图里**被勾选的条数（被分类筛掉的旧勾选不算 —— 否则「已选 N 项」会
+/// 和屏幕上能看见的勾对不上）。
+fn visible_selected(st: &UiState) -> usize {
+    let view = st.app.view();
+    view.iter().filter(|r| st.selected.contains(&r.key)).count()
+}
+
+/// 勾选 / 取消一行。**按 key 存**（排序会重编号 idx），模型里就地更新一行，
+/// 不整块重建 —— 重建会把滚动位置顶回去。
+fn toggle_row(ui: &AppWindow, idx: i32) {
+    STATE.with(|s| {
+        let mut st = s.borrow_mut();
+        let Some(key) = st.app.row(idx).map(|r| r.key) else {
+            return;
+        };
+        if st.selected.contains(&key) {
+            st.selected.remove(&key);
+        } else {
+            st.selected.insert(key);
+        }
+        let pos = st.app.view().iter().position(|r| r.idx == idx);
+        if let Some(pos) = pos {
+            let row = st
+                .app
+                .view()
+                .get(pos)
+                .map(|r| to_slint_row(*r, &st.selected));
+            if let Some(row) = row {
+                st.rows_model.set_row_data(pos, row);
+            }
+        }
+        let n = visible_selected(&st) as i32;
+        ui.set_selected_count(n);
+    });
+}
+
+/// 全选当前视图。
+fn select_all(ui: &AppWindow) {
+    STATE.with(|s| {
+        let mut st = s.borrow_mut();
+        let keys: Vec<u64> = st.app.view().iter().map(|r| r.key).collect();
+        if keys.is_empty() {
+            return;
+        }
+        st.selected.extend(keys);
+        rebuild_rows_model(ui, &mut st);
+        let n = visible_selected(&st) as i32;
+        ui.set_selected_count(n);
+    });
+}
+
+/// 清空勾选。
+fn clear_selection(ui: &AppWindow) {
+    STATE.with(|s| {
+        let mut st = s.borrow_mut();
+        if st.selected.is_empty() {
+            return;
+        }
+        st.selected.clear();
+        rebuild_rows_model(ui, &mut st);
+        ui.set_selected_count(0);
+    });
+}
+
+/// 批量推送：逐条走 [`push_row`]（没有磁力的仍然先惰性解析）。
+///
+/// ⚠️ 顺序执行、**不并发**：每条的解析/推送仍由 `push_row` 内部 `spawn` 到运行时，
+/// 但这里不额外并发，避免同一批把下载器打满。
+fn batch_push(ui: &AppWindow) {
+    let idxs: Vec<i32> = STATE.with(|s| {
+        let st = s.borrow();
+        st.app
+            .view()
+            .iter()
+            .filter(|r| st.selected.contains(&r.key))
+            .map(|r| r.idx)
+            .collect()
+    });
+    if idxs.is_empty() {
+        STATE.with(|s| {
+            let mut st = s.borrow_mut();
+            st.status = "先勾选要推送的结果".to_string();
+            sync_small(ui, &st);
+        });
+        return;
+    }
+    for idx in idxs {
+        push_row(ui, idx);
+    }
+}
+
+/// 一个 CSV 单元格：转义引号、整体加引号，并防 Excel/WPS 公式注入
+/// （`=` `+` `-` `@` 开头先加一个单引号 —— 与 Node 版同口径）。
+fn csv_cell(s: &str) -> String {
+    let guarded =
+        if s.starts_with('=') || s.starts_with('+') || s.starts_with('-') || s.starts_with('@') {
+            format!("'{s}")
+        } else {
+            s.to_string()
+        };
+    format!("\"{}\"", guarded.replace('"', "\"\""))
+}
+
+/// 导出勾选结果为 CSV（带 UTF-8 BOM，Excel 直接认中文）。
+///
+/// ⚠️ 没有文件对话框（没引新依赖）：固定写到数据目录 `selection.csv`，
+/// 路径会显示在状态栏里。要"另存为"再谈，别为它加一个 GUI 依赖。
+fn export_csv(ui: &AppWindow) {
+    let rows: Vec<RowData> = STATE.with(|s| {
+        let st = s.borrow();
+        st.app
+            .view()
+            .iter()
+            .filter(|r| st.selected.contains(&r.key))
+            .map(|r| (*r).clone())
+            .collect()
+    });
+    if rows.is_empty() {
+        STATE.with(|s| {
+            let mut st = s.borrow_mut();
+            st.status = "先勾选要导出的结果".to_string();
+            sync_small(ui, &st);
+        });
+        return;
+    }
+
+    let mut out = String::from("标题,来源,做种,大小(字节),infoHash,磁力\r\n");
+    for r in &rows {
+        let cells = [
+            r.title_plain.clone(),
+            r.provider.clone(),
+            r.seeds.to_string(),
+            r.size.map(|v| v.to_string()).unwrap_or_default(),
+            r.info_hash.clone().unwrap_or_default(),
+            r.magnet.clone().unwrap_or_default(),
+        ];
+        let line: Vec<String> = cells.iter().map(|c| csv_cell(c)).collect();
+        out.push_str(&line.join(","));
+        out.push_str("\r\n");
+    }
+
+    let Some(dir) = config_store::data_dir() else {
+        STATE.with(|s| {
+            let mut st = s.borrow_mut();
+            st.status = "取不到 %APPDATA%，没导出".to_string();
+            sync_small(ui, &st);
+        });
+        return;
+    };
+    let path = dir.join("selection.csv");
+    let result =
+        std::fs::create_dir_all(&dir).and_then(|()| config_store::write_atomic(&path, &out));
+    STATE.with(|s| {
+        let mut st = s.borrow_mut();
+        st.status = match result {
+            Ok(()) => format!("已导出 {} 条 → {}", rows.len(), path.display()),
+            Err(e) => format!("导出失败：{e}"),
+        };
+        sync_small(ui, &st);
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -1180,6 +1368,47 @@ fn wire(ui: &AppWindow) {
         ui.on_close_detail(move || {
             if let Some(ui) = weak.upgrade() {
                 close_detail(&ui);
+            }
+        });
+    }
+    // 批量：勾选一行 / 全选 / 清空 / 推送 / 导出
+    {
+        let weak = ui.as_weak();
+        ui.on_toggle_row(move |idx| {
+            if let Some(ui) = weak.upgrade() {
+                toggle_row(&ui, idx);
+            }
+        });
+    }
+    {
+        let weak = ui.as_weak();
+        ui.on_select_all(move || {
+            if let Some(ui) = weak.upgrade() {
+                select_all(&ui);
+            }
+        });
+    }
+    {
+        let weak = ui.as_weak();
+        ui.on_clear_selection(move || {
+            if let Some(ui) = weak.upgrade() {
+                clear_selection(&ui);
+            }
+        });
+    }
+    {
+        let weak = ui.as_weak();
+        ui.on_batch_push(move || {
+            if let Some(ui) = weak.upgrade() {
+                batch_push(&ui);
+            }
+        });
+    }
+    {
+        let weak = ui.as_weak();
+        ui.on_export_csv(move || {
+            if let Some(ui) = weak.upgrade() {
+                export_csv(&ui);
             }
         });
     }
