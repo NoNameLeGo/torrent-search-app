@@ -1,0 +1,2259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>4K原盘免费下载</title>
+    <meta name="keywords" content="4K,4K电影下载,4K在线,在线4K,免费4K下载,4K原盘,蓝光原盘下载,4K电影下载" />
+    <meta name="description" content="免费的4K电影下载站" />
+    <meta name="generator" content="emlog" />
+    <link rel="edituri" type="application/rsd+xml" title="RSD" href="https://pomo.mom/xmlrpc.php?rsd" />
+    <link rel="wlwmanifest" type="application/wlwmanifest+xml" href="https://pomo.mom/wlwmanifest.xml" />
+    <link rel="alternate" type="application/rss+xml" title="RSS" href="https://pomo.mom/rss.php" />
+    
+    <script>
+        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
+    
+    <script src="/content/templates/4K/js/tailwind.min.js"></script>
+    <link href="https://s4.zstatic.net/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <script src="/content/templates/4K/js/jquery.min.3.5.1.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: '#0a0a0a',
+                        light: '#ffffff',
+                        cardbg: '#121212',
+                        accent: '#f5c518',
+                        gold: '#f5c518',
+                        border: '#e5e7eb',
+                        inputbg: '#f9f9f9',
+                    },
+                    fontFamily: {
+                        sans: ['Roboto', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'hero': '0 30px 60px -12px rgba(0, 0, 0, 0.6)',
+                        'card': '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                    },
+                    screens: {
+                        'xl': '1280px',
+                        '2xl': '1536px',
+                        'custom-wide': '1228px',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .custom-select {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 0.75rem center;
+            background-repeat: no-repeat;
+            background-size: 1.2em 1.2em;
+        }
+        
+        .hero-overlay {
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.1) 40%, rgba(0, 0, 0, 0.1) 100%)
+        }
+        
+        .text-shadow {
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #333; 
+            border-radius: 3px;
+        }
+        .mobile-nav-wrap ul { display: flex; flex-direction: column; margin: 0; padding: 0; }
+        .mobile-nav-wrap li { list-style: none; border-bottom: 1px solid #1f1f1f; position: relative; }
+        .mobile-nav-wrap li:last-child { border-bottom: none; }
+        .mobile-nav-wrap a { display: block; padding: 16px 12px; color: #d1d5db; transition: all 0.3s ease; font-size: 15px; font-weight: bold; border-radius: 8px; margin: 4px 0; }
+        .mobile-nav-wrap a:hover { color: #f5c518; padding-left: 20px; background: rgba(245, 197, 24, 0.05); }
+        .mobile-nav-wrap span.absolute { display: none !important; }
+
+        #comment-pagination a,
+        #comment-pagination span,
+        #comment-pagination em {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 14px;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            font-style: normal;
+        }
+        #comment-pagination a {
+            background: transparent;
+            color: #6b7280;
+        }
+        .dark #comment-pagination a {
+            color: #9ca3af;
+        }
+        #comment-pagination a:hover {
+            background: #f3f4f6;
+            color: #000000;
+        }
+        .dark #comment-pagination a:hover {
+            background: rgba(255,255,255,0.1);
+            color: #f5c518;
+        }
+        #comment-pagination span {
+            background: #f5c518;
+            color: #000000;
+            font-weight: 900;
+            box-shadow: 0 0 15px rgba(245,197,24,0.3);
+            transform: scale(1.1);
+        }
+        #comment-pagination em {
+            color: #9ca3af;
+            background: transparent;
+            min-width: auto;
+            padding: 0 4px;
+        }
+        .dark #comment-pagination em {
+            color: #6b7280;
+        }
+    </style>
+    
+<style>
+.text-2xl { font-size: 1.5rem; line-height: 2rem; }
+    .font-black { font-weight: 900; }
+    .text-gray-900 { color: #111827; }
+    .mb-6 { margin-bottom: 1.5rem; }
+
+    #x-dbjs-download-section h3 {
+        margin-top: 20px;
+    }
+
+    .x-dbjs-card {
+        background-color: #181818;
+        border-radius: 12px;
+        padding: 25px;
+        color: #e0e0e0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        margin-bottom: 20px;
+    }
+
+    .x-dbjs-header {
+        display: flex;
+        gap: 30px;
+    }
+
+    .x-dbjs-poster {
+        flex-shrink: 0;
+        width: 260px; 
+        position: relative;
+    }
+
+    .x-dbjs-poster img {
+        width: 100%;
+        height: auto;
+        max-height: 390px;
+        object-fit: cover;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        display: block;
+    }
+
+    .x-dbjs-info {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+    }
+
+    .x-dbjs-title {
+        color: #ffffff;
+        font-size: 26px;
+        font-weight: 700;
+        margin: 0 0 20px 0;
+        line-height: 1.3;
+        border-bottom: none !important;
+    }
+
+    .x-dbjs-meta {
+        font-size: 14px;
+        line-height: 1.8;
+        color: #aaa;
+    }
+
+    .meta-row {
+        margin-bottom: 8px;
+    }
+
+    .meta-row span {
+        color: #666;
+        margin-right: 8px;
+        min-width: 30px;
+        display: inline-block;
+    }
+    
+    .meta-row.actors {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: 1.6;
+        max-height: 3.2em;
+    }
+
+    .x-dbjs-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 25px;
+    }
+
+    .x-dbjs-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 14px;
+    }
+
+    .rating-badge {
+        background-color: #333;
+        color: #f5c518;
+        border: 1px solid #444;
+    }
+
+    .x-dbjs-btn-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        border-radius: 8px;
+        border: 1px solid #444 !important;
+        background-color: transparent;
+        color: #fff;
+        transition: all 0.2s;
+        cursor: pointer;
+        text-decoration: none !important;
+        box-sizing: border-box;
+    }
+    
+    .x-dbjs-card .x-dbjs-actions .x-dbjs-btn-icon,
+    .x-dbjs-card .x-dbjs-actions .fav-btn {
+        border: 1px solid #444 !important;
+    }
+
+    .x-dbjs-btn-icon:hover {
+        background-color: #333;
+        border-color: #fff !important;
+        color: #fff;
+    }
+    
+    .fav-btn.active svg {
+        fill: currentColor;
+    }
+
+    .x-dbjs-desc-block {
+        margin-top: 30px;
+        margin-bottom: 20px;
+    }
+    
+    .x-dbjs-desc-block p {
+        color: #333;
+        font-size: 15px;
+        line-height: 1.8;
+        margin: 0;
+    }
+
+    .pic-col5 {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        clear: both;
+        padding-left: 0px !important;
+    }
+    .pic-col5 li {
+        width: 13.5%;
+        margin-bottom: 10px;
+        box-sizing: border-box;
+    }
+    .pic-col5 li .still-wrap {
+        display: block;
+        width: 100%;
+        height: 0;
+        padding-bottom: 100%;
+        position: relative;
+        overflow: hidden;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .pic-col5 li img {
+        position: absolute;
+        top: 0;
+        left: 0;
+        margin: 0 auto;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.3s ease;
+    }
+    .pic-col5 li img:hover {
+        transform: scale(1.1);
+    }
+
+    .x-dbjs-accordion {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #fff;
+    }
+
+    .x-dbjs-accordion-item {
+        border-bottom: 1px solid #e0e0e0;
+    }
+    .x-dbjs-accordion-item:last-child {
+        border-bottom: none;
+    }
+
+    .x-dbjs-accordion-header {
+        padding: 15px 20px;
+        background: #f8f9fa;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: 600;
+        font-size: 16px;
+        transition: background 0.2s;
+        user-select: none;
+    }
+    .x-dbjs-accordion-header:hover {
+        background: #e9ecef;
+    }
+
+    .x-dbjs-accordion-title {
+        color: #333;
+    }
+
+    .x-dbjs-accordion-icon {
+        font-size: 14px;
+        color: #666;
+        transition: transform 0.3s ease;
+        display: inline-block;
+    }
+
+    .x-dbjs-accordion-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease-out;
+        background: #fff;
+    }
+
+    .x-dbjs-accordion-inner {
+        padding: 15px 20px;
+    }
+
+    .download-links .download-item {
+        margin: 0;
+        padding: 12px 0;
+        background: transparent;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: background 0.2s ease;
+    }
+
+    .download-links .download-item:last-child {
+        border-bottom: none;
+    }
+ 
+    .download-links .download-item:hover {
+        background: #fafafa;
+    }
+ 
+    .x-dbjs-download-link {
+        color: #333;
+        text-decoration: none !important;
+        flex-grow: 1;
+        font-weight: 500;
+        font-size: 14px;
+        -webkit-tap-highlight-color: transparent;
+        margin-right: 10px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .x-dbjs-download-link:hover {
+        color: #6c757d;
+    }
+    .download-info {
+        display: flex;
+        align-items: center;
+        flex-shrink: 0;
+        gap: 8px;
+    }
+ 
+    .file-size {
+        color: #999;
+        font-size: 12px;
+        font-weight: normal;
+        margin-right: 15px;
+        white-space: nowrap;
+    }
+ 
+    .x-dbjs-download-link:hover {
+        text-decoration: none !important;
+    }
+ 
+    .x-dbjs-download-btn {
+        background: #333;
+        color: white !important;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        text-decoration: none !important;
+        font-size: 14px;
+        font-weight: 500;
+        white-space: nowrap;
+        transition: all 0.2s ease;
+        -webkit-tap-highlight-color: transparent;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 32px;
+        height: 32px;
+    }
+ 
+    .x-dbjs-download-btn:hover {
+        background: #555;
+        text-decoration: none !important;
+    }
+ 
+    .x-dbjs-download-btn:active {
+        transform: translateY(0);
+        text-decoration: none !important;
+    }
+ 
+    .x-dbjs-copy-btn {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        color: #495057;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        white-space: nowrap;
+        transition: all 0.2s ease;
+        -webkit-tap-highlight-color: transparent;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 32px;
+        height: 32px;
+    }
+ 
+    .x-dbjs-copy-btn:hover {
+        background: #e9ecef;
+        border-color: #adb5bd;
+    }
+ 
+    .x-dbjs-copy-btn:active {
+        transform: translateY(0);
+    }
+ 
+    .x-dbjs-copy-btn.copied {
+        background: #d4edda;
+        border-color: #c3e6cb;
+        color: #155724;
+    }
+
+    .x-dbjs-qr-popover {
+        position: fixed;
+        display: none;
+        width: 176px;
+        padding: 10px;
+        box-sizing: border-box;
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+        color: #111827;
+        text-align: center;
+        z-index: 100000;
+    }
+
+    .x-dbjs-qr-popover.is-visible {
+        display: block;
+    }
+
+    .x-dbjs-qr-popover img {
+        display: block;
+        width: 154px;
+        height: 154px;
+        margin: 0 auto 8px;
+        object-fit: contain;
+        background: #f3f4f6;
+        border-radius: 4px;
+    }
+
+    .x-dbjs-qr-tip {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.4;
+        color: #374151;
+        white-space: nowrap;
+    }
+    
+    @media (max-width: 768px) {
+        .x-dbjs-header {
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .x-dbjs-poster {
+            width: 220px;
+            margin-bottom: 15px;
+        }
+        
+        .x-dbjs-info {
+            text-align: center;
+            width: 100%;
+        }
+        
+        .x-dbjs-meta {
+            text-align: left;
+        }
+        
+        .x-dbjs-actions {
+            justify-content: center;
+        }
+        
+        .pic-col5 li {
+            width: 48%;
+        }
+
+        .download-links .download-item {
+            flex-direction: column;
+            align-items: flex-start;
+            padding: 12px;
+        }
+    
+        .x-dbjs-download-link {
+            flex-grow: 1;
+            margin-right: 0;
+            margin-bottom: 10px;
+            white-space: normal;
+            overflow: visible;
+            text-overflow: clip;
+            width: 100%; 
+            line-height: 1.5;
+        }
+    
+        .download-info {
+            flex-shrink: 0;
+            gap: 8px;
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+    
+        .file-size {
+            margin-right: auto; 
+            white-space: nowrap;
+            color: #999;
+            font-size: 12px;
+        }
+    
+        .x-dbjs-download-btn, .x-dbjs-copy-btn {
+            padding: 5px 10px;
+            font-size: 13px;
+            min-width: 28px;
+            height: 28px;
+            flex-shrink: 0;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .download-links .download-item {
+            flex-wrap: nowrap;
+        }
+        
+        .x-dbjs-download-link {
+            font-size: 13px;
+        }
+        
+        .x-dbjs-download-btn, .x-dbjs-copy-btn {
+            padding: 4px 8px;
+            font-size: 12px;
+            min-width: 26px;
+            height: 26px;
+        }
+        
+        .file-size {
+            font-size: 11px;
+            margin-right: 10px;
+        }
+    }
+
+    .max-height-300 { max-height: 300px; }
+    .overflow-auto { overflow: auto; }
+    .loading-spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #3498db;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        animation: spin 1s linear infinite;
+        margin: 10px auto;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    
+    .search-result-item { cursor: pointer; }
+    .search-result-item:hover { background-color: #f8f9fa; }
+    
+    .dark .text-gray-900 {
+        color: #e0e0e0;
+    }
+    .dark .x-dbjs-desc-block p {
+        color: #e0e0e0;
+    }
+    .dark .download-block {
+        background: transparent;
+    }
+    .dark .x-dbjs-accordion {
+        border-color: #333;
+        background: #121212;
+    }
+    .dark .x-dbjs-accordion-item {
+        border-bottom-color: #333;
+    }
+    .dark .x-dbjs-accordion-header {
+        background: #1a1a1a;
+        color: #e0e0e0;
+    }
+    .dark .x-dbjs-accordion-header:hover {
+        background: #222;
+    }
+    .dark .x-dbjs-accordion-title {
+        color: #e0e0e0;
+    }
+    .dark .x-dbjs-accordion-icon {
+        color: #aaa;
+    }
+    .dark .x-dbjs-accordion-content {
+        background: #121212;
+    }
+    .dark .x-dbjs-accordion-inner {
+        background: #121212;
+    }
+    .dark .download-links .download-item {
+        background: transparent;
+        border-bottom-color: #333;
+    }
+    .dark .download-links .download-item:hover {
+        background: #1a1a1a;
+    }
+    .dark .x-dbjs-download-link {
+        color: #e9ecef;
+    }
+    .dark .x-dbjs-download-link:hover {
+        color: #f5c518;
+    }
+    .dark .file-size {
+        color: #aaa;
+    }
+    .dark .x-dbjs-download-btn {
+        background: #f5c518;
+        color: #000 !important;
+    }
+    .dark .x-dbjs-download-btn:hover {
+        background: #e6b816;
+    }
+    .dark .x-dbjs-copy-btn {
+        background: #1f1f1f;
+        border-color: #333;
+        color: #e0e0e0;
+    }
+    .dark .x-dbjs-copy-btn:hover {
+        background: #2a2a2a;
+        border-color: #444;
+    }
+    .dark .x-dbjs-copy-btn.copied {
+        background: #2d5f3d;
+        border-color: #3a7c4a;
+        color: #d4edda;
+    }
+    .dark .x-dbjs-qr-popover {
+        background: #1f1f1f;
+        border-color: #444;
+        color: #e0e0e0;
+    }
+    .dark .x-dbjs-qr-tip {
+        color: #e0e0e0;
+    }
+</style>
+
+    <style>
+    #fav-toast {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0,0,0,0.8);
+        color: #fff;
+        padding: 15px 25px;
+        border-radius: 6px;
+        z-index: 9999;
+        display: none;
+        font-size: 15px;
+        text-align: center;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        animation: fadeIn 0.3s;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translate(-50%, -40%); } to { opacity: 1; transform: translate(-50%, -50%); } }
+    </style>
+	<link rel="stylesheet" href="https://pomo.mom/content/plugins/Ixc_login/main.css?v=1.2.2" />
+<style>
+.em-download-btn {
+    background-color: var(--buttonBgColor);
+    color: var(--fontColor);
+    border: 1px solid var(--buttonBorderColor);
+    padding: 10px 20px;
+    border-radius: var(--marRadius);
+    cursor: pointer;
+    font-size: 16px;
+    text-decoration: none !important;
+}
+</style>
+</head>
+<body class="font-sans antialiased bg-white dark:bg-[#0a0a0a] text-gray-900 dark:text-gray-200 relative transition-colors duration-300">
+
+    <div class="absolute top-0 left-0 w-full h-[400px] bg-[#0f0f0f] z-0"></div>
+
+    <div class="relative z-10">
+        
+        <header class="max-w-[1228px] mx-auto px-6 h-20 flex items-center justify-between relative">
+            <div class="flex items-center gap-12">
+                <a href="https://pomo.mom/" class="flex items-center gap-1">
+                                            <img src="https://www.pomo.mom/content/uploadfile/basiclogoUrl.png" alt="Pomo" class="max-h-[40px] w-auto object-contain" loading="lazy" decoding="async">
+                                    </a>
+                <nav class="hidden lg:flex items-center gap-7 text-[13px] font-bold text-gray-400 uppercase tracking-wider">
+                            <a href="https://pomo.mom/"  class="text-gray-400 hover:text-white transition relative group h-full flex items-center">
+            首页                    </a>
+            <a href="https://pomo.mom/huayurm"  class="text-gray-400 hover:text-white transition relative group h-full flex items-center">
+            华语热门                    </a>
+            <a href="https://pomo.mom/jiating"  class="text-gray-400 hover:text-white transition relative group h-full flex items-center">
+            家庭影院                    </a>
+            <a href="https://pomo.mom/donghuadadiany"  class="text-gray-400 hover:text-white transition relative group h-full flex items-center">
+            动画大电影                    </a>
+            <a href="https://pomo.mom/lengmenjiapian"  class="text-gray-400 hover:text-white transition relative group h-full flex items-center">
+            冷门佳片                    </a>
+            <a href="https://pomo.mom/paihangbang"  class="text-gray-400 hover:text-white transition relative group h-full flex items-center">
+            TOP250                    </a>
+            <a href="https://pomo.mom/sort/12"  class="text-gray-400 hover:text-white transition relative group h-full flex items-center">
+            蓝光原盘                    </a>
+            <a href="https://pomo.mom/dianshiju"  class="text-gray-400 hover:text-white transition relative group h-full flex items-center">
+            剧集                    </a>
+            <a href="https://pomo.mom/?plugin=x_live_player"  class="text-gray-400 hover:text-white transition relative group h-full flex items-center">
+            直播                    </a>
+            <a href="https://pomo.mom/liuyan"  class="text-gray-400 hover:text-white transition relative group h-full flex items-center">
+            求片                    </a>
+                    </nav>
+            </div>
+
+            <div class="flex items-center gap-2 md:gap-4">
+                <div class="relative hidden md:block">
+                    <form action="https://pomo.mom/" method="get" class="m-0">
+                        <input type="text" name="keyword" placeholder="搜索一下..." class="bg-[#1f1f1f] border-none text-sm text-gray-400 rounded-full px-5 py-2.5 w-[240px] focus:outline-none focus:bg-[#2a2a2a] transition placeholder-gray-500 text-white">
+                        <button type="submit" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">
+                            <i class="fa-solid fa-magnifying-glass text-sm"></i>
+                        </button>
+                    </form>
+                </div>
+
+                <button id="mobile-search-btn" class="w-10 h-10 rounded-full bg-[#1f1f1f] flex md:hidden items-center justify-center hover:bg-[#2a2a2a] text-gray-400 hover:text-white transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                </button>
+
+                <button id="mobile-nav-btn" class="w-10 h-10 rounded-full bg-[#1f1f1f] flex lg:hidden items-center justify-center hover:bg-[#2a2a2a] text-gray-400 hover:text-white transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                </button>
+
+                                    <a href="javascript:Ixc_login_but_login();" class="w-10 h-10 rounded-full bg-[#1f1f1f] flex items-center justify-center hover:bg-[#2a2a2a] text-gray-400 hover:text-white transition" title="Login">
+                        <i class="fa-regular fa-user"></i>
+                    </a>
+                            </div>
+        </header>
+
+        <div id="mobile-search-box" class="hidden absolute top-20 left-0 w-full px-6 py-4 bg-[#0a0a0a] border-t border-[#1f1f1f] shadow-xl z-50 md:hidden">
+            <form action="https://pomo.mom/" method="get" class="m-0 relative">
+                <input type="text" name="keyword" placeholder="搜索一下..." class="w-full bg-[#1f1f1f] border-none text-sm text-gray-400 rounded-lg px-5 py-3 focus:outline-none focus:bg-[#2a2a2a] transition placeholder-gray-500 text-white">
+                <button type="submit" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                </button>
+            </form>
+        </div>
+
+        <div id="mobile-nav-menu" class="hidden absolute top-20 left-0 w-full bg-[#0a0a0a]/95 backdrop-blur-xl border-t border-[#1f1f1f] shadow-2xl z-50 px-6 py-4 lg:hidden rounded-b-2xl">
+            <nav class="mobile-nav-wrap uppercase tracking-wider">
+                        <a href="https://pomo.mom/"  class="text-gray-400 hover:text-white transition relative group h-full flex items-center">
+            首页                    </a>
+            <a href="https://pomo.mom/huayurm"  class="text-gray-400 hover:text-white transition relative group h-full flex items-center">
+            华语热门                    </a>
+            <a href="https://pomo.mom/jiating"  class="text-gray-400 hover:text-white transition relative group h-full flex items-center">
+            家庭影院                    </a>
+            <a href="https://pomo.mom/donghuadadiany"  class="text-gray-400 hover:text-white transition relative group h-full flex items-center">
+            动画大电影                    </a>
+            <a href="https://pomo.mom/lengmenjiapian"  class="text-gray-400 hover:text-white transition relative group h-full flex items-center">
+            冷门佳片                    </a>
+            <a href="https://pomo.mom/paihangbang"  class="text-gray-400 hover:text-white transition relative group h-full flex items-center">
+            TOP250                    </a>
+            <a href="https://pomo.mom/sort/12"  class="text-gray-400 hover:text-white transition relative group h-full flex items-center">
+            蓝光原盘                    </a>
+            <a href="https://pomo.mom/dianshiju"  class="text-gray-400 hover:text-white transition relative group h-full flex items-center">
+            剧集                    </a>
+            <a href="https://pomo.mom/?plugin=x_live_player"  class="text-gray-400 hover:text-white transition relative group h-full flex items-center">
+            直播                    </a>
+            <a href="https://pomo.mom/liuyan"  class="text-gray-400 hover:text-white transition relative group h-full flex items-center">
+            求片                    </a>
+                </nav>
+        </div>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const searchBtn = document.getElementById('mobile-search-btn');
+                const searchBox = document.getElementById('mobile-search-box');
+                const navBtn = document.getElementById('mobile-nav-btn');
+                const navMenu = document.getElementById('mobile-nav-menu');
+
+                if (searchBtn && searchBox) {
+                    searchBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        searchBox.classList.toggle('hidden');
+                        if (navMenu) navMenu.classList.add('hidden');
+                    });
+                }
+
+                if (navBtn && navMenu) {
+                    navBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        navMenu.classList.toggle('hidden');
+                        if (searchBox) searchBox.classList.add('hidden');
+                    });
+                }
+
+                document.addEventListener('click', function(e) {
+                    if (searchBox && !searchBox.contains(e.target) && !searchBtn.contains(e.target)) {
+                        searchBox.classList.add('hidden');
+                    }
+                    if (navMenu && !navMenu.contains(e.target) && !navBtn.contains(e.target)) {
+                        navMenu.classList.add('hidden');
+                    }
+                });
+            });
+        </script>
+        <div class="max-w-[1228px] mx-auto px-6 mt-0 mb-8 md:mb-12 relative z-20 transition-all duration-500 ease-in-out">
+        <div class="relative w-full h-[380px] md:h-[400px] rounded-2xl md:rounded-[2rem] bg-black border border-white/5 overflow-hidden group" id="hero-carousel">
+                        <div class="carousel-item absolute inset-0 w-full h-full transition-opacity duration-700 ease-in-out opacity-100 z-10 pointer-events-auto" data-index="0">
+                                    <img src="https://cdnjson.com/images/2026/10/23/d0638b8a6820c3c606f535ed9b02e92a_2260_744.png" alt="空枪 (2026)" class="carousel-media absolute inset-0 w-full h-full object-cover object-center opacity-90 group-hover:scale-105 transition-transform duration-[20s] ease-linear">
+                                
+                <div class="absolute inset-0 hero-overlay"></div>
+                
+                <div class="absolute bottom-0 w-full px-5 pb-6 md:px-12 md:pb-12 z-20 flex flex-col md:flex-row items-start md:items-end justify-between gap-4 md:gap-8">
+                    <div class="flex-1 w-full max-w-2xl">
+                        <h1 class="text-xl md:text-2xl font-bold text-white mb-2 md:mb-4 tracking-tight leading-none">
+                            <a href="https://pomo.mom/4102" class="hover:text-accent transition">空枪 (2026)</a>
+                        </h1>
+                        <p class="text-gray-300 text-xs md:text-sm leading-relaxed font-medium line-clamp-2 md:line-clamp-2 drop-shadow-sm pr-0 md:pr-10">
+                            90年代初，这座“遍地黄金”的欲望之城，秩序崩坏，犯罪丛生。打工仔万梓强（朱一龙 饰）一心想改写命运，在结识空姐骆嘉苑（卫诗雅 饰）后，两人联手作案，劫取巨额钱款                        </p>
+                    </div>
+                    
+                    <div class="flex items-center justify-between w-full md:w-auto gap-4 md:gap-8 mt-2 md:mt-0 flex-shrink-0 mb-1 md:ml-auto">
+                        <div class="flex items-center gap-2 md:gap-3">
+                            <a href="https://pomo.mom/4102" class="bg-accent hover:bg-[#d4a017] text-black px-6 py-2.5 md:px-10 md:py-3.5 rounded-lg font-bold text-sm md:text-[15px] transition shadow-lg shadow-yellow-900/40 hover:shadow-yellow-900/60 flex items-center justify-center min-w-[100px] md:min-w-[140px]">
+                                查看详情
+                            </a>
+                                                    </div>
+                        
+                        <div class="flex items-center gap-2 md:gap-6 text-white font-bold select-none">
+                            <button class="nav-prev-btn cursor-pointer hover:text-accent transition opacity-80 hover:opacity-100 p-1 md:p-2 z-30">
+                                <i class="fa-solid fa-chevron-left text-base md:text-lg"></i>
+                            </button>
+                            <span class="text-lg md:text-2xl tracking-widest font-sans min-w-[50px] md:min-w-[60px] text-center">
+                                <span class="slide-counter">1</span> <span class="text-sm md:text-base text-gray-400 font-normal">/ 4</span>
+                            </span>
+                            <button class="nav-next-btn cursor-pointer hover:text-accent transition opacity-80 hover:opacity-100 p-1 md:p-2 z-30">
+                                <i class="fa-solid fa-chevron-right text-base md:text-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+                        <div class="carousel-item absolute inset-0 w-full h-full transition-opacity duration-700 ease-in-out opacity-0 z-0 pointer-events-none" data-index="1">
+                                    <img src="https://cdnjson.com/images/2026/10/06/p2934487291.jpg" alt="蜘蛛侠：崭新之日 Spider-Man: Brand New Day (2026)" class="carousel-media absolute inset-0 w-full h-full object-cover object-center opacity-90 group-hover:scale-105 transition-transform duration-[20s] ease-linear" loading="lazy" decoding="async">
+                                
+                <div class="absolute inset-0 hero-overlay"></div>
+                
+                <div class="absolute bottom-0 w-full px-5 pb-6 md:px-12 md:pb-12 z-20 flex flex-col md:flex-row items-start md:items-end justify-between gap-4 md:gap-8">
+                    <div class="flex-1 w-full max-w-2xl">
+                        <h1 class="text-xl md:text-2xl font-bold text-white mb-2 md:mb-4 tracking-tight leading-none">
+                            <a href="https://pomo.mom/3962" class="hover:text-accent transition">蜘蛛侠：崭新之日 Spider-Man: Brand New Day (2026)</a>
+                        </h1>
+                        <p class="text-gray-300 text-xs md:text-sm leading-relaxed font-medium line-clamp-2 md:line-clamp-2 drop-shadow-sm pr-0 md:pr-10">
+                            彼得·帕克（汤姆·霍兰德 饰）自愿让全世界遗忘自己，转眼已是四年。失去挚友、挚爱与亲人的陪伴，他独自重返街头，以全职蜘蛛侠的身份坚守使命，守护整座城市。                        </p>
+                    </div>
+                    
+                    <div class="flex items-center justify-between w-full md:w-auto gap-4 md:gap-8 mt-2 md:mt-0 flex-shrink-0 mb-1 md:ml-auto">
+                        <div class="flex items-center gap-2 md:gap-3">
+                            <a href="https://pomo.mom/3962" class="bg-accent hover:bg-[#d4a017] text-black px-6 py-2.5 md:px-10 md:py-3.5 rounded-lg font-bold text-sm md:text-[15px] transition shadow-lg shadow-yellow-900/40 hover:shadow-yellow-900/60 flex items-center justify-center min-w-[100px] md:min-w-[140px]">
+                                查看详情
+                            </a>
+                                                    </div>
+                        
+                        <div class="flex items-center gap-2 md:gap-6 text-white font-bold select-none">
+                            <button class="nav-prev-btn cursor-pointer hover:text-accent transition opacity-80 hover:opacity-100 p-1 md:p-2 z-30">
+                                <i class="fa-solid fa-chevron-left text-base md:text-lg"></i>
+                            </button>
+                            <span class="text-lg md:text-2xl tracking-widest font-sans min-w-[50px] md:min-w-[60px] text-center">
+                                <span class="slide-counter">2</span> <span class="text-sm md:text-base text-gray-400 font-normal">/ 4</span>
+                            </span>
+                            <button class="nav-next-btn cursor-pointer hover:text-accent transition opacity-80 hover:opacity-100 p-1 md:p-2 z-30">
+                                <i class="fa-solid fa-chevron-right text-base md:text-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+                        <div class="carousel-item absolute inset-0 w-full h-full transition-opacity duration-700 ease-in-out opacity-0 z-0 pointer-events-none" data-index="2">
+                                    <img src="https://cdnjson.com/images/2026/09/20/p2931446111.jpg" alt="群体 군체 (2026)" class="carousel-media absolute inset-0 w-full h-full object-cover object-center opacity-90 group-hover:scale-105 transition-transform duration-[20s] ease-linear" loading="lazy" decoding="async">
+                                
+                <div class="absolute inset-0 hero-overlay"></div>
+                
+                <div class="absolute bottom-0 w-full px-5 pb-6 md:px-12 md:pb-12 z-20 flex flex-col md:flex-row items-start md:items-end justify-between gap-4 md:gap-8">
+                    <div class="flex-1 w-full max-w-2xl">
+                        <h1 class="text-xl md:text-2xl font-bold text-white mb-2 md:mb-4 tracking-tight leading-none">
+                            <a href="https://pomo.mom/3436" class="hover:text-accent transition">群体 군체 (2026)</a>
+                        </h1>
+                        <p class="text-gray-300 text-xs md:text-sm leading-relaxed font-medium line-clamp-2 md:line-clamp-2 drop-shadow-sm pr-0 md:pr-10">
+                            影片讲述了因不明感染事件而被封锁的建筑内，孤立无援的幸存者们对抗以无法预测形态进化的感染者的故事。                        </p>
+                    </div>
+                    
+                    <div class="flex items-center justify-between w-full md:w-auto gap-4 md:gap-8 mt-2 md:mt-0 flex-shrink-0 mb-1 md:ml-auto">
+                        <div class="flex items-center gap-2 md:gap-3">
+                            <a href="https://pomo.mom/3436" class="bg-accent hover:bg-[#d4a017] text-black px-6 py-2.5 md:px-10 md:py-3.5 rounded-lg font-bold text-sm md:text-[15px] transition shadow-lg shadow-yellow-900/40 hover:shadow-yellow-900/60 flex items-center justify-center min-w-[100px] md:min-w-[140px]">
+                                查看详情
+                            </a>
+                                                    </div>
+                        
+                        <div class="flex items-center gap-2 md:gap-6 text-white font-bold select-none">
+                            <button class="nav-prev-btn cursor-pointer hover:text-accent transition opacity-80 hover:opacity-100 p-1 md:p-2 z-30">
+                                <i class="fa-solid fa-chevron-left text-base md:text-lg"></i>
+                            </button>
+                            <span class="text-lg md:text-2xl tracking-widest font-sans min-w-[50px] md:min-w-[60px] text-center">
+                                <span class="slide-counter">3</span> <span class="text-sm md:text-base text-gray-400 font-normal">/ 4</span>
+                            </span>
+                            <button class="nav-next-btn cursor-pointer hover:text-accent transition opacity-80 hover:opacity-100 p-1 md:p-2 z-30">
+                                <i class="fa-solid fa-chevron-right text-base md:text-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+                        <div class="carousel-item absolute inset-0 w-full h-full transition-opacity duration-700 ease-in-out opacity-0 z-0 pointer-events-none" data-index="3">
+                                    <img src="https://cdnjson.com/images/2026/07/27/p2932978640.jpg" alt="超级少女 Supergirl (2026)" class="carousel-media absolute inset-0 w-full h-full object-cover object-center opacity-90 group-hover:scale-105 transition-transform duration-[20s] ease-linear" loading="lazy" decoding="async">
+                                
+                <div class="absolute inset-0 hero-overlay"></div>
+                
+                <div class="absolute bottom-0 w-full px-5 pb-6 md:px-12 md:pb-12 z-20 flex flex-col md:flex-row items-start md:items-end justify-between gap-4 md:gap-8">
+                    <div class="flex-1 w-full max-w-2xl">
+                        <h1 class="text-xl md:text-2xl font-bold text-white mb-2 md:mb-4 tracking-tight leading-none">
+                            <a href="https://pomo.mom/1735" class="hover:text-accent transition">超级少女 Supergirl (2026)</a>
+                        </h1>
+                        <p class="text-gray-300 text-xs md:text-sm leading-relaxed font-medium line-clamp-2 md:line-clamp-2 drop-shadow-sm pr-0 md:pr-10">
+                            当一位冷酷无情、突如其来的劲敌突袭家园，卡拉·佐-艾尔（米莉·阿尔柯克 饰）——也就是“超级少女”——不得不与一位意想不到的同伴结盟，横跨星际，踏上一段交织复仇与正义的壮阔征途。                        </p>
+                    </div>
+                    
+                    <div class="flex items-center justify-between w-full md:w-auto gap-4 md:gap-8 mt-2 md:mt-0 flex-shrink-0 mb-1 md:ml-auto">
+                        <div class="flex items-center gap-2 md:gap-3">
+                            <a href="https://pomo.mom/1735" class="bg-accent hover:bg-[#d4a017] text-black px-6 py-2.5 md:px-10 md:py-3.5 rounded-lg font-bold text-sm md:text-[15px] transition shadow-lg shadow-yellow-900/40 hover:shadow-yellow-900/60 flex items-center justify-center min-w-[100px] md:min-w-[140px]">
+                                查看详情
+                            </a>
+                                                    </div>
+                        
+                        <div class="flex items-center gap-2 md:gap-6 text-white font-bold select-none">
+                            <button class="nav-prev-btn cursor-pointer hover:text-accent transition opacity-80 hover:opacity-100 p-1 md:p-2 z-30">
+                                <i class="fa-solid fa-chevron-left text-base md:text-lg"></i>
+                            </button>
+                            <span class="text-lg md:text-2xl tracking-widest font-sans min-w-[50px] md:min-w-[60px] text-center">
+                                <span class="slide-counter">4</span> <span class="text-sm md:text-base text-gray-400 font-normal">/ 4</span>
+                            </span>
+                            <button class="nav-next-btn cursor-pointer hover:text-accent transition opacity-80 hover:opacity-100 p-1 md:p-2 z-30">
+                                <i class="fa-solid fa-chevron-right text-base md:text-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+                    </div>
+    </div>
+    
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const items = document.querySelectorAll('.carousel-item');
+        if (items.length === 0) return;
+        
+        const prevBtns = document.querySelectorAll('.nav-prev-btn');
+        const nextBtns = document.querySelectorAll('.nav-next-btn');
+        const counters = document.querySelectorAll('.slide-counter');
+        const soundBtns = document.querySelectorAll('.sound-toggle-btn');
+        let currentIndex = 0;
+        const total = items.length;
+        let slideInterval;
+        
+        function updateCounters(num) { 
+            counters.forEach(c => c.innerText = num); 
+        }
+        
+        function showSlide(index) {
+            items.forEach((item, i) => {
+                const media = item.querySelector('.carousel-media');
+                if (i === index) {
+                    item.classList.remove('opacity-0', 'z-0', 'pointer-events-none');
+                    item.classList.add('opacity-100', 'z-10', 'pointer-events-auto');
+                    if (media && media.tagName.toLowerCase() === 'video') {
+                        media.play().catch(e => console.log('Autoplay prevented:', e));
+                    }
+                } else {
+                    item.classList.remove('opacity-100', 'z-10', 'pointer-events-auto');
+                    item.classList.add('opacity-0', 'z-0', 'pointer-events-none');
+                    if (media && media.tagName.toLowerCase() === 'video') {
+                        media.pause();
+                        media.muted = true; 
+                        const soundBtnIcon = item.querySelector('.sound-toggle-btn i');
+                        if(soundBtnIcon) {
+                            soundBtnIcon.classList.remove('fa-volume-high');
+                            soundBtnIcon.classList.add('fa-volume-xmark');
+                        }
+                    }
+                }
+            });
+            updateCounters(index + 1);
+        }
+        
+        function startAutoPlay() {
+            if (slideInterval) clearInterval(slideInterval);
+            slideInterval = setInterval(() => { 
+                currentIndex = (currentIndex + 1) % total; 
+                showSlide(currentIndex); 
+            }, 5000);
+        }
+        function resetTimer() { clearInterval(slideInterval); startAutoPlay(); }
+        
+        prevBtns.forEach(btn => { 
+            btn.addEventListener('click', (e) => { 
+                e.preventDefault(); e.stopPropagation(); 
+                currentIndex = (currentIndex - 1 + total) % total; 
+                showSlide(currentIndex); resetTimer(); 
+            }); 
+        });
+        
+        nextBtns.forEach(btn => { 
+            btn.addEventListener('click', (e) => { 
+                e.preventDefault(); e.stopPropagation(); 
+                currentIndex = (currentIndex + 1) % total; 
+                showSlide(currentIndex); resetTimer(); 
+            }); 
+        });
+        
+        soundBtns.forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const item = this.closest('.carousel-item');
+                const video = item.querySelector('video');
+                if (video) {
+                    video.muted = !video.muted;
+                    const icon = this.querySelector('i');
+                    if (video.muted) {
+                        icon.classList.remove('fa-volume-high');
+                        icon.classList.add('fa-volume-xmark');
+                    } else {
+                        icon.classList.remove('fa-volume-xmark');
+                        icon.classList.add('fa-volume-high');
+                    }
+                }
+            });
+        });
+        
+        showSlide(0);
+        startAutoPlay();
+    });
+    </script>
+    
+    <main class="max-w-[1228px] mx-auto px-6 pb-12 transition-all duration-500 ease-in-out">
+    <div id="pjax-container" class="transition-opacity duration-300 relative">
+
+    <style>
+        .filter-container { margin-bottom: 30px; }
+        .compact-filter { background: transparent; padding: 10px 0 20px 0; border: none; box-shadow: none; border-radius: 0; }
+        .compact-select { width: 100%; border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px 12px; font-size: 14px; color: #4b5563; outline: none; background-color: #fff; transition: border-color 0.2s, background-color 0.2s, color 0.2s; cursor: pointer; }
+        .compact-select:focus { border-color: #f5c518; }
+        .dark .compact-select { background-color: #1f1f1f; border-color: #374151; color: #d1d5db; }
+        .dark .compact-select:focus { border-color: #f5c518; }
+        .compact-btn { background-color: #f5c518; color: #000; font-weight: bold; padding: 8px 24px; border-radius: 6px; font-size: 14px; transition: background-color 0.2s; white-space: nowrap; border: 1px solid #f5c518; cursor: pointer; width: 100%; text-align: center; }
+        .compact-btn:hover { background-color: #e6b816; border-color: #e6b816; }
+        .compact-btn-outline { background-color: transparent; color: #4b5563; font-weight: bold; padding: 8px 24px; border-radius: 6px; font-size: 14px; transition: all 0.2s; white-space: nowrap; border: 1px solid #d1d5db; cursor: pointer; width: 100%; text-align: center; display: inline-flex; justify-content: center; align-items: center; }
+        .compact-btn-outline:hover { background-color: #f9fafb; border-color: #9ca3af; color: #111827; }
+        .dark .compact-btn-outline { color: #d1d5db; border-color: #4b5563; }
+        .dark .compact-btn-outline:hover { background-color: #1f1f1f; border-color: #6b7280; color: #fff; }
+        @media (min-width: 768px) { .compact-btn { width: auto; } .compact-btn-outline { width: auto; } }
+        .pagination-container span, .pagination-container a { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; margin: 0 4px; border-radius: 4px; background-color: #fff; color: #333; font-weight: bold; font-size: 14px; border: 1px solid #e5e7eb; text-decoration: none; transition: all 0.2s; }
+        .pagination-container a:hover { background-color: #f9fafb; }
+        .pagination-container span { background-color: #f5c518; border-color: #f5c518; color: #000; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        .dark .pagination-container a { background-color: #1f1f1f; color: #d1d5db; border-color: #374151; }
+        .dark .pagination-container a:hover { background-color: #374151; }
+        .dark .pagination-container span { background-color: #f5c518; border-color: #f5c518; color: #000; }
+        .tag-container { display: flex; gap: 8px; margin-top: auto; padding-top: 10px; align-items: center; justify-content: space-between; width: 100%; }
+        .tag { background-color: #2a2a2a; color: #ffffff; font-size: 14px; font-weight: 800; padding: 6px 0; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; flex: 1; box-shadow: 0 2px 4px rgba(0,0,0,0.15); transition: background-color 0.3s, color 0.3s;}
+        .tag .highlight { color: #f5c518; margin-left: 6px; transition: color 0.3s; }
+    </style>
+
+    
+    <div class="filter-container">
+                <h2 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-5 tracking-tight transition-colors">All 4K Movies</h2>
+        
+        <div class="compact-filter">
+            <form action="https://pomo.mom/" method="get" class="flex flex-col md:flex-row flex-wrap gap-4 items-center" id="filter-form">
+                <input type="hidden" name="keyword" value="流浪地球">                <div class="flex-1 min-w-[110px] w-full md:w-auto">
+                    <select name="genre" class="compact-select">
+                        <option value="">影片类型</option>
+                                                    <option value="人性" >人性</option>
+                                                    <option value="传记" >传记</option>
+                                                    <option value="儿童" >儿童</option>
+                                                    <option value="冒险" >冒险</option>
+                                                    <option value="剧情" >剧情</option>
+                                                    <option value="动作" >动作</option>
+                                                    <option value="动画" >动画</option>
+                                                    <option value="历史" >历史</option>
+                                                    <option value="古装" >古装</option>
+                                                    <option value="同性" >同性</option>
+                                                    <option value="喜剧" >喜剧</option>
+                                                    <option value="奇幻" >奇幻</option>
+                                                    <option value="家庭" >家庭</option>
+                                                    <option value="恐怖" >恐怖</option>
+                                                    <option value="悬疑" >悬疑</option>
+                                                    <option value="情色" >情色</option>
+                                                    <option value="惊悚" >惊悚</option>
+                                                    <option value="战争" >战争</option>
+                                                    <option value="歌舞" >歌舞</option>
+                                                    <option value="武侠" >武侠</option>
+                                                    <option value="灾难" >灾难</option>
+                                                    <option value="爱情" >爱情</option>
+                                                    <option value="犯罪" >犯罪</option>
+                                                    <option value="真人秀" >真人秀</option>
+                                                    <option value="短片" >短片</option>
+                                                    <option value="科幻" >科幻</option>
+                                                    <option value="纪录片" >纪录片</option>
+                                                    <option value="脱口秀" >脱口秀</option>
+                                                    <option value="西部" >西部</option>
+                                                    <option value="运动" >运动</option>
+                                                    <option value="音乐" >音乐</option>
+                                                    <option value="黑色电影" >黑色电影</option>
+                                            </select>
+                </div>
+                                <div class="flex-1 min-w-[110px] w-full md:w-auto">
+                    <select name="year" class="compact-select">
+                        <option value="">上映年份</option>
+                                                    <option value="2026" >2026</option>
+                                                    <option value="2025" >2025</option>
+                                                    <option value="2024" >2024</option>
+                                                    <option value="2023" >2023</option>
+                                                    <option value="2022" >2022</option>
+                                                    <option value="2021" >2021</option>
+                                                    <option value="2020" >2020</option>
+                                                    <option value="2019" >2019</option>
+                                                    <option value="2018" >2018</option>
+                                                    <option value="2017" >2017</option>
+                                                    <option value="2016" >2016</option>
+                                                    <option value="2015" >2015</option>
+                                                    <option value="2014" >2014</option>
+                                                    <option value="2013" >2013</option>
+                                                    <option value="2012" >2012</option>
+                                                    <option value="2011" >2011</option>
+                                                    <option value="2010" >2010</option>
+                                                    <option value="2009" >2009</option>
+                                                    <option value="2008" >2008</option>
+                                                    <option value="2007" >2007</option>
+                                                    <option value="2006" >2006</option>
+                                                    <option value="2005" >2005</option>
+                                                    <option value="2004" >2004</option>
+                                                    <option value="2003" >2003</option>
+                                                    <option value="2002" >2002</option>
+                                                    <option value="2001" >2001</option>
+                                                    <option value="2000" >2000</option>
+                                                    <option value="1999" >1999</option>
+                                                    <option value="1998" >1998</option>
+                                                    <option value="1997" >1997</option>
+                                                    <option value="1996" >1996</option>
+                                                    <option value="1995" >1995</option>
+                                                    <option value="1994" >1994</option>
+                                                    <option value="1993" >1993</option>
+                                                    <option value="1992" >1992</option>
+                                                    <option value="1991" >1991</option>
+                                                    <option value="1990" >1990</option>
+                                                    <option value="1989" >1989</option>
+                                                    <option value="1988" >1988</option>
+                                                    <option value="1987" >1987</option>
+                                                    <option value="1986" >1986</option>
+                                                    <option value="1985" >1985</option>
+                                                    <option value="1984" >1984</option>
+                                                    <option value="1983" >1983</option>
+                                                    <option value="1982" >1982</option>
+                                                    <option value="1981" >1981</option>
+                                                    <option value="1980" >1980</option>
+                                                    <option value="1979" >1979</option>
+                                                    <option value="1978" >1978</option>
+                                                    <option value="1977" >1977</option>
+                                                    <option value="1976" >1976</option>
+                                                    <option value="1975" >1975</option>
+                                                    <option value="1974" >1974</option>
+                                                    <option value="1973" >1973</option>
+                                                    <option value="1972" >1972</option>
+                                                    <option value="1971" >1971</option>
+                                                    <option value="1970" >1970</option>
+                                                    <option value="1969" >1969</option>
+                                                    <option value="1968" >1968</option>
+                                                    <option value="1967" >1967</option>
+                                                    <option value="1966" >1966</option>
+                                                    <option value="1965" >1965</option>
+                                                    <option value="1964" >1964</option>
+                                                    <option value="1963" >1963</option>
+                                                    <option value="1961" >1961</option>
+                                                    <option value="1960" >1960</option>
+                                                    <option value="1959" >1959</option>
+                                                    <option value="1958" >1958</option>
+                                                    <option value="1957" >1957</option>
+                                                    <option value="1955" >1955</option>
+                                                    <option value="1954" >1954</option>
+                                                    <option value="1953" >1953</option>
+                                                    <option value="1950" >1950</option>
+                                                    <option value="1949" >1949</option>
+                                                    <option value="1940" >1940</option>
+                                                    <option value="1939" >1939</option>
+                                                    <option value="1937" >1937</option>
+                                                    <option value="1936" >1936</option>
+                                                    <option value="1931" >1931</option>
+                                            </select>
+                </div>
+                                <div class="flex-1 min-w-[110px] w-full md:w-auto">
+                    <select name="area" class="compact-select">
+                        <option value="">上映地区</option>
+                                                    <option value="大陆" >大陆</option>
+                                                    <option value="香港" >香港</option>
+                                                    <option value="台湾" >台湾</option>
+                                                    <option value="亚洲" >亚洲</option>
+                                                    <option value="海外" >海外</option>
+                                                    <option value="欧美" >欧美</option>
+                                                    <option value="美国" >美国</option>
+                                                    <option value="日本" >日本</option>
+                                                    <option value="韩国" >韩国</option>
+                                                    <option value="英国" >英国</option>
+                                                    <option value="法国" >法国</option>
+                                                    <option value="德国" >德国</option>
+                                                    <option value="印度" >印度</option>
+                                                    <option value="泰国" >泰国</option>
+                                                    <option value="瑞典" >瑞典</option>
+                                                    <option value="巴西" >巴西</option>
+                                                    <option value="加拿大" >加拿大</option>
+                                                    <option value="俄罗斯" >俄罗斯</option>
+                                                    <option value="意大利" >意大利</option>
+                                                    <option value="西班牙" >西班牙</option>
+                                                    <option value="澳大利亚" >澳大利亚</option>
+                                            </select>
+                </div>
+                                <div class="flex-1 min-w-[110px] w-full md:w-auto">
+                    <select name="lang" class="compact-select">
+                        <option value="">语言</option>
+                                                    <option value="汉语普通话" >汉语普通话</option>
+                                                    <option value="国语" >国语</option>
+                                                    <option value="英语" >英语</option>
+                                                    <option value="法语" >法语</option>
+                                                    <option value="粤语" >粤语</option>
+                                                    <option value="日语" >日语</option>
+                                                    <option value="韩语" >韩语</option>
+                                                    <option value="泰语" >泰语</option>
+                                                    <option value="德语" >德语</option>
+                                                    <option value="俄语" >俄语</option>
+                                                    <option value="闽南语" >闽南语</option>
+                                                    <option value="丹麦语" >丹麦语</option>
+                                                    <option value="波兰语" >波兰语</option>
+                                                    <option value="瑞典语" >瑞典语</option>
+                                                    <option value="印地语" >印地语</option>
+                                                    <option value="挪威语" >挪威语</option>
+                                                    <option value="意大利语" >意大利语</option>
+                                                    <option value="西班牙语" >西班牙语</option>
+                                                    <option value="无对白" >无对白</option>
+                                            </select>
+                </div>
+                                
+                <div class="flex-1 min-w-[110px] w-full md:w-auto">
+                    <select name="order" class="compact-select">
+                        <option value="new" selected>最新上映</option>
+                        <option value="old" >最早上映</option>
+                        <option value="rating" >IMDB评分</option>
+                    </select>
+                </div>
+
+                <div class="flex gap-2 w-full md:w-auto mt-2 md:mt-0">
+                    <button type="submit" class="compact-btn flex-1 md:flex-none">查询</button>
+                                        <a href="https://pomo.mom/?keyword=%E6%B5%81%E6%B5%AA%E5%9C%B0%E7%90%83" class="compact-btn-outline flex-1 md:flex-none">清除</a>
+                </div>
+            </form>
+        </div>
+            </div>
+
+    <div class="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+                <div class="bg-cardbg rounded-xl overflow-hidden shadow-card group flex flex-col transition-all duration-300 ease-out will-change-transform hover:-translate-y-2 hover:shadow-2xl hover:ring-2 hover:ring-[#f5c518]/30">
+            <a href="https://pomo.mom/199" class="block h-full flex flex-col">
+                <div class="relative aspect-[3/4] overflow-hidden">
+                    <div class="absolute inset-0 w-full h-full pointer-events-none z-20">
+                                            </div>
+                    <img src="https://pomo.mom/content/uploadfile/db/p2886653880.webp" alt="流浪地球2" class="w-full h-full object-cover object-top relative z-0" loading="lazy" decoding="async">
+                    <!-- 修改点1: 全局渐变层保持轻微，用于整体氛围 -->
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/10 pointer-events-none z-10 opacity-80"></div>
+                    <!-- 修改点2: 底部黑色遮罩高度从 h-32 改为 h-16，降低黑色区域高度 -->
+                    <div class="absolute bottom-0 left-0 w-full h-16 bg-gradient-to-t from-[#121212] via-[#121212]/80 to-transparent z-20 pointer-events-none"></div>
+                </div>
+                <!-- 修改点3: 负边距从 -mt-8 改为 -mt-16，使内容向上移动更多，覆盖海报区域 -->
+                <div class="px-3 py-3 -mt-16 flex flex-col flex-grow relative z-30">
+                    <h3 class="text-white font-bold text-[15px] leading-tight mb-0.5 truncate group-hover:text-accent transition drop-shadow-md">流浪地球2</h3>
+
+                                        <div class="text-[12px] text-gray-300 mb-0.5 font-medium truncate drop-shadow-md">The Wandering Earth 2</div>
+                    
+                    <div class="text-[12px] text-gray-400 mb-0.5 font-medium truncate drop-shadow-md">
+                        科幻 冒险 灾难                    </div>
+                    
+                    <div class="tag-container">
+                        <div class="tag">IMDB<span class="highlight">8.3</span></div>
+                        <div class="tag">Dolby</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+                <div class="bg-cardbg rounded-xl overflow-hidden shadow-card group flex flex-col transition-all duration-300 ease-out will-change-transform hover:-translate-y-2 hover:shadow-2xl hover:ring-2 hover:ring-[#f5c518]/30">
+            <a href="https://pomo.mom/198" class="block h-full flex flex-col">
+                <div class="relative aspect-[3/4] overflow-hidden">
+                    <div class="absolute inset-0 w-full h-full pointer-events-none z-20">
+                                            </div>
+                    <img src="https://pomo.mom/content/uploadfile/db/p2549031009.webp" alt="流浪地球" class="w-full h-full object-cover object-top relative z-0" loading="lazy" decoding="async">
+                    <!-- 修改点1: 全局渐变层保持轻微，用于整体氛围 -->
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/10 pointer-events-none z-10 opacity-80"></div>
+                    <!-- 修改点2: 底部黑色遮罩高度从 h-32 改为 h-16，降低黑色区域高度 -->
+                    <div class="absolute bottom-0 left-0 w-full h-16 bg-gradient-to-t from-[#121212] via-[#121212]/80 to-transparent z-20 pointer-events-none"></div>
+                </div>
+                <!-- 修改点3: 负边距从 -mt-8 改为 -mt-16，使内容向上移动更多，覆盖海报区域 -->
+                <div class="px-3 py-3 -mt-16 flex flex-col flex-grow relative z-30">
+                    <h3 class="text-white font-bold text-[15px] leading-tight mb-0.5 truncate group-hover:text-accent transition drop-shadow-md">流浪地球</h3>
+
+                                        <div class="text-[12px] text-gray-300 mb-0.5 font-medium truncate drop-shadow-md">The Wandering Earth: Beyond 2020 Special Edition</div>
+                    
+                    <div class="text-[12px] text-gray-400 mb-0.5 font-medium truncate drop-shadow-md">
+                        科幻 冒险 灾难                    </div>
+                    
+                    <div class="tag-container">
+                        <div class="tag">IMDB<span class="highlight">7.9</span></div>
+                        <div class="tag">Dolby</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+            </div>
+
+    
+    <div class="pagination-container mt-10 flex justify-center">
+            </div>
+
+    </div> 
+    </main> 
+
+   <script>
+document.addEventListener('DOMContentLoaded', function() {
+    const container = document.getElementById('pjax-container');
+    if (!container) return;
+
+    const BLOG_URL = 'https://pomo.mom/';
+
+    document.addEventListener('change', function(e) {
+        const select = e.target.closest('.compact-filter form select');
+        if (!select) return;
+
+        const form = select.closest('form');
+        if (!form) return;
+
+        const params = new URLSearchParams(new FormData(form));
+        const url = BLOG_URL + '?' + params.toString();
+        fetchPage(url);
+    });
+
+    document.addEventListener('submit', function(e) {
+        const form = e.target.closest('.compact-filter form');
+        if (!form) return;
+
+        e.preventDefault();
+        const params = new URLSearchParams(new FormData(form));
+        const url = BLOG_URL + '?' + params.toString();
+        fetchPage(url);
+    });
+
+    document.addEventListener('click', function(e) {
+        const loadMoreLink = e.target.closest('.load-more-btn');
+        if (loadMoreLink) {
+            e.preventDefault();
+            handleLoadMore(loadMoreLink);
+            return;
+        }
+
+        const paginationLink = e.target.closest('.pagination-container a');
+        if (paginationLink) {
+            const href = paginationLink.getAttribute('href');
+            if (href && href.startsWith(BLOG_URL)) {
+                e.preventDefault();
+                fetchPage(href);
+            }
+            return;
+        }
+
+        const clearLink = e.target.closest('.compact-filter .compact-btn-outline');
+        if (clearLink && clearLink.textContent.trim() === '清除') {
+            const href = clearLink.getAttribute('href');
+            if (href && href.startsWith(BLOG_URL)) {
+                e.preventDefault();
+                fetchPage(href);
+            }
+        }
+    });
+
+    window.addEventListener('popstate', function() {
+        fetchPage(window.location.href, false);
+    });
+
+    function fetchPage(url, pushState = true) {
+        let loader = document.getElementById('global-ajax-loader');
+
+        if (!loader) {
+            loader = document.createElement('div');
+            loader.id = 'global-ajax-loader';
+            loader.className = 'fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[9999] bg-white/95 dark:bg-[#1a1a1a]/95 backdrop-blur px-8 py-5 rounded-2xl shadow-2xl flex flex-col items-center justify-center border border-gray-100 dark:border-gray-800 transition-opacity duration-300';
+            loader.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-4xl text-[#f5c518] mb-3"></i><span class="text-gray-800 dark:text-gray-200 text-sm font-bold tracking-wider">正在加载...</span>';
+            document.body.appendChild(loader);
+        }
+
+        loader.style.display = 'flex';
+        container.style.opacity = '0.4';
+        container.style.pointerEvents = 'none';
+
+        const separator = url.includes('?') ? '&' : '?';
+        const fetchUrl = url + separator + 'pjax=1';
+
+        fetch(fetchUrl)
+            .then(function(response) {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.text();
+            })
+            .then(function(html) {
+                container.innerHTML = html;
+                container.style.opacity = '1';
+                container.style.pointerEvents = 'auto';
+                loader.style.display = 'none';
+
+                if (pushState) {
+                    window.history.pushState(null, '', url);
+                }
+            })
+            .catch(function(error) {
+                console.error('PJAX Error:', error);
+                window.location.href = url;
+            });
+    }
+
+    function handleLoadMore(btn) {
+        if (btn.classList.contains('loading')) return;
+
+        const url = btn.getAttribute('data-next-url');
+        if (!url) return;
+
+        const originalContent = btn.innerHTML;
+        btn.classList.add('loading');
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span class="ml-2">加载中...</span>';
+
+        const separator = url.includes('?') ? '&' : '?';
+        const fetchUrl = url + separator + 'pjax=1';
+
+        fetch(fetchUrl)
+            .then(function(response) {
+                if (!response.ok) throw new Error('Network error');
+                return response.text();
+            })
+            .then(function(html) {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+
+                const newGrid = doc.querySelector('.grid');
+                const currentGrid = document.querySelector('.grid');
+
+                if (newGrid && currentGrid) {
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = newGrid.innerHTML;
+                    const newNodes = Array.from(tempDiv.children);
+
+                    newNodes.forEach(function(node, index) {
+                        node.style.opacity = '0';
+                        node.style.animation = 'fadeInUp 0.5s ease forwards ' + (index * 0.05) + 's';
+                        // 动画结束后清空内联样式，避免 fill=forwards 锁定 transform，导致 hover 上移失效
+                        node.addEventListener('animationend', function handler() {
+                            node.style.animation = '';
+                            node.style.opacity = '';
+                            node.removeEventListener('animationend', handler);
+                        });
+                        currentGrid.appendChild(node);
+                    });
+                }
+
+                const newPagination = doc.querySelector('.pagination-container');
+                const currentPagination = document.querySelector('.pagination-container');
+                if (currentPagination && newPagination) {
+                    currentPagination.innerHTML = newPagination.innerHTML;
+                }
+
+                const newLoadMoreBtn = doc.querySelector('.load-more-btn');
+                const loadMoreContainer = document.querySelector('.load-more-container');
+
+                if (newLoadMoreBtn) {
+                    const newUrl = newLoadMoreBtn.getAttribute('data-next-url');
+                    btn.setAttribute('data-next-url', newUrl);
+                    btn.setAttribute('href', newUrl);
+                    btn.classList.remove('loading');
+                    btn.innerHTML = originalContent;
+                } else {
+                    if (loadMoreContainer) {
+                        loadMoreContainer.innerHTML = '<span class="text-gray-400 text-sm font-bold">没有更多内容了</span>';
+                    } else if (btn.parentElement) {
+                        btn.parentElement.innerHTML = '<span class="text-gray-400 text-sm font-bold">没有更多内容了</span>';
+                    }
+                }
+            })
+            .catch(function(error) {
+                console.error('Load More Error:', error);
+                btn.innerHTML = '加载失败，请重试';
+                btn.classList.remove('loading');
+                setTimeout(function() {
+                    btn.innerHTML = originalContent;
+                }, 2000);
+            });
+    }
+
+    const style = document.createElement('style');
+    style.innerHTML = `
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    `;
+    document.head.appendChild(style);
+});
+</script>
+
+        <footer class="bg-[#0a0a0a] dark:bg-[#0a0a0a] py-12 border-t border-gray-200 dark:border-gray-800 relative z-10 transition-colors duration-300">
+        <div class="max-w-[1228px] mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
+            <div class="flex items-center">
+                                    <img src="https://www.pomo.mom/content/uploadfile/basiclogoUrl.png" alt="Pomo" class="max-h-[30px] w-auto object-contain" loading="lazy" decoding="async">
+                            </div>
+            
+            <div class="text-center md:text-right">
+                <p class="text-[10px] text-gray-500 dark:text-gray-600 leading-relaxed">
+                    Pomo 在其服务器上不托管任何文件。所有种子文件和磁力链接均由用户提供，并自动从DHT网络和追踪器中索引。我们不存储、上传或分发任何受版权保护的内容。<script>
+var _hmt = _hmt || [];
+(function() {
+  var hm = document.createElement("script");
+  hm.src = "https://hm.baidu.com/hm.js?a1a92a9085c23e90b3121f718ee2e9fc";
+  var s = document.getElementsByTagName("script")[0]; 
+  s.parentNode.insertBefore(hm, s);
+})();
+</script>                </p>
+            </div>
+        </div>
+    </footer>
+    
+    <style>
+        /* 豆瓣热门榜单模态框滚动条 */
+        #douban-modal-body { scrollbar-width: thin; scrollbar-color: rgba(0,0,0,.2) transparent; }
+        .dark #douban-modal-body { scrollbar-color: rgba(255,255,255,.2) transparent; }
+        #douban-modal-body::-webkit-scrollbar { width: 6px; }
+        #douban-modal-body::-webkit-scrollbar-track { background: transparent; }
+        #douban-modal-body::-webkit-scrollbar-thumb { background: rgba(0,0,0,.18); border-radius: 3px; }
+        #douban-modal-body::-webkit-scrollbar-thumb:hover { background: #f5c518; }
+        .dark #douban-modal-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,.18); }
+        .dark #douban-modal-body::-webkit-scrollbar-thumb:hover { background: #f5c518; }
+        /* 骨架屏扫光动画 */
+        .douban-skel { position: relative; overflow: hidden; background: #e5e7eb; }
+        .dark .douban-skel { background: #1f1f1f; }
+        .douban-skel::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            transform: translateX(-100%);
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,.6), transparent);
+            animation: douban-shimmer 1.4s ease-in-out infinite;
+            animation-delay: var(--d, 0s);
+        }
+        .dark .douban-skel::after {
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,.09), transparent);
+        }
+        @keyframes douban-shimmer {
+            100% { transform: translateX(100%); }
+        }
+        /* 模态框打开动画 */
+        @keyframes douban-modal-in {
+            from { opacity: 0; transform: translateY(14px) scale(.97); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes douban-fade-in {
+            from { opacity: 0; }
+            to   { opacity: 1; }
+        }
+        #douban-modal > .douban-panel { animation: douban-modal-in .28s cubic-bezier(.16,1,.3,1); }
+        #douban-modal > #douban-modal-overlay { animation: douban-fade-in .2s ease; }
+    </style>
+
+    <!-- 豆瓣热门榜单模态框 -->
+    <div id="douban-modal" style="display:none;" class="fixed inset-0 z-[10000] flex items-center justify-center p-4 sm:p-6">
+        <div id="douban-modal-overlay" class="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
+        <div class="douban-panel relative w-full max-w-[1100px] max-h-[85vh] flex flex-col bg-white dark:bg-[#121212] rounded-2xl border border-gray-200 dark:border-[#1f1f1f] shadow-hero overflow-hidden">
+            <!-- 顶部金色渐变条 -->
+            <div class="h-[3px] w-full shrink-0 bg-gradient-to-r from-[#f5c518] via-[#f5c518]/40 to-transparent"></div>
+            <!-- 头部 -->
+            <div class="flex items-center justify-between px-5 sm:px-6 pt-4 pb-3 shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-[#f5c518]/10 dark:bg-[#f5c518]/15 flex items-center justify-center">
+                        <i class="fa-solid fa-clapperboard text-[#f5c518] text-sm"></i>
+                    </div>
+                    <span class="text-lg font-black text-gray-900 dark:text-white tracking-tight">热门榜单</span>
+                </div>
+                <button id="douban-modal-close" class="w-8 h-8 rounded-full bg-gray-100 dark:bg-[#1f1f1f] text-gray-500 dark:text-gray-400 flex items-center justify-center hover:bg-[#f5c518] hover:text-black dark:hover:bg-[#f5c518] dark:hover:text-black transition-colors cursor-pointer" title="关闭 (Esc)">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+            <!-- 标签页 -->
+            <div id="douban-tabs" class="flex items-center gap-2 px-5 sm:px-6 pt-4 pb-1 shrink-0 flex-wrap">
+                <button class="douban-tab h-8 px-4 rounded-full text-xs font-bold transition cursor-pointer" data-key="nowplaying">正在热映</button>
+                <button class="douban-tab h-8 px-4 rounded-full text-xs font-bold transition cursor-pointer" data-key="hot_movie">热门电影</button>
+                <button class="douban-tab h-8 px-4 rounded-full text-xs font-bold transition cursor-pointer" data-key="hot_tv">热门电视剧</button>
+            </div>
+            <!-- 内容区 -->
+            <div id="douban-modal-body" class="flex-1 overflow-y-auto px-5 sm:px-6 py-4">
+                <div id="douban-error" style="display:none;" class="flex-col items-center justify-center py-16 text-gray-400">
+                    <i class="fa-solid fa-circle-exclamation text-3xl"></i>
+                    <p class="mt-4 text-sm">数据加载失败，请稍后重试</p>
+                </div>
+                <div id="douban-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function () {
+        var API_BASE   = 'https://pomo.mom/content/templates/4K/douban_movie.php?api=1&section=';
+        var SEARCH_URL = 'https://pomo.mom/?keyword=';
+        var ORDER  = ['nowplaying', 'hot_movie', 'hot_tv'];
+        var modal     = document.getElementById('douban-modal');
+        if (!modal) { return; }
+        var bodyEl    = document.getElementById('douban-modal-body');
+        var overlay   = document.getElementById('douban-modal-overlay');
+        var closeBtn  = document.getElementById('douban-modal-close');
+        var errorEl   = document.getElementById('douban-error');
+        var gridEl    = document.getElementById('douban-grid');
+        var tabs      = document.querySelectorAll('.douban-tab');
+        var cache = {}, msgCache = {}, loadingKeys = {}, activeKey = 'nowplaying';
+
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+                return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+            });
+        }
+
+        function metaText(it) {
+            var parts = [];
+            if (it.release) parts.push(it.release);
+            if (it.region)  parts.push(it.region);
+            if (it.duration) parts.push(it.duration);
+            return esc(parts.join(' / '));
+        }
+
+        function cardHtml(it, idx) {
+            var rank = '';
+            if (idx < 3) {
+                rank = '<span class="absolute top-2 left-2 w-6 h-6 rounded-lg bg-[#f5c518] text-black text-xs font-black flex items-center justify-center shadow-lg">' + (idx + 1) + '</span>';
+            } else if (idx < 10) {
+                rank = '<span class="absolute top-2 left-2 w-6 h-6 rounded-lg bg-black/60 text-white text-xs font-bold flex items-center justify-center backdrop-blur-sm">' + (idx + 1) + '</span>';
+            }
+            var score = (it.score !== '' && it.score !== null && typeof it.score !== 'undefined')
+                ? '<span class="absolute top-2 right-2 bg-black/75 text-[#f5c518] text-xs font-bold px-2 py-0.5 rounded-full">' + Number(it.score).toFixed(1) + '</span>'
+                : '';
+            var cover = it.cover
+                ? '<img class="w-full aspect-[2/3] object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" src="' + esc(it.cover) + '" alt="' + esc(it.title) + '" onerror="this.onerror=null;this.style.opacity=0.25;">'
+                : '<div class="w-full aspect-[2/3] bg-gray-100 dark:bg-[#0a0a0a]"></div>';
+            return '<a href="' + esc(SEARCH_URL + encodeURIComponent(it.title || '')) + '" title="站内搜索：' + esc(it.title) + '"'
+                 + ' class="group block rounded-xl overflow-hidden border border-gray-200 dark:border-[#1f1f1f] bg-white dark:bg-[#181818]'
+                 + ' hover:border-[#f5c518]/70 hover:-translate-y-0.5 hover:shadow-card transition-all">'
+                 + '<div class="relative overflow-hidden bg-gray-100 dark:bg-[#0a0a0a]">' + cover + score + rank + '</div>'
+                 + '<div class="p-2.5">'
+                 + '<p class="text-sm font-bold truncate text-gray-900 dark:text-gray-100 group-hover:text-[#f5c518] transition-colors" title="' + esc(it.title) + '">' + esc(it.title) + '</p>'
+                 + '<p class="text-[11px] text-gray-400 dark:text-gray-500 truncate mt-1">' + metaText(it) + '</p>'
+                 + '</div></a>';
+        }
+
+        function setActiveTab(key) {
+            tabs.forEach(function (t) {
+                var on = t.dataset.key === key;
+                t.className = 'douban-tab h-8 px-4 rounded-full text-xs font-bold transition-colors cursor-pointer '
+                    + (on ? 'bg-[#f5c518] text-black shadow-[0_0_12px_rgba(245,197,24,0.3)]'
+                          : 'bg-gray-100 dark:bg-[#1f1f1f] text-gray-500 dark:text-gray-400 hover:text-[#f5c518] dark:hover:text-[#f5c518]');
+            });
+        }
+
+        // 加载中：骨架屏占位（扫光 + 波浪错帧动画），点击后立即有反馈
+        function showLoading() {
+            errorEl.style.display = 'none';
+            var skel = '';
+            for (var i = 0; i < 10; i++) {
+                var d = ' style="--d:' + (i * 0.1).toFixed(1) + 's;"';
+                skel += '<div class="rounded-xl overflow-hidden border border-gray-200 dark:border-[#1f1f1f] bg-white dark:bg-[#181818]">'
+                      + '<div class="douban-skel w-full aspect-[2/3] flex items-center justify-center"' + d + '>'
+                      + '<i class="fa-solid fa-film text-gray-400/50 dark:text-gray-600/50 text-2xl animate-pulse"></i>'
+                      + '</div>'
+                      + '<div class="p-2.5 space-y-2">'
+                      + '<div class="douban-skel h-3.5 rounded w-3/4"' + d + '></div>'
+                      + '<div class="douban-skel h-2.5 rounded w-1/2"' + d + '></div>'
+                      + '</div></div>';
+            }
+            gridEl.innerHTML = skel;
+        }
+
+        function render(key) {
+            setActiveTab(key);
+            errorEl.style.display = 'none';
+            var list = cache[key];
+            if (!list) { showLoading(); return; }
+            gridEl.innerHTML = list.length
+                ? list.map(cardHtml).join('')
+                : '<p class="col-span-full text-center text-sm text-gray-400 py-12 leading-relaxed px-4">' + esc(msgCache[key] || '暂无数据，请稍后刷新。') + '</p>';
+            bodyEl.scrollTop = 0;
+        }
+
+        // 后台预取下一个未加载的区块，切换标签时秒开
+        function prefetchNext() {
+            for (var i = 0; i < ORDER.length; i++) {
+                var k = ORDER[i];
+                if (!cache[k] && !loadingKeys[k]) { load(k); return; }
+            }
+        }
+
+        function load(key) {
+            if (cache[key] || loadingKeys[key]) { return; }
+            loadingKeys[key] = true;
+            if (key === activeKey) { showLoading(); }
+            fetch(API_BASE + key, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (r) { return r.json(); })
+                .then(function (json) {
+                    if (!json || json.code !== 1 || !json.list) { throw new Error('bad response'); }
+                    cache[key] = json.list;
+                    msgCache[key] = json.msg || '';
+                    if (key === activeKey) { render(key); }
+                    prefetchNext();
+                })
+                .catch(function () {
+                    if (key === activeKey) {
+                        errorEl.style.display = 'flex';
+                        gridEl.innerHTML = '';
+                    }
+                })
+                .finally(function () { delete loadingKeys[key]; });
+        }
+
+        function openModal() {
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            if (cache[activeKey]) {
+                render(activeKey);
+            } else {
+                setActiveTab(activeKey); // 点击立即高亮
+                showLoading();           // 无论该区块是否已在后台加载，都先显示骨架屏
+                load(activeKey);
+            }
+        }
+
+        function closeModal() {
+            modal.style.display = 'none';
+            document.body.style.overflow = '';
+        }
+
+        // 事件委托：即使按钮被其他插件重建，点击依然有效
+        document.addEventListener('click', function (e) {
+            if (e.target.closest && e.target.closest('#douban-hot-btn')) { openModal(); }
+        });
+        closeBtn.addEventListener('click', closeModal);
+        overlay.addEventListener('click', closeModal);
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && modal.style.display !== 'none') { closeModal(); }
+        });
+        tabs.forEach(function (t) {
+            t.addEventListener('click', function () {
+                activeKey = t.dataset.key;
+                if (cache[activeKey]) {
+                    render(activeKey);
+                } else {
+                    setActiveTab(activeKey); // 立即高亮
+                    showLoading();           // 该区块即使已在后台加载，也显示骨架屏
+                    load(activeKey);
+                }
+            });
+        });
+    })();
+    </script>
+
+    <!-- 悬浮工具栏 (多语言按钮会由 kkxgzs_emlog.php 自动动态插入到此处) -->
+    <div id="floating-tools" class="fixed bottom-6 right-6 z-[9999] flex flex-col gap-3">
+
+        <!-- 豆瓣热门榜单按钮 -->
+        <button id="douban-hot-btn" class="w-10 h-10 rounded-full bg-white dark:bg-[#1f1f1f] text-gray-700 dark:text-gray-300 shadow-[0_4px_10px_rgba(0,0,0,0.1)] dark:shadow-[0_4px_10px_rgba(0,0,0,0.5)] border border-gray-200 dark:border-gray-700 flex items-center justify-center hover:text-[#f5c518] dark:hover:text-[#f5c518] transition-all hover:scale-110 focus:outline-none cursor-pointer" title="豆瓣热门榜单">
+            <i class="fa-solid fa-clapperboard text-lg"></i>
+        </button>
+
+        <!-- 日夜切换按钮 -->
+        <button id="theme-toggle-btn" class="w-10 h-10 rounded-full bg-white dark:bg-[#1f1f1f] text-gray-700 dark:text-gray-300 shadow-[0_4px_10px_rgba(0,0,0,0.1)] dark:shadow-[0_4px_10px_rgba(0,0,0,0.5)] border border-gray-200 dark:border-gray-700 flex items-center justify-center hover:text-[#f5c518] dark:hover:text-[#f5c518] transition-all hover:scale-110 focus:outline-none cursor-pointer" title="切换深色/日间模式">
+            <i class="fa-solid fa-sun text-lg hidden dark:block"></i>
+            <i class="fa-solid fa-moon text-lg block dark:hidden"></i>
+        </button>
+
+        <!-- 返回顶部按钮 -->
+        <button id="back-to-top-btn" class="w-10 h-10 rounded-full bg-white dark:bg-[#1f1f1f] text-gray-700 dark:text-gray-300 shadow-[0_4px_10px_rgba(0,0,0,0.1)] dark:shadow-[0_4px_10px_rgba(0,0,0,0.5)] border border-gray-200 dark:border-gray-700 flex items-center justify-center hover:text-[#f5c518] dark:hover:text-[#f5c518] transition-all hover:scale-110 opacity-0 translate-y-10 pointer-events-none focus:outline-none cursor-pointer" title="返回顶部">
+            <i class="fa-solid fa-arrow-up text-lg"></i>
+        </button>
+        
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Theme Toggle Logic
+            const themeToggleBtn = document.getElementById('theme-toggle-btn');
+            themeToggleBtn.addEventListener('click', () => {
+                if (document.documentElement.classList.contains('dark')) {
+                    document.documentElement.classList.remove('dark');
+                    localStorage.setItem('theme', 'light');
+                } else {
+                    document.documentElement.classList.add('dark');
+                    localStorage.setItem('theme', 'dark');
+                }
+            });
+
+            // Back to Top Logic
+            const backToTopBtn = document.getElementById('back-to-top-btn');
+            window.addEventListener('scroll', () => {
+                if (window.scrollY > 300) {
+                    backToTopBtn.classList.remove('opacity-0', 'translate-y-10', 'pointer-events-none');
+                    backToTopBtn.classList.add('opacity-100', 'translate-y-0', 'pointer-events-auto');
+                } else {
+                    backToTopBtn.classList.remove('opacity-100', 'translate-y-0', 'pointer-events-auto');
+                    backToTopBtn.classList.add('opacity-0', 'translate-y-10', 'pointer-events-none');
+                }
+            });
+            backToTopBtn.addEventListener('click', () => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        });
+    </script>
+    
+    <script>
+    (function () {
+        function lazyImg(img) {
+            // 轮播首屏(首个 carousel-media)、loading 已存在的跳过
+            if (img.getAttribute('loading')) return;
+            if (img.src && (img.closest('#hero-carousel') || img.classList.contains('carousel-media'))) return;
+            img.setAttribute('loading', 'lazy');
+            img.setAttribute('decoding', 'async');
+        }
+        // 初始页面中所有图片
+        document.querySelectorAll('img').forEach(lazyImg);
+        // PJAX / 加载更多 / 插件动态插入的图片
+        try {
+            new MutationObserver(function (muts) {
+                muts.forEach(function (m) {
+                    m.addedNodes.forEach(function (node) {
+                        if (node.nodeType !== 1) return;
+                        if (node.tagName === 'IMG') { lazyImg(node); return; }
+                        node.querySelectorAll && node.querySelectorAll('img').forEach(lazyImg);
+                    });
+                });
+            }).observe(document.body, { childList: true, subtree: true });
+        } catch (e) {}
+    })();
+    </script>
+    
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    var qrPopover = null;
+    var activeQrButton = null;
+    var qrHideTimer = null;
+
+    function isMobileDevice() {
+        var ua = navigator.userAgent || "";
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|HarmonyOS/i.test(ua) ||
+            (navigator.maxTouchPoints > 1 && window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+    }
+
+    function isNetdiskUrl(url) {
+        return !!url && /^https?:\/\/(?:[^\/]+\.)?(?:pan\.xunlei\.com|pan\.quark\.cn|pan\.baidu\.com|aliyundrive\.com|alipan\.com|cloud\.189\.cn|115\.com|123pan\.com|pan\.uc\.cn)(?:\/|$)/i.test(url);
+    }
+
+    function getTransferUrl(item) {
+        if (!item) return "";
+        return item.getAttribute("data-url") || item.getAttribute("href") || "";
+    }
+
+    function prepareTransferButton(button) {
+        if (!button || !isNetdiskUrl(button.getAttribute("data-url"))) return;
+        button.classList.add("x-dbjs-transfer-btn");
+        if (button.getAttribute("data-transfer-ready") === "1") return;
+        for (var i = 0; i < button.childNodes.length; i++) {
+            var node = button.childNodes[i];
+            if (node.nodeType === 3 && node.nodeValue.trim()) {
+                node.nodeValue = "转存";
+                break;
+            }
+        }
+        button.setAttribute("data-transfer-ready", "1");
+    }
+
+    function prepareTransferLink(link) {
+        if (!link || !isNetdiskUrl(link.getAttribute("data-url"))) return;
+        link.classList.add("x-dbjs-transfer-link");
+    }
+
+    function prepareTransferIcon(icon) {
+        if (!icon || !isNetdiskUrl(getTransferUrl(icon))) return;
+        icon.classList.add("x-dbjs-transfer-icon");
+    }
+
+    function prepareTransferItems(root) {
+        var scope = root || document;
+        scope.querySelectorAll(".x-dbjs-download-btn[data-url]").forEach(function(button) {
+            prepareTransferButton(button);
+        });
+        scope.querySelectorAll(".x-dbjs-download-link[data-url]").forEach(function(link) {
+            prepareTransferLink(link);
+        });
+        scope.querySelectorAll(".play-btn.x-dbjs-btn-icon[href]").forEach(function(icon) {
+            prepareTransferIcon(icon);
+        });
+    }
+
+    function isDetectablePanUrl(url) {
+        return !!url && /^https?:\/\/(?:[^\/]+\.)?(?:pan\.quark\.cn|pan\.baidu\.com|yun\.baidu\.com|eyun\.baidu\.com|pan\.xunlei\.com)(?:\/|$)/i.test(url);
+    }
+
+    function collectPanCheckUrls() {
+        var seen = {};
+        var urls = [];
+        document.querySelectorAll(".x-dbjs-download-link[data-url], .x-dbjs-download-btn[data-url], .play-btn.x-dbjs-btn-icon[href]").forEach(function(item) {
+            var url = getTransferUrl(item);
+            if (!isDetectablePanUrl(url) || seen[url]) return;
+            seen[url] = true;
+            urls.push(url);
+        });
+        return urls;
+    }
+
+    function runPanChecks() {
+        var holder = document.getElementById("x-dbjs-pan-check");
+        if (!holder) return;
+        var gid = parseInt(holder.getAttribute("data-gid"), 10) || 0;
+        if (!gid) return;
+        var urls = collectPanCheckUrls();
+        if (!urls.length) return;
+
+        urls.forEach(function(url) {
+            var body = new URLSearchParams();
+            body.append("gid", gid);
+            body.append("url", url);
+            fetch("/content/plugins/x_dbjs/pan_check.php", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+                    "X-Requested-With": "XMLHttpRequest"
+                },
+                body: body.toString()
+            }).catch(function() {});
+        });
+    }
+
+    function getQrPopover() {
+        if (qrPopover) return qrPopover;
+        qrPopover = document.createElement("div");
+        qrPopover.className = "x-dbjs-qr-popover";
+        qrPopover.innerHTML = "<img alt=\"网盘转存二维码\"><span class=\"x-dbjs-qr-tip\">推荐手机扫码转存</span>";
+        document.body.appendChild(qrPopover);
+        qrPopover.addEventListener("mouseenter", function() {
+            clearTimeout(qrHideTimer);
+        });
+        qrPopover.addEventListener("mouseleave", function() {
+            if (!activeQrButton || !activeQrButton.classList.contains("qr-open")) scheduleHideQrPopover();
+        });
+        return qrPopover;
+    }
+
+    function positionQrPopover(button) {
+        var popover = getQrPopover();
+        var rect = button.getBoundingClientRect();
+        var popRect = popover.getBoundingClientRect();
+        var left = rect.left + rect.width / 2 - popRect.width / 2;
+        var top = rect.top - popRect.height - 10;
+        left = Math.max(8, Math.min(left, window.innerWidth - popRect.width - 8));
+        if (top < 8) top = rect.bottom + 10;
+        if (top + popRect.height > window.innerHeight - 8) top = Math.max(8, window.innerHeight - popRect.height - 8);
+        popover.style.left = left + "px";
+        popover.style.top = top + "px";
+    }
+
+    function showQrPopover(button) {
+        if (!button || isMobileDevice()) return;
+        var url = getTransferUrl(button);
+        if (!isNetdiskUrl(url)) return;
+        var popover = getQrPopover();
+        var img = popover.querySelector("img");
+        var qrUrl = "https://api.2dcode.biz/v1/create-qr-code?data=" + encodeURIComponent(url);
+        if (img.getAttribute("src") !== qrUrl) img.src = qrUrl;
+        if (activeQrButton && activeQrButton !== button) activeQrButton.classList.remove("qr-open");
+        activeQrButton = button;
+        popover.classList.add("is-visible");
+        positionQrPopover(button);
+    }
+
+    function scheduleHideQrPopover() {
+        clearTimeout(qrHideTimer);
+        qrHideTimer = setTimeout(function() {
+            if (!activeQrButton || !activeQrButton.classList.contains("qr-open")) {
+                if (qrPopover) qrPopover.classList.remove("is-visible");
+                activeQrButton = null;
+            }
+        }, 240);
+    }
+
+    function hideQrPopover(force) {
+        if (!force && activeQrButton && activeQrButton.classList.contains("qr-open")) return;
+        clearTimeout(qrHideTimer);
+        if (qrPopover) qrPopover.classList.remove("is-visible");
+        if (activeQrButton) activeQrButton.classList.remove("qr-open");
+        activeQrButton = null;
+    }
+
+    document.addEventListener("mouseover", function(e) {
+        var button = e.target.closest && e.target.closest(".x-dbjs-transfer-btn, .x-dbjs-transfer-link, .x-dbjs-transfer-icon, .x-dbjs-xunlei-btn");
+        if (!button || isMobileDevice()) return;
+        clearTimeout(qrHideTimer);
+        if (button.classList.contains("x-dbjs-download-btn")) {
+            prepareTransferButton(button);
+        } else if (button.classList.contains("x-dbjs-download-link")) {
+            prepareTransferLink(button);
+        } else {
+            prepareTransferIcon(button);
+        }
+        showQrPopover(button);
+    });
+
+    document.addEventListener("mouseout", function(e) {
+        var button = e.target.closest && e.target.closest(".x-dbjs-transfer-btn, .x-dbjs-transfer-link, .x-dbjs-transfer-icon, .x-dbjs-xunlei-btn");
+        if (!button) return;
+        var related = e.relatedTarget;
+        if (related && (button.contains(related) || (qrPopover && qrPopover.contains(related)))) return;
+        if (!button.classList.contains("qr-open")) scheduleHideQrPopover();
+    });
+
+    window.addEventListener("resize", function() {
+        if (activeQrButton && qrPopover && qrPopover.classList.contains("is-visible")) positionQrPopover(activeQrButton);
+    });
+    window.addEventListener("scroll", function() {
+        if (activeQrButton && qrPopover && qrPopover.classList.contains("is-visible")) positionQrPopover(activeQrButton);
+    }, true);
+
+    prepareTransferItems(document);
+    runPanChecks();
+
+    document.addEventListener("click", function(e) {
+        var transferTarget = e.target.closest && e.target.closest(".x-dbjs-transfer-btn, .x-dbjs-transfer-link, .x-dbjs-transfer-icon, .x-dbjs-xunlei-btn");
+        if (!transferTarget) hideQrPopover(true);
+        var header = e.target.closest(".x-dbjs-accordion-header");
+        if (header) {
+            e.preventDefault();
+            var item = header.closest(".x-dbjs-accordion-item");
+            if (!item) return;
+
+            var content = item.querySelector(".x-dbjs-accordion-content");
+            var inner = item.querySelector(".x-dbjs-accordion-inner");
+            var icon = header.querySelector(".x-dbjs-accordion-icon");
+            if (!content || !inner || !icon) return;
+
+            if (content.style.maxHeight && content.style.maxHeight !== "0px") {
+                content.style.maxHeight = "0";
+                icon.textContent = "▶";
+            } else {
+                content.style.maxHeight = inner.scrollHeight + "px";
+                icon.textContent = "▼";
+            }
+            return;
+        }
+
+        var tabBtn = e.target.closest(".x-dbjs-category-btn");
+        if (tabBtn) {
+            e.preventDefault();
+            var block = tabBtn.closest(".download-block");
+            if (!block) return;
+
+            var targetIndex = tabBtn.getAttribute("data-category-index");
+            
+            block.querySelectorAll(".x-dbjs-category-btn").forEach(function(btn) {
+                btn.classList.remove("active");
+            });
+            tabBtn.classList.add("active");
+
+            block.querySelectorAll(".x-dbjs-category-content-item").forEach(function(content) {
+                if (content.getAttribute("data-category-index") === targetIndex) {
+                    content.style.display = "block";
+                } else {
+                    content.style.display = "none";
+                }
+            });
+            return;
+        }
+
+        var actionTarget = e.target.closest(".x-dbjs-download-btn, .x-dbjs-download-link, .x-dbjs-copy-btn, .x-dbjs-transfer-icon");
+        if (!actionTarget) return;
+
+        var url = getTransferUrl(actionTarget);
+
+        if (actionTarget.classList.contains("x-dbjs-copy-btn")) {
+            e.preventDefault();
+            if (url) copyToClipboard(url, actionTarget);
+            return;
+        }
+
+        var isTransferAction = actionTarget.classList.contains("x-dbjs-transfer-btn") ||
+            actionTarget.classList.contains("x-dbjs-transfer-link") ||
+            actionTarget.classList.contains("x-dbjs-transfer-icon") ||
+            actionTarget.classList.contains("x-dbjs-xunlei-btn");
+        if (isTransferAction && isNetdiskUrl(url) && !isMobileDevice()) {
+            e.preventDefault();
+            if (actionTarget.classList.contains("x-dbjs-download-btn")) {
+                prepareTransferButton(actionTarget);
+            } else if (actionTarget.classList.contains("x-dbjs-download-link")) {
+                prepareTransferLink(actionTarget);
+            } else {
+                prepareTransferIcon(actionTarget);
+            }
+            if (actionTarget.classList.contains("qr-open") && activeQrButton === actionTarget) {
+                hideQrPopover(true);
+            } else {
+                actionTarget.classList.add("qr-open");
+                showQrPopover(actionTarget);
+            }
+            return;
+        }
+
+        var hrefAttr = actionTarget.getAttribute("href");
+        if (hrefAttr && hrefAttr !== "javascript:;" && hrefAttr !== "#") {
+            return; 
+        }
+
+        e.preventDefault(); 
+        
+        if (!url) return;
+
+        if (url.indexOf("magnet:") === 0 || url.indexOf("thunder:") === 0 || url.indexOf("ed2k:") === 0) {
+            window.location.href = url;
+        } else {
+            window.open(url, "_blank");
+        }
+    });
+ 
+    function copyToClipboard(text, button) {
+        var textarea = document.createElement("textarea");
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+        
+        button.classList.add("copied");
+        var originalHTML = button.innerHTML;
+        button.innerHTML = "✓";
+        
+        setTimeout(function() {
+            button.classList.remove("copied");
+            button.innerHTML = originalHTML;
+        }, 2000);
+    }
+});
+</script>	<script>
+		var Ixc_login_url = 'https://pomo.mom/';
+		var Ixc_login_code = '1';
+		var Ixc_mail_code = '';
+		var Ixc_login_state = '';
+		var Ixc_login_qqlogin = '';
+		var Ixc_is_signup = '1';
+
+		// 立即执行，不等待图片加载
+		if (typeof jQuery === 'undefined') {
+			var script = document.createElement('script');
+			script.src = 'https://pomo.mom/content/plugins/Ixc_login/jquery.min.3.5.1.js';
+			// 移除defer，使用async让脚本尽快执行
+			script.async = true;
+			document.head.appendChild(script); // 改为添加到head
+			script.onload = function() {
+				var script2 = document.createElement('script');
+				script2.src = 'https://pomo.mom/content/plugins/Ixc_login/script.js?v=1.2.2';
+				script2.async = true; // 使用async替代defer
+				document.head.appendChild(script2); // 改为添加到head
+			};
+		} else {
+			// 如果jQuery已存在，立即加载登录脚本
+			var script2 = document.createElement('script');
+			script2.src = 'https://pomo.mom/content/plugins/Ixc_login/script.js?v=1.2.2';
+			script2.async = true; // 使用async替代defer
+			document.head.appendChild(script2); // 改为添加到head
+		}
+	</script>
+</body>
+</html> 

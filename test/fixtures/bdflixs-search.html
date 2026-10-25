@@ -1,0 +1,1061 @@
+<!DOCTYPE html><html lang="zh-Hans"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, maximum-scale=0.0, user-scalable=no"><meta http-equiv="Cache-Control" content="no-transform" /><meta http-equiv="Cache-Control" content="no-siteapp" /><link media="all" href="https://www.bdflixs.com/wp-content/cache/autoptimize/css/autoptimize_192ec2a562ad7dc773e965e81772b803.css" rel="stylesheet"><title>「流浪地球」的搜索结果 | BD电影首发站</title><meta name="description" content="在BD电影首发站网站搜索&#039;流浪地球&#039;结果" /><meta name="keywords" content="流浪地球" /><link rel="icon" href="https://www.bdflixs.com/wp-content/themes/begin/img/favicon.ico" sizes="32x32" /><link rel="apple-touch-icon" href="https://www.bdflixs.com/wp-content/themes/begin/img/favicon.png" /><meta name="msapplication-TileImage" content="https://www.bdflixs.com/wp-content/themes/begin/img/favicon.png" /><meta name="referrer" content="same-origin"><meta name='robots' content='noindex, follow, max-image-preview:large' /><link rel='preconnect' href='https://pic.pictaa.art' /><link rel='preconnect' href='https://pic.pictaa.bond' /><link rel='preconnect' href='https://pic1.imgdb.cn' /><link rel='preconnect' href='https://at.alicdn.com' /><link rel="alternate" type="application/rss+xml" title="BD电影首发站 &raquo; Feed" href="https://www.bdflixs.com/feed/" /><style id="wp-img-auto-sizes-contain-inline-css">img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
+/*# sourceURL=wp-img-auto-sizes-contain-inline-css */</style><style id="be-inline-css">.thumbs-b,.thumbs-rss,.thumbs-special,.cat-cover-img,.each-image-wrap,.thumbs-de,.cat-rec,.site-lazy{background-color:var(--be-bg-grey-f1,#f1f1f1);}
+/*# sourceURL=be-inline-css */</style><link rel='stylesheet' id='iconfontd-css' href='https://at.alicdn.com/t/c/font_5117025_jznrq67q2x.css' media='all' /> <script id="jquery-core-js" src="https://www.bdflixs.com/wp-includes/js/jquery/jquery.min.js"></script> <script id="lazyload-js-after">(function () {
+	'use strict';
+
+	var PATCHED = false;
+	var EAGER_ATTR = 'data-be-eager';
+	var hiPriorityLeft = 3;
+
+	/* 第一段提前量：只够住首屏边缘一圈，把带宽让给 <link rel=preload> 的首屏图 */
+	var STAGE1 = 300;
+
+	/* 背景图类懒加载元素（专题专栏 / 图文卡片 / 分类封面 / 网址卡片 / RSS 卡片） */
+	var BG_SEL = '.lazy a[data-src],.lazy[data-src],.site-lazy[data-src],' +
+		'.thumbs-de-back[data-src],.cat-rec-back[data-src],.bgimg[data-src],' +
+		'.novel-inf-cover[data-src],.novel-cove-img[data-src]';
+
+	/* 这些容器里的图不能提前加载：侧边抽屉、搜索层、弹窗、轮播
+	   （轮播初始化之前所有幻灯片都"可见"，提前加载会白白多下好几张图） */
+	var SKIP_SEL = '#sidr-main,#search-main,.placard-bg,.owl-carousel,.owl-stage';
+
+	/* addEventListener 支不支持 passive —— 老浏览器把第三个参数当 capture 用，
+	   直接传对象会被当成 true，虽然不至于出错，但还是检测一下更干净 */
+	var passiveOpt = false;
+	try {
+		var probe = Object.defineProperty({}, 'passive', {
+			get: function () { passiveOpt = { passive: true }; return true; }
+		});
+		window.addEventListener('be-passive-probe', null, probe);
+		window.removeEventListener('be-passive-probe', null, probe);
+	} catch (e) { passiveOpt = false; }
+
+	function inSkipped(el) {
+		return el.closest ? !!el.closest(SKIP_SEL) : false;
+	}
+
+	/* 首屏判定：顶边在 1.25 屏之内，且元素当前确实有尺寸（隐藏面板尺寸为 0，排除） */
+	function inFirstScreen(el) {
+		var r = el.getBoundingClientRect();
+		if (!r.width && !r.height) { return false; }
+		var vh = window.innerHeight || 800;
+		return r.top < vh * 1.25 && r.bottom > -200;
+	}
+
+	/* 第二段提前量：视口高度的 1.5 倍，最少 900px。跟 v1 的值一致 */
+	function stage2() {
+		return Math.max(900, Math.round((window.innerHeight || 800) * 1.5));
+	}
+
+	/* 首屏元素直接写入真实图片，不排队 */
+	function eagerOne(el) {
+		if (!el || !el.getAttribute || el.getAttribute(EAGER_ATTR)) { return; }
+		if (inSkipped(el) || !inFirstScreen(el)) { return; }
+
+		if (el.tagName === 'IMG') {
+			var real = el.getAttribute('data-original') || el.getAttribute('data-src');
+			if (!real) { return; }
+			el.setAttribute(EAGER_ATTR, '1');
+			el.setAttribute('decoding', 'async');
+			if (hiPriorityLeft > 0 && 'fetchPriority' in el) {
+				el.fetchPriority = 'high';
+				hiPriorityLeft--;
+			}
+			el.src = real;   /* 跳过占位图，直接上真图 */
+		} else {
+			var src = el.getAttribute('data-src');
+			if (!src) { return; }
+			el.setAttribute(EAGER_ATTR, '1');
+			el.style.backgroundImage = "url('" + src + "')";
+			/* 去掉 data-src，jQuery Lazy 的筛选器会直接跳过它，不会再 hide()/show() 一次 */
+			el.removeAttribute('data-src');
+		}
+	}
+
+	function eagerSweep() {
+		var i, list = document.querySelectorAll(BG_SEL);
+		for (i = 0; i < list.length; i++) { eagerOne(list[i]); }
+		list = document.querySelectorAll('img[data-original]');
+		for (i = 0; i < list.length; i++) { eagerOne(list[i]); }
+	}
+
+	/* ---------------- 两段式提前量 ---------------- */
+
+	var instances = [];   /* 所有 jQuery Lazy 实例，升段时统一改配置 */
+	var promoted = false;
+
+	/**
+	 * jQuery Lazy 的 chainable 默认为 true，调用后返回的是 jQuery 对象而不是实例。
+	 * 实例被插件挂在元素的 data('plugin_lazy') 上（源码里的 data("plugin_" + a.name, r)），
+	 * 从那里捞出来。
+	 */
+	function collect($els, $) {
+		$els.each(function () {
+			var inst = $(this).data('plugin_lazy');
+			if (inst && inst.config && instances.indexOf(inst) === -1) {
+				instances.push(inst);
+			}
+		});
+	}
+
+	function promote() {
+		if (promoted) { return; }
+		promoted = true;
+
+		/* 升过段就没必要再监听了 */
+		if (window.removeEventListener) {
+			window.removeEventListener('load', promote, false);
+			window.removeEventListener('scroll', promote, passiveOpt || false);
+		}
+
+		var big = stage2();
+		for (var i = 0; i < instances.length; i++) {
+			try {
+				instances[i].config('threshold', big);
+				/* update() 会立刻按新提前量重扫一遍，不等下一次 scroll */
+				instances[i].update();
+			} catch (e) { /* 实例被 autoDestroy 回收了，忽略 */ }
+		}
+	}
+
+	/* 三个触发条件，谁先到算谁。onload 可能被第三方统计脚本拖很久，所以必须有兜底 */
+	if (window.addEventListener) {
+		window.addEventListener('load', promote, false);
+		window.addEventListener('scroll', promote, passiveOpt || false);
+	}
+	setTimeout(promote, 1500);
+
+	/* ---------------- 插桩 ---------------- */
+
+	function patch() {
+		if (PATCHED) { return true; }
+		if (!window.jQuery || !window.jQuery.fn) { return false; }
+		var $ = window.jQuery;
+		var hasLazy = typeof $.fn.Lazy === 'function';
+		var hasLazyload = typeof $.fn.lazyload === 'function';
+		if (!hasLazy && !hasLazyload) { return false; }
+
+		/* ---- 背景图：jQuery Lazy v1.7.10 ---- */
+		if (hasLazy) {
+			var rawLazy = $.fn.Lazy;
+			var wrapLazy = function (opt) {
+				opt = opt || {};
+				this.each(function () { eagerOne(this); });
+
+				/* 带 appendScroll 的是抽屉 / 搜索层里的图，保留原有可视范围，别提前拉 */
+				var scoped = !!opt.appendScroll;
+
+				opt = $.extend({}, opt, {
+					bind: 'event',   /* 关键：立即初始化，不再干等 window.onload */
+					delay: -1,       /* 关闭"5 秒后无条件加载全站图片" */
+					effect: 'show',  /* 去掉 fadeIn，消除闪一下 */
+					threshold: scoped
+						? (parseInt(opt.threshold, 10) || 0)
+						: (promoted ? stage2() : STAGE1)
+				});
+				/* 必须删掉时长：show(0) 要走 jQuery 动画队列会掉一帧，show() 无参才是同步的 */
+				delete opt.effectTime;
+
+				var ret = rawLazy.call(this, opt);
+				if (!scoped) { collect(this, $); }
+				return ret;
+			};
+			$.fn.Lazy = wrapLazy;
+			$.fn.lazy = wrapLazy;
+		}
+
+		/* ---- 缩略图 <img>：Lazy Load 1.9.3 ----
+		   这个插件没有运行时改配置的接口，分不了段。
+		   不过 img_way = no_thumb（不裁剪）时列表页根本没有 <img> 封面，
+		   它实际上匹配不到几个元素，直接沿用 v1 的处理即可。 */
+		if (hasLazyload) {
+			var rawLazyload = $.fn.lazyload;
+			$.fn.lazyload = function (opt) {
+				opt = opt || {};
+				this.each(function () { eagerOne(this); });
+				/* 带 container 的是搜索层 / 弹窗里的图，保留原有可视范围 */
+				var scoped = !!opt.container;
+				opt = $.extend({}, opt, {
+					effect: 'show',
+					threshold: scoped
+						? (parseInt(opt.threshold, 10) || 0)
+						: Math.max(parseInt(opt.threshold, 10) || 0, STAGE1)
+				});
+				delete opt.effect_speed;
+				delete opt.effectspeed;
+				return rawLazyload.call(this, opt);
+			};
+		}
+
+		PATCHED = true;
+		return true;
+	}
+
+	/* 正常情况下这里就装好了（本段紧跟在 jquery.lazyload.js 之后输出） */
+	if (!patch()) {
+		var tries = 0;
+		var timer = setInterval(function () {
+			if (patch() || ++tries > 100) { clearInterval(timer); }
+		}, 20);
+	}
+
+	/* 兜底：万一被缓存/合并插件打乱了脚本顺序，DOM 就绪时再把首屏扫一遍 */
+	if (document.readyState === 'loading') {
+		document.addEventListener('DOMContentLoaded', eagerSweep);
+	} else {
+		eagerSweep();
+	}
+})();
+//# sourceURL=lazyload-js-after</script> <style type="text/css">/* 徽章基础样式 */
+.score-badge { 
+    display: inline-block; 
+    padding: 1px 5px; 
+    border-radius: 3px; 
+    font-size: 12px; 
+    font-weight: bold; 
+    margin-right: 4px; 
+    line-height: 1.4; 
+    vertical-align: middle; 
+    color: #fff !important; 
+}
+
+/* 列表页：作为行内块跟随在小眼睛内部 */
+.custom-list-badge { 
+    display: inline-block; 
+    margin-right: 8px; 
+    vertical-align: middle;
+    position: relative;
+    top: -3px !important; /* PC端微调：加大力度向上提，确保对齐 */
+}
+
+/* 正文页居中显示容器 */
+.single-score-wrap { 
+    text-align: center; 
+    margin-bottom: 15px; 
+    margin-top: 5px; 
+    clear: both; 
+}
+
+/* 颜色配置 */
+.badge-quality { background-color: #1A7DFF; }          /* 清晰度：蓝色 */
+.badge-duration { background-color: #FF641A; }         /* 时长：橙红色 */
+.badge-douban { background-color: #00B51D; }           /* 豆瓣：绿色 */
+.badge-imdb { background-color: #F5C518; color: #000 !important; } /* IMDb：黄色 */
+.badge-empty { background-color: #b3b3b3 !important; } /* 暂无：灰色 */
+
+/* 手机端响应式优化 */
+@media screen and (max-width: 768px) {
+    /* 强制单行显示，防止撑开高度覆盖标题 */
+    .post-item-list .entry-meta { 
+        white-space: nowrap !important; 
+    }
+    /* 手机端徽章：缩小比例，提至与小眼睛对齐 */
+    .custom-list-badge { 
+        zoom: 0.82; 
+        margin-right: 4px; 
+        position: relative;
+        top: -2px !important; /* 手机端保持该高度，已测试OK */
+    }
+    .score-badge { 
+        font-size: 10px !important; 
+        padding: 1px 3px !important; 
+        margin-right: 2px !important; 
+        letter-spacing: -0.2px; 
+    }
+}
+
+.header-special-count { display: none; }
+
+/* ===== 顶部菜单：只显图标，悬停弹出菜单里设定的文字 ===== */
+@media screen and (min-width: 1026px) {
+
+    /* 1) 定位基准（放在 a 上，不放 li，免得影响下拉子菜单定位） */
+    .top-menu > li > a {
+        position: relative;
+    }
+
+    /* 2) 凡是带图标的一级项，文字统一变成悬停气泡 */
+    .top-menu > li > a > i + .font-text,
+    .top-menu > li > a > svg + .font-text {
+        position: absolute;
+        top: calc(100% + 2px);
+        left: 50%;
+        margin: 0 !important;
+        padding: 5px 9px;
+        background: rgba(0, 0, 0, .85);
+        color: #fff !important;
+        font-size: 12px;
+        line-height: 1;
+        white-space: nowrap;
+        border-radius: 4px;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translateX(-50%) translateY(4px);
+        transition: opacity .18s ease, transform .18s ease;
+        z-index: 10002;
+    }
+
+    /* 3) 悬停浮现 */
+    .top-menu > li > a:hover > i + .font-text,
+    .top-menu > li > a:hover > svg + .font-text {
+        opacity: 1;
+        visibility: visible;
+        transform: translateX(-50%) translateY(0);
+    }
+
+    /* 4) 文字抽走后，收掉图标右边的空隙 */
+    .top-menu > li > a > i,
+    .top-menu > li > a > svg {
+        margin-right: 0 !important;
+    }
+
+    /* 5) 顶栏只有 30px 高，保证气泡能溢出、不被下面的导航条盖住 */
+    #header-top { z-index: 99; }
+    .nav-top,
+    .nav-menu-top-box,
+    .nav-menu-top { overflow: visible !important; }
+
+    /* 6) 带下拉子菜单的一级项：气泡会和子菜单撞位置，索性不弹 */
+    .top-menu > li.menu-item-has-children > a:hover > i + .font-text,
+    .top-menu > li.menu-item-has-children > a:hover > svg + .font-text {
+        opacity: 0;
+        visibility: hidden;
+    }
+}
+
+/* ==========================================================================
+   Begin 主题 · 菜单图标统一   v3（2026-08-08）
+
+   用法：整段贴到「外观 → 自定义 → 额外 CSS」的最末尾。
+   ⚠️ 贴之前请把之前几版 be 图标的 CSS 全部删干净，不要叠加，两者会打架。
+
+   全局大小只有一个旋钮 ↓ 想整体大一点改 20px，小一点改 16px，比例自动保持。
+   ========================================================================== */
+
+:root{
+	--be-icon: 18px;
+}
+
+
+/* --------------------------------------------------------------------------
+   1) 底座
+   统一方盒 + 居中，并锁死主题的 font-size/line-height 和 dashicons 塞进来的
+   width/height/vertical-align（你登录时 WP 会加载 dashicons.css）。
+   作用域限定在菜单容器里，不会波及评论区、表单必填星号等其它用到 be 图标的地方。
+   -------------------------------------------------------------------------- */
+
+.top-menu i.be,
+.down-menu i.be,
+.nav-menu i.be,
+.mobile-menu i.be,
+.submenu i.be,
+.search-menu i.be,
+.footer-menu i.be,
+.menu i.be{
+	display: inline-block !important;
+	width: calc(var(--be-icon) * 1.34) !important;
+	font-size: var(--be-icon) !important;
+	line-height: 1 !important;
+	vertical-align: baseline !important;
+	text-align: center;
+	overflow: visible;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+.top-menu i.be::before,
+.down-menu i.be::before,
+.nav-menu i.be::before,
+.mobile-menu i.be::before,
+.submenu i.be::before,
+.search-menu i.be::before,
+.footer-menu i.be::before,
+.menu i.be::before{
+	display: inline-block;
+	width: 1em;
+	height: 1em;
+	padding: 0;
+	border: 0;
+	line-height: 1;
+	font-size: calc(var(--be-icon) * var(--be-k, 1));
+	-webkit-text-stroke: calc(var(--be-icon) * var(--be-w, 0)) currentColor;
+}
+
+
+/* --------------------------------------------------------------------------
+   2) 逐字形归一化（数值来自 be.ttf 实测，不是拍脑袋）
+   --be-k  尺寸系数：方形字形归到 0.79em，扁/长形归到 0.87em
+   --be-w  补线宽：把偏细的字形补到统一的 0.072em，只有多人需要补
+   没列出来的图标 --be-k 默认 1，照样进同一个盒子居中，只是不做精调。
+   -------------------------------------------------------------------------- */
+
+i.be-personoutline{ --be-k: 1.04; }              /* 外框 0.760em，描边 74‰ */
+i.be-peopleoutline{ --be-k: .95; --be-w: .023; } /* 外框 0.918em，描边 51‰ ← 最细 */
+i.be-star         { --be-k: .95; }               /* 外框 0.891em */
+i.be-link         { --be-k: 1.04; }              /* 外框 0.834em，描边 65‰ */
+i.be-repeat       { --be-k: .95; }               /* 外框 0.834em，描边 75‰ */
+
+
+/* --------------------------------------------------------------------------
+   3) 线性五角星
+   不画新图形、不用 data URI —— 直接把字体自带的实心星「挖空」成线性星。
+   多边形 = 整个盒子 减去 一个内星（洞），洞的坐标由 star 字形的真实轮廓
+   内缩 0.072em 算出，所以配准是精确的。
+
+   兜底：@supports 不通过 或 clip-path 被压缩插件丢掉 → 原样显示实心星，
+   绝不会再出现 v1 那种空洞。
+   -------------------------------------------------------------------------- */
+
+@supports (clip-path: polygon(0 0, 100% 0, 0 100%)){
+	.top-menu i.be-star::before,
+	.down-menu i.be-star::before,
+	.nav-menu i.be-star::before,
+	.mobile-menu i.be-star::before,
+	.submenu i.be-star::before,
+	.search-menu i.be-star::before,
+	.footer-menu i.be-star::before,
+	.menu i.be-star::before{
+		-webkit-clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, 50% 64.14%, 66.02% 73.83%, 61.8% 55.61%, 75.92% 43.38%, 57.3% 41.78%, 50% 24.55%, 42.7% 41.78%, 24.08% 43.38%, 38.2% 55.61%, 33.98% 73.83%, 50% 64.14%);
+		clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, 50% 64.14%, 66.02% 73.83%, 61.8% 55.61%, 75.92% 43.38%, 57.3% 41.78%, 50% 24.55%, 42.7% 41.78%, 24.08% 43.38%, 38.2% 55.61%, 33.98% 73.83%, 50% 64.14%);
+	}
+}
+
+/* ========================== 完 ========================== */
+
+
+
+#tp-weather-widget .sw-card-slim-container {background-image: url(https://www.bdflixs.com/wp-content/themes/begin/img/default/captcha/y1.jpg)}</style><style id="mvs-badge-css">.mvs-list{display:inline-flex;align-items:center;gap:5px;vertical-align:middle;margin:0 8px 0 0;position:relative;top:var(--mvs-nudge,-1px)}
+.single-score-wrap{clear:both;text-align:center;margin:5px 0 15px}
+.mvs-badge{display:inline-flex;align-items:stretch;vertical-align:middle;height:20px;border-radius:4px;overflow:hidden;line-height:1;white-space:nowrap;font-weight:500}
+.mvs-badge .mvs-k{display:inline-flex;align-items:center;padding:0 6px;font-size:11px;letter-spacing:.3px}
+.mvs-badge .mvs-v{display:inline-flex;align-items:center;padding:0 6px;font-size:12px;font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+.mvs-douban .mvs-k{background:#2e9e5b;color:#fff}
+.mvs-douban .mvs-v{background:#e8f5ee;color:#196b3c}
+.mvs-imdb .mvs-k{background:#f5c518;color:#241c00}
+.mvs-imdb .mvs-v{background:#fdf4d9;color:#6b5400}
+.mvs-quality .mvs-k{background:#2f7fe0;color:#fff}
+.mvs-quality .mvs-v{background:#e9f1fc;color:#17518f}
+.mvs-duration .mvs-k{background:#e2661f;color:#fff}
+.mvs-duration .mvs-v{background:#fdefe6;color:#93400f}
+.mvs-na .mvs-k{background:#b9bec6;color:#fff}
+.mvs-na .mvs-v{background:#f1f2f4;color:#8b929c;font-size:11px}
+.mvs-range .mvs-v{font-size:11px;letter-spacing:-.2px}
+.single-score-wrap .mvs-badge{height:24px;margin:0 3px 5px}
+.single-score-wrap .mvs-badge .mvs-k{padding:0 8px;font-size:12px}
+.single-score-wrap .mvs-badge .mvs-v{padding:0 8px;font-size:13px}
+.night .mvs-douban .mvs-v{background:#1c3a2a;color:#7fd8a5}
+.night .mvs-imdb .mvs-v{background:#3a3218;color:#f0cf5e}
+.night .mvs-quality .mvs-v{background:#1e2c3d;color:#8fbdf0}
+.night .mvs-duration .mvs-v{background:#3a2620;color:#f0a173}
+.night .mvs-na .mvs-v{background:#3a3a38;color:#9aa0a8}
+@media screen and (max-width:768px){
+.mvs-list{gap:4px;margin-right:5px;top:var(--mvs-nudge-m,-1px)}
+.mvs-badge{height:18px;border-radius:3px}
+.mvs-badge .mvs-k{padding:0 5px;font-size:10px;letter-spacing:.2px}
+.mvs-badge .mvs-v{padding:0 5px;font-size:11px}
+.single-score-wrap .mvs-badge{height:22px;margin:0 2px 4px}
+.single-score-wrap .mvs-badge .mvs-k{padding:0 7px;font-size:11px}
+.single-score-wrap .mvs-badge .mvs-v{padding:0 7px;font-size:12px}
+}</style><style id="bdm-hide-follow">.addfollow-btn,.addfollow,.follow-list,.fans-list{display:none !important}</style><style id="bsu-style">/* —— 遮罩 —— */
+#search-main{position:fixed;top:0;left:0;right:0;bottom:0;z-index:99998;background:rgba(18,20,24,.4);-webkit-backdrop-filter:blur(6px) saturate(120%);backdrop-filter:blur(6px) saturate(120%)}
+.night #search-main,.go-night #search-main{background:rgba(0,0,0,.58)}
+#search-main .search-box{position:absolute;top:0;left:0;width:100%;height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:11vh 16px 60px;background:none;box-sizing:border-box}
+#search-main .off-search-a,#search-main .off-search,#search-main .be-help-box,#search-main .be-help-btu,#search-main .choose{display:none!important}
+#search-main .search-area{background:none;width:auto}
+#search-main .clear{clear:none;height:0}
+
+/* —— 卡片 —— */
+#search-main .search-wrap{position:relative;width:100%;max-width:640px;margin:0 auto;padding:0;background:var(--be-bg-white,#fff);border-radius:16px;box-shadow:0 24px 64px -18px rgba(0,0,0,.45),0 2px 8px rgba(0,0,0,.08);overflow:hidden;cursor:auto}
+
+/* —— 引擎切换 —— */
+#search-main .search-tabs{display:flex;flex-wrap:wrap;gap:2px;float:none;width:auto;padding:10px 10px 0}
+#search-main.bsu-solo .search-tabs{display:none}
+#search-main .search-tabs .search-item{float:none}
+#search-main .search-tabs .search-item span{float:none;display:block;margin:0;padding:5px 11px;font-size:12px;line-height:1.4;border-radius:20px;color:var(--be-grey-9,#9aa0a6);background:transparent!important}
+#search-main .search-tabs .search-item.active span{color:var(--be-body,#1f2328)!important;background:var(--be-bg-grey-f1,#f1f2f4)!important}
+
+/* —— 输入行：左边的放大镜就是提交按钮 —— */
+#search-main .tab-search{float:none;width:auto}
+#search-main .tab-search form{margin:0}
+#search-main .search-input{position:relative;display:flex;align-items:center;width:auto;padding:0 48px 0 0}
+#search-main .search-input input{flex:1 1 auto;float:none;width:auto;min-width:0;height:58px;line-height:normal;margin:0;padding:0 4px;font-size:16px;color:var(--be-body,#1f2328);background:none!important;border:0!important;border-radius:0;box-shadow:none!important;-webkit-appearance:none}
+#search-main .search-input input:focus{background:none!important;border:0!important;outline:none;box-shadow:none!important}
+#search-main .search-input input::-webkit-input-placeholder{color:#9aa0a6}
+#search-main .search-input input::placeholder{color:#9aa0a6}
+#search-main .search-input button{order:-1;flex:0 0 auto;width:48px;height:58px;margin:0;padding:0;border:0;border-radius:0;box-shadow:none!important;background:none!important;color:#9aa0a6;cursor:pointer}
+#search-main .search-input button:hover{color:var(--be-body,#1f2328)}
+#search-main .search-input button i{font-size:17px!important;color:inherit}
+#search-main .search-cat{display:block;float:none;padding:0 14px 12px}
+#search-main .search-cat select{width:100%;height:34px;padding:0 8px;font-size:13px;border-radius:8px;border:1px solid var(--be-border-grey,#ececec);background:var(--be-bg-grey-f1,#f6f7f8);color:var(--be-body,#1f2328)}
+
+/* —— 关闭 —— */
+.bsu-x{position:absolute;top:0;right:0;width:48px;height:58px;display:flex;align-items:center;justify-content:center;border:0;background:none;color:#9aa0a6;font-size:15px;cursor:pointer;z-index:3}
+.bsu-x:hover{color:var(--be-body,#1f2328)}
+#search-main.bsu-tabs .bsu-x{top:37px}
+
+/* —— 结果 —— */
+.bsu-panel{display:none;border-top:1px solid var(--be-border-grey,#eef0f2);max-height:54vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.bsu-panel.on{display:block}
+.bsu-panel.bsu-stale{opacity:.5}
+.bsu-item{display:flex;align-items:center;gap:12px;padding:9px 14px;color:var(--be-body,#1f2328);text-decoration:none}
+.bsu-item:hover,.bsu-item.on{background:var(--be-bg-grey-f1,#f5f6f8)}
+.bsu-thumb{flex:0 0 44px;width:44px;height:44px;border-radius:8px;object-fit:cover;background:var(--be-bg-grey-f1,#eef0f2)}
+.bsu-txt{min-width:0;flex:1 1 auto}
+.bsu-t{display:block;font-size:14px;line-height:1.45;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bsu-t em{font-style:normal;color:#d0402c}
+.bsu-m{display:block;margin-top:2px;font-size:12px;color:#9aa0a6}
+.bsu-all{display:block;padding:11px 14px;font-size:13px;text-align:center;color:#6b7280;border-top:1px solid var(--be-border-grey,#eef0f2)}
+.bsu-all:hover{background:var(--be-bg-grey-f1,#f5f6f8)}
+.bsu-note{padding:26px 14px;text-align:center;font-size:13px;color:#9aa0a6}
+
+/* —— 热词 / 最近搜索 —— */
+#search-main .search-hot-main,.bsu-recent{float:none;padding:2px 14px 14px;border-top:1px solid var(--be-border-grey,#eef0f2)}
+#search-main .search-hot-main .recently-searches{float:none;width:auto}
+.bsu-recent{display:none;padding-bottom:14px}
+.bsu-recent.on{display:block}
+#search-main .searches-title,.bsu-head{float:none;display:flex;align-items:center;justify-content:space-between;margin:12px 0 9px;font-size:12px;font-weight:400;color:#9aa0a6}
+#search-main ul.recently-searches,.bsu-chips{display:flex;flex-wrap:wrap;gap:8px;float:none;width:auto;margin:0;padding:0;list-style:none}
+#search-main .recently-searches li{float:none;margin:0;padding:0;border:0;list-style:none}
+#search-main .search-item a,.bsu-chips a{float:none;display:inline-block;margin:0;padding:6px 12px;font-size:13px;line-height:1.4;border-radius:20px;color:var(--be-body,#3c4043);background:var(--be-bg-grey-f1,#f1f2f4);transition:.2s}
+#search-main .search-item a:hover,.bsu-chips a:hover{background:#da6472;color:#fff}
+.bsu-clear{border:0;background:none;padding:0;font-size:12px;color:#9aa0a6;cursor:pointer}
+.bsu-clear:hover{color:#d0402c}
+#search-main .search-nav{float:none;padding:0 14px 14px}
+#search-main .search-menu{display:flex;flex-wrap:wrap;gap:8px;margin:0;padding:0;list-style:none}
+#search-main .search-menu li{float:none;list-style:none}
+#search-main .search-menu a{float:none;margin:0;padding:6px 12px;font-size:13px;line-height:1.4;border-radius:20px}
+
+@media screen and (max-width:640px){
+	#search-main .search-box{padding:7vh 12px 40px}
+	#search-main .search-wrap{border-radius:14px}
+	#search-main .search-input input{height:52px;font-size:16px}
+	#search-main .search-input button,.bsu-x{height:52px;width:44px}
+	#search-main.bsu-tabs .bsu-x{top:32px}
+	.bsu-panel{max-height:48vh}
+}
+@media (prefers-reduced-motion:reduce){
+	#search-main .search-box{animation:none!important}
+}</style> <script>var _hmt = _hmt || [];
+(function() {
+  var hm = document.createElement("script");
+  hm.src = "https://hm.baidu.com/hm.js?b627a8389b62bff968382292ffd315e1";
+  var s = document.getElementsByTagName("script")[0]; 
+  s.parentNode.insertBefore(hm, s);
+})();</script> <link rel="preload" as="image" href="https://pic1.imgdb.cn/item/69ee059a6dcdaf678a8bdac1.jpg" fetchpriority="high">
+<link rel="preload" as="image" href="https://pic1.imgdb.cn/item/69ee06446dcdaf678a8bdadc.jpg">
+<script defer src="/bt-stats.js?site=53a09528-2786-463f-8368-a27608b9b50e&version1"></script><script defer src="/bt-replay.js?site=53a09528-2786-463f-8368-a27608b9b50e"></script></head><body class="search search-results wp-theme-begin df4f"> <script>const SITE_ID = window.location.hostname;if (localStorage.getItem(SITE_ID + '-beNightMode')) {document.body.className += ' night';}</script> <div id="page" class="hfeed site"><header id="masthead" class="site-header site-header-s nav-extend"><div id="header-main-g" class="header-main-g top-nav-show"><nav id="header-top" class="header-top nav-glass"><div class="nav-top betip"><div id="user-profile"><div class="greet-top"><div class="user-wel">欢迎光临！</div></div><div class="login-reg login-admin"><div class="nav-set"><div class="nav-login"><div class="show-layer">登录</div></div></div><div class="nav-set"><div class="nav-reg nav-reg-no"> <a class="hz" href="https://www.bdflixs.com/registered.html" rel="external nofollow" target="_blank">注册</a></div><div class="clear"></div></div></div></div><div class="nav-menu-top-box betip"><div class="nav-menu-top"><div class="menu-%e9%a1%b6%e9%83%a8%e8%8f%9c%e5%8d%95-container"><ul id="menu-%e9%a1%b6%e9%83%a8%e8%8f%9c%e5%8d%95" class="top-menu"><li id="menu-item-1350" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-1350 mega-menu menu-max-col"><a target="_blank" href="https://www.bdflixs.com/link.html"><i class="be be-share"></i><span class="font-text">友情链接</span></a></li><li id="menu-item-1524" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1524 mega-menu menu-max-col"><a target="_blank" href="https://www.bdflixs.com/qiupian.html"><i class="be be-stack"></i><span class="font-text">求片墙</span></a></li><li id="menu-item-1358" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-1358 mega-menu menu-max-col"><a target="_blank" href="https://www.bdflixs.com/user-center.html?bdm=list"><i class="be be-folder"></i><span class="font-text">我的片单</span></a></li><li id="menu-item-1694" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-1694 mega-menu menu-max-col"><a target="_blank" href="https://www.bdflixs.com/user-center.html?bdm=rating"><i class="be be-favoriteoutline"></i><span class="font-text">我的评分</span></a></li><li id="menu-item-1360" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-1360 mega-menu menu-max-col"><a target="_blank" href="https://www.bdflixs.com/user-center.html?bdm=hist"><i class="be be-eye"></i><span class="font-text">观看记录</span></a></li></ul></div></div></div></div></nav><div id="menu-container" class="be-menu-main menu-glass"><div id="navigation-top" class="navigation-top menu_c"><div class="be-nav-box"><div class="be-nav-l"><div class="be-nav-logo"><div class="logo-site"> <a href="https://www.bdflixs.com/"> <span class="logo-small"><img class="begd" src="https://www.bdflixs.com/wp-content/themes/begin/img/logo-s.png" style="width: 50px;" alt="BD电影首发站"></span> <span class="site-name-main"> <span class="site-name">BD电影首发站</span> </span> </a></div></div><div class="be-nav-wrap"><div id="site-nav-wrap" class="site-nav-main" style="margin-left: 66px"><div id="sidr-close"><div class="toggle-sidr-close"></div></div><nav id="site-nav" class="main-nav nav-ace"><div id="navigation-toggle" class="menu-but bars"><div class="menu-but-box"><div class="heng"></div></div></div><div class="menu-%e4%b8%bb%e8%8f%9c%e5%8d%95-container"><ul id="menu-%e4%b8%bb%e8%8f%9c%e5%8d%95" class="down-menu nav-menu"><li id="menu-item-20" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-home menu-item-20 mega-menu menu-max-col"><a href="https://www.bdflixs.com/">首页</a></li><li id="menu-item-18" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children menu-item-18 nolink-menu-item be-menu-code-cat menu-max-col"><a class="nolink-item" onclick="return false;">最新电影</a><ul class="sub-menu"><li id="menu-item-19" class="menu-item menu-item-type-taxonomy menu-item-object-category menu-item-19 mega-menu menu-max-col be-menu-shortcode"><a href="https://www.bdflixs.com/new-movies/blockbuster/"><span class="be-menu-custom-title"><span class="be-menu-custom-title-ico"></span>院线大片</span><span class="show-menu-shortcode"></span></a><span class="menus-set-cat-box"><span class="menus-set-cat-img menus-team-cat"><img alt="catimg" src="https://pic1.imgdb.cn/item/699ae5d2ba83e2a3a4821de7.jpg"></span><span class="menus-set-cat-name-box menus-team-cat"><span class="menus-set-cat-name"><a href="https://www.bdflixs.com/new-movies/blockbuster/" rel="bookmark"><span class="be-menu-custom-title-ico"></span>院线大片</a><a href="https://www.bdflixs.com/new-movies/classic/" rel="bookmark"><span class="be-menu-custom-title-ico"></span>经典重现</a><a href="https://www.bdflixs.com/new-movies/jishi/" rel="bookmark"><span class="be-menu-custom-title-ico"></span>纪实影像</a></span></span><span class="clear"></span></span><a class="menus-set-name-hide"><span class="clear"></span></a></li></ul></li><li id="menu-item-36" class="menu-item menu-item-type-taxonomy menu-item-object-category menu-item-36 mega-menu menu-max-col"><a href="https://www.bdflixs.com/anime/">次元动画</a></li><li id="menu-item-33" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-33 mega-menu menu-max-col"><a href="https://www.bdflixs.com/new-movies/">找电影<small class="menu-mark" style="background: #da6472;top:11px;right:5px;">荐</small></a></li><li id="menu-item-1082" class="menu-item menu-item-type-taxonomy menu-item-object-special menu-item-1082 mega-menu menu-max-col"><a href="https://www.bdflixs.com/special/movie-lists/">片单精选</a></li></ul></div></nav><div class="clear"></div><div class="sidr-login"><div class="mobile-login-but"><div class="mobile-login-author-back"><img loading="lazy" src="https://pic.pictaa.bond/f4/5i/f45iaTtYRk.jpg?w=600&q=80" alt="bj"></div> <span class="mobile-login show-layer">登录</span> <span class="mobile-login-reg"><a href="https://www.bdflixs.com/registered.html">注册</a></span></div></div></div></div></div><div class="be-nav-r"> <span class="nav-search"></span><div class="be-nav-login-but betip"><div class="menu-login-box"> <span class="menu-login menu-login-btu nav-ace menu-login-reg-btu"><div id="user-profile"><div class="greet-top"><div class="user-wel">欢迎光临！</div></div><div class="login-reg login-admin"><div class="nav-set"><div class="nav-login"><div class="show-layer">登录</div></div></div><div class="nav-set"><div class="nav-reg nav-reg-no"> <a class="hz" href="https://www.bdflixs.com/registered.html" rel="external nofollow" target="_blank">注册</a></div><div class="clear"></div></div></div></div> </span></div></div></div></div><div class="clear"></div></div></div></div></header><div id="search-main" class="search-main"><div class="search-box fadeInDown animated"><div class="off-search-a"></div><div class="search-area"><div class="search-wrap betip"><div class="search-tabs"><div class="search-item searchwp"><span class="search-wp">站内</span></div></div><div class="clear"></div><div class="search-wp tab-search searchbar"><form method="get" id="searchform-so" autocomplete="off" action="https://www.bdflixs.com/"> <span class="search-input"> <input type="text" value="流浪地球" name="s" id="so" class="search-focus wp-input" placeholder="输入关键字" required /> <button type="submit" id="searchsubmit-so" class="sbtu"><i class="be be-search"></i></button> </span><div class="clear"></div></form></div><div class="clear"></div><div class="clear"></div></div></div></div><div class="off-search"></div></div><nav class="bread"><div class="be-bread"><div class="breadcrumb"><span class="seat"></span><span class="home-text"><a href="https://www.bdflixs.com/" rel="bookmark">首页</a></span><span class="home-text"><i class="be be-arrowright"></i></span>搜索<span class="current"><i class="be be-arrowright"></i>流浪地球<i class="be be-arrowright"></i>2&nbsp;篇</span></div></div></nav><div id="content" class="site-content site-small site-roll"><section id="primary" class="content-area search-normal search-sidebar"><main id="main" class="site-main" role="main"><div class="boxs5 scl"><article id="post-594" class="post-item-list post post-default ms" data-aos="fade-up"><figure class="thumbnail"><div class="thumbs-b lazy"><a class="thumbs-back sc" rel="bookmark"  href="https://www.bdflixs.com/594.html" data-src="https://pic1.imgdb.cn/item/69ee059a6dcdaf678a8bdac1.jpg"></a></div> <span class="cat cat-roll merge-cat"><a href="https://www.bdflixs.com/new-movies/blockbuster/">院线大片</a></span> <span class="thumb-meta"><span class="tm-date">04/27</span><span class="tm-views"><i class="be be-eye"></i>221</span></span></figure><div class="post-area"><header class="entry-header entry-header-c"><h2 class="entry-title"><a href="https://www.bdflixs.com/594.html" target="_blank" rel="bookmark">2019《流浪地球》带着地球逃离太阳系末日危机饱和式救援极其震撼人心</a></h2></header><div class="entry-content"><div class="archive-content"> 流浪地球 (2019) 导演: 郭帆 编剧: 龚格尔 / 严东旭 / 郭帆 / 叶俊策 / 杨治学 / 吴荑 / 叶濡畅 / 沈今晶 / 刘慈欣 主演: 吴京 / 屈楚萧 / 李光洁 / 吴孟达 / ...</div><div class="clear"></div> <span class="title-l"></span> <span class="entry-meta lbm vr cmv"> <span class="mvs-list"><span class="mvs-badge mvs-douban" title="豆瓣评分 7.9"><span class="mvs-k">豆瓣</span><span class="mvs-v">7.9</span></span><span class="mvs-badge mvs-imdb" title="IMDb评分 5.9"><span class="mvs-k">IMDb</span><span class="mvs-v">5.9</span></span><span class="mvs-badge mvs-bdscore" title="综合估算得分 7.5，暂无站内评分"><span class="mvs-k">BD</span><span class="mvs-v">7.5</span></span></span><span class="date"><time datetime="2026-04-27 14:31:17">04/27</time></span><span class="views"><i class="be be-eye ri"></i>221</span><span class="comment"><a href="https://www.bdflixs.com/594.html#respond"><span class="no-comment"><i class="be be-speechbubble ri"></i>评论</span></a></span><span class="post-tag"><a href="https://www.bdflixs.com/tag/%e6%9c%ab%e6%97%a5%e5%ba%9f%e5%9c%9f/" class="tag-cloud-link tag-link-253 tag-link-position-1" style="font-size: 14px;">末日废土</a> <a href="https://www.bdflixs.com/tag/jixianhuanjing/" class="tag-cloud-link tag-link-112 tag-link-position-2" style="font-size: 14px;">极限环境</a> <a href="https://www.bdflixs.com/tag/%e7%94%9f%e5%ad%98/" class="tag-cloud-link tag-link-683 tag-link-position-3" style="font-size: 14px;">生存</a> <a href="https://www.bdflixs.com/tag/ensemble/" class="tag-cloud-link tag-link-33 tag-link-position-4" style="font-size: 14px;">群像</a></span> </span></div><div class="clear"></div></div></article></div><div class="boxs5 scl"><article id="post-595" class="post-item-list post post-default ms" data-aos="fade-up"><figure class="thumbnail"><div class="thumbs-b lazy"><a class="thumbs-back sc" rel="bookmark"  href="https://www.bdflixs.com/595.html" data-src="https://pic1.imgdb.cn/item/69ee06446dcdaf678a8bdadc.jpg"></a></div> <span class="cat cat-roll merge-cat"><a href="https://www.bdflixs.com/new-movies/blockbuster/">院线大片</a></span> <span class="thumb-meta"><span class="tm-date">04/27</span><span class="tm-views"><i class="be be-eye"></i>251</span></span></figure><div class="post-area"><header class="entry-header entry-header-c"><h2 class="entry-title"><a href="https://www.bdflixs.com/595.html" target="_blank" rel="bookmark">2023《流浪地球2》移山计划迎战太阳危机数字生命暗藏惊天杀机</a></h2></header><div class="entry-content"><div class="archive-content"> 流浪地球2 (2023) 导演: 郭帆 编剧: 杨治学 / 龚格尔 / 郭帆 / 叶濡畅 主演: 吴京 / 刘德华 / 李雪健 / 沙溢 / 宁理 / 王智 / 朱颜曼滋 / 安地 / 王若熹 / 佟...</div><div class="clear"></div> <span class="title-l"></span> <span class="entry-meta lbm vr cmv"> <span class="mvs-list"><span class="mvs-badge mvs-douban" title="豆瓣评分 8.3"><span class="mvs-k">豆瓣</span><span class="mvs-v">8.3</span></span><span class="mvs-badge mvs-imdb" title="IMDb评分 6.7"><span class="mvs-k">IMDb</span><span class="mvs-v">6.7</span></span><span class="mvs-badge mvs-bdscore" title="综合估算得分 8.0，暂无站内评分"><span class="mvs-k">BD</span><span class="mvs-v">8.0</span></span></span><span class="date"><time datetime="2026-04-27 16:34:07">04/27</time></span><span class="views"><i class="be be-eye ri"></i>251</span><span class="comment"><a href="https://www.bdflixs.com/595.html#respond"><span class="no-comment"><i class="be be-speechbubble ri"></i>评论</span></a></span><span class="post-tag"><a href="https://www.bdflixs.com/tag/%e4%ba%ba%e5%b7%a5%e6%99%ba%e8%83%bd/" class="tag-cloud-link tag-link-208 tag-link-position-1" style="font-size: 14px;">人工智能</a> <a href="https://www.bdflixs.com/tag/%e5%91%bd%e8%bf%90/" class="tag-cloud-link tag-link-684 tag-link-position-2" style="font-size: 14px;">命运</a> <a href="https://www.bdflixs.com/tag/%e6%9c%ab%e6%97%a5%e5%ba%9f%e5%9c%9f/" class="tag-cloud-link tag-link-253 tag-link-position-3" style="font-size: 14px;">末日废土</a> <a href="https://www.bdflixs.com/tag/ensemble/" class="tag-cloud-link tag-link-33 tag-link-position-4" style="font-size: 14px;">群像</a></span> </span></div><div class="clear"></div></div></article></div></main><div class="pagenav-clear"><div class="turn betip turn-small"><div class="clear"></div></div><div class="clear"></div></div><div class="clear"></div></section><div id="sidebar" class="widget-area all-sidebar"><div class="widget-blog"><aside id="ajax_widget-5" class="widget widget_ajax ms" data-aos="fade-up"><div class="ajax_widget_content" id="ajax_widget-5_content" data-widget-number="5"><div class="ajax-tabs has-2-tabs"> <span class="tab_title tab-first"><a href="#" title="随机影片" id="random-tab"></a></span> <span class="tab_title tab-first"><a href="#" title="热门影片" id="hot-tab"></a></span><div class="clear"></div></div><div class="clear"></div><div class="new_cat"><div id="random-tab-content" class="tab-content"><div class="tab-load"><ul><h4>加载中...</h4><li> <span class="thumbnail"></span> <span class="tab-load-item tab-load-title load-item-1"></span> <span class="tab-load-item tab-load-inf"></span></li><li> <span class="thumbnail"></span> <span class="tab-load-item tab-load-title load-item-2"></span> <span class="tab-load-item tab-load-inf"></span></li><li> <span class="thumbnail"></span> <span class="tab-load-item tab-load-title load-item-3"></span> <span class="tab-load-item tab-load-inf"></span></li><li> <span class="thumbnail"></span> <span class="tab-load-item tab-load-title load-item-4"></span> <span class="tab-load-item tab-load-inf"></span></li><li> <span class="thumbnail"></span> <span class="tab-load-item tab-load-title load-item-5"></span> <span class="tab-load-item tab-load-inf"></span></li></ul></div></div><div id="hot-tab-content" class="tab-content"><div class="tab-load"><ul><h4>加载中...</h4><li> <span class="thumbnail"></span> <span class="tab-load-item tab-load-title load-item-1"></span> <span class="tab-load-item tab-load-inf"></span></li><li> <span class="thumbnail"></span> <span class="tab-load-item tab-load-title load-item-2"></span> <span class="tab-load-item tab-load-inf"></span></li><li> <span class="thumbnail"></span> <span class="tab-load-item tab-load-title load-item-3"></span> <span class="tab-load-item tab-load-inf"></span></li><li> <span class="thumbnail"></span> <span class="tab-load-item tab-load-title load-item-4"></span> <span class="tab-load-item tab-load-inf"></span></li><li> <span class="thumbnail"></span> <span class="tab-load-item tab-load-title load-item-5"></span> <span class="tab-load-item tab-load-inf"></span></li></ul></div></div><div class="clear"></div></div><div class="clear"></div></div> <script type="text/javascript">jQuery(function($) {
+					$('#ajax_widget-5_content').data('args', {"allow_pagination":1,"post_num":"5","show_thumb":1,"viewe_days":null,"review_days":null,"like_days":null,"pcat":"","cat_limit":0,"single_limit":0,"begin_widget_logic":"","classes":"","cur_term":0,"cur_tax":""});
+				});</script> <div class="clear"></div></aside></div></div><div class="clear"></div></div><div class="clear"></div><div id="footer-widget-box" class="footer-site-widget"><div class="footer-widget-bg" style="background: url('https://pic1.imgdb.cn/item/699b3a71ba83e2a3a48227e3.jpg') no-repeat fixed center / cover;"><div class="footer-widget footer-widget-3"><div class="footer-widget-item"><aside id="nav_menu-2" class="widget widget_nav_menu" data-aos="fade-up"><h3 class="widget-title"><span class="s-icon"></span>推荐分类</h3><div class="menu-%e6%8e%a8%e8%8d%90%e5%88%86%e7%b1%bb-container"><ul id="menu-%e6%8e%a8%e8%8d%90%e5%88%86%e7%b1%bb" class="menu"><li id="menu-item-42" class="menu-item menu-item-type-taxonomy menu-item-object-category menu-item-42 mega-menu menu-max-col"><a href="https://www.bdflixs.com/new-movies/">最新电影</a></li><li id="menu-item-43" class="menu-item menu-item-type-taxonomy menu-item-object-category menu-item-43 mega-menu menu-max-col"><a href="https://www.bdflixs.com/new-movies/blockbuster/">院线大片</a></li><li id="menu-item-44" class="menu-item menu-item-type-taxonomy menu-item-object-category menu-item-44 mega-menu menu-max-col"><a href="https://www.bdflixs.com/new-movies/classic/">经典重现</a></li><li id="menu-item-45" class="menu-item menu-item-type-taxonomy menu-item-object-category menu-item-45 mega-menu menu-max-col"><a href="https://www.bdflixs.com/new-movies/jishi/">纪实影像</a></li><li id="menu-item-46" class="menu-item menu-item-type-taxonomy menu-item-object-category menu-item-46 mega-menu menu-max-col"><a href="https://www.bdflixs.com/anime/">次元动画</a></li><li id="menu-item-1200" class="menu-item menu-item-type-taxonomy menu-item-object-special menu-item-1200 mega-menu menu-max-col"><a href="https://www.bdflixs.com/special/movie-lists/">片单精选</a></li></ul></div><div class="clear"></div></aside><aside id="php_text-2" class="widget php_text" data-aos="fade-up"><h3 class="widget-title"><span class="s-icon"></span><span class="title-i"><span></span><span></span><span></span><span></span></span><a href='https://www.bdflixs.com/about.html' target="_blank">关于本站 <span class="more-i more-im"><span></span><span></span><span></span></span></a></h3><div class="textwidget widget-text"><p><strong>BD电影首发站</strong>专注电影内容整理与原创观后感，覆盖院线新片与多类型影片。我们坚持清晰分类，让影片不止被浏览，更被理解。持续更新，用内容建立信任。</p></div><div class="clear"></div></aside><aside id="be_counter-2" class="widget be-counter" data-aos="fade-up"><div class="be-counter-main be-counter-main-c"><div class="counters-item"><div class="counters"><div class="counter" data-TargetNum="18771401" data-Speed="80000">0</div><span class="counter-unit">+</span></div><div class="counter-title">网站访问量</div></div></div><div class="clear"></div></aside></div><div class="clear"></div></div></div></div><footer id="colophon" class="site-footer" role="contentinfo"><div class="site-info"><div class="site-copyright"><p style="text-align: center;">Copyright ©  <a href="https://www.bdflixs.com/">BDFLIXS.COM</a>  <a href="https://www.bdflixs.com/">BD电影首发站</a>  版权所有.</p><p style="text-align: center;"><a title="BD电影首发站" href="https://www.bdflixs.com/" target="_blank" rel="external nofollow noopener"><img src="https://www.bdflixs.com/wp-content/themes/begin/img/logo.png" alt="BD电影首发站" width="120" height="27" /></a></p></div><div class="add-info"><div class="clear"></div></div><div class="clear"></div></div><div id="login-layer" class="login-overlay"><div id="login" class="login-layer-area"><div class="login-main"></div></div></div><ul id="scroll" class="scroll scroll-but"><li> <span class="scroll-h ms fo scroll-load"> <span class="progresswrap"> <svg class="progress-circle"> <circle stroke="var(--inactive-color)" /> <circle class="progress-value" stroke="var(--color)" style="stroke-dasharray: calc( 2 * 3.1415 * (var(--size) - var(--border-width)) / 2 * (var(--percent) / 100)), 1000" /> </svg> </span> <span class="scroll-percentage"></span> <i class="be be-arrowup"></i> </span></li><li><span class="scroll-b ms fo"><i class="be be-arrowdown"></i></span></li><ul class="night-day"><li class="foh"><span class="night-main"><span class="m-night fo ms"><span class="m-moon"><span></span></span></span></span></li><li class="foh"><span class="m-day fo ms"><i class="be be-loader"></i></span></li></ul></ul> <script type="speculationrules">{"prefetch":[{"source":"document","where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":["/wp-*.php","/wp-admin/*","/wp-content/uploads/*","/wp-content/*","/wp-content/plugins/*","/wp-content/themes/begin/*","/*\\?(.+)"]}},{"not":{"selector_matches":"a[rel~=\"nofollow\"]"}},{"not":{"selector_matches":".no-prefetch, .no-prefetch a"}}]},"eagerness":"conservative"}]}</script> <script id="movie-pk-js-extra">var MPK_CFG = {"ajax":"https://www.bdflixs.com/wp-admin/admin-ajax.php","nonce":"bf9f33fcdf","refresh":"1","swap":"1","rule":"daily","txt":{"voted":"\u5df2\u652f\u6301","again":"\u660e\u5929\u53ef\u4ee5\u518d\u6295\u4e00\u7968","once":"\u4f60\u5df2\u7ecf\u6295\u8fc7\u4e86","over":"\u672c\u8f6e\u5df2\u7ed3\u675f","err":"\u7f51\u7edc\u5f00\u5c0f\u5dee\u4e86\uff0c\u518d\u70b9\u4e00\u4e0b","day":"\u5929","hour":"\u5c0f\u65f6","minute":"\u5206\u949f","left":"\u8fd8\u5269","end":"\u672c\u8f6e\u5df2\u7ed3\u675f","tie":"\u6253\u5e73","lead":"\u9886\u5148"}};
+//# sourceURL=movie-pk-js-extra</script> <script id="favorite-js-before">var keep = {"ajaxurl":"https:\/\/www.bdflixs.com\/wp-admin\/admin-ajax.php","nonce":"c500743b27","errorMessage":"\u51fa\u9519\u4e86"}; 
+//# sourceURL=favorite-js-before</script> <script id="captcha-js-extra">var verify_ajax = {"ajax_url":"https://www.bdflixs.com/wp-admin/admin-ajax.php"};
+//# sourceURL=captcha-js-extra</script> <script id="captcha-js-after">var captcha_images = ["https:\/\/www.bdflixs.com\/wp-content\/themes\/begin\/img\/default\/captcha\/y1.jpg","https:\/\/www.bdflixs.com\/wp-content\/themes\/begin\/img\/default\/captcha\/y2.jpg","https:\/\/www.bdflixs.com\/wp-content\/themes\/begin\/img\/default\/captcha\/y3.jpg","https:\/\/www.bdflixs.com\/wp-content\/themes\/begin\/img\/default\/captcha\/y4.jpg"];
+//# sourceURL=captcha-js-after</script> <script id="superfish-js-extra">var assetsData = {"postID":"594"};
+var homeData = {"homeurl":"https://www.bdflixs.com"};
+//# sourceURL=superfish-js-extra</script> <script id="superfish-js-after">var fallwidth = {fall_width: 233};
+//# sourceURL=superfish-js-after</script> <script id="be_script-js" src="https://www.bdflixs.com/wp-content/themes/begin/js/begin-script.js"></script> <script id="be_script-js-after">var ajax_content = {"ajax_url":"https:\/\/www.bdflixs.com\/wp-admin\/admin-ajax.php"};var Offset = {"header_h":"80"};var captcha = {"verify":"1"};var emilc = {"ecy":"1"};var aosstate = {"aos":"0"};
+var bea_ajax_params = {"bea_ajax_nonce":"7c42522ced","bea_ajax_url":"https:\/\/www.bdflixs.com\/wp-admin\/admin-ajax.php"};var be_mail_contact_form = {"mail_ajaxurl":"https:\/\/www.bdflixs.com\/wp-admin\/admin-ajax.php","mail_nonce":"fb7621aebe"};jQuery.ajaxPrefilter(function(o){if(typeof o.data==="string"&&o.data.indexOf("action=be_ajax_send_mail")!==-1&&o.data.indexOf("_wpnonce=")===-1){o.data+="&_wpnonce="+encodeURIComponent(be_mail_contact_form.mail_nonce);}});var ajax_sort = {"ajax_url":"https:\/\/www.bdflixs.com\/wp-admin\/admin-ajax.php"};var random_post = {"ajax_url":"https:\/\/www.bdflixs.com\/wp-admin\/admin-ajax.php"};var ajax_ac = {"ajaxurl":"https:\/\/www.bdflixs.com\/wp-admin\/admin-ajax.php"};var ajax_load_login = {"ajax_url":"https:\/\/www.bdflixs.com\/wp-admin\/admin-ajax.php"};var ajax_pages_login = {"ajax_url":"https:\/\/www.bdflixs.com\/wp-admin\/admin-ajax.php"};var submit_link = {"ajax_url":"https:\/\/www.bdflixs.com\/wp-admin\/admin-ajax.php"};var ajax_smilies = {"ajax_url":"https:\/\/www.bdflixs.com\/wp-admin\/admin-ajax.php"};
+var host = {"site":"https:\/\/www.bdflixs.com"};var plt =  {"time":"30"};
+var copiedurl = {"copied":"\u5df2\u590d\u5236"};var copiedlink = {"copylink":"\u590d\u5236\u94fe\u63a5"};
+//# sourceURL=be_script-js-after</script> <script id="ajax_tab-js-after">var ajax_tab = {"ajax_url":"https:\/\/www.bdflixs.com\/wp-admin\/admin-ajax.php"}; var Ajax_post_id = {"post_not_id":""};
+//# sourceURL=ajax_tab-js-after</script> <script id="qrious-js-js-after">var ajaxqrurl = {"qrurl":"0"};
+//# sourceURL=qrious-js-js-after</script> <script id="owl-js-after">var Timeout = {"owl_time":"4000"};var gridcarousel = {"grid_carousel_f":"4"};var flexiselitems = {"flexisel_f":"6"};var slider_items_n = {"slider_sn":"4"};
+//# sourceURL=owl-js-after</script> <script id="infinite-post-js-after">var Ajaxpost = {"pages_n":"3"};
+//# sourceURL=infinite-post-js-after</script> <script id="bdm-js-extra">var BDM = {"ajax":"https://www.bdflixs.com/wp-admin/admin-ajax.php","nonce":"31645c6922","logged":"0","post":"0","home":"0","center":"https://www.bdflixs.com/user-center.html","loginUrl":"https://www.bdflixs.com/jy4193217","track":"1","msg":"1","history":"1","banner":"1","loginText":"\u767b\u5f55\u540e\u53ef\u8ffd\u66f4\u3001\u53ef\u6c42\u7247","i18n":{"err":"\u7f51\u7edc\u5f00\u5c0f\u5dee\u4e86\uff0c\u518d\u70b9\u4e00\u6b21","login":"\u767b\u5f55\u540e\u53ef\u7528","saved":"\u5df2\u4fdd\u5b58","removed":"\u5df2\u53d6\u6d88"}};
+//# sourceURL=bdm-js-extra</script> <script id="begin-filter-fix-js-before">window.BeginFilterFix = {"home":"https:\/\/www.bdflixs.com\/","multi":false,"stay":true,"summary":true,"accent":true,"rows":2,"groups":{"filtersa":"filtersa","filtersb":"filtersb","filtersc":"filtersc","filtersd":"filtersd","filterse":"filterse","filtersf":"filtersf","filtersg":"filtersg","filtersh":"filtersh","filtersi":"filtersi","filtersj":"filtersj","filtercat":"cat"},"i18n":{"selected":"\u5df2\u9009","clear":"\u6e05\u7a7a","expand":"\u5c55\u5f00","collapse":"\u6536\u8d77","remove":"\u79fb\u9664\u6761\u4ef6 %s","filters":"\u7b5b\u9009\u6761\u4ef6"}};
+//# sourceURL=begin-filter-fix-js-before</script> <script id="cms-plus-js-extra">var BECP = {"ajax":"https://www.bdflixs.com/wp-admin/admin-ajax.php","nonce":"052fb0dc52","login":"0","loginUrl":"https://www.bdflixs.com/jy4193217?redirect_to=https%3A%2F%2Fwww.bdflixs.com%2F%3Fs%3D%25E6%25B5%2581%25E6%25B5%25AA%25E5%259C%25B0%25E7%2590%2583","favUrl":"https://www.bdflixs.com/user-center.html#usertab4"};
+//# sourceURL=cms-plus-js-extra</script> <style>mark.bsb-hl{background:none;color:#d0402c;font-style:normal;padding:0}</style> <script>(function(){
+	var NEEDLES = ["\u6d41\u6d6a\u5730\u7403"];
+	var SEL     = ".search-entry-title a, .search-page .srm, .grid-title a, .entry-title a, .entry-summary, .hide-excerpt, .excerpt";
+
+	if (!NEEDLES.length) { return; }
+
+	// 归一化：和 PHP 端 bsb_normalize() 同一套规则。
+	// Unicode 属性转义要 ES2018，老浏览器上退回一个够用的标点集合。
+	var STRIP;
+	try {
+		STRIP = new RegExp('[\\s\\p{P}\\p{S}\\p{Z}\\p{C}]+', 'gu');
+	} catch (e) {
+		STRIP = /[\s!-\/:-@\[-`{-~\u00A0\u2000-\u206F\u3000-\u303F\uFE30-\uFE4F\uFF00-\uFF0F\uFF1A-\uFF20\uFF3B-\uFF40\uFF5B-\uFF65]+/g;
+	}
+
+	function norm(s){
+		return String(s).replace(/[\uFF10-\uFF19\uFF21-\uFF3A\uFF41-\uFF5A]/g, function(c){
+			return String.fromCharCode(c.charCodeAt(0) - 0xFEE0);
+		}).toLowerCase().replace(STRIP, '');
+	}
+
+	// 边归一化边记住每个字符在原文里的起止位置，
+	// 这样「哈利波特」命中「哈利·波特」时，中间那个「·」能一起划进高亮。
+	function scan(text){
+		var chars = Array.from ? Array.from(text) : text.split('');
+		var buf = '', pos = 0, map = [], i, j, ch, n;
+
+		for (i = 0; i < chars.length; i++) {
+			ch = chars[i];
+			n  = norm(ch);
+			for (j = 0; j < n.length; j++) {
+				buf += n[j];
+				map.push([pos, pos + ch.length]);
+			}
+			pos += ch.length;
+		}
+		return { s: buf, map: map };
+	}
+
+	function ranges(text){
+		var m = scan(text);
+		if (!m.s) { return []; }
+
+		var hits = [], i, at, from, needle;
+
+		for (i = 0; i < NEEDLES.length; i++) {
+			needle = String(NEEDLES[i]);
+			from   = 0;
+			if (needle.length < 2) { continue; }
+			while ((at = m.s.indexOf(needle, from)) !== -1) {
+				hits.push([ m.map[at][0], m.map[at + needle.length - 1][1] ]);
+				from = at + needle.length;
+			}
+		}
+		if (!hits.length) { return []; }
+
+		hits.sort(function(a, b){ return a[0] - b[0]; });
+
+		// 合并重叠区间，否则整串和短词命中同一段时会切出空节点
+		var out = [hits[0]], last;
+		for (i = 1; i < hits.length; i++) {
+			last = out[out.length - 1];
+			if (hits[i][0] <= last[1]) {
+				last[1] = Math.max(last[1], hits[i][1]);
+			} else {
+				out.push(hits[i]);
+			}
+		}
+		return out;
+	}
+
+	// 这些容器里的文本要么不是给人读的，要么改了会出事
+	var SKIP = { SCRIPT:1, STYLE:1, TEXTAREA:1, NOSCRIPT:1, MARK:1, CODE:1, PRE:1 };
+
+	function paint(el){
+		if (el.getAttribute('data-bsb-hl')) { return; }
+		el.setAttribute('data-bsb-hl', '1');
+
+		var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+		var list = [], node;
+		while ((node = walker.nextNode())) {
+			if (node.parentNode && !SKIP[node.parentNode.nodeName]) { list.push(node); }
+		}
+
+		list.forEach(function(tn){
+			var text = tn.nodeValue;
+			// 超长文本节点（正文全文被塞进摘要之类）不值得为它逐字扫一遍
+			if (!text || !text.trim() || text.length > 5000) { return; }
+
+			var rs = ranges(text);
+			if (!rs.length) { return; }
+
+			var frag = document.createDocumentFragment(), last = 0;
+
+			rs.forEach(function(r){
+				if (r[0] > last) {
+					frag.appendChild(document.createTextNode(text.slice(last, r[0])));
+				}
+				var hit = document.createElement('mark');
+				hit.className = 'bsb-hl';
+				hit.textContent = text.slice(r[0], r[1]);
+				frag.appendChild(hit);
+				last = r[1];
+			});
+
+			if (last < text.length) {
+				frag.appendChild(document.createTextNode(text.slice(last)));
+			}
+			tn.parentNode.replaceChild(frag, tn);
+		});
+	}
+
+	var runs = 0;
+	function run(){
+		if (runs++ > 40) { return false; }
+		Array.prototype.forEach.call(document.querySelectorAll(SEL), paint);
+		return true;
+	}
+
+	run();
+
+	/*
+	 * 主题「文章无限加载」开着时搜索页也走这条路（search.php 会加
+	 * search-list-infinite 类），滚动追加进来的结果不会经过上面那一轮。
+	 * 处理过的容器都打了 data-bsb-hl，重跑不会重复处理；
+	 * 改动期间先断开观察器，免得被自己的 DOM 改动喂成死循环。
+	 */
+	if (window.MutationObserver) {
+		var root  = document.getElementById('main') || document.body;
+		var timer = null;
+		var mo = new MutationObserver(function(){
+			if (timer) { clearTimeout(timer); }
+			timer = setTimeout(function(){
+				mo.disconnect();
+				var ok = run();
+				if (ok) { mo.observe(root, { childList: true, subtree: true }); }
+			}, 150);
+		});
+		mo.observe(root, { childList: true, subtree: true });
+	}
+})();</script> <script id="bsu-script">(function () {
+	var CFG  = {"api":"https:\/\/www.bdflixs.com\/?bsu_suggest=1","base":"https:\/\/www.bdflixs.com\/?s=","pretty":0,"more":"\u67e5\u770b\u5168\u90e8\u7ed3\u679c","none":"\u6ca1\u627e\u5230\u76f8\u5173\u5185\u5bb9\uff0c\u56de\u8f66\u7528\u5b8c\u6574\u641c\u7d22\u518d\u8bd5\u4e00\u6b21","busy":"\u641c\u5f97\u592a\u5feb\u4e86\uff0c\u7f13\u4e00\u4e0b\u518d\u8bd5\uff0c\u6216\u8005\u76f4\u63a5\u56de\u8f66","recent":"\u6700\u8fd1\u641c\u7d22","clear":"\u6e05\u7a7a","debounce":140};
+	var root = document.getElementById('search-main');
+	if (!root) { return; }
+
+	var wrap = root.querySelector('.search-wrap');
+	if (!wrap) { return; }
+
+	var form  = root.querySelector('#searchform-so') || wrap.querySelector('form');
+	var input = form ? form.querySelector('input[name="s"]') : null;
+	var hot   = wrap.querySelector('.search-hot-main');
+	var nav   = wrap.querySelector('.search-nav');
+	var tabs  = wrap.querySelectorAll('.search-tabs .search-item');
+
+	if (tabs.length < 2) { root.classList.add('bsu-solo'); } else { root.classList.add('bsu-tabs'); }
+
+	/* ---------- 关闭按钮 ---------- */
+	var x = document.createElement('button');
+	x.type = 'button';
+	x.className = 'bsu-x';
+	x.setAttribute('aria-label', '关闭搜索');
+	x.innerHTML = '<i class="be be-cross"></i>';
+	wrap.appendChild(x);
+
+	function close() {
+		if (window.jQuery) { window.jQuery(root).fadeOut(200); }
+		else { root.style.display = 'none'; }
+	}
+
+	x.addEventListener('click', function (e) {
+		e.preventDefault();
+		e.stopPropagation();
+		close();
+	});
+
+	document.addEventListener('keydown', function (e) {
+		if (e.key === 'Escape' && root.offsetParent !== null) { close(); }
+	});
+
+	if (!input) { return; }
+
+	/* ---------- 最近搜索 ---------- */
+	var KEY = 'bsu-recent';
+
+	function readRecent() {
+		try { return JSON.parse(window.localStorage.getItem(KEY)) || []; }
+		catch (err) { return []; }
+	}
+
+	function pushRecent(term) {
+		term = String(term || '').trim();
+		if (!term) { return; }
+		try {
+			var list = readRecent().filter(function (t) { return t !== term; });
+			list.unshift(term);
+			window.localStorage.setItem(KEY, JSON.stringify(list.slice(0, 8)));
+		} catch (err) {}
+	}
+
+	var recent = document.createElement('div');
+	recent.className = 'bsu-recent';
+	if (hot) { wrap.insertBefore(recent, hot); }
+	else if (nav) { wrap.insertBefore(recent, nav); }
+	else { wrap.appendChild(recent); }
+
+	function drawRecent() {
+		var list = readRecent();
+		if (!list.length) { recent.className = 'bsu-recent'; recent.innerHTML = ''; return; }
+
+		var html = '<div class="bsu-head"><span>' + CFG.recent + '</span><button type="button" class="bsu-clear">' + CFG.clear + '</button></div><div class="bsu-chips">';
+		list.forEach(function (t) {
+			html += '<a href="' + linkFor(t) + '">' + esc(t) + '</a>';
+		});
+		recent.innerHTML = html + '</div>';
+		recent.className = 'bsu-recent on';
+
+		recent.querySelector('.bsu-clear').addEventListener('click', function () {
+			try { window.localStorage.removeItem(KEY); } catch (err) {}
+			drawRecent();
+		});
+	}
+
+	// 点已有的词，把它挪回最前面。委托挂在容器上，
+	// drawRecent 每次重画 innerHTML 也不会把这个监听冲掉。
+	recent.addEventListener('mousedown', function (e) {
+		var a = e.target;
+		while (a && a !== recent && a.tagName !== 'A') { a = a.parentNode; }
+		if (a && a.tagName === 'A') { pushRecent(a.textContent); }
+	});
+
+	/* ---------- 结果面板 ---------- */
+	var panel = document.createElement('div');
+	panel.className = 'bsu-panel';
+	panel.setAttribute('role', 'listbox');
+	if (recent.nextSibling) { wrap.insertBefore(panel, recent.nextSibling); }
+	else { wrap.appendChild(panel); }
+
+	function esc(s) {
+		return String(s).replace(/[&<>"']/g, function (c) {
+			return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+		});
+	}
+
+	function linkFor(term) {
+		return CFG.pretty
+			? CFG.base + encodeURIComponent(term) + '/'
+			: CFG.base + encodeURIComponent(term);
+	}
+
+	/* ---------- 归一化 ----------
+	 * 和 PHP 端 BE_Smart_Search::normalize() / bsb_normalize() 同一套规则：
+	 * 全角转半角、转小写、去掉全部标点符号空白。
+	 * 「Begin 搜索增强」的结果页高亮里有一份一模一样的实现，改这里记得同步。
+	 * Unicode 属性转义要 ES2018，老浏览器退回一个够用的标点集合。
+	 */
+	var STRIP;
+	try {
+		STRIP = new RegExp('[\\s\\p{P}\\p{S}\\p{Z}\\p{C}]+', 'gu');
+	} catch (err) {
+		STRIP = /[\s!-\/:-@\[-`{-~\u00A0\u2000-\u206F\u3000-\u303F\uFE30-\uFE4F\uFF00-\uFF0F\uFF1A-\uFF20\uFF3B-\uFF40\uFF5B-\uFF65]+/g;
+	}
+
+	function norm(s) {
+		return String(s).replace(/[\uFF10-\uFF19\uFF21-\uFF3A\uFF41-\uFF5A]/g, function (c) {
+			return String.fromCharCode(c.charCodeAt(0) - 0xFEE0);
+		}).toLowerCase().replace(STRIP, '');
+	}
+
+	// 边归一化边记住每个字符在原文里的起止位置，
+	// 这样搜「哈利波特」命中「哈利·波特」时，中间那个「·」能一起划进高亮。
+	function ranges(text, needle) {
+		var chars = Array.from ? Array.from(text) : text.split('');
+		var buf = '', pos = 0, map = [], i, j, ch, n;
+
+		for (i = 0; i < chars.length; i++) {
+			ch = chars[i];
+			n  = norm(ch);
+			for (j = 0; j < n.length; j++) {
+				buf += n[j];
+				map.push([pos, pos + ch.length]);
+			}
+			pos += ch.length;
+		}
+
+		var out = [], at, from = 0;
+		while ((at = buf.indexOf(needle, from)) !== -1) {
+			out.push([ map[at][0], map[at + needle.length - 1][1] ]);
+			from = at + needle.length;
+		}
+		return out;
+	}
+
+	// 在原文上定位，再逐段转义拼接。
+	// 1.0.0 是在 esc() 之后的串上跑正则的：标题里有 & 时会命中转义出来的
+	// &amp;，把实体切成 &<em>amp</em>;，输出直接花掉。
+	function mark(title, term) {
+		title = String(title);
+
+		var needle = norm(term);
+		if (needle.length < 2) { return esc(title); }
+
+		var rs = ranges(title, needle);
+		if (!rs.length) { return esc(title); }
+
+		var out = '', last = 0;
+		rs.forEach(function (r) {
+			out += esc(title.slice(last, r[0])) + '<em>' + esc(title.slice(r[0], r[1])) + '</em>';
+			last = r[1];
+		});
+		return out + esc(title.slice(last));
+	}
+
+	function idle() {
+		panel.className = 'bsu-panel';
+		panel.innerHTML = '';
+		if (hot) { hot.style.display = ''; }
+		if (nav) { nav.style.display = ''; }
+		drawRecent();
+	}
+
+	function busy(text) {
+		panel.className = 'bsu-panel on';
+		panel.innerHTML = '<div class="bsu-note">' + esc(text) + '</div>';
+		if (hot) { hot.style.display = 'none'; }
+		if (nav) { nav.style.display = 'none'; }
+		recent.className = 'bsu-recent';
+	}
+
+	function draw(data, term) {
+		// 限流挡下来的响应也是空 items，但原因完全不同，别谎报「没找到」
+		if (data.busy) { busy(CFG.busy); return; }
+		if (!data.items || !data.items.length) { busy(CFG.none); return; }
+
+		var html = '';
+		data.items.forEach(function (it) {
+			html += '<a class="bsu-item" href="' + esc(it.url) + '">';
+			if (it.thumb) { html += '<img class="bsu-thumb" src="' + esc(it.thumb) + '" alt="" loading="lazy">'; }
+			html += '<span class="bsu-txt"><span class="bsu-t">' + mark(it.title, term) + '</span>';
+			if (it.meta) { html += '<span class="bsu-m">' + esc(it.meta) + '</span>'; }
+			html += '</span></a>';
+		});
+
+		if (data.more) {
+			html += '<a class="bsu-all" href="' + linkFor(term) + '">' + CFG.more + '</a>';
+		}
+
+		panel.className = 'bsu-panel on';
+		panel.innerHTML = html;
+		if (hot) { hot.style.display = 'none'; }
+		if (nav) { nav.style.display = 'none'; }
+		recent.className = 'bsu-recent';
+	}
+
+	/* ---------- 请求 ---------- */
+	var timer = null;
+	var xhr   = null;
+	var last  = '';
+
+	// 本次会话的内存缓存：退格、重新输入、改了又改回去都不用再往返一趟。
+	// 服务端那层 transient 是跨访客共享的，这层省掉的是网络往返本身。
+	var CACHE = Object.create(null);
+	var ORDER = [];
+
+	function remember(term, data) {
+		if (!(term in CACHE)) {
+			ORDER.push(term);
+			if (ORDER.length > 60) { delete CACHE[ORDER.shift()]; }
+		}
+		CACHE[term] = data;
+	}
+
+	// 找一个更短的、已经有结果的前缀顶上，别让面板空着等
+	function prefixHit(term) {
+		for (var i = term.length - 1; i >= 1; i--) {
+			var p = term.slice(0, i);
+			if (CACHE[p] && CACHE[p].items && CACHE[p].items.length) { return CACHE[p]; }
+		}
+		return null;
+	}
+
+	function ask(term) {
+		if (xhr) { xhr.abort(); }
+		xhr = new XMLHttpRequest();
+		xhr.open('GET', CFG.api + '&q=' + encodeURIComponent(term), true);
+		// 没有超时的话，一次慢查询会让下拉一直停在上一批结果上
+		xhr.timeout = 8000;
+		xhr.onload = function () {
+			if (term !== last) { return; }
+			try {
+				var data = JSON.parse(xhr.responseText);
+				if (!data.busy) { remember(term, data); }
+				draw(data, term);
+			} catch (err) { idle(); }
+		};
+		xhr.onerror = function () { idle(); };
+		xhr.ontimeout = function () { idle(); };
+		xhr.send();
+	}
+
+	input.addEventListener('input', function () {
+		var term = input.value.trim();
+		last = term;
+		window.clearTimeout(timer);
+
+		if (!term) { if (xhr) { xhr.abort(); } idle(); return; }
+
+		// 这个词刚搜过：直接画，不防抖也不发请求
+		if (CACHE[term]) { draw(CACHE[term], term); return; }
+
+		// 拿更短的前缀结果先顶上（压暗表示还在查），请求回来再覆盖
+		var pre = prefixHit(term);
+		if (pre) {
+			draw(pre, term);
+			panel.className = 'bsu-panel on bsu-stale';
+		}
+
+		timer = window.setTimeout(function () { ask(term); }, CFG.debounce);
+	});
+
+	/* ---------- 键盘 ---------- */
+	function items() { return panel.querySelectorAll('.bsu-item, .bsu-all'); }
+
+	function move(step) {
+		var list = items();
+		if (!list.length) { return; }
+
+		var at = -1;
+		for (var i = 0; i < list.length; i++) {
+			if (list[i].classList.contains('on')) { at = i; list[i].classList.remove('on'); }
+		}
+
+		at = at + step;
+		if (at < 0) { at = list.length - 1; }
+		if (at >= list.length) { at = 0; }
+
+		list[at].classList.add('on');
+		list[at].scrollIntoView({ block: 'nearest' });
+	}
+
+	// 点下拉里的任何一条也要记一笔。
+	//
+	// 1.0.0 只在「回车且没选中任何项」和表单提交时记录，可点结果才是这个
+	// 弹窗的主要用法 —— 于是正常用一整天，最近搜索一条都不会多。
+	// 用 mousedown 而不是 click：中键、Cmd+点击开新标签这些也能记上，
+	// 而且它一定在浏览器开始导航之前触发。
+	function inside(node, sel) {
+		while (node && node !== panel) {
+			if (node.nodeType === 1 && node.classList && node.classList.contains(sel)) { return true; }
+			node = node.parentNode;
+		}
+		return false;
+	}
+
+	panel.addEventListener('mousedown', function (e) {
+		if (inside(e.target, 'bsu-item') || inside(e.target, 'bsu-all')) {
+			pushRecent(last || input.value);
+		}
+	});
+
+	input.addEventListener('keydown', function (e) {
+		if (e.key === 'ArrowDown') { e.preventDefault(); move(1); return; }
+		if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); return; }
+
+		if (e.key === 'Enter') {
+			// 记录要放在跳转之前，不然这一句根本没机会执行
+			pushRecent(input.value);
+			var on = panel.querySelector('.bsu-item.on, .bsu-all.on');
+			if (on) { e.preventDefault(); window.location.href = on.getAttribute('href'); }
+		}
+	});
+
+	if (form) {
+		form.addEventListener('submit', function () { pushRecent(input.value); });
+	}
+
+	/* ---------- 打开时 ---------- */
+	function opened() {
+		drawRecent();
+		window.setTimeout(function () {
+			var box = root.querySelector('.tab-search:not([style*="display: none"]) input[name="s"]') || input;
+			if (box) { box.focus(); }
+		}, 60);
+	}
+
+	if (window.MutationObserver) {
+		var shown = false;
+		new MutationObserver(function () {
+			var now = root.offsetParent !== null;
+			if (now && !shown) { opened(); }
+			shown = now;
+		}).observe(root, { attributes: true, attributeFilter: ['style', 'class'] });
+	}
+
+	idle();
+})();</script> </footer></div> <script defer src="https://www.bdflixs.com/wp-content/cache/autoptimize/js/autoptimize_1c84dffba50ad2aac7a22ee01ce37cd2.js"></script></body></html>

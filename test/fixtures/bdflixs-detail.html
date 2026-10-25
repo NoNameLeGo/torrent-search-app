@@ -1,0 +1,3067 @@
+<!DOCTYPE html><html lang="zh-Hans"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, maximum-scale=0.0, user-scalable=no"><meta http-equiv="Cache-Control" content="no-transform" /><meta http-equiv="Cache-Control" content="no-siteapp" /><link media="all" href="https://www.bdflixs.com/wp-content/cache/autoptimize/css/autoptimize_991f874b450ef778eb3c4c030fa8606b.css" rel="stylesheet"><title>2019《流浪地球》带着地球逃离太阳系末日危机饱和式救援极其震撼人心 | BD电影首发站</title><meta name="description" content="流浪地球 (2019)" /><meta name="keywords" content="群像,极限环境,末日废土,生存" /><meta property="og:type" content="article"><meta property="og:locale" content="zh-Hans" /><meta property="og:title" content="2019《流浪地球》带着地球逃离太阳系末日危机饱和式救援极其震撼人心" /><meta property="og:author" content="BD电影首发站" /><meta property="og:image" content="https://pic1.imgdb.cn/item/69ee059a6dcdaf678a8bdac1.jpg" /><meta property="og:site_name" content="BD电影首发站"><meta property="og:description" content="流浪地球 (2019)" /><meta property="og:url" content="https://www.bdflixs.com/594.html" /><meta property="og:release_date" content="2026-04-27 14:31:17" /><link rel="icon" href="https://www.bdflixs.com/wp-content/themes/begin/img/favicon.ico" sizes="32x32" /><link rel="apple-touch-icon" href="https://www.bdflixs.com/wp-content/themes/begin/img/favicon.png" /><meta name="msapplication-TileImage" content="https://www.bdflixs.com/wp-content/themes/begin/img/favicon.png" /><meta name="referrer" content="same-origin"><meta name='robots' content='max-image-preview:large' /><link rel='preconnect' href='https://pic.pictaa.art' /><link rel='preconnect' href='https://pic.pictaa.bond' /><link rel='preconnect' href='https://pic1.imgdb.cn' /><link rel='preconnect' href='https://at.alicdn.com' /><link rel="alternate" type="application/rss+xml" title="BD电影首发站 &raquo; Feed" href="https://www.bdflixs.com/feed/" /><style id="wp-img-auto-sizes-contain-inline-css">img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
+/*# sourceURL=wp-img-auto-sizes-contain-inline-css */</style><style id="be-inline-css">.thumbs-b,.thumbs-rss,.thumbs-special,.cat-cover-img,.each-image-wrap,.thumbs-de,.cat-rec,.site-lazy{background-color:var(--be-bg-grey-f1,#f1f1f1);}
+/*# sourceURL=be-inline-css */</style><link rel='stylesheet' id='iconfontd-css' href='https://at.alicdn.com/t/c/font_5117025_jznrq67q2x.css' media='all' /> <script id="jquery-core-js" src="https://www.bdflixs.com/wp-includes/js/jquery/jquery.min.js"></script> <script id="lazyload-js-after">(function () {
+	'use strict';
+
+	var PATCHED = false;
+	var EAGER_ATTR = 'data-be-eager';
+	var hiPriorityLeft = 3;
+
+	/* 第一段提前量：只够住首屏边缘一圈，把带宽让给 <link rel=preload> 的首屏图 */
+	var STAGE1 = 300;
+
+	/* 背景图类懒加载元素（专题专栏 / 图文卡片 / 分类封面 / 网址卡片 / RSS 卡片） */
+	var BG_SEL = '.lazy a[data-src],.lazy[data-src],.site-lazy[data-src],' +
+		'.thumbs-de-back[data-src],.cat-rec-back[data-src],.bgimg[data-src],' +
+		'.novel-inf-cover[data-src],.novel-cove-img[data-src]';
+
+	/* 这些容器里的图不能提前加载：侧边抽屉、搜索层、弹窗、轮播
+	   （轮播初始化之前所有幻灯片都"可见"，提前加载会白白多下好几张图） */
+	var SKIP_SEL = '#sidr-main,#search-main,.placard-bg,.owl-carousel,.owl-stage';
+
+	/* addEventListener 支不支持 passive —— 老浏览器把第三个参数当 capture 用，
+	   直接传对象会被当成 true，虽然不至于出错，但还是检测一下更干净 */
+	var passiveOpt = false;
+	try {
+		var probe = Object.defineProperty({}, 'passive', {
+			get: function () { passiveOpt = { passive: true }; return true; }
+		});
+		window.addEventListener('be-passive-probe', null, probe);
+		window.removeEventListener('be-passive-probe', null, probe);
+	} catch (e) { passiveOpt = false; }
+
+	function inSkipped(el) {
+		return el.closest ? !!el.closest(SKIP_SEL) : false;
+	}
+
+	/* 首屏判定：顶边在 1.25 屏之内，且元素当前确实有尺寸（隐藏面板尺寸为 0，排除） */
+	function inFirstScreen(el) {
+		var r = el.getBoundingClientRect();
+		if (!r.width && !r.height) { return false; }
+		var vh = window.innerHeight || 800;
+		return r.top < vh * 1.25 && r.bottom > -200;
+	}
+
+	/* 第二段提前量：视口高度的 1.5 倍，最少 900px。跟 v1 的值一致 */
+	function stage2() {
+		return Math.max(900, Math.round((window.innerHeight || 800) * 1.5));
+	}
+
+	/* 首屏元素直接写入真实图片，不排队 */
+	function eagerOne(el) {
+		if (!el || !el.getAttribute || el.getAttribute(EAGER_ATTR)) { return; }
+		if (inSkipped(el) || !inFirstScreen(el)) { return; }
+
+		if (el.tagName === 'IMG') {
+			var real = el.getAttribute('data-original') || el.getAttribute('data-src');
+			if (!real) { return; }
+			el.setAttribute(EAGER_ATTR, '1');
+			el.setAttribute('decoding', 'async');
+			if (hiPriorityLeft > 0 && 'fetchPriority' in el) {
+				el.fetchPriority = 'high';
+				hiPriorityLeft--;
+			}
+			el.src = real;   /* 跳过占位图，直接上真图 */
+		} else {
+			var src = el.getAttribute('data-src');
+			if (!src) { return; }
+			el.setAttribute(EAGER_ATTR, '1');
+			el.style.backgroundImage = "url('" + src + "')";
+			/* 去掉 data-src，jQuery Lazy 的筛选器会直接跳过它，不会再 hide()/show() 一次 */
+			el.removeAttribute('data-src');
+		}
+	}
+
+	function eagerSweep() {
+		var i, list = document.querySelectorAll(BG_SEL);
+		for (i = 0; i < list.length; i++) { eagerOne(list[i]); }
+		list = document.querySelectorAll('img[data-original]');
+		for (i = 0; i < list.length; i++) { eagerOne(list[i]); }
+	}
+
+	/* ---------------- 两段式提前量 ---------------- */
+
+	var instances = [];   /* 所有 jQuery Lazy 实例，升段时统一改配置 */
+	var promoted = false;
+
+	/**
+	 * jQuery Lazy 的 chainable 默认为 true，调用后返回的是 jQuery 对象而不是实例。
+	 * 实例被插件挂在元素的 data('plugin_lazy') 上（源码里的 data("plugin_" + a.name, r)），
+	 * 从那里捞出来。
+	 */
+	function collect($els, $) {
+		$els.each(function () {
+			var inst = $(this).data('plugin_lazy');
+			if (inst && inst.config && instances.indexOf(inst) === -1) {
+				instances.push(inst);
+			}
+		});
+	}
+
+	function promote() {
+		if (promoted) { return; }
+		promoted = true;
+
+		/* 升过段就没必要再监听了 */
+		if (window.removeEventListener) {
+			window.removeEventListener('load', promote, false);
+			window.removeEventListener('scroll', promote, passiveOpt || false);
+		}
+
+		var big = stage2();
+		for (var i = 0; i < instances.length; i++) {
+			try {
+				instances[i].config('threshold', big);
+				/* update() 会立刻按新提前量重扫一遍，不等下一次 scroll */
+				instances[i].update();
+			} catch (e) { /* 实例被 autoDestroy 回收了，忽略 */ }
+		}
+	}
+
+	/* 三个触发条件，谁先到算谁。onload 可能被第三方统计脚本拖很久，所以必须有兜底 */
+	if (window.addEventListener) {
+		window.addEventListener('load', promote, false);
+		window.addEventListener('scroll', promote, passiveOpt || false);
+	}
+	setTimeout(promote, 1500);
+
+	/* ---------------- 插桩 ---------------- */
+
+	function patch() {
+		if (PATCHED) { return true; }
+		if (!window.jQuery || !window.jQuery.fn) { return false; }
+		var $ = window.jQuery;
+		var hasLazy = typeof $.fn.Lazy === 'function';
+		var hasLazyload = typeof $.fn.lazyload === 'function';
+		if (!hasLazy && !hasLazyload) { return false; }
+
+		/* ---- 背景图：jQuery Lazy v1.7.10 ---- */
+		if (hasLazy) {
+			var rawLazy = $.fn.Lazy;
+			var wrapLazy = function (opt) {
+				opt = opt || {};
+				this.each(function () { eagerOne(this); });
+
+				/* 带 appendScroll 的是抽屉 / 搜索层里的图，保留原有可视范围，别提前拉 */
+				var scoped = !!opt.appendScroll;
+
+				opt = $.extend({}, opt, {
+					bind: 'event',   /* 关键：立即初始化，不再干等 window.onload */
+					delay: -1,       /* 关闭"5 秒后无条件加载全站图片" */
+					effect: 'show',  /* 去掉 fadeIn，消除闪一下 */
+					threshold: scoped
+						? (parseInt(opt.threshold, 10) || 0)
+						: (promoted ? stage2() : STAGE1)
+				});
+				/* 必须删掉时长：show(0) 要走 jQuery 动画队列会掉一帧，show() 无参才是同步的 */
+				delete opt.effectTime;
+
+				var ret = rawLazy.call(this, opt);
+				if (!scoped) { collect(this, $); }
+				return ret;
+			};
+			$.fn.Lazy = wrapLazy;
+			$.fn.lazy = wrapLazy;
+		}
+
+		/* ---- 缩略图 <img>：Lazy Load 1.9.3 ----
+		   这个插件没有运行时改配置的接口，分不了段。
+		   不过 img_way = no_thumb（不裁剪）时列表页根本没有 <img> 封面，
+		   它实际上匹配不到几个元素，直接沿用 v1 的处理即可。 */
+		if (hasLazyload) {
+			var rawLazyload = $.fn.lazyload;
+			$.fn.lazyload = function (opt) {
+				opt = opt || {};
+				this.each(function () { eagerOne(this); });
+				/* 带 container 的是搜索层 / 弹窗里的图，保留原有可视范围 */
+				var scoped = !!opt.container;
+				opt = $.extend({}, opt, {
+					effect: 'show',
+					threshold: scoped
+						? (parseInt(opt.threshold, 10) || 0)
+						: Math.max(parseInt(opt.threshold, 10) || 0, STAGE1)
+				});
+				delete opt.effect_speed;
+				delete opt.effectspeed;
+				return rawLazyload.call(this, opt);
+			};
+		}
+
+		PATCHED = true;
+		return true;
+	}
+
+	/* 正常情况下这里就装好了（本段紧跟在 jquery.lazyload.js 之后输出） */
+	if (!patch()) {
+		var tries = 0;
+		var timer = setInterval(function () {
+			if (patch() || ++tries > 100) { clearInterval(timer); }
+		}, 20);
+	}
+
+	/* 兜底：万一被缓存/合并插件打乱了脚本顺序，DOM 就绪时再把首屏扫一遍 */
+	if (document.readyState === 'loading') {
+		document.addEventListener('DOMContentLoaded', eagerSweep);
+	} else {
+		eagerSweep();
+	}
+})();
+//# sourceURL=lazyload-js-after</script> <link rel="canonical" href="https://www.bdflixs.com/594.html" /> <script type="application/ld+json">{"@context": "https://schema.org","@type": "BreadcrumbList","itemListElement": [{"@type": "ListItem","position": 1,"name": "Home","item": "https://www.bdflixs.com/"},{"@type": "ListItem","position": 2,"name": "最新电影","item": "https://www.bdflixs.com/new-movies/"},{"@type": "ListItem","position": 3,"name": "院线大片","item": "https://www.bdflixs.com/new-movies/blockbuster/"},{"@type": "ListItem","position": 4,"name": "2019《流浪地球》带着地球逃离太阳系末日危机饱和式救援极其震撼人心","item": "https://www.bdflixs.com/594.html"}]}</script><style type="text/css">/* 徽章基础样式 */
+.score-badge { 
+    display: inline-block; 
+    padding: 1px 5px; 
+    border-radius: 3px; 
+    font-size: 12px; 
+    font-weight: bold; 
+    margin-right: 4px; 
+    line-height: 1.4; 
+    vertical-align: middle; 
+    color: #fff !important; 
+}
+
+/* 列表页：作为行内块跟随在小眼睛内部 */
+.custom-list-badge { 
+    display: inline-block; 
+    margin-right: 8px; 
+    vertical-align: middle;
+    position: relative;
+    top: -3px !important; /* PC端微调：加大力度向上提，确保对齐 */
+}
+
+/* 正文页居中显示容器 */
+.single-score-wrap { 
+    text-align: center; 
+    margin-bottom: 15px; 
+    margin-top: 5px; 
+    clear: both; 
+}
+
+/* 颜色配置 */
+.badge-quality { background-color: #1A7DFF; }          /* 清晰度：蓝色 */
+.badge-duration { background-color: #FF641A; }         /* 时长：橙红色 */
+.badge-douban { background-color: #00B51D; }           /* 豆瓣：绿色 */
+.badge-imdb { background-color: #F5C518; color: #000 !important; } /* IMDb：黄色 */
+.badge-empty { background-color: #b3b3b3 !important; } /* 暂无：灰色 */
+
+/* 手机端响应式优化 */
+@media screen and (max-width: 768px) {
+    /* 强制单行显示，防止撑开高度覆盖标题 */
+    .post-item-list .entry-meta { 
+        white-space: nowrap !important; 
+    }
+    /* 手机端徽章：缩小比例，提至与小眼睛对齐 */
+    .custom-list-badge { 
+        zoom: 0.82; 
+        margin-right: 4px; 
+        position: relative;
+        top: -2px !important; /* 手机端保持该高度，已测试OK */
+    }
+    .score-badge { 
+        font-size: 10px !important; 
+        padding: 1px 3px !important; 
+        margin-right: 2px !important; 
+        letter-spacing: -0.2px; 
+    }
+}
+
+.header-special-count { display: none; }
+
+/* ===== 顶部菜单：只显图标，悬停弹出菜单里设定的文字 ===== */
+@media screen and (min-width: 1026px) {
+
+    /* 1) 定位基准（放在 a 上，不放 li，免得影响下拉子菜单定位） */
+    .top-menu > li > a {
+        position: relative;
+    }
+
+    /* 2) 凡是带图标的一级项，文字统一变成悬停气泡 */
+    .top-menu > li > a > i + .font-text,
+    .top-menu > li > a > svg + .font-text {
+        position: absolute;
+        top: calc(100% + 2px);
+        left: 50%;
+        margin: 0 !important;
+        padding: 5px 9px;
+        background: rgba(0, 0, 0, .85);
+        color: #fff !important;
+        font-size: 12px;
+        line-height: 1;
+        white-space: nowrap;
+        border-radius: 4px;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translateX(-50%) translateY(4px);
+        transition: opacity .18s ease, transform .18s ease;
+        z-index: 10002;
+    }
+
+    /* 3) 悬停浮现 */
+    .top-menu > li > a:hover > i + .font-text,
+    .top-menu > li > a:hover > svg + .font-text {
+        opacity: 1;
+        visibility: visible;
+        transform: translateX(-50%) translateY(0);
+    }
+
+    /* 4) 文字抽走后，收掉图标右边的空隙 */
+    .top-menu > li > a > i,
+    .top-menu > li > a > svg {
+        margin-right: 0 !important;
+    }
+
+    /* 5) 顶栏只有 30px 高，保证气泡能溢出、不被下面的导航条盖住 */
+    #header-top { z-index: 99; }
+    .nav-top,
+    .nav-menu-top-box,
+    .nav-menu-top { overflow: visible !important; }
+
+    /* 6) 带下拉子菜单的一级项：气泡会和子菜单撞位置，索性不弹 */
+    .top-menu > li.menu-item-has-children > a:hover > i + .font-text,
+    .top-menu > li.menu-item-has-children > a:hover > svg + .font-text {
+        opacity: 0;
+        visibility: hidden;
+    }
+}
+
+/* ==========================================================================
+   Begin 主题 · 菜单图标统一   v3（2026-08-08）
+
+   用法：整段贴到「外观 → 自定义 → 额外 CSS」的最末尾。
+   ⚠️ 贴之前请把之前几版 be 图标的 CSS 全部删干净，不要叠加，两者会打架。
+
+   全局大小只有一个旋钮 ↓ 想整体大一点改 20px，小一点改 16px，比例自动保持。
+   ========================================================================== */
+
+:root{
+	--be-icon: 18px;
+}
+
+
+/* --------------------------------------------------------------------------
+   1) 底座
+   统一方盒 + 居中，并锁死主题的 font-size/line-height 和 dashicons 塞进来的
+   width/height/vertical-align（你登录时 WP 会加载 dashicons.css）。
+   作用域限定在菜单容器里，不会波及评论区、表单必填星号等其它用到 be 图标的地方。
+   -------------------------------------------------------------------------- */
+
+.top-menu i.be,
+.down-menu i.be,
+.nav-menu i.be,
+.mobile-menu i.be,
+.submenu i.be,
+.search-menu i.be,
+.footer-menu i.be,
+.menu i.be{
+	display: inline-block !important;
+	width: calc(var(--be-icon) * 1.34) !important;
+	font-size: var(--be-icon) !important;
+	line-height: 1 !important;
+	vertical-align: baseline !important;
+	text-align: center;
+	overflow: visible;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+.top-menu i.be::before,
+.down-menu i.be::before,
+.nav-menu i.be::before,
+.mobile-menu i.be::before,
+.submenu i.be::before,
+.search-menu i.be::before,
+.footer-menu i.be::before,
+.menu i.be::before{
+	display: inline-block;
+	width: 1em;
+	height: 1em;
+	padding: 0;
+	border: 0;
+	line-height: 1;
+	font-size: calc(var(--be-icon) * var(--be-k, 1));
+	-webkit-text-stroke: calc(var(--be-icon) * var(--be-w, 0)) currentColor;
+}
+
+
+/* --------------------------------------------------------------------------
+   2) 逐字形归一化（数值来自 be.ttf 实测，不是拍脑袋）
+   --be-k  尺寸系数：方形字形归到 0.79em，扁/长形归到 0.87em
+   --be-w  补线宽：把偏细的字形补到统一的 0.072em，只有多人需要补
+   没列出来的图标 --be-k 默认 1，照样进同一个盒子居中，只是不做精调。
+   -------------------------------------------------------------------------- */
+
+i.be-personoutline{ --be-k: 1.04; }              /* 外框 0.760em，描边 74‰ */
+i.be-peopleoutline{ --be-k: .95; --be-w: .023; } /* 外框 0.918em，描边 51‰ ← 最细 */
+i.be-star         { --be-k: .95; }               /* 外框 0.891em */
+i.be-link         { --be-k: 1.04; }              /* 外框 0.834em，描边 65‰ */
+i.be-repeat       { --be-k: .95; }               /* 外框 0.834em，描边 75‰ */
+
+
+/* --------------------------------------------------------------------------
+   3) 线性五角星
+   不画新图形、不用 data URI —— 直接把字体自带的实心星「挖空」成线性星。
+   多边形 = 整个盒子 减去 一个内星（洞），洞的坐标由 star 字形的真实轮廓
+   内缩 0.072em 算出，所以配准是精确的。
+
+   兜底：@supports 不通过 或 clip-path 被压缩插件丢掉 → 原样显示实心星，
+   绝不会再出现 v1 那种空洞。
+   -------------------------------------------------------------------------- */
+
+@supports (clip-path: polygon(0 0, 100% 0, 0 100%)){
+	.top-menu i.be-star::before,
+	.down-menu i.be-star::before,
+	.nav-menu i.be-star::before,
+	.mobile-menu i.be-star::before,
+	.submenu i.be-star::before,
+	.search-menu i.be-star::before,
+	.footer-menu i.be-star::before,
+	.menu i.be-star::before{
+		-webkit-clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, 50% 64.14%, 66.02% 73.83%, 61.8% 55.61%, 75.92% 43.38%, 57.3% 41.78%, 50% 24.55%, 42.7% 41.78%, 24.08% 43.38%, 38.2% 55.61%, 33.98% 73.83%, 50% 64.14%);
+		clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, 50% 64.14%, 66.02% 73.83%, 61.8% 55.61%, 75.92% 43.38%, 57.3% 41.78%, 50% 24.55%, 42.7% 41.78%, 24.08% 43.38%, 38.2% 55.61%, 33.98% 73.83%, 50% 64.14%);
+	}
+}
+
+/* ========================== 完 ========================== */
+
+
+
+#tp-weather-widget .sw-card-slim-container {background-image: url(https://www.bdflixs.com/wp-content/themes/begin/img/default/captcha/y1.jpg)}</style><style id="mvs-badge-css">.mvs-list{display:inline-flex;align-items:center;gap:5px;vertical-align:middle;margin:0 8px 0 0;position:relative;top:var(--mvs-nudge,-1px)}
+.single-score-wrap{clear:both;text-align:center;margin:5px 0 15px}
+.mvs-badge{display:inline-flex;align-items:stretch;vertical-align:middle;height:20px;border-radius:4px;overflow:hidden;line-height:1;white-space:nowrap;font-weight:500}
+.mvs-badge .mvs-k{display:inline-flex;align-items:center;padding:0 6px;font-size:11px;letter-spacing:.3px}
+.mvs-badge .mvs-v{display:inline-flex;align-items:center;padding:0 6px;font-size:12px;font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+.mvs-douban .mvs-k{background:#2e9e5b;color:#fff}
+.mvs-douban .mvs-v{background:#e8f5ee;color:#196b3c}
+.mvs-imdb .mvs-k{background:#f5c518;color:#241c00}
+.mvs-imdb .mvs-v{background:#fdf4d9;color:#6b5400}
+.mvs-quality .mvs-k{background:#2f7fe0;color:#fff}
+.mvs-quality .mvs-v{background:#e9f1fc;color:#17518f}
+.mvs-duration .mvs-k{background:#e2661f;color:#fff}
+.mvs-duration .mvs-v{background:#fdefe6;color:#93400f}
+.mvs-na .mvs-k{background:#b9bec6;color:#fff}
+.mvs-na .mvs-v{background:#f1f2f4;color:#8b929c;font-size:11px}
+.mvs-range .mvs-v{font-size:11px;letter-spacing:-.2px}
+.single-score-wrap .mvs-badge{height:24px;margin:0 3px 5px}
+.single-score-wrap .mvs-badge .mvs-k{padding:0 8px;font-size:12px}
+.single-score-wrap .mvs-badge .mvs-v{padding:0 8px;font-size:13px}
+.night .mvs-douban .mvs-v{background:#1c3a2a;color:#7fd8a5}
+.night .mvs-imdb .mvs-v{background:#3a3218;color:#f0cf5e}
+.night .mvs-quality .mvs-v{background:#1e2c3d;color:#8fbdf0}
+.night .mvs-duration .mvs-v{background:#3a2620;color:#f0a173}
+.night .mvs-na .mvs-v{background:#3a3a38;color:#9aa0a8}
+@media screen and (max-width:768px){
+.mvs-list{gap:4px;margin-right:5px;top:var(--mvs-nudge-m,-1px)}
+.mvs-badge{height:18px;border-radius:3px}
+.mvs-badge .mvs-k{padding:0 5px;font-size:10px;letter-spacing:.2px}
+.mvs-badge .mvs-v{padding:0 5px;font-size:11px}
+.single-score-wrap .mvs-badge{height:22px;margin:0 2px 4px}
+.single-score-wrap .mvs-badge .mvs-k{padding:0 7px;font-size:11px}
+.single-score-wrap .mvs-badge .mvs-v{padding:0 7px;font-size:12px}
+}</style><style id="bdm-hide-follow">.addfollow-btn,.addfollow,.follow-list,.fans-list{display:none !important}</style> <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://www.bdflixs.com/#organization","name":"BD电影首发站","url":"https://www.bdflixs.com/","logo":{"@type":"ImageObject","url":"https://www.bdflixs.com/wp-content/themes/begin/img/logo.png"}},{"@type":"WebSite","@id":"https://www.bdflixs.com/#website","url":"https://www.bdflixs.com/","name":"BD电影首发站","inLanguage":"zh-Hans","publisher":{"@id":"https://www.bdflixs.com/#organization"},"potentialAction":{"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"https://www.bdflixs.com/?s={search_term_string}"},"query-input":"required name=search_term_string"}},{"@type":"ImageObject","url":"https://pic1.imgdb.cn/item/69ee059a6dcdaf678a8bdac1.jpg","@id":"https://www.bdflixs.com/594.html#primaryimage"},{"@type":"BreadcrumbList","@id":"https://www.bdflixs.com/594.html#breadcrumb","itemListElement":[{"@type":"ListItem","position":1,"name":"首页","item":"https://www.bdflixs.com/"},{"@type":"ListItem","position":2,"name":"最新电影","item":"https://www.bdflixs.com/new-movies/"},{"@type":"ListItem","position":3,"name":"2019《流浪地球》带着地球逃离太阳系末日危机饱和式救援极其震撼人心","item":"https://www.bdflixs.com/594.html"}]},{"@type":"WebPage","@id":"https://www.bdflixs.com/594.html#webpage","url":"https://www.bdflixs.com/594.html","name":"2019《流浪地球》带着地球逃离太阳系末日危机饱和式救援极其震撼人心","isPartOf":{"@id":"https://www.bdflixs.com/#website"},"inLanguage":"zh-Hans","datePublished":"2026-04-27T14:31:17+08:00","dateModified":"2026-04-26T20:33:32+08:00","description":"流浪地球 (2019)","primaryImageOfPage":{"@id":"https://www.bdflixs.com/594.html#primaryimage"},"breadcrumb":{"@id":"https://www.bdflixs.com/594.html#breadcrumb"}},{"@type":"BlogPosting","@id":"https://www.bdflixs.com/594.html#article","isPartOf":{"@id":"https://www.bdflixs.com/594.html#webpage"},"mainEntityOfPage":{"@id":"https://www.bdflixs.com/594.html#webpage"},"headline":"2019《流浪地球》带着地球逃离太阳系末日危机饱和式救援极其震撼人心","datePublished":"2026-04-27T14:31:17+08:00","dateModified":"2026-04-26T20:33:32+08:00","inLanguage":"zh-Hans","publisher":{"@id":"https://www.bdflixs.com/#organization"},"author":{"@type":"Person","@id":"https://www.bdflixs.com/#/schema/person/1","name":"BD电影首发站","url":"https://www.bdflixs.com/author/jy4193217/"},"description":"流浪地球 (2019)","image":{"@id":"https://www.bdflixs.com/594.html#primaryimage"},"articleSection":["最新电影","院线大片"],"keywords":["群像","极限环境","末日废土","生存"]}]}</script>  <script type="application/ld+json">{"@context":"https://schema.org","@type":"Movie","@id":"https://www.bdflixs.com/594.html#movie","name":"流浪地球","url":"https://www.bdflixs.com/594.html","mainEntityOfPage":{"@id":"https://www.bdflixs.com/594.html#webpage"},"image":{"@id":"https://www.bdflixs.com/594.html#primaryimage"},"director":[{"@type":"Person","name":"郭帆"}],"author":[{"@type":"Person","name":"龚格尔"},{"@type":"Person","name":"严东旭"},{"@type":"Person","name":"郭帆"},{"@type":"Person","name":"叶俊策"},{"@type":"Person","name":"杨治学"},{"@type":"Person","name":"吴荑"},{"@type":"Person","name":"叶濡畅"},{"@type":"Person","name":"沈今晶"}],"actor":[{"@type":"Person","name":"吴京"},{"@type":"Person","name":"屈楚萧"},{"@type":"Person","name":"李光洁"},{"@type":"Person","name":"吴孟达"},{"@type":"Person","name":"赵今麦"},{"@type":"Person","name":"隋凯"},{"@type":"Person","name":"屈菁菁"},{"@type":"Person","name":"张亦驰"},{"@type":"Person","name":"杨皓宇"},{"@type":"Person","name":"阿尔卡基·沙罗格拉茨基"},{"@type":"Person","name":"李虹辰"}],"genre":["科幻","冒险","灾难"],"inLanguage":["汉语普通话","英语","俄语","法语"],"countryOfOrigin":[{"@type":"Country","name":"中国大陆"}],"duration":"PT125M","datePublished":"2019-02-05","sameAs":"https://www.imdb.com/title/tt7605074/","description":"近未来，科学家们发现太阳急速衰老膨胀，短时间内包括地球在内的整个太阳系都将被太阳所吞没。为了自救，人类提出一个名为“流浪地球”的大胆计划，即倾全球之力在地球表面建造上万座发动机和转向发动机，推动地球离开太阳系，用2500年的时间奔往另外一个栖息之地。中国航天员刘培强（吴京 饰）在儿子刘启四岁那年前往国际空间站，和国际同侪肩负起领航者的重任。转眼刘启（屈楚萧 饰）长大，他带着妹妹朵朵（赵今麦 饰）偷偷跑到地表，偷开外公韩子昂（吴孟达 饰）的运输车，结果不仅遭到逮捕，还遭遇了全球发动机停摆的事件。为了修好发动机，阻止地球坠入木星，全球开始展开饱和式营救，连刘启他们的车也被强征加入。在与时间赛跑的过程中，无数的人前仆后继，奋不顾身，只为延…"}</script> <style id="bsu-style">/* —— 遮罩 —— */
+#search-main{position:fixed;top:0;left:0;right:0;bottom:0;z-index:99998;background:rgba(18,20,24,.4);-webkit-backdrop-filter:blur(6px) saturate(120%);backdrop-filter:blur(6px) saturate(120%)}
+.night #search-main,.go-night #search-main{background:rgba(0,0,0,.58)}
+#search-main .search-box{position:absolute;top:0;left:0;width:100%;height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:11vh 16px 60px;background:none;box-sizing:border-box}
+#search-main .off-search-a,#search-main .off-search,#search-main .be-help-box,#search-main .be-help-btu,#search-main .choose{display:none!important}
+#search-main .search-area{background:none;width:auto}
+#search-main .clear{clear:none;height:0}
+
+/* —— 卡片 —— */
+#search-main .search-wrap{position:relative;width:100%;max-width:640px;margin:0 auto;padding:0;background:var(--be-bg-white,#fff);border-radius:16px;box-shadow:0 24px 64px -18px rgba(0,0,0,.45),0 2px 8px rgba(0,0,0,.08);overflow:hidden;cursor:auto}
+
+/* —— 引擎切换 —— */
+#search-main .search-tabs{display:flex;flex-wrap:wrap;gap:2px;float:none;width:auto;padding:10px 10px 0}
+#search-main.bsu-solo .search-tabs{display:none}
+#search-main .search-tabs .search-item{float:none}
+#search-main .search-tabs .search-item span{float:none;display:block;margin:0;padding:5px 11px;font-size:12px;line-height:1.4;border-radius:20px;color:var(--be-grey-9,#9aa0a6);background:transparent!important}
+#search-main .search-tabs .search-item.active span{color:var(--be-body,#1f2328)!important;background:var(--be-bg-grey-f1,#f1f2f4)!important}
+
+/* —— 输入行：左边的放大镜就是提交按钮 —— */
+#search-main .tab-search{float:none;width:auto}
+#search-main .tab-search form{margin:0}
+#search-main .search-input{position:relative;display:flex;align-items:center;width:auto;padding:0 48px 0 0}
+#search-main .search-input input{flex:1 1 auto;float:none;width:auto;min-width:0;height:58px;line-height:normal;margin:0;padding:0 4px;font-size:16px;color:var(--be-body,#1f2328);background:none!important;border:0!important;border-radius:0;box-shadow:none!important;-webkit-appearance:none}
+#search-main .search-input input:focus{background:none!important;border:0!important;outline:none;box-shadow:none!important}
+#search-main .search-input input::-webkit-input-placeholder{color:#9aa0a6}
+#search-main .search-input input::placeholder{color:#9aa0a6}
+#search-main .search-input button{order:-1;flex:0 0 auto;width:48px;height:58px;margin:0;padding:0;border:0;border-radius:0;box-shadow:none!important;background:none!important;color:#9aa0a6;cursor:pointer}
+#search-main .search-input button:hover{color:var(--be-body,#1f2328)}
+#search-main .search-input button i{font-size:17px!important;color:inherit}
+#search-main .search-cat{display:block;float:none;padding:0 14px 12px}
+#search-main .search-cat select{width:100%;height:34px;padding:0 8px;font-size:13px;border-radius:8px;border:1px solid var(--be-border-grey,#ececec);background:var(--be-bg-grey-f1,#f6f7f8);color:var(--be-body,#1f2328)}
+
+/* —— 关闭 —— */
+.bsu-x{position:absolute;top:0;right:0;width:48px;height:58px;display:flex;align-items:center;justify-content:center;border:0;background:none;color:#9aa0a6;font-size:15px;cursor:pointer;z-index:3}
+.bsu-x:hover{color:var(--be-body,#1f2328)}
+#search-main.bsu-tabs .bsu-x{top:37px}
+
+/* —— 结果 —— */
+.bsu-panel{display:none;border-top:1px solid var(--be-border-grey,#eef0f2);max-height:54vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.bsu-panel.on{display:block}
+.bsu-panel.bsu-stale{opacity:.5}
+.bsu-item{display:flex;align-items:center;gap:12px;padding:9px 14px;color:var(--be-body,#1f2328);text-decoration:none}
+.bsu-item:hover,.bsu-item.on{background:var(--be-bg-grey-f1,#f5f6f8)}
+.bsu-thumb{flex:0 0 44px;width:44px;height:44px;border-radius:8px;object-fit:cover;background:var(--be-bg-grey-f1,#eef0f2)}
+.bsu-txt{min-width:0;flex:1 1 auto}
+.bsu-t{display:block;font-size:14px;line-height:1.45;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bsu-t em{font-style:normal;color:#d0402c}
+.bsu-m{display:block;margin-top:2px;font-size:12px;color:#9aa0a6}
+.bsu-all{display:block;padding:11px 14px;font-size:13px;text-align:center;color:#6b7280;border-top:1px solid var(--be-border-grey,#eef0f2)}
+.bsu-all:hover{background:var(--be-bg-grey-f1,#f5f6f8)}
+.bsu-note{padding:26px 14px;text-align:center;font-size:13px;color:#9aa0a6}
+
+/* —— 热词 / 最近搜索 —— */
+#search-main .search-hot-main,.bsu-recent{float:none;padding:2px 14px 14px;border-top:1px solid var(--be-border-grey,#eef0f2)}
+#search-main .search-hot-main .recently-searches{float:none;width:auto}
+.bsu-recent{display:none;padding-bottom:14px}
+.bsu-recent.on{display:block}
+#search-main .searches-title,.bsu-head{float:none;display:flex;align-items:center;justify-content:space-between;margin:12px 0 9px;font-size:12px;font-weight:400;color:#9aa0a6}
+#search-main ul.recently-searches,.bsu-chips{display:flex;flex-wrap:wrap;gap:8px;float:none;width:auto;margin:0;padding:0;list-style:none}
+#search-main .recently-searches li{float:none;margin:0;padding:0;border:0;list-style:none}
+#search-main .search-item a,.bsu-chips a{float:none;display:inline-block;margin:0;padding:6px 12px;font-size:13px;line-height:1.4;border-radius:20px;color:var(--be-body,#3c4043);background:var(--be-bg-grey-f1,#f1f2f4);transition:.2s}
+#search-main .search-item a:hover,.bsu-chips a:hover{background:#da6472;color:#fff}
+.bsu-clear{border:0;background:none;padding:0;font-size:12px;color:#9aa0a6;cursor:pointer}
+.bsu-clear:hover{color:#d0402c}
+#search-main .search-nav{float:none;padding:0 14px 14px}
+#search-main .search-menu{display:flex;flex-wrap:wrap;gap:8px;margin:0;padding:0;list-style:none}
+#search-main .search-menu li{float:none;list-style:none}
+#search-main .search-menu a{float:none;margin:0;padding:6px 12px;font-size:13px;line-height:1.4;border-radius:20px}
+
+@media screen and (max-width:640px){
+	#search-main .search-box{padding:7vh 12px 40px}
+	#search-main .search-wrap{border-radius:14px}
+	#search-main .search-input input{height:52px;font-size:16px}
+	#search-main .search-input button,.bsu-x{height:52px;width:44px}
+	#search-main.bsu-tabs .bsu-x{top:32px}
+	.bsu-panel{max-height:48vh}
+}
+@media (prefers-reduced-motion:reduce){
+	#search-main .search-box{animation:none!important}
+}</style> <script>var _hmt = _hmt || [];
+(function() {
+  var hm = document.createElement("script");
+  hm.src = "https://hm.baidu.com/hm.js?b627a8389b62bff968382292ffd315e1";
+  var s = document.getElementsByTagName("script")[0]; 
+  s.parentNode.insertBefore(hm, s);
+})();</script> <script defer src="/bt-stats.js?site=53a09528-2786-463f-8368-a27608b9b50e&version1"></script><script defer src="/bt-replay.js?site=53a09528-2786-463f-8368-a27608b9b50e"></script></head><body class="wp-singular post-template-default single single-post postid-594 single-format-standard wp-theme-begin df4f"> <script>const SITE_ID = window.location.hostname;if (localStorage.getItem(SITE_ID + '-beNightMode')) {document.body.className += ' night';}</script> <div id="page" class="hfeed site"><header id="masthead" class="site-header site-header-s nav-extend"><div id="header-main-g" class="header-main-g top-nav-show"><nav id="header-top" class="header-top nav-glass"><div class="nav-top betip"><div id="user-profile"><div class="greet-top"><div class="user-wel">欢迎光临！</div></div><div class="login-reg login-admin"><div class="nav-set"><div class="nav-login"><div class="show-layer">登录</div></div></div><div class="nav-set"><div class="nav-reg nav-reg-no"> <a class="hz" href="https://www.bdflixs.com/registered.html" rel="external nofollow" target="_blank">注册</a></div><div class="clear"></div></div></div></div><div class="nav-menu-top-box betip"><div class="nav-menu-top"><div class="menu-%e9%a1%b6%e9%83%a8%e8%8f%9c%e5%8d%95-container"><ul id="menu-%e9%a1%b6%e9%83%a8%e8%8f%9c%e5%8d%95" class="top-menu"><li id="menu-item-1350" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-1350 mega-menu menu-max-col"><a target="_blank" href="https://www.bdflixs.com/link.html"><i class="be be-share"></i><span class="font-text">友情链接</span></a></li><li id="menu-item-1524" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1524 mega-menu menu-max-col"><a target="_blank" href="https://www.bdflixs.com/qiupian.html"><i class="be be-stack"></i><span class="font-text">求片墙</span></a></li><li id="menu-item-1358" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-1358 mega-menu menu-max-col"><a target="_blank" href="https://www.bdflixs.com/user-center.html?bdm=list"><i class="be be-folder"></i><span class="font-text">我的片单</span></a></li><li id="menu-item-1694" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-1694 mega-menu menu-max-col"><a target="_blank" href="https://www.bdflixs.com/user-center.html?bdm=rating"><i class="be be-favoriteoutline"></i><span class="font-text">我的评分</span></a></li><li id="menu-item-1360" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-1360 mega-menu menu-max-col"><a target="_blank" href="https://www.bdflixs.com/user-center.html?bdm=hist"><i class="be be-eye"></i><span class="font-text">观看记录</span></a></li></ul></div></div></div></div></nav><div id="menu-container" class="be-menu-main menu-glass"><div id="navigation-top" class="navigation-top menu_c"><div class="be-nav-box"><div class="be-nav-l"><div class="be-nav-logo"><div class="logo-site"> <a href="https://www.bdflixs.com/"> <span class="logo-small"><img class="begd" src="https://www.bdflixs.com/wp-content/themes/begin/img/logo-s.png" style="width: 50px;" alt="BD电影首发站"></span> <span class="site-name-main"> <span class="site-name">BD电影首发站</span> </span> </a></div></div><div class="be-nav-wrap"><div id="site-nav-wrap" class="site-nav-main" style="margin-left: 66px"><div id="sidr-close"><div class="toggle-sidr-close"></div></div><nav id="site-nav" class="main-nav nav-ace"><div id="navigation-toggle" class="menu-but bars"><div class="menu-but-box"><div class="heng"></div></div></div><div class="menu-%e4%b8%bb%e8%8f%9c%e5%8d%95-container"><ul id="menu-%e4%b8%bb%e8%8f%9c%e5%8d%95" class="down-menu nav-menu"><li id="menu-item-20" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-home menu-item-20 mega-menu menu-max-col"><a href="https://www.bdflixs.com/">首页</a></li><li id="menu-item-18" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children menu-item-18 nolink-menu-item be-menu-code-cat menu-max-col"><a class="nolink-item" onclick="return false;">最新电影</a><ul class="sub-menu"><li id="menu-item-19" class="menu-item menu-item-type-taxonomy menu-item-object-category current-post-ancestor current-menu-parent current-post-parent menu-item-19 mega-menu menu-max-col be-menu-shortcode"><a href="https://www.bdflixs.com/new-movies/blockbuster/"><span class="be-menu-custom-title"><span class="be-menu-custom-title-ico"></span>院线大片</span><span class="show-menu-shortcode"></span></a><span class="menus-set-cat-box"><span class="menus-set-cat-img menus-team-cat"><img alt="catimg" src="https://pic1.imgdb.cn/item/699ae5d2ba83e2a3a4821de7.jpg"></span><span class="menus-set-cat-name-box menus-team-cat"><span class="menus-set-cat-name"><a href="https://www.bdflixs.com/new-movies/blockbuster/" rel="bookmark"><span class="be-menu-custom-title-ico"></span>院线大片</a><a href="https://www.bdflixs.com/new-movies/classic/" rel="bookmark"><span class="be-menu-custom-title-ico"></span>经典重现</a><a href="https://www.bdflixs.com/new-movies/jishi/" rel="bookmark"><span class="be-menu-custom-title-ico"></span>纪实影像</a></span></span><span class="clear"></span></span><a class="menus-set-name-hide"><span class="clear"></span></a></li></ul></li><li id="menu-item-36" class="menu-item menu-item-type-taxonomy menu-item-object-category menu-item-36 mega-menu menu-max-col"><a href="https://www.bdflixs.com/anime/">次元动画</a></li><li id="menu-item-33" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-33 mega-menu menu-max-col"><a href="https://www.bdflixs.com/new-movies/">找电影<small class="menu-mark" style="background: #da6472;top:11px;right:5px;">荐</small></a></li><li id="menu-item-1082" class="menu-item menu-item-type-taxonomy menu-item-object-special menu-item-1082 mega-menu menu-max-col"><a href="https://www.bdflixs.com/special/movie-lists/">片单精选</a></li></ul></div></nav><div class="clear"></div><div class="sidr-login"><div class="mobile-login-but"><div class="mobile-login-author-back"><img loading="lazy" src="https://pic.pictaa.bond/f4/5i/f45iaTtYRk.jpg?w=600&q=80" alt="bj"></div> <span class="mobile-login show-layer">登录</span> <span class="mobile-login-reg"><a href="https://www.bdflixs.com/registered.html">注册</a></span></div></div></div></div></div><div class="be-nav-r"> <span class="nav-search"></span><div class="be-nav-login-but betip"><div class="menu-login-box"> <span class="menu-login menu-login-btu nav-ace menu-login-reg-btu"><div id="user-profile"><div class="greet-top"><div class="user-wel">欢迎光临！</div></div><div class="login-reg login-admin"><div class="nav-set"><div class="nav-login"><div class="show-layer">登录</div></div></div><div class="nav-set"><div class="nav-reg nav-reg-no"> <a class="hz" href="https://www.bdflixs.com/registered.html" rel="external nofollow" target="_blank">注册</a></div><div class="clear"></div></div></div></div> </span></div></div></div></div><div class="clear"></div></div></div></div></header><div id="search-main" class="search-main"><div class="search-box fadeInDown animated"><div class="off-search-a"></div><div class="search-area"><div class="search-wrap betip"><div class="search-tabs"><div class="search-item searchwp"><span class="search-wp">站内</span></div></div><div class="clear"></div><div class="search-wp tab-search searchbar"><form method="get" id="searchform-so" autocomplete="off" action="https://www.bdflixs.com/"> <span class="search-input"> <input type="text" value="" name="s" id="so" class="search-focus wp-input" placeholder="输入关键字" required /> <button type="submit" id="searchsubmit-so" class="sbtu"><i class="be be-search"></i></button> </span><div class="clear"></div></form></div><div class="clear"></div><div class="clear"></div></div></div></div><div class="off-search"></div></div><nav class="bread"><div class="be-bread"><div class="breadcrumb"><span class="seat"></span><span class="home-text"><a href="https://www.bdflixs.com/" rel="bookmark">首页</a></span><span class="home-text"><i class="be be-arrowright"></i></span><span><a href="https://www.bdflixs.com/new-movies/">最新电影</a></span><i class="be be-arrowright"></i><span class="current">2019《流浪地球》带着地球逃离太阳系末日危机饱和式救援极其震撼人心</span></div></div></nav><div id="content" class="site-content site-small site-roll"><div class="like-left-box fds"><div class="like-left fadeInDown animated"><div class="sharing-box betip" data-aos="zoom-in"> <a class="be-btn-beshare be-btn-like use-beshare-like-btn" data-count="0" rel="external nofollow"> <span class="sharetip bz like-number"> 点赞 </span><div class="triangle-down"></div> </a> <span class="favorite-box show-layer"><a class="be-btn-beshare no-favorite" rel="external nofollow"><span class="like-number sharetip bz">登录收藏</span><div class="triangle-down"></div></a></span> <a class="be-btn-beshare be-btn-share use-beshare-social-btn" rel="external nofollow" data-hover="分享"><div class="arrow-share"></div></a> <span class="post-link">https://www.bdflixs.com/594.html</span> <a class="tooltip be-btn-beshare be-btn-link be-btn-link-b use-beshare-link-btn" rel="external nofollow" onclick="myFunction()" onmouseout="outFunc()"><span class="sharetip bz copytip">复制链接</span></a> <a class="tooltip be-btn-beshare be-btn-link be-btn-link-l use-beshare-link-btn" rel="external nofollow" onclick="myFunction()" onmouseout="outFunc()"><span class="sharetip bz copytipl">复制链接</span></a> <a class="be-btn-beshare be-share-poster use-beshare-poster-btn" rel="external nofollow" data-hover="海报"><div class="arrow-share"></div></a></div></div></div><div id="primary" class="content-area"><main id="main" class="be-main site-main code-css" role="main"><article id="post-594" class="post-item post ms"><header class="entry-header entry-header-c"><h1 class="entry-title">2019《流浪地球》带着地球逃离太阳系末日危机饱和式救援极其震撼人心</h1></header><div class="entry-content"><div class="begin-single-meta begin-single-meta-c"><span class="single-meta-area"><span class="meta-date"><a href="https://www.bdflixs.com/date/2026/04/27/" rel="bookmark" target="_blank"><time datetime="2026-04-27 14:31:17">2026年4月27日 14:31:17</time></a></span><span class="meta-modified"><i class="dashicons dashicons-update-alt ri"></i><time datetime="2026-04-26 20:33:32">2026年4月26日</time></span><span class="meta-cat"><a href="https://www.bdflixs.com/new-movies/" rel="category tag">最新电影</a> <a href="https://www.bdflixs.com/new-movies/blockbuster/" rel="category tag">院线大片</a></span><span class="comment"><a href="https://www.bdflixs.com/594.html#respond"><i class="be be-speechbubble ri"></i><span class="comment-qa"></span><em>评论</em></a></span><span class="views"><i class="be be-eye ri"></i>221</span><span class="word-time"></span><span class="reading-open">阅读模式</span><span class="fontadd"><i class="dashicons dashicons-editor-textcolor"></i><i class="xico dashicons dashicons-plus-alt2"></i></span></span></div><span class="reading-close"></span><span class="s-hide" title="侧边栏"><span class="off-side"></span></span><div class="single-score-wrap"><span class="mvs-badge mvs-quality" title="画质 2160P"><span class="mvs-k">画质</span><span class="mvs-v">2160P</span></span><span class="mvs-badge mvs-duration" title="片长 101-150分钟"><span class="mvs-k">片长</span><span class="mvs-v">101-150分钟</span></span><span class="mvs-badge mvs-douban" title="豆瓣评分 7.9"><span class="mvs-k">豆瓣</span><span class="mvs-v">7.9</span></span><span class="mvs-badge mvs-imdb" title="IMDb评分 5.9"><span class="mvs-k">IMDb</span><span class="mvs-v">5.9</span></span><span class="mvs-badge mvs-bdscore" title="综合估算得分 7.5，暂无站内评分"><span class="mvs-k">BD</span><span class="mvs-v">7.5</span></span></div><div class="single-content"><div class="bdm-actions bdm-actions-top"><div class="bdm-track" data-post="594"> <button type="button" class="bdm-btn bdm-track-btn" aria-pressed="false"> <span class="bdm-track-ico" aria-hidden="true"></span><span class="bdm-track-txt">追更</span> </button><div class="bdm-states bdm-noanim" role="group" aria-label="加入片单"><span class="bdm-seg-ind" aria-hidden="true"></span><button type="button" class="bdm-state" data-state="want">想看</button><button type="button" class="bdm-state" data-state="watching">在追</button><button type="button" class="bdm-state" data-state="watched">看过</button></div> <button type="button" class="bdm-off" data-state="none" hidden>移出片单</button> <span class="bdm-tip" role="status" aria-live="polite"></span></div><div class="bdm-rate" data-post="594"><div class="bdm-rate-row"> <span class="bdm-rate-cta" hidden></span> <span class="bdm-rate-badge" hidden> <span class="bdm-rate-badge-k">本站</span><span class="bdm-rate-badge-v"></span> </span> <span class="bdm-rate-label">我的评分</span><div class="bdm-stars5" role="group" aria-label="打分"><span class="bdm-s5"><i class="bdm-s5-fill" aria-hidden="true"></i><button type="button" class="bdm-s5-h bdm-s5-half" data-score="1" aria-label="1 分" title="1 分"></button><button type="button" class="bdm-s5-h bdm-s5-full" data-score="2" aria-label="2 分" title="2 分"></button></span><span class="bdm-s5"><i class="bdm-s5-fill" aria-hidden="true"></i><button type="button" class="bdm-s5-h bdm-s5-half" data-score="3" aria-label="3 分" title="3 分"></button><button type="button" class="bdm-s5-h bdm-s5-full" data-score="4" aria-label="4 分" title="4 分"></button></span><span class="bdm-s5"><i class="bdm-s5-fill" aria-hidden="true"></i><button type="button" class="bdm-s5-h bdm-s5-half" data-score="5" aria-label="5 分" title="5 分"></button><button type="button" class="bdm-s5-h bdm-s5-full" data-score="6" aria-label="6 分" title="6 分"></button></span><span class="bdm-s5"><i class="bdm-s5-fill" aria-hidden="true"></i><button type="button" class="bdm-s5-h bdm-s5-half" data-score="7" aria-label="7 分" title="7 分"></button><button type="button" class="bdm-s5-h bdm-s5-full" data-score="8" aria-label="8 分" title="8 分"></button></span><span class="bdm-s5"><i class="bdm-s5-fill" aria-hidden="true"></i><button type="button" class="bdm-s5-h bdm-s5-half" data-score="9" aria-label="9 分" title="9 分"></button><button type="button" class="bdm-s5-h bdm-s5-full" data-score="10" aria-label="10 分" title="10 分"></button></span></div> <span class="bdm-rate-num" aria-live="polite"></span> <span class="bdm-rate-word"></span> <button type="button" class="bdm-rate-clear" hidden>清除</button> <span class="bdm-rate-side"> <span class="bdm-rate-hint">点一下星星就算打分</span> <span class="bdm-rate-site" hidden></span> </span></div><div class="bdm-rate-review" hidden> <input type="text" class="bdm-review-input" maxlength="140"
+ placeholder="一句话短评，会公开显示在评论区"> <button type="button" class="bdm-btn bdm-btn-ghost bdm-review-save">保存</button></div> <span class="bdm-tip" role="status" aria-live="polite"></span></div></div><p><img alt="2019《流浪地球》带着地球逃离太阳系末日危机饱和式救援极其震撼人心" fetchpriority="high" decoding="async" class="alignleft" src="https://pic1.imgdb.cn/item/69ee059a6dcdaf678a8bdac1.jpg" width="387" height="550" /></p><h2>流浪地球 (2019)</h2><hr /><p>导演: 郭帆<br /> 编剧: 龚格尔 / 严东旭 / 郭帆 / 叶俊策 / 杨治学 / 吴荑 / 叶濡畅 / 沈今晶 / 刘慈欣<br /> 主演: 吴京 / 屈楚萧 / 李光洁 / 吴孟达 / 赵今麦 / 隋凯 / 屈菁菁 / 张亦驰 / 杨皓宇 / 阿尔卡基·沙罗格拉茨基 / 李虹辰<br /> 类型: 科幻 / 冒险 / 灾难<br /> 制片国家/地区: 中国大陆<br /> 语言: 汉语普通话 / 英语 / 俄语 / 法语 / 日语 / 韩语 / 印尼语<br /> 上映日期: 2019-02-05(中国大陆) / 2020-11-26(中国大陆重映)<br /> 片长: 125分钟 / 137分钟(重映版)<br /> 又名: 流浪地球：飞跃2020特别版 / The Wandering Earth / The Wandering Earth: Beyond 2020 Special Edition<br /> IMDb: tt7605074</p><table style="border-collapse: collapse; width: 100%;"><tbody><tr><td style="width: 100%;">流浪地球的剧情简介 · · · · · ·<br /> 近未来，科学家们发现太阳急速衰老膨胀，短时间内包括地球在内的整个太阳系都将被太阳所吞没。为了自救，人类提出一个名为“流浪地球”的大胆计划，即倾全球之力在地球表面建造上万座发动机和转向发动机，推动地球离开太阳系，用2500年的时间奔往另外一个栖息之地。中国航天员刘培强（吴京 饰）在儿子刘启四岁那年前往国际空间站，和国际同侪肩负起领航者的重任。转眼刘启（屈楚萧 饰）长大，他带着妹妹朵朵（赵今麦 饰）偷偷跑到地表，偷开外公韩子昂（吴孟达 饰）的运输车，结果不仅遭到逮捕，还遭遇了全球发动机停摆的事件。为了修好发动机，阻止地球坠入木星，全球开始展开饱和式营救，连刘启他们的车也被强征加入。在与时间赛跑的过程中，无数的人前仆后继，奋不顾身，只为延续百代子孙生存的希望……<br /> 本片根据刘慈欣的同名小说改编。</td></tr></tbody></table><hr /><h4><div class="mark_a mark">影片参数：</div></h4><ul><li><strong><span style="color: #008000;">影片风格：</span>科幻,冒险,灾难</strong></li><li><strong><span style="color: #ff9900;">影片标签：</span>末世危机,生存挑战,极限环境,群像,绝地反击</strong></li><li><strong><span style="color: #800080;">口碑：</span>豆瓣评分：7.9 | IMDb评分：5.9</strong></li><li><strong><span style="color: #00ccff;">受众人群：</span>国产科幻片支持者、喜欢灾难大场面的观众、追求极致视听震撼的影迷</strong></li></ul><hr /><h4><div class="mark_a mark">剧情亮点与感受：</div></h4><p>说到二零一九年上映的这部科幻巨制它绝对是中国电影史上极其浓墨重彩的一笔。以前咱们看这种动不动就世界末日或者地球毁灭的题材基本都是好莱坞在拍，而且通常都是派几艘飞船或者几个超级英雄去寻找新家园。但是这部电影把咱们中国人骨子里那种对故土和家园极其深厚的眷恋完美地融入到了科幻设定里面。太阳要爆炸了人类没有选择放弃地球而是倾尽全球的力量在地球表面建了上万座巨大的行星发动机，硬生生地推着地球一起逃离太阳系去流浪。这种极其浪漫又极其硬核的宏大设定瞬间就把格局彻底打开了。</p><p>电影最让人震撼的就是木星引力危机的爆发。当地球快要撞上木星的时候那种全人类面临灭顶之灾的情绪压迫感极其强烈。这时候没有哪一个单枪匹马的超级英雄能够拯救世界，取而代之的是极其惨烈而且极其悲壮的饱和式救援。看着成百上千支救援队伍在极其极端的零下几十度冰天雪地里前仆后继地运送火石，连普通的运输车司机和小混混都被临时强征入伍，这种不惜一切代价的群像刻画真的能让人瞬间热血沸腾热泪盈眶。每一个普通人在灾难面前爆发出来的极其顽强的求生意志都被刻画得入木三分。</p><p>除了极其震撼的视觉特效电影里面的父子亲情线也处理得极其细腻扎实。吴京饰演的父亲为了给孩子争取生存机会在太空中孤寂地漂泊了十几年，最后为了点燃木星推开地球毫不犹豫地选择了牺牲自己。这种极其深沉隐忍的父爱配合上吴孟达饰演的姥爷为了保护外孙惨死在冰冻大楼里的情节，把灾难面前那种极其绝望但又极其伟大的亲情表现到了极致。可以说它不仅是一部看视觉特效的工业大片更是一部极其走心的亲情催泪弹。</p><p>作为一部里程碑式的作品它不仅证明了我们也能拍出极其顶级的重工业科幻大片，更是给以后的同类型电影树立了一个极其难以超越的标杆。对于每一个喜欢大场面或者对科幻题材有兴趣的观众来说它绝对是一部无论重刷多少遍都能让人极其心潮澎湃的骄傲之作。</p><p>如果你对科幻/冒险/灾难类型电影能接受末世危机和绝地反击风格，这部片会更容易看进去。</p><hr /><h4><div class="mark_b mark">影片观看方式推荐：</div></h4><p><div class="show-more more-c sup"><strong>点击获取</strong></div><div class="section-content show-area"><div class="subhead-area"><div class="subhead-number-bg"><div class="subhead-number"></div></div><span class="subhead-txt">磁力下载（极速妙传）</span></div><br /> <a href="magnet:?xt=urn:btih:d4383e06f4e8cb024a626be049206c738821f2aa" rel="external nofollow" target="_blank">流浪地球[HDR+杜比视界双版本][国语音轨+简繁英字幕].2019.2160p.UHD.BluRay.x265.10bit.DV.TrueHD.7.1.Atmos-QuickIO - 26.02GB</a><hr /><p><a href="magnet:?xt=urn:btih:ff4bc7652ee5afca068e82cae560b0196608e3be" rel="external nofollow" target="_blank">梦幻天堂·龙网(321n).流浪地球：飞跃2020特别版.137分钟重映版 - 10.09GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:5c1ff5799ae36f96bc555fa35290ff1f7c378d1d" rel="external nofollow" target="_blank">流浪地球[60帧率版本][高码版][国语配音+中文字幕].The.Wandering.Earth.2019.2160p.HQ.WEB-DL.H265.60FPS.AAC-SONYHD - 21.25GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:26b6120a978d3663acc4cf341c8a9e67ca444c32" rel="external nofollow" target="_blank">The.Wandering.Earth.2019.1080p.BluRay.AV1.DDP.5.1-dAV1nci.mkv - 3.55GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:49d0d4e1a8ac977b9793c55b06de6c640f056a11" rel="external nofollow" target="_blank">The Wandering Earth (2019) [2160p] UHD [BR] DV AV1-10bit TrueHD 7.1 Atmos - 7.18GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:1a0e769b26c4a7725d60bd96e7671b1a8834e4a4" rel="external nofollow" target="_blank">流浪地球[国语音轨+简繁英字幕].The.Wandering.Earth.2019.CHN.1080p.BluRay.x265.10bit.DTS-SONYHD - 8.61GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:03e69f48224cf5ec3a69ad0ff18664a576dfc0a9" rel="external nofollow" target="_blank">流浪地球[国语音轨+简繁英字幕].The.Wandering.Earth.2019.CHN.1080p.BluRay.x264.DTS-SONYHD - 12.81GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:bf6634ef58baeb86000e19af6d5c8ca391689055" rel="external nofollow" target="_blank">l浪d球.2019.BD1080p.国语中字.mp4 - 3.60GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:457d3ef37b6b5708791cf385ea377c80df6f9dd1" rel="external nofollow" target="_blank">流浪地球[中文字幕].The.Wandering.Earth.2019.CHN.BluRay.1080p.HDR.AAC2.0.x264-DreamHD - 3.54GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:3171e3828ad76eee0a70d309e67e0aeb2f2fc6e8" rel="external nofollow" target="_blank">流浪地球[HDR+杜比视界双版本][中文字幕].The.Wandering.Earth.2019.2160p.UHD.BluRay.DV.x265.10bit.TrueHD.7.1.Atmos-ParkHD - 27.04GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:1cc1f30f853d1638c5af29cf935b9dbe5bb5dbc4" rel="external nofollow" target="_blank">流浪地球[国语音轨+简英字幕].The.Wandering.Earth.2019.Bluray.1080p.TrueHD7.1.x265.10bit-DreamHD - 10.15GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:79087264182d53241a4d72737c3f33fdbfce84f5" rel="external nofollow" target="_blank">流浪地球[国语音轨+简英字幕].The.Wandering.Earth.2019.Bluray.1080p.TrueHD7.1.x264-DreamHD - 17.25GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:6e5932f56a8361c1af086ddc000e85796c6bdfd4" rel="external nofollow" target="_blank">流浪地球[中文字幕].The.Wandering.Earth.2019.Bluray.1080p.AAC2.0.x264-DreamHD - 3.67GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:4db33ca4a67953a4637aa3bb9fabc948b2ef1d49" rel="external nofollow" target="_blank">流浪地球[HDR+杜比视界双版本][国语音轨+简繁英字幕].The.Wandering.Earth.2019.2160p.BluRay.DoVi.x265.10bit.Atmos.TrueHD7.1-CTRLHD - 38.37GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:8cffcda59023d83c8dd30b7e6b47f6b9af52eba0" rel="external nofollow" target="_blank">流浪地球[HDR+杜比视界双版本][国语音轨+简英字幕].The.Wandering.Earth.2019.CHN.BluRay.2160p.TrueHD7.1.DoVi.HDR.x265.10bit-DreamHD - 19.07GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:5f9ff8f0a3810193b3814c2b624556b6389ea31b" rel="external nofollow" target="_blank">流浪地球[HDR+杜比视界双版本][国语音轨+简繁英字幕].The.Wandering.Earth.2019.2160p.VOF.UHD.BluRay.TrueHD.7.1.Atmos.DoVi.x265-GPTHD - 24.18GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:75f4177b1c5518a1c369005e41d94ec15bcf6bac" rel="external nofollow" target="_blank">The Wandering Earth 2019 2160p UHD Blu-ray Remux HEVC DV TrueHD 7.1 Atmos-HDT.mkv - 74.21GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:647ad8f89fa92fadcba63af53fb0eaeddb19ef22" rel="external nofollow" target="_blank">流浪地球[国语音轨+简繁英字幕].The.Wandering.Earth.2019.1080p.BluRay.x265.10bit.Atmos.TrueHD7.1-CTRLHD - 11.86GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:d090127ede9f706679b60a9601e96be1b654c02a" rel="external nofollow" target="_blank">[Hao4K]流浪地球.The.Wandering.Earth.2019.2160p.UHD.Blu-ray.HEVC.Atmos.TrueHD7.1[国语 DIY 简繁中字]-4ksj - 80.31GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:e66539e559d331001e14ee0c073f0fddbeea972e" rel="external nofollow" target="_blank">The Wandering Earth.2019.ENG.720p.AV1-Zero00 - 468MB</a></p><hr /><p><a href="magnet:?xt=urn:btih:262e733722cff9f49aff866449db7e534b08d6dd" rel="external nofollow" target="_blank">The Wandering Earth (2019) 1080p H264 EnG Chi EAC3 5.1 Sub iTA EnG NUEnG AsPiDe-MIRCrew.mkv - 3.17GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:f0925d1872a39d0bab398d9c47163cf8b6f24ea6" rel="external nofollow" target="_blank">The Wandering Earth (2019) 1080p x264 eng sub ita eng ac3 - ildragonero2.mkv - 1.36GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:6e01dd2d06a175b59c08c5394896c12a5c177f30" rel="external nofollow" target="_blank">The Wandering Earth (2019) 1080p x265 eng sub ita eng ac3 - ildragonero2.mkv - 5.59GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:1ed15067223c2af181b57d88ded7991ba12e0317" rel="external nofollow" target="_blank">The Wandering Earth (2019) CHINESE 1080p BluRay AV1 Opus 7.1 [RAV1NE] - 2.24GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:e9d9e84e3ccae4dec26d8184014dbb3522c998d5" rel="external nofollow" target="_blank">流浪地球[高码版][国语配音+中文字幕].The.Wandering.Earth.Beyond.2020.2160p.HQ.WEB-DL.H265.DDP5.1-DreamHD - 19.13GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:2bf29a08d82041bb1c53f06b178b5f8817c02d32" rel="external nofollow" target="_blank">流浪地球[60帧率版本][高码版][国语配音+中文字幕].The.Wandering.Earth.Beyond.2020.2160p.HQ.WEB-DL.H265.60fps.DDP5.1-DreamHD - 24.10GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:a7076d4df06065b3db2bd9c9af55be69c5362705" rel="external nofollow" target="_blank">[RU]The.Wandering.Earth.2019.BDRip.720p.x264.seleZen.mkv - 5.53GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:c3f580a4cc2d67aba5543b5d3aa3380f08155e25" rel="external nofollow" target="_blank">流浪地球.2160p.H265.HD国语中字无水印.mp4 - 4.35GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:86f4db569fba4802d7e2214c11bb8a65c786be7b" rel="external nofollow" target="_blank">流浪地球.2160p.HD国语中字无水印.mp4 - 5.18GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:bd4fe81e9e5c070bb0a1d7578ae14ba256f5baff" rel="external nofollow" target="_blank">流浪地球.蓝光版.1080p.BD国语中字.mp4 - 2.27GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:2503f20c837cce9d4f979225ca98b8753039b94f" rel="external nofollow" target="_blank">流浪地球.1080p.HD国语中字无水印.mp4 - 2.24GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:5142c01037a5e7d0cba20397b5ea069941be417a" rel="external nofollow" target="_blank">流浪地球.飞跃2020特别版.4K.H265.HD国语中字无水印.mp4 - 10.09GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:ae5571b84658806183b02a978024fb51b561f327" rel="external nofollow" target="_blank">流浪地球[国语音轨+简繁英字幕].The.Wandering.Earth.2019.1080p.NF.WEB-DL.DDP5.1.Atmos.HDR.H.265-DreamHD - 7.79GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:42857e21a3ac5b733216d8210b4ef4cef81aa785" rel="external nofollow" target="_blank">流浪地球[国语音轨+简繁英字幕].The.Wandering.Earth.2019.1080p.NF.WEB-DL.DDP5.1.Atmos.H.264-DreamHD - 5.38GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:5a78bb1aae8cace57c176e116cf605a769de3e66" rel="external nofollow" target="_blank">流浪地球[杜比视界版本][国语音轨+简繁英字幕].The.Wandering.Earth.2019.1080p.NF.WEB-DL.DDP5.1.Atmos.DV.H.265-DreamHD - 8.04GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:0cdd03c174b5c624825878becfdceb295f36a0d5" rel="external nofollow" target="_blank">The Wandering Earth (2019) [Bengali Dub] 400p BDRip Saicord.mp4 - 1.73GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:b88e12d657ee1b4f16bfd60d1839e84c844dc517" rel="external nofollow" target="_blank">The Wandering Earth (2019) [Bengali Dub] 720p BDRip Saicord.mp4 - 2.00GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:cd75b4565ce0c293994b873ceee687be5734ae06" rel="external nofollow" target="_blank">The Wandering Earth (2019) [Bengali Dub] 1080p BDRip Saicord.mp4 - 3.79GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:cdc2dbb4ca049dcdf56b1cbbd2eb48d34d65d6f5" rel="external nofollow" target="_blank">The Wandering Earth (2019) [Hindi Dubbed] 720p WEB-DLRip Saicord.mkv - 1.86GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:bbbed7a394c426cb4ea385887bd309e4c4b9923a" rel="external nofollow" target="_blank">The Wandering Earth (2019) [Hindi Dubbed] 1080p WEB-DLRip Saicord.mkv - 3.72GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:9a384d74548884dc4ae9c4ebe1911c402251135a" rel="external nofollow" target="_blank">[DBD-Raws][流浪地球][1080P][BDRip][HEVC-10bit][简体内封][FLAC][MKV] - 5.00GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:3fc3f098d9cb29e2b1d0e3c446ac60c6b328d0e7" rel="external nofollow" target="_blank">The.Wandering.Earth.2019.720p.HD.BluRay.x264.[MoviesFD] - 968MB</a></p><hr /><p><a href="magnet:?xt=urn:btih:64f348558a149bea255d6a0e3d1f9f264f537122" rel="external nofollow" target="_blank">流浪地球全家桶.无水印.mp4 - 24.13GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:ab922de42a4ef73e4bfdb803e563314f946781f6" rel="external nofollow" target="_blank">流浪地球.飞跃2020特别版.The.Wandering.Earth.2020.Extended.HD.4k.国语中字.mp4 - 4.99GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:be605f3397bd6b5a98e497949fbdf2f12eb5b4d9" rel="external nofollow" target="_blank">流浪地球.飞跃2020特别版.The.Wandering.Earth.2020.Extended.HD1080p.国语中字.mp4 - 2.56GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:12a6c877d4d76903b7a66d758b50077a39415eea" rel="external nofollow" target="_blank">追光寻影 (zgxyi) 流浪地球：飞跃2020特别版.The.Wandering.Earth.2020.4K.WEB.H265-国语中字 - 10.19GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:c363da34eaa02767fae4cd2d7c50f0fa764ecf32" rel="external nofollow" target="_blank">流浪地球：飞跃2020特别版.The.Wandering.Earth.2020.HD1080P.X264.AAC.Mandarin.CHS.mp4 - 1.58GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:6210C377072D15EAE10F1F01051C7DE4E6BBC121" rel="external nofollow" target="_blank">The.Wandering.Earth.2019.CHINESE.720p.BluRay.x264.DTS-FGT - 6.13GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:3D9E97E9626354C2F5F5FD9F663013B4169760E4" rel="external nofollow" target="_blank">The.Wandering.Earth.2019.CHINESE.720p.BluRay.H264.AAC-VXT - 1.51GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:6FCEBE977ECA9C0B6EF7CC56C8438078A16C5D7D" rel="external nofollow" target="_blank">The.Wandering.Earth.2019.CHINESE.1080p.BluRay.REMUX.AVC.DTS-HD.MA.TrueHD.7.1.Atmos-FGT - 37.44GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:33441B2E73A4A8DD89EF106E98972B0E45FA4CD9" rel="external nofollow" target="_blank">The.Wandering.Earth.2019.CHINESE.1080p.BluRay.AVC.TrueHD.7.1.Atmos-EvS - 37.71GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:AB8248166A911169716329450C1BBA91FBAE3D67" rel="external nofollow" target="_blank">流L地Q.The.Wandering.Earth.2019.HD4K.X264.AAC.Mandarin.CHS-ENG.264 - 7.67GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:3AD8408EA734E5146184D45BC786CDEE6CB7BCF7" rel="external nofollow" target="_blank">The Wandering Earth (2019)-Jing Wu-FHDTv-1080p-H264-AC 3 (DolbyDigital-5.1) &amp; nickarad - 3.18GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:AB596F99B81CDF9A84C0D037700E7264B0D5E570" rel="external nofollow" target="_blank">流L地Q.修复版.The.Wandering.Earth.2019.HD1080P.X264.AAC.Mandarin.CHS.Mp4Ba - 6.08GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:259B2DB5C91B886160E01A5FCB76F739D297026B" rel="external nofollow" target="_blank">流L地Q.修复版.The.Wandering.Earth.2019.HD720P.X264.AAC.Mandarin.CHS.Mp4Ba - 2.53GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:3800947208EF68647971493D138C2DC02F739883" rel="external nofollow" target="_blank">The.Wandering.Earth.2019.DUBBED.1080p.WEBRip.x264-RARBG - 2.40GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:2C50DF89221756B7FEB8A11CD21F74867FAAFA08" rel="external nofollow" target="_blank">The.Wandering.Earth.2019.DUBBED.720p.WEBRip.XviD.AC3-FGT - 3.56GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:1FF40E553FB3999B37CF4B1687BCD389028F0DB2" rel="external nofollow" target="_blank">The.Wandering.Earth.2019.DUBBED.1080p.NF.WEBRip.DD5.1.x264-NTG - 6.68GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:7FE57669D34282624B1082D419425373F9FC8ECD" rel="external nofollow" target="_blank">The.Wandering.Earth.2019.1080p.NF.WEBDL.DD.5.1.H264-ETRG[EtHD] - 3.88GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:626F1EDCB3ADB1C32824A20991401D1A7582C03C" rel="external nofollow" target="_blank">The Wandering Earth.2019.1080p.NF.WEB-DL.DD5.1.H264-EVO[EtHD] - 6.64GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:BA66B2BDF4804184B51AABC03863456B8DD5B442" rel="external nofollow" target="_blank">The.Wandering.Earth.2019.CHINESE.1080p.WEBRip.x264-RARBG - 2.40GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:752BBF21B46186569F0F42F3A91963C1EC952C86" rel="external nofollow" target="_blank">The.Wandering.Earth.2019.CHINESE.720p.WEBRip.XviD.AC3-FGT - 3.78GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:70D3F3865F9203F4AC778AA7344C230CFB234504" rel="external nofollow" target="_blank">The.Wandering.Earth.2019.CHINESE.1080p.NF.WEBRip.DDP5.1.Atmos.x264-NTG - 7.01GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:69FAFB4675306E1E752C68F1DE711B50321211DA" rel="external nofollow" target="_blank">The.Wandering.Earth.2019.CHINESE.720p.NF.WEBRip.DDP5.1.Atmos.x264-NTG - 3.91GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:A56785C0657B62F7D5E08EA56D1EAEAA618A3EFF" rel="external nofollow" target="_blank">The.Wandering.Earth.2019 .720p.NF.WEB-DL.x264-MkvCage.ws.mkv - 1.03GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:9A46C030DAC4801AAF4A71EC07B3FCC16A451168" rel="external nofollow" target="_blank">流浪地球.The Wandering Earth.2019.720p.WEB-DL.x264.国语中字-BT601 - 1.91GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:8A7DDFF6824810A276B856F103BF9A6ECD81928E" rel="external nofollow" target="_blank">流L地Q.The.Wandering.Earth.2019.HD720P.X264.AAC.Mandarin.CHS.Mp4Ba - 2.52GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:6F072626A01163B817B75462182A2F9F530AD5AF" rel="external nofollow" target="_blank">流L地Q.The.Wandering.Earth.2019.HD1080P.X264.AAC.Mandarin.CHS.Mp4Ba - 4.84GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:D9A17227B6503B58434E6E4616BA53BD7F22AF89" rel="external nofollow" target="_blank">L浪D球.The.Wandering.Earth.2019.HD1080P.X265.AAC.Mandarin.CHS.ZiMuWu - 3.93GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:E9C07E1EB544844E8157D1D27E0995E6DDF9F10D" rel="external nofollow" target="_blank">流浪地球.The.Wandering.Earth.2019.CHINESE.1080p.WEBRip.AAC2.0.x265-乐之音.mp4 - 2.65GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:E72B19BE612DD205C3C5414B228916E5D6FCA448" rel="external nofollow" target="_blank">The.Wandering.Earth.2019.720p.WEBRip.x264-MkvCage.ws.mkv - 1000MB</a></p><hr /><p><a href="magnet:?xt=urn:btih:0891BE7F423E38A98C03AA58E4AD6C88AA5209C3" rel="external nofollow" target="_blank">流浪地球1080.The.Wandering.Earth.2019.1080.WEB-DL.H265.AAC-10.1GB-wanfeng - 10.1GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:09F735CC29DBC8E16365D1FCAE0CCAF2487401E5" rel="external nofollow" target="_blank">The.Wandering.Earth.2019.CHINESE.1080p.WEBRip.AAC2.0.x264-STUTTERSHIT - 4.85GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:6C22801C4D1F52BAD1B96D44E230465BE26468B2" rel="external nofollow" target="_blank">流浪地球 The.Wandering.Earth.2019.R6.1080p.WEB-DL.x265.AAC-homefei - 4.02GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:F16173C55E967875AB7BAD6196393912FA33AE90" rel="external nofollow" target="_blank">流浪地球4k.The.Wandering.Earth.2019.4K.WEB-DL.H265.AAC-Anonymous-中英字幕 - 4.35GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:B8A8E5096281660F56579A42564B482CC85A0594" rel="external nofollow" target="_blank">流L地Q.The.Wandering.Earth.2019.HD4K.X264.AAC.Mandarin.CHS-ENG.Mp4Ba - 5.18GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:2A14FE58FD677849269790CA148963C33A5DAD2E" rel="external nofollow" target="_blank">流浪地球.V2版.The.Wandering.Earth.2019.BD1080P.X264.DTS-HD.MA.7.1.Atmos.Mandarin&amp;English.CHS-ENG.FFans@星星 - 28.49GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:350FDC97D4F17A84E7208E29FF802CBC5BD66878" rel="external nofollow" target="_blank">流浪地球.字幕修复.The.Wandering.Earth.2019.BD1080P.X264.AC3.Mandarin&amp;English.CHS-ENG.FFans@星星 - 11.07GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:62266384B6A6957376F163821DBBF4DCFBB87D0D" rel="external nofollow" target="_blank">流浪地球.字幕修复.The.Wandering.Earth.2019.BD1080P.X264.DTS-HD.MA.7.1.Atmos.Mandarin&amp;English.CHS-ENG.FFans&amp;星星 - 19.15GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:E0983E538201A67AB6B425EE0F1F70E6B288FFDE" rel="external nofollow" target="_blank">The.Wandering.Earth.2019.1080p.BluRay.x264-WiKi - 11.00GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:6D05A9C441F7EDD46B496F7B33919B0E9106D7F0" rel="external nofollow" target="_blank">The.Wandering.Earth.2018.720p.BluRay.x264-REGRET[rarbg] - 5.48GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:FD2B37854270005C9F8528B361B6DBDD433AD5FC" rel="external nofollow" target="_blank">The.Wandering.Earth.2018.1080p.BluRay.x264-REGRET[rarbg] - 8.76GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:4BB3CF16BE336773D3A8031ED946862B9C3E8BC9" rel="external nofollow" target="_blank">The Wandering Earth 2019 English X264 1080P Obey.mkv - 4.28GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:363EBB52AAD2AC0D03DEF8ED09401F73EC515A3D" rel="external nofollow" target="_blank">The Wandering Earth 2019 English X264 720P Obey.mkv - 2.61GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:79679B5408EDEA553307C0F79C3FC3C911821D98" rel="external nofollow" target="_blank">The.Wandering.Earth.2019.1080p.BluRay.x265.10bit.TrueHD.7.1.Atmos-OFA - 17.92GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:649A29D850948BE20128E49B05FF59374582F80F" rel="external nofollow" target="_blank">流浪地球.The.Wandering.Earth.2019.BD1080P.X264.AAC.Mandarin.CHS.OFA - 5.42GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:789EE576C9E19034933B86D28661200DB9E863CC" rel="external nofollow" target="_blank">梦幻天堂·龙网(LWgod.xyz).1080p.流浪地球 - 13.23GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:9F84182F761153D9030A755ED9E0674FEE20BBC4" rel="external nofollow" target="_blank">流浪地球.The.Wandering.Earth.2019.BD720P.国语中字.BTDX8 - 2.94GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:BC30C8D93CA106136C5F120F600459BBB7679861" rel="external nofollow" target="_blank">流浪地球.The.Wandering.Earth.2019.BD1080P.国语中字.BTDX8 - 5.84GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:C45DF5129ED39A92CDA6E043CD6739E39EFDEBD9" rel="external nofollow" target="_blank">流浪地球.1080p.BD国语中字 - 2.27GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:020D348D4E1154DEDC045E1EC8961370EEF05EE7" rel="external nofollow" target="_blank">The.Wandering.Earth.2019.BluRay.720p.x264 - 2.27GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:131B9F876818BA1735DDE33EBCCB8E9C2627DAE3" rel="external nofollow" target="_blank">The.Wandering.Earth.2019.1080p.NF.WEB-DL.DDP5.1.x264-NTG.mkv - 7.01GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:2C6CCD1232967C72751E912B4F52A89F5CACCC38" rel="external nofollow" target="_blank">流浪地球.国语.国配字幕.The.Wandering.Earth.2019.CHINESE.1080p.BluRay.x264.TrueHD.7.1.Atmos-3Djingpin - 15.56GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:0BD1482B07F22F1ABD018B557899184DB99C9CBC" rel="external nofollow" target="_blank">The.Wandering.Earth.2019.1080p.Blu-ray.AVC.Atmos.TrueHD7.1 - 59.79GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:14049A57178D335C26308507DE83C3F7A6964543" rel="external nofollow" target="_blank">流浪地球.The.Wandering.Earth.2019.BD720P.X264.AAC.Mandarin.CHS.Mp4Ba - 2.52GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:6BF3542EF648831B2C190EBBCB09C429A9CF0F8F" rel="external nofollow" target="_blank">流浪地球.The.Wandering.Earth.2019.BD1080P.X264.AAC.Mandarin.CHS.Mp4Ba - 6.05GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:0CCD47C799D9009E9C5E169FAE93BD01985F4AF0" rel="external nofollow" target="_blank">The.Wandering.Earth.2019.CHINESE.720p.BluRay.900MB.x264-GalaxyRG[TGx] - 900MB</a></p><hr /><p><a href="magnet:?xt=urn:btih:CAB8A62AD440C04C357A172C68B0554CDA91FBAA" rel="external nofollow" target="_blank">The.Wandering.Earth.2019.CHINESE.1080p.BluRay.x264.DTS-FGT[TGx] - 11.37GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:3B59B372C64D5FCB3F93EC9196CA2AFE76CF85F6" rel="external nofollow" target="_blank">The.Wandering.Earth.2019.CHINESE.1080p.BluRay.H264.AAC-VXT - 2.39GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:52D31258EB9E1E61F4DC40F79A613A3489BB19A5" rel="external nofollow" target="_blank">The.Wandering.Earth.2019.CHINESE.1080p.BluRay.x264.TrueHD.7.1.Atmos-FGT - 14.86GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:42C7B4D5448D731F961900122D91984340D11172" rel="external nofollow" target="_blank">The.Wandering.Earth.2019.CHINESE.1080p.BluRay.x264.DTS-HD.MA.7.1-FGT - 13.93GB</a></p><hr /><p><a href="magnet:?xt=urn:btih:F0C2EC6126F2312C47405112465F7FF70E5AA0E6" rel="external nofollow" target="_blank">The.Wandering.Earth.2019.CHINESE.1080p.BluRay.x264.DTS-FGT - 11.37GB</a></p></p></div><p></p></div><div class="copyright-post betip"><p>本文资源信息均从互联网搜索而来，本站不对显示的内容承担责任，如您认为本站页面信息侵犯了您的权益，请附上版权证明邮件告知，在收到邮件后24小时内删除<br /> 邮箱: （替换#为@）</p></div><div class="clear"></div><div class="turn-small"></div><div class="relat-post-box betip"><div class="relat-post betip"><div class="r4"><div class="related-site"><figure class="related-site-img"><div class="thumbs-b lazy"><a class="thumbs-back sc" rel="bookmark"  href="https://www.bdflixs.com/595.html" data-src="https://pic1.imgdb.cn/item/69ee06446dcdaf678a8bdadc.jpg"></a></div></figure><div class="related-title over"><a href="https://www.bdflixs.com/595.html" target="_blank">2023《流浪地球2》移山计划迎战太阳危机数字生命暗藏惊天杀机</a></div></div></div><div class="r4"><div class="related-site"><figure class="related-site-img"><div class="thumbs-b lazy"><a class="thumbs-back sc" rel="bookmark"  href="https://www.bdflixs.com/683.html" data-src="https://pic1.imgdb.cn/item/69fdc679353cb83ac764893d.jpg"></a></div></figure><div class="related-title over"><a href="https://www.bdflixs.com/683.html" target="_blank">2005《世界之战》外星巨兽破土而出末日危机</a></div></div></div><div class="r4"><div class="related-site"><figure class="related-site-img"><div class="thumbs-b lazy"><a class="thumbs-back sc" rel="bookmark"  href="https://www.bdflixs.com/592.html" data-src="https://pic1.imgdb.cn/item/69ee042e6dcdaf678a8bda7c.jpg"></a></div></figure><div class="related-title over"><a href="https://www.bdflixs.com/592.html" target="_blank">1995《阿波罗13号》太空险情真实还原极限求生全纪录震撼人心</a></div></div></div><div class="r4"><div class="related-site"><figure class="related-site-img"><div class="thumbs-b lazy"><a class="thumbs-back sc" rel="bookmark"  href="https://www.bdflixs.com/790.html" data-src="https://pic1.imgdb.cn/item/6a12e5665465bfb3eafac0ec.jpg"></a></div></figure><div class="related-title over"><a href="https://www.bdflixs.com/790.html" target="_blank">2026《末日逃生2：迁移》彗星撞地球后欧洲变冰封荒原硬汉一家逃离地堡极限求生</a></div></div></div><div class="r4"><div class="related-site"><figure class="related-site-img"><div class="thumbs-b lazy"><a class="thumbs-back sc" rel="bookmark"  href="https://www.bdflixs.com/643.html" data-src="https://pic1.imgdb.cn/item/69f755c681eabc88d3847fe3.jpg"></a></div></figure><div class="related-title over"><a href="https://www.bdflixs.com/643.html" target="_blank">1996《独立日》外星巨舰遮天蔽日全人类团结死战捍卫家园</a></div></div></div><div class="r4"><div class="related-site"><figure class="related-site-img"><div class="thumbs-b lazy"><a class="thumbs-back sc" rel="bookmark"  href="https://www.bdflixs.com/724.html" data-src="https://pic1.imgdb.cn/item/6a06fe8448fddcf0534ad676.jpg"></a></div></figure><div class="related-title over"><a href="https://www.bdflixs.com/724.html" target="_blank">2008《科洛弗档案》怪物还没看清纽约已经乱成了一片</a></div></div></div><div class="r4"><div class="related-site"><figure class="related-site-img"><div class="thumbs-b lazy"><a class="thumbs-back sc" rel="bookmark"  href="https://www.bdflixs.com/908.html" data-src="https://pic1.imgdb.cn/item/6a2a99336b847f3c84b4f773.jpg"></a></div></figure><div class="related-title over"><a href="https://www.bdflixs.com/908.html" target="_blank">2004《后天》罗兰艾默里奇末日冰河世纪父子极寒末日求生</a></div></div></div><div class="r4"><div class="related-site"><figure class="related-site-img"><div class="thumbs-b lazy"><a class="thumbs-back sc" rel="bookmark"  href="https://www.bdflixs.com/373.html" data-src="https://pic1.imgdb.cn/item/69c39c96aba521af10c83d79.jpg"></a></div></figure><div class="related-title over"><a href="https://www.bdflixs.com/373.html" target="_blank">2019《哥斯拉2：怪兽之王》整颗星球都快顶不住了</a></div></div></div><div class="clear"></div></div></div><div class="sharing-box betip" data-aos="zoom-in"> <a class="be-btn-beshare be-btn-like use-beshare-like-btn" data-count="0" rel="external nofollow"> <span class="sharetip bz like-number"> 点赞 </span><div class="triangle-down"></div> </a> <span class="favorite-box show-layer"><a class="be-btn-beshare no-favorite" rel="external nofollow"><span class="like-number sharetip bz">登录收藏</span><div class="triangle-down"></div></a></span> <a class="be-btn-beshare be-btn-share use-beshare-social-btn" rel="external nofollow" data-hover="分享"><div class="arrow-share"></div></a> <span class="post-link">https://www.bdflixs.com/594.html</span> <a class="tooltip be-btn-beshare be-btn-link be-btn-link-b use-beshare-link-btn" rel="external nofollow" onclick="myFunction()" onmouseout="outFunc()"><span class="sharetip bz copytip">复制链接</span></a> <a class="tooltip be-btn-beshare be-btn-link be-btn-link-l use-beshare-link-btn" rel="external nofollow" onclick="myFunction()" onmouseout="outFunc()"><span class="sharetip bz copytipl">复制链接</span></a> <a class="be-btn-beshare be-share-poster use-beshare-poster-btn" rel="external nofollow" data-hover="海报"><div class="arrow-share"></div></a></div><div class="content-empty"></div><footer class="single-footer"><div class="single-cat-tag"><div class="single-cat">&nbsp;</div></div></footer><div class="clear"></div></div></article><div class="single-tag"><ul class="be-tags"><li data-aos="zoom-in"><a href="https://www.bdflixs.com/tag/ensemble/" rel="tag" target="_blank">群像</a></li><li data-aos="zoom-in"><a href="https://www.bdflixs.com/tag/jixianhuanjing/" rel="tag" target="_blank">极限环境</a></li><li data-aos="zoom-in"><a href="https://www.bdflixs.com/tag/%e6%9c%ab%e6%97%a5%e5%ba%9f%e5%9c%9f/" rel="tag" target="_blank">末日废土</a></li><li data-aos="zoom-in"><a href="https://www.bdflixs.com/tag/%e7%94%9f%e5%ad%98/" rel="tag" target="_blank">生存</a></li></ul></div><div class="authorbio ms load betip" data-aos="fade-up"><ul class="spostinfo"><li> 本文由 <strong> <a rel="external nofollow" href="https://www.bdflixs.com/author/jy4193217/">BD电影首发站</a> </strong> 发表于2026年4月27日 14:31:17</li><li class="reprinted"><strong>转载请务必保留本文链接：</strong><a href="https://www.bdflixs.com/594.html">https://www.bdflixs.com/594.html | BD电影首发站</a></li></ul><div class="clear"></div></div><div class="slider-rolling-box ms betip" data-aos="fade-up"><div id="slider-rolling" class="owl-carousel be-rolling single-rolling"><div id="post-1807" class="post-item-list post scrolling-img"><div class="scrolling-thumbnail"><div class="thumbs-sg"><a class="thumbs-back sc" rel="bookmark"  href="https://www.bdflixs.com/1807.html" style="background-image: url(https://pic.pictaa.bond/zS/8X/zS8Xj2T4i8.jpg?w=600&q=80);"></a></div></div><div class="clear"></div><h2 class="grid-title over"><a href="https://www.bdflixs.com/1807.html" target="_blank" rel="bookmark">2026《平行故事》她只是想偷看邻居找点写作灵感，最后却连自己都分不清小说和现实是谁在操控谁</a></h2><div class="clear"></div></div><div id="post-1527" class="post-item-list post scrolling-img"><div class="scrolling-thumbnail"><div class="thumbs-sg"><a class="thumbs-back sc" rel="bookmark"  href="https://www.bdflixs.com/1527.html" style="background-image: url(https://pic.pictaa.bond/ez/ww/ezwwcwAIpv.jpg?w=600&q=80);"></a></div></div><div class="clear"></div><h2 class="grid-title over"><a href="https://www.bdflixs.com/1527.html" target="_blank" rel="bookmark">2026《爱是愤怒》被轻视的普通人为了守护爱情突然把压抑多年的怒火全泼了出去</a></h2><div class="clear"></div></div><div id="post-554" class="post-item-list post scrolling-img"><div class="scrolling-thumbnail"><div class="thumbs-sg"><a class="thumbs-back sc" rel="bookmark"  href="https://www.bdflixs.com/554.html" style="background-image: url(https://pic1.imgdb.cn/item/69e6119c1d6508f56becbbb5.jpg);"></a></div></div><div class="clear"></div><h2 class="grid-title over"><a href="https://www.bdflixs.com/554.html" target="_blank" rel="bookmark">2021《怪物猎人》热兵器失效冷兵器硬刚巨兽纯爽快打怪越看越上头</a></h2><div class="clear"></div></div><div id="post-1540" class="post-item-list post scrolling-img"><div class="scrolling-thumbnail"><div class="thumbs-sg"><a class="thumbs-back sc" rel="bookmark"  href="https://www.bdflixs.com/1540.html" style="background-image: url(https://pic.pictaa.art/pP/D8/pPD8wHaz9I.jpg?w=600&q=80);"></a></div></div><div class="clear"></div><h2 class="grid-title over"><a href="https://www.bdflixs.com/1540.html" target="_blank" rel="bookmark">2019《再见UFO》华富邨天台那道神秘光芒把三个少年拐向完全不同的人生再聚首时谁也认不出谁</a></h2><div class="clear"></div></div><div id="post-1762" class="post-item-list post scrolling-img"><div class="scrolling-thumbnail"><div class="thumbs-sg"><a class="thumbs-back sc" rel="bookmark"  href="https://www.bdflixs.com/1762.html" style="background-image: url(https://pic.pictaa.bond/Ms/3s/Ms3s6kcZrW.jpg?w=600&q=80);"></a></div></div><div class="clear"></div><h2 class="grid-title over"><a href="https://www.bdflixs.com/1762.html" target="_blank" rel="bookmark">2026《苏丹娜》舞台越华丽后台越残酷，两个女人从彼此欣赏一路争到谁都不肯让位</a></h2><div class="clear"></div></div><div id="post-1710" class="post-item-list post scrolling-img"><div class="scrolling-thumbnail"><div class="thumbs-sg"><a class="thumbs-back sc" rel="bookmark"  href="https://www.bdflixs.com/1710.html" style="background-image: url(https://pic.pictaa.art/RC/JU/RCJUuR7jzE.jpg?w=600&q=80);"></a></div></div><div class="clear"></div><h2 class="grid-title over"><a href="https://www.bdflixs.com/1710.html" target="_blank" rel="bookmark">2012《地心历险记2:神秘岛》闯入奇幻秘境开启一场紧张刺激的荒岛大冒险</a></h2><div class="clear"></div></div><div id="post-439" class="post-item-list post scrolling-img"><div class="scrolling-thumbnail"><div class="thumbs-sg"><a class="thumbs-back sc" rel="bookmark"  href="https://www.bdflixs.com/439.html" style="background-image: url(https://pic1.imgdb.cn/item/69cf631a79bf3b5ce71dc3fd.jpg);"></a></div></div><div class="clear"></div><h2 class="grid-title over"><a href="https://www.bdflixs.com/439.html" target="_blank" rel="bookmark">2008《全民超人汉考克》颓废超人逆袭重获新生</a></h2><div class="clear"></div></div><div id="post-357" class="post-item-list post scrolling-img"><div class="scrolling-thumbnail"><div class="thumbs-sg"><a class="thumbs-back sc" rel="bookmark"  href="https://www.bdflixs.com/357.html" style="background-image: url(https://pic1.imgdb.cn/item/69c0ffaedc921df82a0b6d43.jpg);"></a></div></div><div class="clear"></div><h2 class="grid-title over"><a href="https://www.bdflixs.com/357.html" target="_blank" rel="bookmark">2024《飞驰人生2》想回赛道的人先得把生活扛住</a></h2><div class="clear"></div></div><div id="post-788" class="post-item-list post scrolling-img"><div class="scrolling-thumbnail"><div class="thumbs-sg"><a class="thumbs-back sc" rel="bookmark"  href="https://www.bdflixs.com/788.html" style="background-image: url(https://pic1.imgdb.cn/item/6a12e3f55465bfb3eafabecc.jpg);"></a></div></div><div class="clear"></div><h2 class="grid-title over"><a href="https://www.bdflixs.com/788.html" target="_blank" rel="bookmark">2018《升级》瘫痪男主植入超强智能芯片化身冷酷杀神极致赛博朋克</a></h2><div class="clear"></div></div><div id="post-1920" class="post-item-list post scrolling-img"><div class="scrolling-thumbnail"><div class="thumbs-sg"><a class="thumbs-back sc" rel="bookmark"  href="https://www.bdflixs.com/1920.html" style="background-image: url(https://pic.pictaa.art/jo/HE/joHEi4CD2s.jpg?w=600&q=80);"></a></div></div><div class="clear"></div><h2 class="grid-title over"><a href="https://www.bdflixs.com/1920.html" target="_blank" rel="bookmark">2026《亚极陀 超能力战争》当越来越多人觉醒超能力，一个没有任何特殊力量的警察，却成了混乱时代里最不能缺少的那个人</a></h2><div class="clear"></div></div></div><div class="slider-rolling-lazy ajax-owl-loading srfl-6"><div id="post-1807" class="post-item-list post scrolling-img"><div class="scrolling-thumbnail"><div class="thumbs-sg"><a class="thumbs-back sc" rel="bookmark"  href="https://www.bdflixs.com/1807.html" style="background-image: url(https://pic.pictaa.bond/zS/8X/zS8Xj2T4i8.jpg?w=600&q=80);"></a></div></div><div class="clear"></div><h2 class="grid-title over"><a href="#">加载中...</a></h2><div class="clear"></div></div></div></div><nav class="post-nav-img post-nav-cover betip" data-aos="fade-up"><div class="nav-img-box post-previous-box ms"><figure class="nav-thumbnail"><div class="thumbs-b lazy"><a class="thumbs-back sc" rel="bookmark"  href="https://www.bdflixs.com/593.html" data-src="https://pic1.imgdb.cn/item/69ee04d76dcdaf678a8bda8c.jpg"></a></div></figure> <a href="https://www.bdflixs.com/593.html"><div class="nav-img post-previous-img"><div class="post-nav">上一篇</div><div class="nav-img-t">2010《致命伴旅》威尼斯浪漫邂逅暗藏杀机普通游客卷入迷局惊天反转</div></div> </a></div><div class="nav-img-box post-next-box ms"><figure class="nav-thumbnail"><div class="thumbs-b lazy"><a class="thumbs-back sc" rel="bookmark"  href="https://www.bdflixs.com/595.html" data-src="https://pic1.imgdb.cn/item/69ee06446dcdaf678a8bdadc.jpg"></a></div></figure> <a href="https://www.bdflixs.com/595.html"><div class="nav-img post-next-img"><div class="post-nav">下一篇</div><div class="nav-img-t">2023《流浪地球2》移山计划迎战太阳危机数字生命暗藏惊天杀机</div></div> </a></div><div class="clear"></div></nav></main></div><div id="sidebar" class="widget-area all-sidebar"><aside id="zm_been_here-2" class="widget zm_been_here_widget ms" data-aos="fade-up"><h3 class="widget-title"><span class="title-i"><span></span><span></span><span></span><span></span></span>你来过</h3><style>/* 想调手感只动这几行：
+			   --zm-bh-key  数字的颜色
+			   --zm-bh-bar  进度条底槽
+			   --zm-bh-lab  说明文字的灰 */
+			.zm-bh{--zm-bh-bar:#eff0f2;--zm-bh-lab:#8a8f98;padding:12px 14px 12px;font-size:13px;line-height:1.5}
+			.night .zm-bh{--zm-bh-bar:rgba(255,255,255,.09);--zm-bh-lab:#8b8b8b}
+
+			.zm-bh-brand{--zm-bh-key:#4d8cb8}
+			.night .zm-bh-brand{--zm-bh-key:#5aa6d0}
+			.zm-bh-green{--zm-bh-key:#30a14e}
+			.night .zm-bh-green{--zm-bh-key:#39d353}
+			.zm-bh-warm{--zm-bh-key:#e08214}
+			.night .zm-bh-warm{--zm-bh-key:#f0a340}
+			.zm-bh-ink{--zm-bh-key:#3d424b}
+			.night .zm-bh-ink{--zm-bh-key:#ccc}
+
+			/* 每行一句话，数字比正文大一号顶出来。
+			   tabular-nums 是必须的 —— 不然进度条走动时百分比会左右抽 */
+			.zm-bh-line{margin:0 0 6px;color:inherit}
+			.zm-bh-line:last-of-type{margin-bottom:0}
+			.zm-bh-line b{font-weight:600;font-size:15px;color:var(--zm-bh-key);font-variant-numeric:tabular-nums;padding:0 1px}
+
+			.zm-bh-bar{height:5px;border-radius:3px;background:var(--zm-bh-bar);overflow:hidden;margin:9px 0 9px}
+			.zm-bh-bar i{display:block;height:100%;width:0;border-radius:3px;background:var(--zm-bh-key);transition:width .7s cubic-bezier(.2,.7,.3,1)}
+
+			/* 标题可能很长，一行截断，别把侧栏顶宽 */
+			.zm-bh-recent{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+			.zm-bh-recent .zm-bh-lab{color:var(--zm-bh-lab)}
+
+			.zm-bh-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;font-size:11px;line-height:1.6;color:var(--zm-bh-lab)}
+			.zm-bh-foot p{margin:0;flex:1 1 auto}
+			/* 按钮长得像链接，但必须是 button：侧栏里一个 href="#" 会被
+			   某些「点击链接就滚动到顶」的脚本接管 */
+			.zm-bh-clear{flex:0 0 auto;border:0;background:none;padding:0;margin:0;font:inherit;color:var(--zm-bh-lab);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+			.zm-bh-clear:hover{color:var(--zm-bh-key)}
+
+			.zm-bh-hi{color:var(--zm-bh-lab)}
+
+			@media (prefers-reduced-motion:reduce){.zm-bh-bar i{transition:none}}</style><noscript><style>#zm_been_here-2{display:none!important}</style></noscript><div class="zm-bh zm-bh-brand"
+ style="visibility:hidden"
+ data-total="1637"
+ data-key="1685578a98363bd8c182c2c9733f54e5"
+ data-unit="部"
+ data-verb="看"
+ data-hide-new="0"><p class="zm-bh-line" data-bh="first"></p><p class="zm-bh-line" data-bh="days"></p><p class="zm-bh-line" data-bh="seen"></p><div class="zm-bh-bar"><i data-bh="bar"></i></div><p class="zm-bh-line zm-bh-recent" data-bh="recent" style="display:none"></p><div class="zm-bh-foot"><p>这些只存在你这台设备上。</p> <button type="button" class="zm-bh-clear">清掉</button></div></div><div class="clear"></div></aside><aside id="zm_among_peers-2" class="widget zm_among_peers_widget ms" data-aos="fade-up"><h3 class="widget-title"><span class="title-i"><span></span><span></span><span></span><span></span></span>同类之中</h3><style>/* 想调手感只动这几行：
+			   --zm-ap-pad  左右内缩。默认 15px = 对齐主题的 .widget ul{padding:10px 15px}
+			                （css/be.css:9463）。本段样式打在 body 里，晚于 head 的
+			                额外CSS，同为单类选择器时后者推不动它，覆盖请写 .widget > .zm-ap{...}
+			   --zm-ap-s    分数的颜色（豆瓣那种土金）
+			   --zm-ap-a    可点的字
+			   --zm-ap-bar  柱子的底色，本片那根用 --zm-ap-s */
+			.zm-ap{--zm-ap-pad:15px;--zm-ap-a:#4d8cb8;--zm-ap-s:#d99b1f;--zm-ap-bar:#e3e6ea;--zm-ap-lab:#9198a1;--zm-ap-body:#3b3f45;--zm-ap-strong:#22262b;--zm-ap-line:rgba(0,0,0,.07);padding:12px var(--zm-ap-pad) 14px;line-height:1.6;color:var(--zm-ap-body)}
+			.night .zm-ap{--zm-ap-a:#5aa6d0;--zm-ap-s:#e0b04a;--zm-ap-bar:#303236;--zm-ap-lab:#7d838b;--zm-ap-body:#c9cbcf;--zm-ap-strong:#eceef0;--zm-ap-line:rgba(255,255,255,.08)}
+
+			/* 主题给侧栏列表的那套（li 单行、nowrap、29px 行高）够呛，这里一个 ul 都不用 */
+			.zm-ap,.zm-ap *{box-sizing:border-box}
+			.zm-ap a{text-decoration:none;box-shadow:none;color:inherit}
+			.zm-ap-num{font-variant-numeric:tabular-nums}
+
+			.zm-ap-cat{font-size:11.5px;color:var(--zm-ap-lab);margin:0 0 9px;text-align:right}
+			.zm-ap-cat a:hover{color:var(--zm-ap-a)}
+			.zm-ap-cat .zm-ap-lb{margin-right:5px}
+
+			.zm-ap-hist{display:flex;align-items:flex-end;gap:2px;height:42px;margin:0}
+			.zm-ap-hist i{flex:1 1 0;min-width:0;background:var(--zm-ap-bar);border-radius:1px 1px 0 0;display:block}
+			.zm-ap-hist i.zm-ap-me{background:var(--zm-ap-s)}
+
+			.zm-ap-axis{display:flex;justify-content:space-between;font-size:10px;color:var(--zm-ap-lab);
+				border-top:1px solid var(--zm-ap-line);padding-top:5px;margin:0 0 10px;font-variant-numeric:tabular-nums}
+			.zm-ap-hist+.zm-ap-say{margin-top:10px}
+
+			.zm-ap-say{font-size:13px;line-height:1.65;margin:0}
+			.zm-ap-say b{font-weight:600;color:var(--zm-ap-strong)}
+			.zm-ap-say .zm-ap-sc{color:var(--zm-ap-s)}
+
+			/* 「豆瓣」两个字：小一号、灰一点，只管说明后面那个数是什么分，
+			   不跟分数抢眼睛 */
+			.zm-ap-lb{font-size:11px;color:var(--zm-ap-lab);font-weight:400;margin-right:2px}
+
+			.zm-ap-lad{margin-top:13px;border-top:1px dashed var(--zm-ap-line);padding-top:11px}
+			.zm-ap-lt{font-size:11.5px;color:var(--zm-ap-lab);margin-bottom:7px}
+			.zm-ap-row{display:flex;gap:9px;align-items:baseline;padding:3px 0}
+			.zm-ap-row .zm-ap-sc{font-size:12px;color:var(--zm-ap-s);min-width:52px;flex:none;font-variant-numeric:tabular-nums}
+			.zm-ap-row a{font-size:13px;line-height:1.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+			.zm-ap-row a:hover{color:var(--zm-ap-a)}
+
+			.zm-ap-note{padding:6px 0;font-size:12px;line-height:1.7;color:var(--zm-ap-lab)}</style><div class="zm-ap"><div class="zm-ap-cat"><span class="zm-ap-lb">风格</span><a href="https://www.bdflixs.com/filtersa/disaster/">灾难</a></div><div class="zm-ap-hist" role="img" aria-label="同类 24 部片子的豆瓣评分分布，这一部 7.9 分"><i style="height:20%" title="4.8 分：1 部"></i><i style="height:20%" title="5.2 分：1 部"></i><i style="height:0%" title="这一档没有"></i><i style="height:0%" title="这一档没有"></i><i style="height:40%" title="5.9–6.1 分：2 部"></i><i style="height:0%" title="这一档没有"></i><i style="height:20%" title="6.6 分：1 部"></i><i style="height:40%" title="6.7 分：2 部"></i><i style="height:40%" title="7.0–7.1 分：2 部"></i><i style="height:60%" title="7.2–7.3 分：3 部"></i><i style="height:20%" title="7.6 分：1 部"></i><i class="zm-ap-me" style="height:100%" title="7.7–7.9 分：5 部"></i><i style="height:20%" title="8.0 分：1 部"></i><i style="height:60%" title="8.3 分：3 部"></i><i style="height:20%" title="8.6 分：1 部"></i><i style="height:0%" title="这一档没有"></i><i style="height:0%" title="这一档没有"></i><i style="height:20%" title="9.5 分：1 部"></i></div><div class="zm-ap-axis"><span>4.8</span><span>7.2</span><span>9.5</span></div><p class="zm-ap-say">这部影片<span class="zm-ap-lb">豆瓣</span><b class="zm-ap-sc">7.9</b> 分，同类 <span class="zm-ap-num" title="「灾难」共 27 篇，其中 24 篇正文里写了豆瓣评分">24</span> 部里<b>并列第 <span class="zm-ap-num">7</span></b>，高过其中 <span class="zm-ap-num">69%</span>。</p><div class="zm-ap-lad"><div class="zm-ap-lt">比它更高的有 6 部，从近到高挑 3 部：</div><div class="zm-ap-row"><span class="zm-ap-sc"><span class="zm-ap-lb">豆瓣</span>8.0</span><a href="https://www.bdflixs.com/901.html" title="2012">2012</a></div><div class="zm-ap-row"><span class="zm-ap-sc"><span class="zm-ap-lb">豆瓣</span>8.6</span><a href="https://www.bdflixs.com/110.html" title="釜山行">釜山行</a></div><div class="zm-ap-row"><span class="zm-ap-sc"><span class="zm-ap-lb">豆瓣</span>9.5</span><a href="https://www.bdflixs.com/884.html" title="泰坦尼克号">泰坦尼克号</a></div></div></div><div class="clear"></div></aside><aside id="ajax_widget-3" class="widget widget_ajax ms" data-aos="fade-up"><div class="ajax_widget_content" id="ajax_widget-3_content" data-widget-number="3"><div class="ajax-tabs has-2-tabs"> <span class="tab_title tab-first"><a href="#" title="随机影片" id="random-tab"></a></span> <span class="tab_title tab-first"><a href="#" title="热门影片" id="hot-tab"></a></span><div class="clear"></div></div><div class="clear"></div><div class="new_cat"><div id="random-tab-content" class="tab-content"><div class="tab-load"><ul><h4>加载中...</h4><li> <span class="thumbnail"></span> <span class="tab-load-item tab-load-title load-item-1"></span> <span class="tab-load-item tab-load-inf"></span></li><li> <span class="thumbnail"></span> <span class="tab-load-item tab-load-title load-item-2"></span> <span class="tab-load-item tab-load-inf"></span></li><li> <span class="thumbnail"></span> <span class="tab-load-item tab-load-title load-item-3"></span> <span class="tab-load-item tab-load-inf"></span></li><li> <span class="thumbnail"></span> <span class="tab-load-item tab-load-title load-item-4"></span> <span class="tab-load-item tab-load-inf"></span></li><li> <span class="thumbnail"></span> <span class="tab-load-item tab-load-title load-item-5"></span> <span class="tab-load-item tab-load-inf"></span></li></ul></div></div><div id="hot-tab-content" class="tab-content"><div class="tab-load"><ul><h4>加载中...</h4><li> <span class="thumbnail"></span> <span class="tab-load-item tab-load-title load-item-1"></span> <span class="tab-load-item tab-load-inf"></span></li><li> <span class="thumbnail"></span> <span class="tab-load-item tab-load-title load-item-2"></span> <span class="tab-load-item tab-load-inf"></span></li><li> <span class="thumbnail"></span> <span class="tab-load-item tab-load-title load-item-3"></span> <span class="tab-load-item tab-load-inf"></span></li><li> <span class="thumbnail"></span> <span class="tab-load-item tab-load-title load-item-4"></span> <span class="tab-load-item tab-load-inf"></span></li><li> <span class="thumbnail"></span> <span class="tab-load-item tab-load-title load-item-5"></span> <span class="tab-load-item tab-load-inf"></span></li></ul></div></div><div class="clear"></div></div><div class="clear"></div></div> <script type="text/javascript">jQuery(function($) {
+					$('#ajax_widget-3_content').data('args', {"allow_pagination":1,"post_num":5,"show_thumb":1,"viewe_days":1,"review_days":1,"like_days":1,"pcat":"1","cat_limit":0,"single_limit":1,"begin_widget_logic":"","classes":"","cur_term":2,"cur_tax":"category"});
+				});</script> <div class="clear"></div></aside><aside id="zm_now_reading-2" class="widget zm_now_reading_widget ms" data-aos="fade-up"><h3 class="widget-title"><span class="title-i"><span></span><span></span><span></span><span></span></span>大家此刻在看</h3><style>/* 想调手感只动这几行：
+			   --zm-nr-pad  左右内缩。默认 15px = 对齐主题的 .widget ul{padding:10px 15px}
+			                （css/be.css:9463）。主题没有统一的内容内边距，自带小工具
+			                靠裹在裸 ul 里吃这一条，本工具是 div 吃不到，只能自己补。
+			                想改成跟标题文字对齐（.widget-title 是 16px + 卡片 1px）填 17px。
+			                注意：本段样式打在 body 里，晚于 head 的额外CSS，
+			                同为单类选择器时后者推不动它，要覆盖请写 .widget > .zm-nr{...}
+			   --zm-nr-a    强调色（人数、链接悬停）
+			   --zm-nr-live 在线小圆点的颜色
+			   --zm-nr-lab  次要文字 */
+			.zm-nr{--zm-nr-pad:15px;--zm-nr-a:#4d8cb8;--zm-nr-live:#3d8a63;--zm-nr-lab:#8a8f98;--zm-nr-line:rgba(0,0,0,.07);padding:10px var(--zm-nr-pad);line-height:1.6}
+			.night .zm-nr{--zm-nr-a:#5aa6d0;--zm-nr-live:#5fbe8c;--zm-nr-lab:#8b8b8b;--zm-nr-line:rgba(255,255,255,.08)}
+
+			/* 主题给侧栏 ul/li 的那套（圆点、虚线分隔、左缩进）别漏进来。
+			   这几条得排在下面的组件规则前面，选择器也故意比它们弱一级 */
+			.zm-nr,.zm-nr *{box-sizing:border-box}
+			.zm-nr ul,.zm-nr ul li{margin:0;padding:0;list-style:none;background:none;border:0;text-indent:0}
+			.zm-nr ul li:before,.zm-nr ul li:after{content:none;display:none}
+			.zm-nr a{text-decoration:none;box-shadow:none}
+
+			.zm-nr-top{display:flex;align-items:baseline;gap:8px;margin-bottom:14px}
+			/* 一个人都没扎堆在文章上时，下面没有列表，间距收一收 */
+			.zm-nr-top.zm-nr-solo{margin-bottom:2px}
+			.zm-nr-n{font-family:inherit;font-size:32px;font-weight:300;letter-spacing:-.02em;line-height:1.05;font-variant-numeric:tabular-nums}
+			.zm-nr-u{font-size:13px;color:var(--zm-nr-lab)}
+			.zm-nr-live{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--zm-nr-live)}
+			.zm-nr-live i{display:block;width:7px;height:7px;border-radius:50%;background:currentColor;animation:zm-nr-bp 2.2s ease-in-out infinite}
+			@keyframes zm-nr-bp{0%,100%{opacity:1}50%{opacity:.25}}
+
+			.zm-nr .zm-nr-list{margin:0;padding:0;list-style:none}
+			.zm-nr .zm-nr-list li{display:flex;gap:10px;align-items:baseline;padding:7px 0;border-top:1px solid var(--zm-nr-line)}
+			.zm-nr .zm-nr-list li:first-child{border-top:0;padding-top:0}
+			.zm-nr .zm-nr-list a{flex:1;min-width:0;font-size:13px;line-height:1.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+			.zm-nr .zm-nr-list a:hover{color:var(--zm-nr-a)}
+			.zm-nr .zm-nr-list b{flex:0 0 auto;font-weight:400;font-size:11.5px;color:var(--zm-nr-lab);font-variant-numeric:tabular-nums}
+
+			.zm-nr-foot{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid var(--zm-nr-line);font-size:11.5px;color:var(--zm-nr-lab)}
+			.zm-nr-empty{padding:6px 0;font-size:13px;color:var(--zm-nr-lab)}
+
+			@media (prefers-reduced-motion:reduce){.zm-nr-live i{animation:none}}</style><div class="zm-nr" data-refresh="120" data-url="https://www.bdflixs.com/wp-admin/admin-ajax.php" data-wid="zm_now_reading-2" data-pid="594" data-tid="3" data-tax="category"><div class="zm-nr-top"><span class="zm-nr-n">9</span><span class="zm-nr-u">人在站</span><span class="zm-nr-live"><i></i>实时</span></div><ul class="zm-nr-list"><li><a href="https://www.bdflixs.com/132.html" title="2009《游龙戏凤》富豪爱上舞女这波算童话还是现实">2009《游龙戏凤》富豪爱上舞女这波算童话还是现实</a><b>1 人</b></li><li><a href="https://www.bdflixs.com/1373.html" title="2026《蜘蛛侠：崭新之日》被全世界遗忘四年后，他的身体先撑不住了">2026《蜘蛛侠：崭新之日》被全世界遗忘四年后，他的身体先撑不住了</a><b>1 人</b></li><li><a href="https://www.bdflixs.com/919.html" title="1972《教父》有些电影你可以不看但这部你不看迟早会后悔">1972《教父》有些电影你可以不看但这部你不看迟早会后悔</a><b>1 人</b></li></ul><div class="zm-nr-foot"><span>统计近 15 分钟</span><span>今日峰值 32 人</span></div></div><div class="clear"></div></aside><aside id="php_text-3" class="widget php_text ms" data-aos="fade-up"><div class="textwidget widget-text"><style>/* ========== 求片墙：背景图不动，上层广告牌左右摆动 ==========
+   两个位置变量用同一套比例，屏幕宽窄变化时不会跑位
+   ========================================================= */
+
+.qpsb-box{
+  --sign-w   : 80%;    /* 广告牌宽度，占背景宽度的比例 */
+  --sign-top : 42%;    /* ★ 广告牌顶边在背景图上的高度，往下就调大 */
+  --rope-h   : 65%;    /* ★ 绳子长度，按广告牌自身高度算。调大钉子就更高 */
+  --nail-size: 14px;   /* 钉子大小 */
+  --tilt     : 3deg;   /* 左右摆幅，越大晃得越夸张 */
+  --speed    : 3.6s;   /* 一个来回的时间，越大越慵懒 */
+
+  position:relative;
+  line-height:0;
+}
+
+/* 背景图：正常文档流，撑起整个盒子的高度，不用手写数值 */
+.qpsb-bg{
+  display:block;
+  width:100%;
+  height:auto;
+  border-radius:8px;
+}
+
+/* 摆动的整体：绳子 + 钉子 + 广告牌都在里面。
+   .qpsb-hang 的高度 = 广告牌的高度，下面几个百分比全部以它为参照，
+   所以 --rope-h 一个数就能同时管住绳长、钉子位置和支点位置。 */
+.qpsb-hang{
+  position:absolute;
+  top:var(--sign-top);
+  left:calc((100% - var(--sign-w)) / 2);
+  width:var(--sign-w);
+
+  transform-origin:50% calc(var(--rope-h) * -1);   /* 支点提到钉子上 */
+  will-change:transform;
+  animation:qpsb-sway var(--speed) ease-in-out infinite;
+}
+
+/* ease-in-out 是像不像的关键：两端慢、中间快，就是真实钟摆的节奏。
+   换成 linear 会变成机械臂在扫。
+   想要带透视的 3D 摆动，就给两个 rotate() 后面各补一个
+   rotateY(-18deg) / rotateY(18deg)，并在 .qpsb-box 上加 perspective:600px */
+@keyframes qpsb-sway{
+  0%,100%{ transform:rotate(calc(var(--tilt) * -1)); }
+  50%    { transform:rotate(var(--tilt)); }
+}
+
+/* 人字吊绳：贴在广告牌上沿往上长。
+   width 必须写死 100% —— 绝对定位的 svg 属于替换元素，写 auto 的话
+   浏览器会用它的固有尺寸（viewBox 是 1:1，宽度就等于高度），
+   不会被 left/right 撑开，绳子会缩成左上角一个小三角。
+   viewBox 用 100×100 方格配 preserveAspectRatio="none"，横竖都自动拉伸，
+   所以改绳长只动 --rope-h；non-scaling-stroke 保证拉伸后两根一样粗。 */
+.qpsb-rope{
+  position:absolute;
+  left:0;
+  bottom:100%;
+  width:100%;
+  height:var(--rope-h);
+}
+
+/* 钉子：正好落在支点上，所以牌子转它不动，等于钉死在墙里 */
+.qpsb-nail{
+  position:absolute;
+  left:50%;
+  top:calc(var(--rope-h) * -1);
+  width:var(--nail-size);
+  height:var(--nail-size);
+  margin:calc(var(--nail-size) / -2) 0 0 calc(var(--nail-size) / -2);
+  border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#fff,#c8ccd2 58%,#787f88);
+  box-shadow:0 1px 4px rgba(0,0,0,.5);
+}
+
+/* 广告牌图片 */
+.qpsb-sign{display:block;line-height:0;text-decoration:none!important}
+.qpsb-sign img{display:block;width:100%;height:auto}
+
+/* 鼠标移上去停下来，方便用户点 */
+.qpsb-box:hover .qpsb-hang{animation-play-state:paused}
+
+/* 系统开了「减弱动态效果」就别晃 */
+@media(prefers-reduced-motion:reduce){
+  .qpsb-hang{animation:none}
+}</style><div class="qpsb-box"> <img class="qpsb-bg" src="https://pic.pictaa.art/ZC/jm/ZCjmIYdkqq.jpg?w=600&q=80" alt=""><div class="qpsb-hang"> <svg class="qpsb-rope" width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none"> <line x1="50" y1="0" x2="14" y2="100" stroke="#9aa3ae" stroke-width="2" vector-effect="non-scaling-stroke"/> <line x1="50" y1="0" x2="86" y2="100" stroke="#9aa3ae" stroke-width="2" vector-effect="non-scaling-stroke"/> </svg> <span class="qpsb-nail"></span> <a class="qpsb-sign" href="/qiupian.html" target="_blank"> <img src="https://pic.pictaa.bond/qk/ik/qkikMpfkMH.png?w=600&q=80" alt="求片墙"> </a></div></div></div><div class="clear"></div></aside><aside id="zm_today_ticket-2" class="widget widget_zm_today_ticket ms" data-aos="fade-up"><h3 class="widget-title">今日电影票</h3><style id="zmt-css">/* 今日份电影票 · 侧栏小工具 v2.0
+   票的外框、撕口、齿孔、胶片孔、锯齿撕口全部画在 canvas 内部，这里不写任何 border。
+   CSS 的 border 只能是矩形，会把撕裂轮廓压成方块。
+   投影用 filter:drop-shadow —— 它跟着 canvas 的透明形状走，缺口和孔洞都会有影子。
+   drop-shadow 的具体数值由 JS 按票面配色下发，深色票和浅色票不能共用一套影子。 */
+
+.zmt { margin: 0; line-height: 1.55; }
+
+.zmt-stage { text-align: center; }
+
+.zmt .zmt-cv {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  height: auto;          /* 容器比票窄时按比例缩，不会压扁 */
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: none;
+  padding: 0;
+  filter:
+    drop-shadow(0 1px 1px rgba(38, 54, 50, .20))
+    drop-shadow(0 7px 16px rgba(38, 54, 50, .13));
+}
+
+.zmt-bar {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+  margin-top: 13px;
+}
+
+.zmt .zmt-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  box-sizing: border-box;
+  height: 32px;
+  margin: 0;
+  padding: 0 9px;
+  font: 400 13px/32px "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
+  color: #2A2622;
+  background: #fff;
+  border: 1px solid #DFD8C8;
+  border-radius: 3px;
+  box-shadow: none;
+  outline: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: border-color .15s;
+}
+.zmt .zmt-name::placeholder { color: #b3ab9d; }
+.zmt .zmt-name:focus { border-color: #1E4B45; }
+
+.zmt .zmt-go,
+.zmt .zmt-save {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  height: 32px;
+  margin: 0;
+  padding: 0 11px;
+  font: 500 12.5px/1 "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
+  letter-spacing: .3px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  box-shadow: none;
+  text-shadow: none;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: background-color .15s, color .15s;
+}
+.zmt .zmt-go { color: #F3EEE2; background: #1E4B45; }
+.zmt .zmt-go:hover { background: #163831; }
+.zmt .zmt-save { color: #1E4B45; background: transparent; border-color: #CFC6B1; }
+.zmt .zmt-save:hover { background: #EFE7D6; }
+
+/* 读者自己换票面样式 */
+.zmt-skins {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 10px;
+}
+.zmt .zmt-skin {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  height: 24px;
+  margin: 0;
+  padding: 0 9px;
+  font: 400 11.5px/22px "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
+  letter-spacing: .5px;
+  color: #7a7266;
+  background: transparent;
+  border: 1px solid #E2DACA;
+  border-radius: 12px;
+  box-shadow: none;
+  text-shadow: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: color .15s, background-color .15s, border-color .15s;
+}
+.zmt .zmt-skin:hover { color: #1E4B45; border-color: #C9BEA6; }
+.zmt .zmt-skin[aria-pressed="true"] {
+  color: #F3EEE2;
+  background: #1E4B45;
+  border-color: #1E4B45;
+}
+
+.zmt .zmt-go:focus-visible,
+.zmt .zmt-save:focus-visible,
+.zmt .zmt-skin:focus-visible,
+.zmt .zmt-name:focus-visible { outline: 2px solid #C0442A; outline-offset: 1px; }
+
+.zmt-tip {
+  margin: 9px 0 0;
+  font-size: 11.5px;
+  color: #a09889;
+  text-align: center;
+  letter-spacing: .2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zmt * { transition: none !important; }
+}</style> <script id="zmt-js">/* 今日份电影票 · 渲染核心 v2.0
+   六种票面：青墨套印 / 午夜场 / 牛皮纸 / 胶片格 / 横版副券 / 热敏小票
+   票的轮廓、撕口、齿孔、片孔、锯齿全部画在 canvas 内部，CSS 里一条 border 都没有。 */
+(function () {
+  if (window.ZMTicket) return;
+
+  var SERIF = '"Songti SC","STSong","Source Han Serif SC","Noto Serif SC",SimSun,serif';
+  var MONO = 'ui-monospace,SFMono-Regular,Menlo,Consolas,"DejaVu Sans Mono","PingFang SC","Hiragino Sans GB","Microsoft YaHei",monospace';
+  var SANS = '"PingFang SC","Hiragino Sans GB","Microsoft YaHei",Arial,sans-serif';
+
+  /* ================= 六种票面 =================
+     dw/dh = 设计稿尺寸，所有坐标都写在这个尺度里，s = 实际宽度 / dw
+     minw/maxw = 允许的实际渲染宽度，窄票和横版票的取值不一样 */
+  var SKINS = {
+    jade: {
+      label: '青墨', layout: 'classic',
+      dw: 288, dh: 432, minw: 240, maxw: 360,
+      gn: 1100, ga: 0.05, gr: 0.09, wmA: 0.055,
+      paper: '#EFE7D6', grain: '#D6C9AE', ink: '#1E4B45',
+      seal: '#C0442A', print: '#2A2622', edge: '#C3B69A',
+      shadow: 'drop-shadow(0 1px 1px rgba(38,54,50,.20)) drop-shadow(0 7px 16px rgba(38,54,50,.13))'
+    },
+    night: {
+      label: '午夜', layout: 'classic',
+      dw: 288, dh: 432, minw: 240, maxw: 360,
+      gn: 1300, ga: 0.04, gr: 0.11, wmA: 0.075,
+      paper: '#171A21', grain: '#3B4359', ink: '#B7C0D0',
+      seal: '#D9A94E', print: '#F1ECDD', edge: '#333B4E',
+      shadow: 'drop-shadow(0 1px 1px rgba(8,10,16,.45)) drop-shadow(0 8px 20px rgba(8,10,16,.30))'
+    },
+    kraft: {
+      label: '牛皮', layout: 'classic',
+      dw: 288, dh: 432, minw: 240, maxw: 360,
+      gn: 1500, ga: 0.05, gr: 0.10, wmA: 0.05,
+      paper: '#D9C6A5', grain: '#B29868', ink: '#4B3826',
+      seal: '#A8432B', print: '#3B2E20', edge: '#A8916B',
+      shadow: 'drop-shadow(0 1px 1px rgba(70,52,30,.24)) drop-shadow(0 7px 16px rgba(70,52,30,.16))'
+    },
+    film: {
+      label: '胶片', layout: 'film',
+      dw: 288, dh: 432, minw: 240, maxw: 360,
+      gn: 1400, ga: 0.04, gr: 0.10, wmA: 0.07,
+      paper: '#16130F', grain: '#3A2F20', ink: '#CFC3A6',
+      seal: '#E0A63C', print: '#F5EEDB', edge: '#050403',
+      shadow: 'drop-shadow(0 1px 1px rgba(0,0,0,.5)) drop-shadow(0 9px 22px rgba(0,0,0,.34))'
+    },
+    stub: {
+      label: '副券', layout: 'stub',
+      dw: 376, dh: 176, minw: 250, maxw: 400,
+      gn: 650, ga: 0.05, gr: 0.09, wmA: 0.055,
+      paper: '#F2EBDD', grain: '#D5C8AF', ink: '#26384F',
+      seal: '#BE4B2E', print: '#2A2622', edge: '#C6B99D',
+      shadow: 'drop-shadow(0 1px 1px rgba(30,42,58,.20)) drop-shadow(0 6px 14px rgba(30,42,58,.14))'
+    },
+    receipt: {
+      label: '小票', layout: 'receipt',
+      dw: 236, dh: 432, minw: 208, maxw: 252,
+      gn: 900, ga: 0.03, gr: 0.06, wmA: 0.045,
+      paper: '#FBFAF6', grain: '#DFDBD0', ink: '#38352F',
+      seal: '#C33F32', print: '#2B2823', edge: '#DAD5C9',
+      shadow: 'drop-shadow(0 1px 1px rgba(60,58,52,.16)) drop-shadow(0 6px 14px rgba(60,58,52,.12))'
+    },
+    wide: {
+      label: '宽幕', layout: 'wide',
+      dw: 380, dh: 180, minw: 250, maxw: 420,
+      gn: 700, ga: 0.05, gr: 0.09, wmA: 0.05,
+      paper: '#F4F0E7', grain: '#DAD0BB', ink: '#5B2733',
+      seal: '#C08A3E', print: '#2A2622', edge: '#C9BFA8',
+      shadow: 'drop-shadow(0 1px 1px rgba(64,30,38,.20)) drop-shadow(0 6px 14px rgba(64,30,38,.14))'
+    },
+    pass: {
+      label: '登机', layout: 'pass',
+      dw: 392, dh: 156, minw: 260, maxw: 440,
+      gn: 620, ga: 0.04, gr: 0.07, wmA: 0.05,
+      paper: '#F4F7FA', grain: '#CFD9E4', ink: '#1B3A5C',
+      seal: '#C0442A', print: '#1E2530', edge: '#C3CCD6',
+      shadow: 'drop-shadow(0 1px 1px rgba(20,40,64,.18)) drop-shadow(0 6px 14px rgba(20,40,64,.13))'
+    },
+    rail: {
+      label: '老票', layout: 'rail',
+      dw: 300, dh: 150, minw: 230, maxw: 380,
+      gn: 620, ga: 0.05, gr: 0.09, wmA: 0.045,
+      paper: '#F6F1E4', grain: '#D8CBAD', ink: '#2B4A6F',
+      seal: '#B23A2E', print: '#2A2622', edge: '#C8BCA0',
+      shadow: 'drop-shadow(0 1px 1px rgba(50,44,30,.20)) drop-shadow(0 6px 14px rgba(50,44,30,.14))'
+    }
+  };
+  var ORDER = ['jade', 'night', 'kraft', 'film', 'stub', 'receipt', 'wide', 'pass', 'rail'];
+
+  var FALLBACK = [
+    '一个人的深夜场', '明天再说吧', '窗外有雨', '回家的最后一班车',
+    '你还没看的那一部', '凌晨三点的走廊', '第二遍才懂的结局', '片尾曲之后',
+    '关灯之后的九十分钟', '一句台词记了十年', '海边那天没有风', '把伞忘在影院了',
+    '空座位旁边的人', '散场前五分钟', '下一站还很远', '被雨困住的星期三'
+  ];
+  var HALLS = ['一号厅', '二号厅', '三号厅', '五号厅', '小放映厅', '贵宾厅'];
+  var SHOWS = ['19:00', '19:30', '20:00', '20:20', '21:00', '21:30', '22:00', '22:40', '23:15', '00:05'];
+  var PRICES = [35, 39, 45, 49, 55, 58, 68, 88];
+
+  /* ================= 种子随机 ================= */
+  function xmur3(str) {
+    var h = 1779033703 ^ str.length;
+    for (var i = 0; i < str.length; i++) {
+      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+      h = (h << 13) | (h >>> 19);
+    }
+    return function () {
+      h = Math.imul(h ^ (h >>> 16), 2246822507);
+      h = Math.imul(h ^ (h >>> 13), 3266489909);
+      return (h ^= h >>> 16) >>> 0;
+    };
+  }
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6d2b79f5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function pick(r, arr) { return arr[Math.floor(r() * arr.length)]; }
+  function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+  function minusMin(hhmm, m) {
+    var p = hhmm.split(':'), t = (+p[0]) * 60 + (+p[1]) - m;
+    t = (t + 1440) % 1440;
+    return pad2(Math.floor(t / 60)) + ':' + pad2(t % 60);
+  }
+
+  /* ================= 绘字 ================= */
+  function trackWidth(ctx, t, sp) {
+    var w = 0;
+    for (var i = 0; i < t.length; i++) w += ctx.measureText(t.charAt(i)).width + sp;
+    return w - sp;
+  }
+  function trackText(ctx, t, x, y, sp) {
+    var cx = x;
+    for (var i = 0; i < t.length; i++) {
+      ctx.fillText(t.charAt(i), cx, y);
+      cx += ctx.measureText(t.charAt(i)).width + sp;
+    }
+  }
+  function trackCenter(ctx, t, cx, y, sp) {
+    trackText(ctx, t, cx - trackWidth(ctx, t, sp) / 2, y, sp);
+  }
+  function rightText(ctx, t, x, y) {
+    ctx.textAlign = 'right'; ctx.fillText(t, x, y); ctx.textAlign = 'left';
+  }
+  /* 站名/英文小字按可用宽度自动降字号，再长也不会印到票外面。
+     字距是设计稿尺度，跟着字号一起缩。 */
+  function fitTrack(ctx, t, maxW, base, min, weight, family, sp, s) {
+    var size = base;
+    for (;;) {
+      ctx.font = weight + ' ' + size * s + 'px ' + family;
+      if (trackWidth(ctx, t, sp * s) <= maxW || size <= min) return sp * s;
+      size -= 0.5;
+      sp *= 0.94;
+    }
+  }
+  function fitCenter(ctx, t, cx, y, maxW, base, min, weight, family, sp, s) {
+    trackCenter(ctx, t, cx, y, fitTrack(ctx, t, maxW, base, min, weight, family, sp, s));
+  }
+  function fitLeft(ctx, t, x, y, maxW, base, min, weight, family, sp, s) {
+    trackText(ctx, t, x, y, fitTrack(ctx, t, maxW, base, min, weight, family, sp, s));
+  }
+  function trackRight(ctx, t, x, y, sp) {
+    trackText(ctx, t, x - trackWidth(ctx, t, sp), y, sp);
+  }
+  function midText(ctx, t, x, y) {
+    ctx.textAlign = 'center'; ctx.fillText(t, x, y); ctx.textAlign = 'left';
+  }
+
+  /* 断行打分：中文标题在《》：，这些地方断开才不别扭，
+     数字字母中间断开最难看，扣分 */
+  var BRK_AFTER = '\u3000\u300b\uff09\u3011\u300d\u300f\u201d\u2019\uff0c\u3002\u3001\uff1b\uff1a\uff01\uff1f\u2026\u00b7-\u2014';
+  var BRK_BEFORE = '\u300a\uff08\u3010\u300c\u300e\u201c\u2018';
+  function breakScore(t, k) {
+    var a = t.charAt(k - 1), b = t.charAt(k), v = 0;
+    if (a === ' ' || a === '\u3000') v += 4;
+    else if (b === ' ' || b === '\u3000') v += 3;
+    if (BRK_AFTER.indexOf(a) >= 0) v += 3;
+    if (BRK_BEFORE.indexOf(b) >= 0) v += 3;
+    if (/[0-9A-Za-z]/.test(a) && /[0-9A-Za-z]/.test(b)) v -= 4;
+    return v;
+  }
+
+  /* 片名排版：先缩字号，再折两行，最后截断 */
+  function layoutTitle(ctx, t, maxW, s, one, two) {
+    var i, k, a, b, best, v;
+    for (i = 0; i < one.length; i++) {
+      ctx.font = '600 ' + one[i] * s + 'px ' + SERIF;
+      if (ctx.measureText(t).width <= maxW) return { lines: [t], size: one[i] };
+    }
+    for (i = 0; i < two.length; i++) {
+      ctx.font = '600 ' + two[i] * s + 'px ' + SERIF;
+      best = null;
+      for (k = 1; k < t.length; k++) {
+        a = t.slice(0, k).replace(/\s+$/, '');
+        b = t.slice(k).replace(/^\s+/, '');
+        if (!a || !b) continue;
+        if (ctx.measureText(a).width > maxW || ctx.measureText(b).width > maxW) continue;
+        v = breakScore(t, k) * 6 - Math.abs(k - t.length / 2);
+        if (!best || v > best.v) best = { v: v, lines: [a, b] };
+      }
+      if (best) return { lines: best.lines, size: two[i] };
+    }
+    var last = two[two.length - 1];
+    ctx.font = '600 ' + last * s + 'px ' + SERIF;
+    var half = Math.ceil(t.length / 2), l1 = t.slice(0, half), l2 = t.slice(half);
+    while (l2.length > 1 && ctx.measureText(l2 + '…').width > maxW) l2 = l2.slice(0, -1);
+    while (l1.length > 1 && ctx.measureText(l1).width > maxW) l1 = l1.slice(0, -1);
+    return { lines: [l1, l2 + '…'], size: last };
+  }
+
+  /* 逐字换行（小票用，字体已在外面设好） */
+  function wrapChars(ctx, t, maxW, maxLines) {
+    var lines = [], cur = '', i, ch, used = 0, L;
+    for (i = 0; i < t.length; i++) {
+      ch = t.charAt(i);
+      if (cur && ctx.measureText(cur + ch).width > maxW) { lines.push(cur); cur = ch; }
+      else cur += ch;
+      if (lines.length === maxLines) break;
+    }
+    if (lines.length < maxLines && cur) { lines.push(cur); cur = ''; }
+    for (i = 0; i < lines.length; i++) used += lines[i].length;
+    if (used < t.length) {
+      L = lines[lines.length - 1];
+      while (L.length > 1 && ctx.measureText(L + '…').width > maxW) L = L.slice(0, -1);
+      lines[lines.length - 1] = L + '…';
+    }
+    return lines;
+  }
+
+  /* ================= 通用图元 ================= */
+  function rr(ctx, x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+  function dashLine(ctx, x0, y0, x1, y1, color, alpha, lw, dash) {
+    ctx.save();
+    ctx.strokeStyle = color; ctx.globalAlpha = alpha; ctx.lineWidth = lw;
+    ctx.setLineDash(dash);
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+    ctx.restore();
+  }
+  function barcode(ctx, x, y, w, h, u, rnd) {
+    var cx = x, bw;
+    while (cx < x + w - 3 * u) {
+      bw = (1 + Math.floor(rnd() * 3)) * u;
+      if (cx + bw > x + w) break;
+      ctx.fillRect(cx, y, bw, h);
+      cx += bw + (1 + Math.floor(rnd() * 2)) * u;
+    }
+  }
+  function paper(ctx, W, H, K, s, seed) {
+    ctx.fillStyle = K.paper;
+    ctx.fillRect(0, 0, W, H);
+    var g = seed(), n = Math.round(K.gn * s), i;
+    ctx.fillStyle = K.grain;
+    for (i = 0; i < n; i++) {
+      ctx.globalAlpha = K.ga + g() * K.gr;
+      ctx.fillRect(g() * W, g() * H, 1, 1);
+    }
+    ctx.globalAlpha = 1;
+  }
+  /* 域名水印：斜向平铺，印在纸纹之上、内容之下。
+     票是会被读者存图分享出去的，域名跟着图走才有意义。 */
+  function watermark(ctx, W, H, K, s, D) {
+    if (!D.wm || !D.domain) return;
+    ctx.save();
+    ctx.globalAlpha = K.wmA || 0.055;
+    ctx.fillStyle = K.ink;
+    ctx.font = '600 ' + 11 * s + 'px ' + MONO;
+    ctx.textAlign = 'center';
+    ctx.translate(W / 2, H / 2);
+    ctx.rotate(-Math.PI / 6);
+    var gx = ctx.measureText(D.domain).width + 36 * s, gy = 30 * s;
+    var Rd = Math.sqrt(W * W + H * H) / 2 + 24 * s, x, y, n = 0;
+    for (y = -Rd; y < Rd; y += gy) {
+      for (x = -Rd; x < Rd; x += gx) ctx.fillText(D.domain, x + (n % 2 ? gx / 2 : 0), y);
+      n++;
+    }
+    ctx.restore();
+    ctx.textAlign = 'left';
+  }
+
+  /* 打印层整组微歪：出票机走纸不可能绝对水平 */
+  function wobble(ctx, W, H, s, rnd) {
+    ctx.translate(W / 2, H / 2);
+    ctx.rotate((rnd() - 0.5) * 0.013);
+    ctx.translate(-W / 2 + (rnd() - 0.5) * 1.8 * s, -H / 2 + (rnd() - 0.5) * 1.8 * s);
+  }
+
+  /* ================= 边缘：撕口 / 锯齿 ================= */
+  function tornEdge(ctx, x0, x1, y, amp, rnd) {
+    var step = 2.8, dir = x1 > x0 ? 1 : -1, x = x0, n = 0, j;
+    while ((dir > 0 && x < x1) || (dir < 0 && x > x1)) {
+      j = (rnd() - 0.5) * amp * (n % 3 === 0 ? 1.7 : 1);
+      ctx.lineTo(x, y + j);
+      x += step * dir; n++;
+    }
+    ctx.lineTo(x1, y);
+  }
+  function tornEdgeV(ctx, y0, y1, x, amp, rnd) {
+    var step = 2.8, dir = y1 > y0 ? 1 : -1, y = y0, n = 0, j;
+    while ((dir > 0 && y < y1) || (dir < 0 && y > y1)) {
+      j = (rnd() - 0.5) * amp * (n % 3 === 0 ? 1.7 : 1);
+      ctx.lineTo(x + j, y);
+      y += step * dir; n++;
+    }
+    ctx.lineTo(x, y1);
+  }
+  /* 热敏纸切刀的锯齿口 */
+  function sawEdge(ctx, x0, x1, y, amp, dir, rnd) {
+    var half = 3.4, sgn = x1 > x0 ? 1 : -1, x = x0, up = true;
+    while ((sgn > 0 && x < x1) || (sgn < 0 && x > x1)) {
+      ctx.lineTo(x, y + (up ? amp * dir : 0) + (rnd() - 0.5) * 1.1);
+      x += half * sgn; up = !up;
+    }
+    ctx.lineTo(x1, y);
+  }
+
+  /* ================= 票形路径 ================= */
+  function pathClassic(ctx, W, H, notchY, r, rnd) {
+    ctx.beginPath();
+    ctx.moveTo(0, 3.5);
+    tornEdge(ctx, 0, W, 3.5, 4.6, rnd);
+    ctx.lineTo(W, notchY - r);
+    ctx.arc(W, notchY, r, -Math.PI / 2, Math.PI / 2, true);
+    ctx.lineTo(W, H - 3.5);
+    tornEdge(ctx, W, 0, H - 3.5, 4.6, rnd);
+    ctx.lineTo(0, notchY + r);
+    ctx.arc(0, notchY, r, Math.PI / 2, -Math.PI / 2, false);
+    ctx.closePath();
+  }
+  function pathFilm(ctx, W, H, s) {
+    ctx.beginPath();
+    rr(ctx, 0, 0, W, H, 4 * s);
+    var hw = 12 * s, hh = 9 * s, gap = 24 * s, x1 = 6 * s, x2 = W - 18 * s, y;
+    for (y = 14 * s; y + hh <= H - 14 * s; y += gap) {
+      rr(ctx, x1, y, hw, hh, 1.8 * s);
+      rr(ctx, x2, y, hw, hh, 1.8 * s);
+    }
+  }
+  function pathStub(ctx, W, H, px, r, rnd) {
+    ctx.beginPath();
+    ctx.moveTo(3.5, 0);
+    ctx.lineTo(px - r, 0);
+    ctx.arc(px, 0, r, Math.PI, 0, true);
+    ctx.lineTo(W - 3.5, 0);
+    tornEdgeV(ctx, 0, H, W - 3.5, 4.4, rnd);
+    ctx.lineTo(px + r, H);
+    ctx.arc(px, H, r, 0, Math.PI, true);
+    ctx.lineTo(3.5, H);
+    tornEdgeV(ctx, H, 0, 3.5, 4.4, rnd);
+    ctx.closePath();
+  }
+  function pathReceipt(ctx, W, H, rnd) {
+    var a = 3.2;
+    ctx.beginPath();
+    ctx.moveTo(0, a);
+    sawEdge(ctx, 0, W, a, a, 1, rnd);
+    ctx.lineTo(W, H - a);
+    sawEdge(ctx, W, 0, H - a, a, -1, rnd);
+    ctx.closePath();
+  }
+
+  /* ================= 版式 1：竖版套印（青墨 / 午夜 / 牛皮） ================= */
+  function drawClassic(ctx, W, H, s, K, D, rnd, seed) {
+    var notchY = 300 * s, r = 7 * s, i;
+
+    ctx.save();
+    pathClassic(ctx, W, H, notchY, r, seed());
+    ctx.clip();
+    paper(ctx, W, H, K, s, seed);
+    watermark(ctx, W, H, K, s, D);
+
+    /* 预印层：印刷厂事先印好的，字距工整、绝对水平 */
+    ctx.textBaseline = 'alphabetic';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = K.ink;
+
+    fitCenter(ctx, D.cinema, W / 2, 41 * s, W - 48 * s, 15, 9, '600', SERIF, 4.5, s);
+
+    ctx.globalAlpha = 0.55;
+    fitCenter(ctx, D.en, W / 2, 56 * s, W - 40 * s, 7.5, 5, '500', SANS, 2.6, s);
+    ctx.globalAlpha = 1;
+
+    ctx.fillRect(24 * s, 68 * s, W - 48 * s, 1.4 * s);
+    ctx.fillRect(24 * s, 72.5 * s, W - 48 * s, 0.7 * s);
+
+    ctx.fillStyle = K.seal;
+    ctx.fillRect(W / 2 - 20 * s, 162 * s, 40 * s, 1.6 * s);
+
+    var rows = [
+      ['日期', D.dateStr],
+      ['场次', D.show + '  ' + D.hall],
+      ['座位', D.row + ' 排 ' + D.seat + ' 座'],
+      ['观众', D.guest]
+    ];
+    var y0 = 198 * s, lh = 26 * s;
+    ctx.fillStyle = K.ink;
+    ctx.globalAlpha = 0.72;
+    ctx.font = '500 ' + 9.5 * s + 'px ' + SANS;
+    for (i = 0; i < rows.length; i++) trackText(ctx, rows[i][0], 28 * s, y0 + lh * i, 3.4 * s);
+    ctx.globalAlpha = 1;
+
+    dashLine(ctx, r + 4 * s, notchY, W - r - 4 * s, notchY, K.ink, 0.5, 1 * s, [3 * s, 3.6 * s]);
+
+    ctx.fillStyle = K.ink;
+    ctx.font = '600 ' + 9.5 * s + 'px ' + SANS;
+    trackCenter(ctx, D.site, W / 2, 392 * s, 2.2 * s);
+    if (D.domain) {
+      ctx.globalAlpha = 0.5;
+      ctx.font = '400 ' + 8.5 * s + 'px ' + MONO;
+      midText(ctx, D.domain, W / 2, 406 * s);
+      ctx.globalAlpha = 1;
+    }
+
+    /* 打印层：出票机当场打上去的 */
+    ctx.save();
+    wobble(ctx, W, H, s, rnd);
+
+    var lay = layoutTitle(ctx, D.title, W - 44 * s, s, [27, 24, 21], [22, 20, 18, 16, 15]);
+    ctx.fillStyle = K.print;
+    ctx.font = '600 ' + lay.size * s + 'px ' + SERIF;
+    if (lay.lines.length === 1) {
+      midText(ctx, lay.lines[0], W / 2, 124 * s);
+    } else {
+      midText(ctx, lay.lines[0], W / 2, 112 * s);
+      midText(ctx, lay.lines[1], W / 2, (112 + lay.size * 1.35) * s);
+    }
+
+    ctx.font = '500 ' + 12.5 * s + 'px ' + MONO;
+    for (i = 0; i < rows.length; i++) ctx.fillText(rows[i][1], 92 * s, y0 + lh * i);
+
+    ctx.fillStyle = K.seal;
+    ctx.font = '600 ' + 11 * s + 'px ' + MONO;
+    midText(ctx, 'NO. ' + D.no, W / 2, 330 * s);
+
+    ctx.fillStyle = K.print;
+    barcode(ctx, 36 * s, 347 * s, W - 72 * s, 22 * s, s, rnd);
+    ctx.restore();
+
+    ctx.restore();
+
+    /* 撕口断面的纤维暗边 */
+    ctx.save();
+    pathClassic(ctx, W, H, notchY, r, seed());
+    ctx.strokeStyle = K.edge;
+    ctx.lineWidth = 1.1 * s;
+    ctx.globalAlpha = 0.85;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /* ================= 版式 2：胶片格 ================= */
+  function drawFilm(ctx, W, H, s, K, D, rnd, seed) {
+    var i, g = seed();
+
+    ctx.save();
+    pathFilm(ctx, W, H, s);
+    ctx.clip('evenodd');
+    paper(ctx, W, H, K, s, seed);
+    watermark(ctx, W, H, K, s, D);
+
+    /* 片基划痕 */
+    ctx.fillStyle = K.ink;
+    for (i = 0; i < 3; i++) {
+      ctx.globalAlpha = 0.04 + g() * 0.05;
+      ctx.fillRect((30 + g() * 220) * s, 16 * s, 0.8 * s, H - 32 * s);
+    }
+    ctx.globalAlpha = 1;
+
+    /* 片孔外侧的边缘印字 */
+    ctx.textBaseline = 'alphabetic';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = K.ink;
+    ctx.globalAlpha = 0.45;
+    ctx.font = '400 ' + 6.5 * s + 'px ' + MONO;
+    ctx.fillText('35MM  SAFETY FILM', 27 * s, 13 * s);
+    rightText(ctx, 'ASA 500  ·  ' + D.stamp, W - 27 * s, 13 * s);
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = K.seal;
+    ctx.globalAlpha = 0.62;
+    ctx.font = '400 ' + 6.5 * s + 'px ' + MONO;
+    midText(ctx, 'FRAME ' + D.frame + '   ·   ADMIT ONE', W / 2, 424 * s);
+    ctx.globalAlpha = 1;
+
+    /* 画面区（预印层） */
+    ctx.fillStyle = K.ink;
+    fitCenter(ctx, D.cinema, W / 2, 50 * s, 196 * s, 13, 8, '600', SERIF, 4.5, s);
+
+    ctx.globalAlpha = 0.5;
+    fitCenter(ctx, D.en, W / 2, 63 * s, 200 * s, 6.5, 4.5, '500', SANS, 2.4, s);
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = K.seal;
+    ctx.globalAlpha = 0.75;
+    ctx.fillRect(114 * s, 76 * s, 60 * s, 1 * s);
+    ctx.globalAlpha = 1;
+
+    /* 打印层 */
+    ctx.save();
+    wobble(ctx, W, H, s, rnd);
+
+    var lay = layoutTitle(ctx, D.title, 200 * s, s, [26, 23, 20], [21, 19, 17, 15, 14]);
+    ctx.fillStyle = K.print;
+    ctx.font = '600 ' + lay.size * s + 'px ' + SERIF;
+    if (lay.lines.length === 1) {
+      midText(ctx, lay.lines[0], W / 2, 152 * s);
+    } else {
+      midText(ctx, lay.lines[0], W / 2, 140 * s);
+      midText(ctx, lay.lines[1], W / 2, (140 + lay.size * 1.35) * s);
+    }
+
+    ctx.fillStyle = K.seal;
+    ctx.fillRect(W / 2 - 20 * s, 190 * s, 40 * s, 1.4 * s);
+
+    ctx.fillStyle = K.print;
+    ctx.font = '500 ' + 11 * s + 'px ' + MONO;
+    midText(ctx, D.dateStr + '   ' + D.show, W / 2, 232 * s);
+
+    ctx.globalAlpha = 0.88;
+    ctx.font = '500 ' + 10 * s + 'px ' + SANS;
+    midText(ctx, D.hall + '   ' + D.row + ' 排 ' + D.seat + ' 座', W / 2, 256 * s);
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = K.ink;
+    ctx.font = '500 ' + 10 * s + 'px ' + SANS;
+    trackCenter(ctx, '观众  ' + D.guest, W / 2, 280 * s, 1.6 * s);
+
+    ctx.fillStyle = K.seal;
+    ctx.font = '600 ' + 10.5 * s + 'px ' + MONO;
+    midText(ctx, 'NO. ' + D.no, W / 2, 312 * s);
+
+    ctx.fillStyle = K.ink;
+    ctx.globalAlpha = 0.8;
+    barcode(ctx, 74 * s, 328 * s, 140 * s, 16 * s, s, rnd);
+    ctx.globalAlpha = 1;
+    ctx.restore();
+
+    ctx.fillStyle = K.ink;
+    ctx.font = '600 ' + 9 * s + 'px ' + SANS;
+    trackCenter(ctx, D.site, W / 2, 372 * s, 2.2 * s);
+    if (D.domain) {
+      ctx.globalAlpha = 0.42;
+      ctx.font = '400 ' + 8 * s + 'px ' + MONO;
+      midText(ctx, D.domain, W / 2, 388 * s);
+      ctx.globalAlpha = 1;
+    }
+
+    /* 画面框线 */
+    ctx.strokeStyle = K.ink;
+    ctx.globalAlpha = 0.3;
+    ctx.lineWidth = 1 * s;
+    ctx.strokeRect(26 * s, 20 * s, W - 52 * s, H - 40 * s);
+    ctx.globalAlpha = 1;
+
+    /* 暗角 */
+    var vg = ctx.createRadialGradient(W / 2, H / 2, W * 0.24, W / 2, H / 2, W * 0.82);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, 'rgba(0,0,0,.38)');
+    ctx.fillStyle = vg;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.restore();
+
+    ctx.save();
+    pathFilm(ctx, W, H, s);
+    ctx.strokeStyle = K.edge;
+    ctx.lineWidth = 1 * s;
+    ctx.globalAlpha = 0.7;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /* ================= 版式 3：横版副券 ================= */
+  function drawStub(ctx, W, H, s, K, D, rnd, seed) {
+    var px = 268 * s, r = 7 * s, sx = 322 * s, i;
+
+    ctx.save();
+    pathStub(ctx, W, H, px, r, seed());
+    ctx.clip();
+    paper(ctx, W, H, K, s, seed);
+    watermark(ctx, W, H, K, s, D);
+
+    /* 预印层 */
+    ctx.textBaseline = 'alphabetic';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = K.ink;
+
+    fitCenter(ctx, D.cinema, 134 * s, 32 * s, 216 * s, 14, 9, '600', SERIF, 4.5, s);
+
+    ctx.globalAlpha = 0.55;
+    fitCenter(ctx, D.en, 134 * s, 45 * s, 216 * s, 7, 5, '500', SANS, 2.4, s);
+    ctx.globalAlpha = 1;
+
+    ctx.fillRect(24 * s, 55 * s, 220 * s, 1.3 * s);
+    ctx.fillRect(24 * s, 59 * s, 220 * s, 0.6 * s);
+
+    ctx.fillStyle = K.seal;
+    ctx.fillRect(116 * s, 116 * s, 36 * s, 1.4 * s);
+
+    var cols = [
+      ['日期', D.dateStr, 24],
+      ['场次', D.show, 96],
+      ['影厅', D.hall, 136],
+      ['座位', D.row + '排' + D.seat + '座', 190]
+    ];
+    ctx.fillStyle = K.ink;
+    ctx.globalAlpha = 0.68;
+    ctx.font = '500 ' + 7 * s + 'px ' + SANS;
+    for (i = 0; i < cols.length; i++) trackText(ctx, cols[i][0], cols[i][2] * s, 130 * s, 2.6 * s);
+    ctx.globalAlpha = 1;
+
+    ctx.font = '600 ' + 8.5 * s + 'px ' + SANS;
+    ctx.globalAlpha = 0.62;
+    trackText(ctx, D.site, 24 * s, 166 * s, 2 * s);
+    if (D.domain) {
+      ctx.globalAlpha = 0.4;
+      ctx.font = '400 ' + 7.5 * s + 'px ' + MONO;
+      rightText(ctx, D.domain, 244 * s, 166 * s);
+    }
+    ctx.globalAlpha = 1;
+
+    /* 骑缝虚线 */
+    dashLine(ctx, px, r + 4 * s, px, H - r - 4 * s, K.ink, 0.5, 1 * s, [3 * s, 3.6 * s]);
+
+    /* 副券上的竖排小字（预印） */
+    ctx.save();
+    ctx.translate(sx, H / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = K.ink;
+    ctx.globalAlpha = 0.55;
+    ctx.font = '500 ' + 7 * s + 'px ' + SANS;
+    trackCenter(ctx, '副券 · 请妥善保管', 0, -30 * s, 2.4 * s);
+    ctx.globalAlpha = 1;
+    ctx.restore();
+
+    /* 打印层 */
+    ctx.save();
+    wobble(ctx, W, H, s, rnd);
+
+    var lay = layoutTitle(ctx, D.title, 216 * s, s, [23, 21, 19], [18, 16.5, 15, 14, 13]);
+    ctx.fillStyle = K.print;
+    ctx.font = '600 ' + lay.size * s + 'px ' + SERIF;
+    if (lay.lines.length === 1) {
+      midText(ctx, lay.lines[0], 134 * s, 92 * s);
+    } else {
+      midText(ctx, lay.lines[0], 134 * s, 81 * s);
+      midText(ctx, lay.lines[1], 134 * s, (81 + lay.size * 1.25) * s);
+    }
+
+    ctx.font = '500 ' + 10.5 * s + 'px ' + MONO;
+    for (i = 0; i < cols.length; i++) ctx.fillText(cols[i][1], cols[i][2] * s, 148 * s);
+
+    ctx.save();
+    ctx.translate(sx, H / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = K.seal;
+    ctx.font = '600 ' + 11 * s + 'px ' + MONO;
+    trackCenter(ctx, 'NO. ' + D.no, 0, -12 * s, 1.2 * s);
+    ctx.fillStyle = K.print;
+    barcode(ctx, -62 * s, 4 * s, 124 * s, 16 * s, s, rnd);
+    ctx.font = '600 ' + 10 * s + 'px ' + SANS;
+    trackCenter(ctx, D.guest, 0, 34 * s, 2 * s);
+    ctx.restore();
+
+    ctx.restore();
+    ctx.restore();
+
+    ctx.save();
+    pathStub(ctx, W, H, px, r, seed());
+    ctx.strokeStyle = K.edge;
+    ctx.lineWidth = 1.1 * s;
+    ctx.globalAlpha = 0.85;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /* ================= 版式 4：热敏小票 ================= */
+  function drawReceipt(ctx, W, H, s, K, D, rnd, seed) {
+    var L = 18 * s, R = W - 18 * s, mid = W / 2, i, g = seed();
+    var dash = [2 * s, 2.8 * s];
+
+    ctx.save();
+    pathReceipt(ctx, W, H, seed());
+    ctx.clip();
+    paper(ctx, W, H, K, s, seed);
+    watermark(ctx, W, H, K, s, D);
+
+    /* 热敏头压过的横向淡痕 */
+    ctx.fillStyle = K.grain;
+    for (i = 0; i < 2; i++) {
+      ctx.globalAlpha = 0.16;
+      ctx.fillRect(0, (40 + g() * 340) * s, W, 1.4 * s);
+    }
+    ctx.globalAlpha = 1;
+
+    /* 小票没有预印层，整张都是当场打的，所以全部一起微歪 */
+    ctx.save();
+    wobble(ctx, W, H, s, rnd);
+    ctx.textBaseline = 'alphabetic';
+    ctx.textAlign = 'left';
+
+    ctx.fillStyle = K.print;
+    fitCenter(ctx, D.cinema, mid, 34 * s, W - 32 * s, 13, 8, '600', SANS, 5, s);
+
+    ctx.fillStyle = K.ink;
+    ctx.globalAlpha = 0.5;
+    ctx.font = '500 ' + 7.5 * s + 'px ' + SANS;
+    trackCenter(ctx, '自助取票 · 请核对片名与场次', mid, 48 * s, 1.6 * s);
+    ctx.globalAlpha = 1;
+
+    dashLine(ctx, L, 60 * s, R, 60 * s, K.ink, 0.45, 1 * s, dash);
+
+    /* 键值两行 */
+    var kv = [['单号', D.no, 80], ['出票', D.dateStr + ' ' + D.buy, 98]];
+    for (i = 0; i < kv.length; i++) {
+      ctx.fillStyle = K.ink;
+      ctx.globalAlpha = 0.62;
+      ctx.font = '500 ' + 9 * s + 'px ' + SANS;
+      ctx.fillText(kv[i][0], L, kv[i][2] * s);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = K.print;
+      ctx.font = '500 ' + 10 * s + 'px ' + MONO;
+      rightText(ctx, kv[i][1], R, kv[i][2] * s);
+    }
+
+    dashLine(ctx, L, 110 * s, R, 110 * s, K.ink, 0.45, 1 * s, dash);
+
+    ctx.fillStyle = K.ink;
+    ctx.globalAlpha = 0.62;
+    ctx.font = '500 ' + 9 * s + 'px ' + SANS;
+    ctx.fillText('片名', L, 126 * s);
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = K.print;
+    ctx.font = '600 ' + 12.5 * s + 'px ' + SANS;
+    var tl = wrapChars(ctx, D.title, R - L, 3);
+    for (i = 0; i < tl.length; i++) ctx.fillText(tl[i], L, (146 + i * 18) * s);
+
+    dashLine(ctx, L, 194 * s, R, 194 * s, K.ink, 0.45, 1 * s, dash);
+
+    var rows = [['影厅', D.hall, 214], ['场次', D.show, 232],
+                ['座位', D.row + ' 排 ' + D.seat + ' 座', 250], ['观众', D.guest, 268]];
+    for (i = 0; i < rows.length; i++) {
+      ctx.fillStyle = K.ink;
+      ctx.globalAlpha = 0.62;
+      ctx.font = '500 ' + 9 * s + 'px ' + SANS;
+      ctx.fillText(rows[i][0], L, rows[i][2] * s);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = K.print;
+      ctx.font = '500 ' + 10.5 * s + 'px ' + MONO;
+      rightText(ctx, rows[i][1], R, rows[i][2] * s);
+    }
+
+    dashLine(ctx, L, 282 * s, R, 282 * s, K.ink, 0.45, 1 * s, dash);
+
+    ctx.fillStyle = K.ink;
+    ctx.globalAlpha = 0.62;
+    ctx.font = '500 ' + 9 * s + 'px ' + SANS;
+    ctx.fillText('票价', L, 302 * s);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = K.print;
+    ctx.font = '500 ' + 10.5 * s + 'px ' + MONO;
+    rightText(ctx, D.price, R, 302 * s);
+
+    ctx.font = '600 ' + 10.5 * s + 'px ' + SANS;
+    ctx.fillText('实付', L, 324 * s);
+    ctx.font = '600 ' + 13 * s + 'px ' + MONO;
+    rightText(ctx, D.price, R, 324 * s);
+
+    ctx.fillStyle = K.ink;
+    ctx.globalAlpha = 0.5;
+    ctx.fillRect(L, 336 * s, R - L, 1 * s);
+    ctx.fillRect(L, 339.5 * s, R - L, 1 * s);
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = K.print;
+    barcode(ctx, 30 * s, 348 * s, W - 60 * s, 24 * s, s, rnd);
+
+    ctx.font = '500 ' + 9 * s + 'px ' + MONO;
+    ctx.globalAlpha = 0.75;
+    midText(ctx, D.no, mid, 386 * s);
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = K.ink;
+    ctx.globalAlpha = 0.5;
+    ctx.font = '500 ' + 8 * s + 'px ' + SANS;
+    trackCenter(ctx, '谢谢惠顾 · 开映前 15 分钟入场', mid, 404 * s, 1.2 * s);
+    if (D.domain) {
+      ctx.globalAlpha = 0.35;
+      ctx.font = '400 ' + 7.5 * s + 'px ' + MONO;
+      midText(ctx, D.domain, mid, 417 * s);
+    }
+    ctx.globalAlpha = 1;
+
+    /* 盖在金额上的取票章 */
+    ctx.save();
+    ctx.translate(172 * s, 314 * s);
+    ctx.rotate(-0.21);
+    ctx.globalAlpha = 0.4;
+    ctx.strokeStyle = K.seal;
+    ctx.lineWidth = 1.5 * s;
+    ctx.strokeRect(-28 * s, -14 * s, 56 * s, 28 * s);
+    ctx.lineWidth = 0.7 * s;
+    ctx.strokeRect(-24.5 * s, -10.5 * s, 49 * s, 21 * s);
+    ctx.fillStyle = K.seal;
+    ctx.font = '600 ' + 12.5 * s + 'px ' + SANS;
+    ctx.textBaseline = 'middle';
+    trackCenter(ctx, '已取票', 0, 0.5 * s, 2.5 * s);
+    ctx.textBaseline = 'alphabetic';
+    ctx.globalAlpha = 1;
+    ctx.restore();
+
+    ctx.restore();
+    ctx.restore();
+
+    ctx.save();
+    pathReceipt(ctx, W, H, seed());
+    ctx.strokeStyle = K.edge;
+    ctx.lineWidth = 1 * s;
+    ctx.globalAlpha = 0.9;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /* ================= 版式 5：宽幕（横版，左侧竖色带） ================= */
+  function pathWide(ctx, W, H, rnd) {
+    ctx.beginPath();
+    ctx.moveTo(3.5, 0);
+    ctx.lineTo(W - 3.5, 0);
+    tornEdgeV(ctx, 0, H, W - 3.5, 4.4, rnd);
+    ctx.lineTo(3.5, H);
+    tornEdgeV(ctx, H, 0, 3.5, 4.4, rnd);
+    ctx.closePath();
+  }
+
+  function drawWide(ctx, W, H, s, K, D, rnd, seed) {
+    var band = 62 * s, L = 78 * s, R = 362 * s, i;
+
+    ctx.save();
+    pathWide(ctx, W, H, seed());
+    ctx.clip();
+    paper(ctx, W, H, K, s, seed);
+    watermark(ctx, W, H, K, s, D);
+
+    /* 左侧竖色带：影院名竖着印在上面，这是宽幕票最认得出来的地方 */
+    ctx.fillStyle = K.ink;
+    ctx.fillRect(0, 0, band, H);
+
+    ctx.textBaseline = 'alphabetic';
+    ctx.textAlign = 'left';
+
+    ctx.save();
+    ctx.translate(band / 2, H / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = K.paper;
+    fitCenter(ctx, D.cinema, 0, -1 * s, H - 26 * s, 14, 8, '600', SERIF, 4.5, s);
+    ctx.globalAlpha = 0.62;
+    fitCenter(ctx, D.en, 0, 14 * s, H - 20 * s, 6.5, 4.5, '500', SANS, 1.8, s);
+    ctx.globalAlpha = 1;
+    ctx.restore();
+
+    /* 预印层 */
+    ctx.fillStyle = K.seal;
+    ctx.fillRect(L, 82 * s, 40 * s, 1.4 * s);
+
+    if (D.domain) {
+      ctx.fillStyle = K.ink;
+      ctx.globalAlpha = 0.5;
+      ctx.font = '500 ' + 8 * s + 'px ' + MONO;
+      rightText(ctx, D.domain, R, 86 * s);
+      ctx.globalAlpha = 1;
+    }
+
+    var cols = [
+      ['日期', D.dateStr, 78],
+      ['场次', D.show, 148],
+      ['影厅', D.hall, 190],
+      ['座位', D.row + '排' + D.seat + '座', 246]
+    ];
+    ctx.fillStyle = K.ink;
+    ctx.globalAlpha = 0.66;
+    ctx.font = '500 ' + 7 * s + 'px ' + SANS;
+    for (i = 0; i < cols.length; i++) trackText(ctx, cols[i][0], cols[i][2] * s, 104 * s, 2.6 * s);
+    ctx.font = '500 ' + 9 * s + 'px ' + SANS;
+    trackText(ctx, '观众', L, 148 * s, 2.6 * s);
+    ctx.globalAlpha = 1;
+
+    /* 打印层 */
+    ctx.save();
+    wobble(ctx, W, H, s, rnd);
+
+    var lay = layoutTitle(ctx, D.title, R - L, s, [24, 21, 19], [19, 17.5, 16, 14.5, 13]);
+    ctx.fillStyle = K.print;
+    ctx.font = '600 ' + lay.size * s + 'px ' + SERIF;
+    if (lay.lines.length === 1) {
+      ctx.fillText(lay.lines[0], L, 56 * s);
+    } else {
+      ctx.fillText(lay.lines[0], L, 44 * s);
+      ctx.fillText(lay.lines[1], L, (44 + lay.size * 1.28) * s);
+    }
+
+    ctx.font = '500 ' + 10.5 * s + 'px ' + MONO;
+    for (i = 0; i < cols.length; i++) ctx.fillText(cols[i][1], cols[i][2] * s, 124 * s);
+
+    ctx.font = '500 ' + 10.5 * s + 'px ' + SANS;
+    ctx.fillText(D.guest, 106 * s, 148 * s);
+
+    ctx.fillStyle = K.seal;
+    ctx.font = '600 ' + 9.5 * s + 'px ' + MONO;
+    rightText(ctx, 'NO. ' + D.no, R, 148 * s);
+
+    ctx.fillStyle = K.print;
+    barcode(ctx, L, 160 * s, R - L, 11 * s, s, rnd);
+    ctx.restore();
+
+    ctx.restore();
+
+    ctx.save();
+    pathWide(ctx, W, H, seed());
+    ctx.strokeStyle = K.edge;
+    ctx.lineWidth = 1.1 * s;
+    ctx.globalAlpha = 0.85;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /* ================= 版式 6：登机牌（横版，右侧大座位号） ================= */
+  function pathPass(ctx, W, H, px, r, s) {
+    var c = 6 * s;
+    ctx.beginPath();
+    ctx.moveTo(c, 0);
+    ctx.lineTo(px - r, 0);
+    ctx.arc(px, 0, r, Math.PI, 0, true);
+    ctx.lineTo(W - c, 0);
+    ctx.arcTo(W, 0, W, c, c);
+    ctx.lineTo(W, H - c);
+    ctx.arcTo(W, H, W - c, H, c);
+    ctx.lineTo(px + r, H);
+    ctx.arc(px, H, r, 0, Math.PI, true);
+    ctx.lineTo(c, H);
+    ctx.arcTo(0, H, 0, H - c, c);
+    ctx.lineTo(0, c);
+    ctx.arcTo(0, 0, c, 0, c);
+    ctx.closePath();
+  }
+
+  function drawPass(ctx, W, H, s, K, D, rnd, seed) {
+    var px = 258 * s, r = 6 * s, L = 16 * s, R = 246 * s, sc = 325 * s, i;
+
+    ctx.save();
+    pathPass(ctx, W, H, px, r, s);
+    ctx.clip();
+    paper(ctx, W, H, K, s, seed);
+    watermark(ctx, W, H, K, s, D);
+
+    /* 顶条 */
+    ctx.fillStyle = K.ink;
+    ctx.fillRect(0, 0, W, 26 * s);
+
+    ctx.textBaseline = 'alphabetic';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = K.paper;
+    fitLeft(ctx, D.cinema, L, 18 * s, 130 * s, 10, 6.5, '600', SANS, 3, s);
+    ctx.globalAlpha = 0.72;
+    ctx.font = '500 ' + 7.5 * s + 'px ' + MONO;
+    trackRight(ctx, 'BOARDING PASS', R, 18 * s, 1.6 * s);
+    ctx.font = '500 ' + 7 * s + 'px ' + SANS;
+    trackCenter(ctx, 'SEAT · 座位', sc, 18 * s, 2 * s);
+    ctx.globalAlpha = 1;
+
+    /* 预印层 */
+    var cols = [['DATE', D.dateStr, 16], ['TIME', D.show, 96], ['HALL', D.hall, 152]];
+    ctx.fillStyle = K.ink;
+    ctx.globalAlpha = 0.55;
+    ctx.font = '500 ' + 7 * s + 'px ' + MONO;
+    for (i = 0; i < cols.length; i++) trackText(ctx, cols[i][0], cols[i][2] * s, 92 * s, 1.6 * s);
+    trackText(ctx, 'GUEST', L, 128 * s, 1.6 * s);
+    ctx.globalAlpha = 1;
+
+    if (D.domain) {
+      ctx.fillStyle = K.ink;
+      ctx.globalAlpha = 0.45;
+      ctx.font = '500 ' + 7 * s + 'px ' + MONO;
+      rightText(ctx, D.domain, R, 128 * s);
+      ctx.globalAlpha = 1;
+    }
+
+    dashLine(ctx, px, 32 * s, px, H - 8 * s, K.ink, 0.45, 1 * s, [3 * s, 3.6 * s]);
+
+    /* 打印层 */
+    ctx.save();
+    wobble(ctx, W, H, s, rnd);
+
+    var lay = layoutTitle(ctx, D.title, R - L, s, [20, 18, 16.5], [16, 15, 14, 13, 12]);
+    ctx.fillStyle = K.print;
+    ctx.font = '600 ' + lay.size * s + 'px ' + SERIF;
+    if (lay.lines.length === 1) {
+      ctx.fillText(lay.lines[0], L, 56 * s);
+    } else {
+      ctx.fillText(lay.lines[0], L, 48 * s);
+      ctx.fillText(lay.lines[1], L, (48 + lay.size * 1.25) * s);
+    }
+
+    ctx.font = '500 ' + 11 * s + 'px ' + MONO;
+    for (i = 0; i < cols.length; i++) ctx.fillText(cols[i][1], cols[i][2] * s, 110 * s);
+
+    ctx.font = '500 ' + 10.5 * s + 'px ' + SANS;
+    ctx.fillText(D.guest, L, 144 * s);
+
+    ctx.fillStyle = K.seal;
+    ctx.font = '600 ' + 8.5 * s + 'px ' + MONO;
+    rightText(ctx, 'NO. ' + D.no, R, 144 * s);
+
+    /* 副券：登机牌上最大的永远是座位号 */
+    ctx.fillStyle = K.print;
+    ctx.font = '600 ' + 28 * s + 'px ' + MONO;
+    midText(ctx, D.row + '-' + D.seat, sc, 78 * s);
+
+    ctx.fillStyle = K.ink;
+    ctx.globalAlpha = 0.7;
+    ctx.font = '500 ' + 8.5 * s + 'px ' + SANS;
+    midText(ctx, D.hall, sc, 100 * s);
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = K.print;
+    barcode(ctx, 276 * s, 112 * s, 98 * s, 18 * s, s, rnd);
+    ctx.restore();
+
+    if (D.domain) {
+      ctx.fillStyle = K.ink;
+      ctx.globalAlpha = 0.45;
+      ctx.font = '500 ' + 6.5 * s + 'px ' + MONO;
+      midText(ctx, D.domain, sc, 146 * s);
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.restore();
+
+    ctx.save();
+    pathPass(ctx, W, H, px, r, s);
+    ctx.strokeStyle = K.edge;
+    ctx.lineWidth = 1 * s;
+    ctx.globalAlpha = 0.8;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /* ================= 版式 7：老票（横版硬纸，四周邮票齿孔） ================= */
+  function pathRail(ctx, W, H, s) {
+    ctx.beginPath();
+    rr(ctx, 0, 0, W, H, 3 * s);
+    /* 圆心正好落在边线上，evenodd 把圆的内半边挖掉，就是邮票齿 */
+    var r = 3.2 * s, p = 9 * s, i, n, x, y;
+    n = Math.max(1, Math.round((W - 2 * p) / p));
+    for (i = 0; i <= n; i++) {
+      x = p + (W - 2 * p) * i / n;
+      ctx.moveTo(x + r, 0); ctx.arc(x, 0, r, 0, Math.PI * 2);
+      ctx.moveTo(x + r, H); ctx.arc(x, H, r, 0, Math.PI * 2);
+    }
+    n = Math.max(1, Math.round((H - 2 * p) / p));
+    for (i = 0; i <= n; i++) {
+      y = p + (H - 2 * p) * i / n;
+      ctx.moveTo(r, y); ctx.arc(0, y, r, 0, Math.PI * 2);
+      ctx.moveTo(W + r, y); ctx.arc(W, y, r, 0, Math.PI * 2);
+    }
+  }
+
+  function drawRail(ctx, W, H, s, K, D, rnd, seed) {
+    var L = 16 * s, R = 284 * s, i;
+
+    ctx.save();
+    pathRail(ctx, W, H, s);
+    ctx.clip('evenodd');
+    paper(ctx, W, H, K, s, seed);
+
+    /* 双色防伪斜纹底 */
+    ctx.lineWidth = 0.6 * s;
+    ctx.strokeStyle = K.ink;
+    ctx.globalAlpha = 0.05;
+    for (i = -H; i < W; i += 5 * s) {
+      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + H, H); ctx.stroke();
+    }
+    ctx.strokeStyle = K.seal;
+    ctx.globalAlpha = 0.035;
+    for (i = 0; i < W + H; i += 5 * s) {
+      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i - H, H); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    watermark(ctx, W, H, K, s, D);
+
+    /* 预印层 */
+    ctx.textBaseline = 'alphabetic';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = K.ink;
+    fitLeft(ctx, D.cinema, L, 28 * s, 170 * s, 11, 7, '600', SERIF, 3.5, s);
+
+    ctx.globalAlpha = 0.5;
+    ctx.fillRect(L, 36 * s, R - L, 0.9 * s);
+    ctx.fillRect(L, 82 * s, R - L, 0.9 * s);
+    ctx.globalAlpha = 1;
+
+    var cells = [
+      ['日期', D.dateStr, 16, 100], ['场次', D.show, 150, 100],
+      ['影厅', D.hall, 16, 122], ['座位', D.row + '排' + D.seat + '座', 150, 122],
+      ['观众', D.guest, 16, 142]
+    ];
+    ctx.globalAlpha = 0.65;
+    ctx.font = '500 ' + 8 * s + 'px ' + SANS;
+    for (i = 0; i < cells.length; i++) trackText(ctx, cells[i][0], cells[i][2] * s, cells[i][3] * s, 2 * s);
+    ctx.globalAlpha = 1;
+
+    if (D.domain) {
+      ctx.fillStyle = K.ink;
+      ctx.globalAlpha = 0.45;
+      ctx.font = '500 ' + 7.5 * s + 'px ' + MONO;
+      rightText(ctx, D.domain, R, 142 * s);
+      ctx.globalAlpha = 1;
+    }
+
+    /* 打印层 */
+    ctx.save();
+    wobble(ctx, W, H, s, rnd);
+
+    var lay = layoutTitle(ctx, D.title, 250 * s, s, [19, 17, 15.5], [15, 14, 13, 12, 11]);
+    ctx.fillStyle = K.print;
+    ctx.font = '600 ' + lay.size * s + 'px ' + SERIF;
+    if (lay.lines.length === 1) {
+      midText(ctx, lay.lines[0], W / 2, 66 * s);
+    } else {
+      midText(ctx, lay.lines[0], W / 2, 56 * s);
+      midText(ctx, lay.lines[1], W / 2, (56 + lay.size * 1.25) * s);
+    }
+
+    ctx.font = '500 ' + 9.5 * s + 'px ' + MONO;
+    for (i = 0; i < 4; i++) ctx.fillText(cells[i][1], (cells[i][2] + 32) * s, cells[i][3] * s);
+    ctx.font = '500 ' + 9.5 * s + 'px ' + SANS;
+    ctx.fillText(cells[4][1], 48 * s, 142 * s);
+
+    ctx.fillStyle = K.seal;
+    ctx.font = '600 ' + 8 * s + 'px ' + MONO;
+    rightText(ctx, 'NO. ' + D.no, R, 28 * s);
+    ctx.restore();
+
+    /* 圆形验讫章 */
+    ctx.save();
+    ctx.translate(252 * s, 108 * s);
+    ctx.rotate(-0.13);
+    ctx.globalAlpha = 0.36;
+    ctx.strokeStyle = K.seal;
+    ctx.lineWidth = 1.8 * s;
+    ctx.beginPath(); ctx.arc(0, 0, 22 * s, 0, Math.PI * 2); ctx.stroke();
+    ctx.lineWidth = 0.8 * s;
+    ctx.beginPath(); ctx.arc(0, 0, 18.5 * s, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = K.seal;
+    ctx.font = '600 ' + 11 * s + 'px ' + SERIF;
+    ctx.textBaseline = 'middle';
+    trackCenter(ctx, '验讫', 0, -3.5 * s, 2 * s);
+    ctx.font = '500 ' + 6 * s + 'px ' + MONO;
+    midText(ctx, D.stamp, 0, 8.5 * s);
+    ctx.textBaseline = 'alphabetic';
+    ctx.globalAlpha = 1;
+    ctx.restore();
+
+    ctx.restore();
+
+    ctx.save();
+    pathRail(ctx, W, H, s);
+    ctx.strokeStyle = K.edge;
+    ctx.lineWidth = 1 * s;
+    ctx.globalAlpha = 0.8;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  var LAYOUTS = {
+    classic: drawClassic, film: drawFilm, stub: drawStub, receipt: drawReceipt,
+    wide: drawWide, pass: drawPass, rail: drawRail
+  };
+
+  /* ================= 主绘制 ================= */
+  function skinOf(want, stamp) {
+    if (want === 'cycle') return ORDER[xmur3('skin|' + stamp)() % ORDER.length];
+    return SKINS[want] ? want : 'jade';
+  }
+
+  function draw(cv, cfg, name, forceSkin) {
+    var box = cv.parentNode ? cv.parentNode.clientWidth : 0;
+    if (!box) return null;
+    /* 左右各留一点白：票是有厚度的实物，贴着卡片边像被裁掉了，
+       投影也没地方落 */
+    box = box - (cfg.pad === undefined ? 10 : cfg.pad) * 2;
+
+    var d = new Date();
+    var dateStr = d.getFullYear() + '.' + pad2(d.getMonth() + 1) + '.' + pad2(d.getDate());
+    var stamp = '' + d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate());
+    var guest = (name || '').trim() || '独自观影';
+
+    var key = skinOf(forceSkin || cfg.skin, stamp);
+    var K = SKINS[key];
+    var W = Math.max(K.minw, Math.min(K.maxw, Math.round(box)));
+    var H = Math.round(W * K.dh / K.dw);
+    var s = W / K.dw;
+    var dpr = Math.min(3, window.devicePixelRatio || 1);
+
+    cv.width = Math.round(W * dpr);
+    cv.height = Math.round(H * dpr);
+    cv.style.width = W + 'px';
+    cv.style.height = 'auto';
+    cv.style.filter = K.shadow;
+
+    var ctx = cv.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+
+    /* 票面数据只跟「日期 + 名字 + 页面」有关，换样式不换场次和座位。
+       seed 是页面标识：单篇模式下每部影片各有各的座位号和撕口，
+       不然一站的片子全是同一个 12 排 15 座。 */
+    var sx = cfg.seed || '';
+    var rnd = mulberry32(xmur3(stamp + '|' + guest + '|' + sx)());
+    var seed = function () { return mulberry32(xmur3(stamp + '#edge|' + sx)()); };
+
+    var movies = (cfg.movies && cfg.movies.length) ? cfg.movies : null;
+    var chosen = movies ? movies[Math.floor(rnd() * movies.length)] : null;
+    var title = chosen ? chosen.t : pick(rnd, FALLBACK);
+    var show = pick(rnd, SHOWS);
+
+    var D = {
+      cinema: cfg.cinema, en: cfg.en, site: cfg.site, host: cfg.host,
+      title: title, dateStr: dateStr, stamp: stamp, guest: guest,
+      hall: pick(rnd, HALLS),
+      show: show,
+      row: 1 + Math.floor(rnd() * 12),
+      seat: 1 + Math.floor(rnd() * 20),
+      no: stamp + '-' + ('0000' + Math.floor(rnd() * 65536).toString(16).toUpperCase()).slice(-4),
+      domain: cfg.domain || cfg.host || '',
+      wm: cfg.wm ? 1 : 0,
+      price: '¥ ' + pick(rnd, PRICES) + '.00',
+      frame: ('0000' + Math.floor(rnd() * 9999)).slice(-4)
+    };
+    D.buy = minusMin(show, 10 + Math.floor(rnd() * 40));
+
+    LAYOUTS[K.layout](ctx, W, H, s, K, D, rnd, seed);
+
+    return { title: title, href: chosen ? chosen.u : '', serial: D.no, skin: key, label: K.label };
+  }
+
+  window.ZMTicket = {
+    draw: draw,
+    skins: SKINS,
+    order: ORDER,
+
+    boot: function (root) {
+      if (!root || root._zmt) return;
+      root._zmt = 1;
+      var cfg;
+      try { cfg = JSON.parse(root.getAttribute('data-zmt') || '{}'); } catch (e) { cfg = {}; }
+      cfg.cinema = cfg.cinema || '影院';
+      cfg.en = cfg.en || 'ADMIT ONE · TODAY';
+      cfg.site = cfg.site || cfg.cinema;
+      cfg.host = cfg.host || '';
+      cfg.domain = cfg.domain || cfg.host || '';
+      cfg.seed = cfg.seed || '';
+      cfg.wm = (cfg.wm === undefined) ? 1 : (cfg.wm ? 1 : 0);
+      cfg.skin = cfg.skin || 'jade';
+
+      var cv = root.querySelector('.zmt-cv');
+      var input = root.querySelector('.zmt-name');
+      var btnGo = root.querySelector('.zmt-go');
+      var btnSave = root.querySelector('.zmt-save');
+      var chips = root.querySelectorAll('.zmt-skin');
+      var lastHref = '';
+      var forced = '';
+
+      var NKEY = 'zmt_name', SKEY = 'zmt_skin';
+      try {
+        if (input && localStorage.getItem(NKEY)) input.value = localStorage.getItem(NKEY);
+        if (chips.length && localStorage.getItem(SKEY) && SKINS[localStorage.getItem(SKEY)]) {
+          forced = localStorage.getItem(SKEY);
+        }
+      } catch (e) {}
+
+      /* 没有输入框的实例（比如同页第二张票）也认名字，两张票不会一个署名一个匿名 */
+      function currentName() {
+        if (input) return input.value;
+        try { return localStorage.getItem(NKEY) || ''; } catch (e) { return ''; }
+      }
+
+      function render() {
+        var res = draw(cv, cfg, currentName(), forced);
+        if (!res) return;
+        lastHref = res.href;
+        cv.style.cursor = (cfg.link && lastHref) ? 'pointer' : 'default';
+        cv.setAttribute('aria-label', '今日份电影票（' + res.label + '样式）：' + res.title + '，票号 ' + res.serial);
+        for (var i = 0; i < chips.length; i++) {
+          chips[i].setAttribute('aria-pressed', chips[i].getAttribute('data-skin') === res.skin ? 'true' : 'false');
+        }
+      }
+
+      function reissue() {
+        try { if (input) localStorage.setItem(NKEY, input.value.trim()); } catch (e) {}
+        render();
+      }
+
+      if (btnGo) btnGo.addEventListener('click', reissue);
+      if (input) input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); reissue(); }
+      });
+
+      for (var i = 0; i < chips.length; i++) {
+        chips[i].addEventListener('click', function () {
+          forced = this.getAttribute('data-skin');
+          try { localStorage.setItem(SKEY, forced); } catch (e) {}
+          render();
+        });
+      }
+
+      if (cv) cv.addEventListener('click', function () {
+        if (cfg.link && lastHref) window.location.href = lastHref;
+      });
+
+      if (btnSave) btnSave.addEventListener('click', function () {
+        var label = btnSave.textContent;
+        function done(txt) {
+          btnSave.textContent = txt;
+          setTimeout(function () { btnSave.textContent = label; }, 1600);
+        }
+        try {
+          cv.toBlob(function (blob) {
+            if (!blob) { done('保存失败'); return; }
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = '电影票-' + (input && input.value.trim() ? input.value.trim() : '今日') + '.png';
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+            done('已保存');
+          }, 'image/png');
+        } catch (err) { done('保存失败'); }
+      });
+
+      root._zmtCfg = cfg;         /* 页面上别的脚本可以改配置 */
+      root._zmtRender = render;   /* 改完叫它重画 */
+      render();
+
+      /* 只在容器宽度真的变了才重绘：票一变高，ResizeObserver 会再触发一次，
+         不设这道闸容易自己把自己转起来 */
+      var t, lastW = cv ? cv.parentNode.clientWidth : 0;
+      function redraw() {
+        clearTimeout(t);
+        t = setTimeout(function () {
+          var w = cv.parentNode.clientWidth;
+          if (w === lastW) return;
+          lastW = w; render();
+        }, 160);
+      }
+      if (window.ResizeObserver) new ResizeObserver(redraw).observe(root);
+      else window.addEventListener('resize', redraw);
+    },
+
+    bootAll: function () {
+      var list = document.querySelectorAll('.zmt');
+      for (var i = 0; i < list.length; i++) window.ZMTicket.boot(list[i]);
+    }
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', window.ZMTicket.bootAll);
+  } else {
+    window.ZMTicket.bootAll();
+  }
+})();</script> <div class="zmt" data-zmt="{&quot;cinema&quot;:&quot;BD\u7535\u5f71\u9996\u53d1\u7ad9&quot;,&quot;en&quot;:&quot;ADMIT ONE \u00b7 ONE SHOW A DAY&quot;,&quot;site&quot;:&quot;BD\u7535\u5f71\u9996\u53d1\u7ad9&quot;,&quot;host&quot;:&quot;www.bdflixs.com&quot;,&quot;domain&quot;:&quot;BDFLIXS.COM&quot;,&quot;wm&quot;:1,&quot;pad&quot;:10,&quot;movies&quot;:[{&quot;t&quot;:&quot;\u6d41\u6d6a\u5730\u7403&quot;,&quot;u&quot;:&quot;https:\/\/www.bdflixs.com\/594.html&quot;}],&quot;link&quot;:0,&quot;skin&quot;:&quot;cycle&quot;,&quot;seed&quot;:&quot;p594&quot;}"><div class="zmt-stage"><canvas class="zmt-cv" role="img"></canvas></div><div class="zmt-bar"> <input class="zmt-name" type="text" placeholder="你的名字" maxlength="12" autocomplete="off" spellcheck="false" aria-label="填写票面上的观众姓名"> <button class="zmt-go" type="button">重新出票</button> <button class="zmt-save" type="button">保存图片</button></div><p class="zmt-tip">每日零点自动换票 · 点票面看这部片</p></div><div class="clear"></div></aside><aside id="countdown_be_widget-2" class="widget countdown_widget ms" data-aos="fade-up"><h3 class="widget-title"><span class="title-i"><span></span><span></span><span></span><span></span></span>时光静好</h3><div class="be-countdown-widge"><div class="countdown-count-main round-progress"><div class="current-date"><span class="current-time"></span></div> <script>function updateTime() {
+					var currentTime = new Date();
+					var year = currentTime.getFullYear();
+					var month = (currentTime.getMonth() < 9 ? "0": "") + (currentTime.getMonth() + 1);
+					var day = (currentTime.getDate() < 10 ? "0": "") + currentTime.getDate();
+					var hours = currentTime.getHours();
+					var minutes = currentTime.getMinutes();
+					var seconds = currentTime.getSeconds();
+
+					hours = (hours < 10 ? "0": "") + hours;
+					minutes = (minutes < 10 ? "0": "") + minutes;
+					seconds = (seconds < 10 ? "0": "") + seconds;
+
+					var dateTimeString = year + "年" + month + "月" + day + "日 " + hours + ":" + minutes + ":" + seconds;
+
+					var timeElements = document.getElementsByClassName("current-time");
+					for (var i = 0; i < timeElements.length; i++) {
+						timeElements[i].innerHTML = " " + dateTimeString;
+					}
+					setTimeout(updateTime, 1000);
+				}
+				updateTime();</script> <div class="countdown-area"><div class="countdown-item countdown-day" id="dayprogress"><div class="countdown-title">今日</div><div class="besea"><div class="bewave"></div><div class="bewave"></div><div class="bewave"></div><div class="progress-count">00%</div></div><div class="countdown-time">已<span>00</span>小时</div></div><div class="countdown-item countdown-week" id="weekprogress"><div class="countdown-title">本周</div><div class="besea"><div class="bewave"></div><div class="bewave"></div><div class="bewave"></div><div class="progress-count">00%</div></div><div class="countdown-time">已<span>00</span>天</div></div><div class="countdown-item countdown-month" id="monthprogress"><div class="countdown-title">本月</div><div class="besea"><div class="bewave"></div><div class="bewave"></div><div class="bewave"></div><div class="progress-count">00%</div></div><div class="countdown-time">已<span>00</span>天</div></div><div class="countdown-item countdown-year" id="yearprogress"><div class="countdown-title">今年</div><div class="besea"><div class="bewave"></div><div class="bewave"></div><div class="bewave"></div><div class="progress-count">00%</div></div><div class="countdown-time">已<span>00</span>月</div></div></div></div><div class="clear"></div></div><div class="clear"></div></aside><aside id="zm_lost_stars-2" class="widget zm_lost_stars_widget ms" data-aos="fade-up"><h3 class="widget-title"><span class="title-i"><span></span><span></span><span></span><span></span></span>尘封再现</h3><style>/* 想调手感只动这几行：
+			   --zm-ls-pad  左右内缩。默认 15px = 对齐主题的 .widget ul{padding:10px 15px}
+			                （css/be.css:9463）。本段样式打在 body 里，晚于 head 的
+			                额外CSS，同为单类选择器时后者推不动它，覆盖请写 .widget > .zm-ls{...}
+			   --zm-ls-a    强调色（悬停、可点的字）
+			   --zm-ls-lab  次要文字
+			   --zm-ls-dust 「多少天没人观看」那颗小徽章的底 */
+			.zm-ls{--zm-ls-pad:15px;--zm-ls-a:#4d8cb8;--zm-ls-lab:#8a8f98;--zm-ls-line:rgba(0,0,0,.07);--zm-ls-dust:rgba(0,0,0,.05);padding:10px var(--zm-ls-pad);line-height:1.6}
+			.night .zm-ls{--zm-ls-a:#5aa6d0;--zm-ls-lab:#8b8b8b;--zm-ls-line:rgba(255,255,255,.08);--zm-ls-dust:rgba(255,255,255,.07)}
+
+			/* 主题给侧栏列表的那套（li 单行、nowrap、29px 行高）别漏进来 —— 这里根本没用 ul */
+			.zm-ls,.zm-ls *{box-sizing:border-box}
+			.zm-ls a{text-decoration:none;box-shadow:none}
+			.zm-ls [hidden]{display:none}
+
+			.zm-ls-i{padding:9px 0;border-top:1px solid var(--zm-ls-line)}
+			.zm-ls-i:first-child{border-top:0;padding-top:0}
+			.zm-ls-t{display:block;font-size:13.5px;line-height:1.5;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+			.zm-ls-t:hover{color:var(--zm-ls-a)}
+
+			.zm-ls-m{margin-top:4px;font-size:11px;color:var(--zm-ls-lab);display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-variant-numeric:tabular-nums}
+			.zm-ls-d{display:inline-block;padding:1px 6px;border-radius:4px;font-size:10.5px;background:var(--zm-ls-dust);color:var(--zm-ls-lab)}
+
+			.zm-ls-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:11px;padding-top:9px;border-top:1px solid var(--zm-ls-line);font-size:11.5px;color:var(--zm-ls-lab)}
+			.zm-ls-roll{margin:0;padding:0;border:0;background:none;font:inherit;line-height:inherit;color:var(--zm-ls-a);cursor:pointer}
+			.zm-ls-roll:hover{text-decoration:underline}
+
+			.zm-ls-fade{animation:zm-ls-in .45s ease}
+			@keyframes zm-ls-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+			.zm-ls-empty,.zm-ls-note{padding:6px 0;font-size:12.5px;line-height:1.7;color:var(--zm-ls-lab)}</style> <script>(function(){
+			function up(el, cls){
+				while (el && 1 === el.nodeType) {
+					if (el.classList && el.classList.contains(cls)) { return el; }
+					el = el.parentNode;
+				}
+				return null;
+			}
+
+			document.addEventListener('click', function(e){
+				var btn = up(e.target, 'zm-ls-roll');
+				if (!btn) { return; }
+
+				var box = up(btn, 'zm-ls');
+				if (!box) { return; }
+
+				var gs = box.querySelectorAll('.zm-ls-g');
+				if (gs.length < 2) { return; }
+
+				var cur = 0, i;
+				for (i = 0; i < gs.length; i++) {
+					if (!gs[i].hidden) { cur = i; break; }
+				}
+
+				var next = (cur + 1) % gs.length;
+				gs[cur].hidden = true;
+				gs[next].hidden = false;
+
+				// 先摘掉再挂上，中间强制读一次布局，动画才会重新跑一遍；
+				// 不读的话浏览器把这两步合并，class 从头到尾没变过
+				gs[next].classList.remove('zm-ls-fade');
+				void gs[next].offsetWidth;
+				gs[next].classList.add('zm-ls-fade');
+			}, false);
+		})();</script> <div class="zm-ls"><div class="zm-ls-g zm-ls-fade"><div class="zm-ls-i"><a class="zm-ls-t" href="https://www.bdflixs.com/1245.html" title="2017《星河战队：火星叛国者》瑞克又降级了但这次至少虫族管够">2017《星河战队：火星叛国者》瑞克又降级了但这次至少虫族管够</a><div class="zm-ls-m"><span class="zm-ls-d">1 天没人观看</span><span>2026-07-25</span><span>阅读 315</span></div></div><div class="zm-ls-i"><a class="zm-ls-t" href="https://www.bdflixs.com/1045.html" title="2010《意外的幸运签》一个死过一次的灵魂借了别人的身体才学会活着这件事没有标准答案">2010《意外的幸运签》一个死过一次的灵魂借了别人的身体才学会活着这件事没有标准答案</a><div class="zm-ls-m"><span class="zm-ls-d">2 天没人观看</span><span>2026-07-01</span><span>阅读 100</span></div></div><div class="zm-ls-i"><a class="zm-ls-t" href="https://www.bdflixs.com/141.html" title="2011《牛仔和外星人》当西部牛仔遇上外星飞船这场战斗突然就不讲规则了">2011《牛仔和外星人》当西部牛仔遇上外星飞船这场战斗突然就不讲规则了</a><div class="zm-ls-m"><span class="zm-ls-d">4 天没人观看</span><span>2026-03-05</span><span>阅读 177</span></div></div></div><div class="zm-ls-g" hidden><div class="zm-ls-i"><a class="zm-ls-t" href="https://www.bdflixs.com/235.html" title="2021《刺杀小说家》现实世界和小说世界同时失控一场追杀改写命运">2021《刺杀小说家》现实世界和小说世界同时失控一场追杀改写命运</a><div class="zm-ls-m"><span class="zm-ls-d">2 天没人观看</span><span>2026-03-11</span><span>阅读 170</span></div></div><div class="zm-ls-i"><a class="zm-ls-t" href="https://www.bdflixs.com/1049.html" title="2006《无间道风云》小李子马特达蒙极致猫鼠游戏黑帮大佬狂飙演技">2006《无间道风云》小李子马特达蒙极致猫鼠游戏黑帮大佬狂飙演技</a><div class="zm-ls-m"><span class="zm-ls-d">2 天没人观看</span><span>2026-07-02</span><span>阅读 100</span></div></div><div class="zm-ls-i"><a class="zm-ls-t" href="https://www.bdflixs.com/110.html" title="2016《釜山行》118分钟高压逃生">2016《釜山行》118分钟高压逃生</a><div class="zm-ls-m"><span>2026-03-01</span><span>阅读 207</span></div></div></div><div class="zm-ls-g" hidden><div class="zm-ls-i"><a class="zm-ls-t" href="https://www.bdflixs.com/576.html" title="2000《星际传奇》异星迫降遭遇恐怖暗黑虫群重刑犯带飞逃出生天刺激到爆">2000《星际传奇》异星迫降遭遇恐怖暗黑虫群重刑犯带飞逃出生天刺激到爆</a><div class="zm-ls-m"><span class="zm-ls-d">4 天没人观看</span><span>2026-04-24</span><span>阅读 150</span></div></div><div class="zm-ls-i"><a class="zm-ls-t" href="https://www.bdflixs.com/610.html" title="2018《蜘蛛侠：平行宇宙》小黑蛛接班六大蜘蛛侠跨宇宙同框">2018《蜘蛛侠：平行宇宙》小黑蛛接班六大蜘蛛侠跨宇宙同框</a><div class="zm-ls-m"><span>2026-04-30</span><span>阅读 194</span></div></div><div class="zm-ls-i"><a class="zm-ls-t" href="https://www.bdflixs.com/54.html" title="2006《杀死比尔：整个血腥事件》当复仇被拉到极致会发生什么">2006《杀死比尔：整个血腥事件》当复仇被拉到极致会发生什么</a><div class="zm-ls-m"><span class="zm-ls-d">2 天没人观看</span><span>2026-02-23</span><span>阅读 218</span></div></div></div><div class="zm-ls-foot"><span>随机打捞到 60 部尘封影片</span><button type="button" class="zm-ls-roll">再捞一次</button></div></div><div class="clear"></div></aside></div><div class="clear"></div></div><div class="clear"></div><div id="footer-widget-box" class="footer-site-widget"><div class="footer-widget-bg" style="background: url('https://pic1.imgdb.cn/item/699b3a71ba83e2a3a48227e3.jpg') no-repeat fixed center / cover;"><div class="footer-widget footer-widget-3"><div class="footer-widget-item"><aside id="nav_menu-2" class="widget widget_nav_menu" data-aos="fade-up"><h3 class="widget-title"><span class="s-icon"></span>推荐分类</h3><div class="menu-%e6%8e%a8%e8%8d%90%e5%88%86%e7%b1%bb-container"><ul id="menu-%e6%8e%a8%e8%8d%90%e5%88%86%e7%b1%bb" class="menu"><li id="menu-item-42" class="menu-item menu-item-type-taxonomy menu-item-object-category current-post-ancestor current-menu-parent current-post-parent menu-item-42 mega-menu menu-max-col"><a href="https://www.bdflixs.com/new-movies/">最新电影</a></li><li id="menu-item-43" class="menu-item menu-item-type-taxonomy menu-item-object-category current-post-ancestor current-menu-parent current-post-parent menu-item-43 mega-menu menu-max-col"><a href="https://www.bdflixs.com/new-movies/blockbuster/">院线大片</a></li><li id="menu-item-44" class="menu-item menu-item-type-taxonomy menu-item-object-category menu-item-44 mega-menu menu-max-col"><a href="https://www.bdflixs.com/new-movies/classic/">经典重现</a></li><li id="menu-item-45" class="menu-item menu-item-type-taxonomy menu-item-object-category menu-item-45 mega-menu menu-max-col"><a href="https://www.bdflixs.com/new-movies/jishi/">纪实影像</a></li><li id="menu-item-46" class="menu-item menu-item-type-taxonomy menu-item-object-category menu-item-46 mega-menu menu-max-col"><a href="https://www.bdflixs.com/anime/">次元动画</a></li><li id="menu-item-1200" class="menu-item menu-item-type-taxonomy menu-item-object-special menu-item-1200 mega-menu menu-max-col"><a href="https://www.bdflixs.com/special/movie-lists/">片单精选</a></li></ul></div><div class="clear"></div></aside><aside id="php_text-2" class="widget php_text" data-aos="fade-up"><h3 class="widget-title"><span class="s-icon"></span><span class="title-i"><span></span><span></span><span></span><span></span></span><a href='https://www.bdflixs.com/about.html' target="_blank">关于本站 <span class="more-i more-im"><span></span><span></span><span></span></span></a></h3><div class="textwidget widget-text"><p><strong>BD电影首发站</strong>专注电影内容整理与原创观后感，覆盖院线新片与多类型影片。我们坚持清晰分类，让影片不止被浏览，更被理解。持续更新，用内容建立信任。</p></div><div class="clear"></div></aside><aside id="be_counter-2" class="widget be-counter" data-aos="fade-up"><div class="be-counter-main be-counter-main-c"><div class="counters-item"><div class="counters"><div class="counter" data-TargetNum="18771401" data-Speed="80000">0</div><span class="counter-unit">+</span></div><div class="counter-title">网站访问量</div></div></div><div class="clear"></div></aside></div><div class="clear"></div></div></div></div><footer id="colophon" class="site-footer" role="contentinfo"><div class="site-info"><div class="site-copyright"><p style="text-align: center;">Copyright ©  <a href="https://www.bdflixs.com/">BDFLIXS.COM</a>  <a href="https://www.bdflixs.com/">BD电影首发站</a>  版权所有.</p><p style="text-align: center;"><a title="BD电影首发站" href="https://www.bdflixs.com/" target="_blank" rel="external nofollow noopener"><img src="https://www.bdflixs.com/wp-content/themes/begin/img/logo.png" alt="BD电影首发站" width="120" height="27" /></a></p></div><div class="add-info"><div class="clear"></div></div><div class="clear"></div></div><div id="login-layer" class="login-overlay"><div id="login" class="login-layer-area"><div class="login-main"></div></div></div><ul id="scroll" class="scroll scroll-but"><li> <span class="scroll-h ms fo scroll-load"> <span class="progresswrap"> <svg class="progress-circle"> <circle stroke="var(--inactive-color)" /> <circle class="progress-value" stroke="var(--color)" style="stroke-dasharray: calc( 2 * 3.1415 * (var(--size) - var(--border-width)) / 2 * (var(--percent) / 100)), 1000" /> </svg> </span> <span class="scroll-percentage"></span> <i class="be be-arrowup"></i> </span></li><li><span class="scroll-b ms fo"><i class="be be-arrowdown"></i></span></li><ul class="night-day"><li class="foh"><span class="night-main"><span class="m-night fo ms"><span class="m-moon"><span></span></span></span></span></li><li class="foh"><span class="m-day fo ms"><i class="be be-loader"></i></span></li></ul></ul> <script type="speculationrules">{"prefetch":[{"source":"document","where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":["/wp-*.php","/wp-admin/*","/wp-content/uploads/*","/wp-content/*","/wp-content/plugins/*","/wp-content/themes/begin/*","/*\\?(.+)"]}},{"not":{"selector_matches":"a[rel~=\"nofollow\"]"}},{"not":{"selector_matches":".no-prefetch, .no-prefetch a"}}]},"eagerness":"conservative"}]}</script> <script id="movie-pk-js-extra">var MPK_CFG = {"ajax":"https://www.bdflixs.com/wp-admin/admin-ajax.php","nonce":"1f2e666893","refresh":"1","swap":"1","rule":"daily","txt":{"voted":"\u5df2\u652f\u6301","again":"\u660e\u5929\u53ef\u4ee5\u518d\u6295\u4e00\u7968","once":"\u4f60\u5df2\u7ecf\u6295\u8fc7\u4e86","over":"\u672c\u8f6e\u5df2\u7ed3\u675f","err":"\u7f51\u7edc\u5f00\u5c0f\u5dee\u4e86\uff0c\u518d\u70b9\u4e00\u4e0b","day":"\u5929","hour":"\u5c0f\u65f6","minute":"\u5206\u949f","left":"\u8fd8\u5269","end":"\u672c\u8f6e\u5df2\u7ed3\u675f","tie":"\u6253\u5e73","lead":"\u9886\u5148"}};
+//# sourceURL=movie-pk-js-extra</script> <script id="favorite-js-before">var keep = {"ajaxurl":"https:\/\/www.bdflixs.com\/wp-admin\/admin-ajax.php","nonce":"7412c2dfd3","errorMessage":"\u51fa\u9519\u4e86"}; 
+//# sourceURL=favorite-js-before</script> <script id="captcha-js-extra">var verify_ajax = {"ajax_url":"https://www.bdflixs.com/wp-admin/admin-ajax.php"};
+//# sourceURL=captcha-js-extra</script> <script id="captcha-js-after">var captcha_images = ["https:\/\/www.bdflixs.com\/wp-content\/themes\/begin\/img\/default\/captcha\/y1.jpg","https:\/\/www.bdflixs.com\/wp-content\/themes\/begin\/img\/default\/captcha\/y2.jpg","https:\/\/www.bdflixs.com\/wp-content\/themes\/begin\/img\/default\/captcha\/y3.jpg","https:\/\/www.bdflixs.com\/wp-content\/themes\/begin\/img\/default\/captcha\/y4.jpg"];
+//# sourceURL=captcha-js-after</script> <script id="superfish-js-extra">var assetsData = {"postID":"594"};
+var homeData = {"homeurl":"https://www.bdflixs.com"};
+//# sourceURL=superfish-js-extra</script> <script id="superfish-js-after">var fallwidth = {fall_width: 233};
+//# sourceURL=superfish-js-after</script> <script id="be_script-js" src="https://www.bdflixs.com/wp-content/themes/begin/js/begin-script.js"></script> <script id="be_script-js-after">var ajax_content = {"ajax_url":"https:\/\/www.bdflixs.com\/wp-admin\/admin-ajax.php"};var Offset = {"header_h":"80"};var captcha = {"verify":"1"};var emilc = {"ecy":"1"};var aosstate = {"aos":"0"};
+var bea_ajax_params = {"bea_ajax_nonce":"702247d166","bea_ajax_url":"https:\/\/www.bdflixs.com\/wp-admin\/admin-ajax.php"};var be_mail_contact_form = {"mail_ajaxurl":"https:\/\/www.bdflixs.com\/wp-admin\/admin-ajax.php","mail_nonce":"c028dccfa2"};jQuery.ajaxPrefilter(function(o){if(typeof o.data==="string"&&o.data.indexOf("action=be_ajax_send_mail")!==-1&&o.data.indexOf("_wpnonce=")===-1){o.data+="&_wpnonce="+encodeURIComponent(be_mail_contact_form.mail_nonce);}});var ajax_sort = {"ajax_url":"https:\/\/www.bdflixs.com\/wp-admin\/admin-ajax.php"};var random_post = {"ajax_url":"https:\/\/www.bdflixs.com\/wp-admin\/admin-ajax.php"};var ajax_ac = {"ajaxurl":"https:\/\/www.bdflixs.com\/wp-admin\/admin-ajax.php"};var ajax_load_login = {"ajax_url":"https:\/\/www.bdflixs.com\/wp-admin\/admin-ajax.php"};var ajax_pages_login = {"ajax_url":"https:\/\/www.bdflixs.com\/wp-admin\/admin-ajax.php"};var submit_link = {"ajax_url":"https:\/\/www.bdflixs.com\/wp-admin\/admin-ajax.php"};var ajax_smilies = {"ajax_url":"https:\/\/www.bdflixs.com\/wp-admin\/admin-ajax.php"};
+var host = {"site":"https:\/\/www.bdflixs.com"};var plt =  {"time":"30"};
+var copiedurl = {"copied":"\u5df2\u590d\u5236"};var copiedlink = {"copylink":"\u590d\u5236\u94fe\u63a5"};
+//# sourceURL=be_script-js-after</script> <script id="ajax_tab-js-after">var ajax_tab = {"ajax_url":"https:\/\/www.bdflixs.com\/wp-admin\/admin-ajax.php"}; var Ajax_post_id = {"post_not_id":594};
+//# sourceURL=ajax_tab-js-after</script> <script id="qrious-js-js-after">var ajaxqrurl = {"qrurl":"0"};
+//# sourceURL=qrious-js-js-after</script> <script id="owl-js-after">var Timeout = {"owl_time":"4000"};var gridcarousel = {"grid_carousel_f":"4"};var flexiselitems = {"flexisel_f":"6"};var slider_items_n = {"slider_sn":"4"};
+//# sourceURL=owl-js-after</script> <script id="social-share-js-before">var beshare_opt="|https%3A%2F%2Fwww.bdflixs.com%2Fwp-content%2Fthemes%2Fbegin|0|https%3A%2F%2Fwww.bdflixs.com%2Fwp-admin%2Fadmin-ajax.php|594";
+var be_share_html='<div class="be-share-list" data-cover="https://pic1.imgdb.cn/item/69ee059a6dcdaf678a8bdac1.jpg"><a class="share-logo ico-weixin" data-cmd="weixin" title="\u5206\u4eab\u5230\u5fae\u4fe1" rel="external nofollow"></a><a class="share-logo ico-weibo" data-cmd="weibo" title="\u5206\u4eab\u5230\u5fae\u535a" rel="external nofollow"></a><a class="share-logo ico-qzone" data-cmd="qzone" title="\u5206\u4eab\u5230QQ\u7a7a\u95f4" rel="external nofollow"></a><a class="share-logo ico-qq" data-cmd="qq" title="\u5206\u4eab\u5230QQ" rel="external nofollow"></a>';
+//# sourceURL=social-share-js-before</script> <script id="comments_ajax-js-before">var ajaxcomment = {"ajax_php_url":"https:\/\/www.bdflixs.com\/wp-content\/themes\/begin\/inc\/comment-ajax.php"};
+//# sourceURL=comments_ajax-js-before</script> <script id="bdm-js-extra">var BDM = {"ajax":"https://www.bdflixs.com/wp-admin/admin-ajax.php","nonce":"a54893a951","logged":"0","post":"594","home":"0","center":"https://www.bdflixs.com/user-center.html","loginUrl":"https://www.bdflixs.com/jy4193217","track":"1","msg":"1","history":"1","banner":"1","loginText":"\u767b\u5f55\u540e\u53ef\u8ffd\u66f4\u3001\u53ef\u6c42\u7247","i18n":{"err":"\u7f51\u7edc\u5f00\u5c0f\u5dee\u4e86\uff0c\u518d\u70b9\u4e00\u6b21","login":"\u767b\u5f55\u540e\u53ef\u7528","saved":"\u5df2\u4fdd\u5b58","removed":"\u5df2\u53d6\u6d88"}};
+//# sourceURL=bdm-js-extra</script> <script id="begin-filter-fix-js-before">window.BeginFilterFix = {"home":"https:\/\/www.bdflixs.com\/","multi":false,"stay":true,"summary":true,"accent":true,"rows":2,"groups":{"filtersa":"filtersa","filtersb":"filtersb","filtersc":"filtersc","filtersd":"filtersd","filterse":"filterse","filtersf":"filtersf","filtersg":"filtersg","filtersh":"filtersh","filtersi":"filtersi","filtersj":"filtersj","filtercat":"cat"},"i18n":{"selected":"\u5df2\u9009","clear":"\u6e05\u7a7a","expand":"\u5c55\u5f00","collapse":"\u6536\u8d77","remove":"\u79fb\u9664\u6761\u4ef6 %s","filters":"\u7b5b\u9009\u6761\u4ef6"}};
+//# sourceURL=begin-filter-fix-js-before</script> <script id="cms-plus-js-extra">var BECP = {"ajax":"https://www.bdflixs.com/wp-admin/admin-ajax.php","nonce":"00900326bb","login":"0","loginUrl":"https://www.bdflixs.com/jy4193217?redirect_to=https%3A%2F%2Fwww.bdflixs.com%2F594.html","favUrl":"https://www.bdflixs.com/user-center.html#usertab4"};
+//# sourceURL=cms-plus-js-extra</script> <script>(function(){
+			var KEY = "zm_been_here_v1";
+			var CUR = {"id":594,"title":"\u6d41\u6d6a\u5730\u7403","url":"https:\/\/www.bdflixs.com\/594.html"};
+
+			// 分母的现取接口。整页缓存会把 data-total 冻在 HTML 里，
+			// 这个数隔一阵子重新问一次，问到了就盖过去。问不到照用 data-total
+			var TOTALS  = "";
+			var TOT_TTL = 6 * 3600 * 1000;
+			var TOT_KEY = KEY + '_tot';
+
+			var ok = true;
+			try {
+				// 隐私模式下 localStorage 可能存在但一写就抛，
+				// 所以真写一次探个底，别只判断 typeof
+				localStorage.setItem(KEY + '_t', '1');
+				localStorage.removeItem(KEY + '_t');
+			} catch (e) { ok = false; }
+
+			function read(){
+				try {
+					var raw = JSON.parse(localStorage.getItem(KEY));
+					if (!raw || typeof raw !== 'object') return null;
+					if (typeof raw.s !== 'object' || raw.s === null) raw.s = {};
+					// f 是「第一次来」的时间戳。被手改坏或者老版本没写过时，
+					// daysAgo() 会算出 NaN，前台就成了「你是 NaN 天前第一次来的」。
+					// 当场按今天算，比显示个 NaN 强
+					if (typeof raw.f !== 'number' || !isFinite(raw.f)) raw.f = Math.floor(Date.now()/1000);
+					return raw;
+				} catch (e) { return null; }
+			}
+
+			function write(d){
+				try { localStorage.setItem(KEY, JSON.stringify(d)); return true; }
+				catch (e) { return false; }
+			}
+
+			function today(){
+				var d = new Date();
+				return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
+			}
+
+			/**
+			 * 开张 + 数天数
+			 *
+			 * f 只写一次，之后再不动它 —— 它是「第一次来」，不是「最近一次」。
+			 */
+			function touch(){
+				var d = read();
+				var fresh = false;
+
+				if (!d) {
+					d = { f: Math.floor(Date.now()/1000), n: 0, l: '', s: {}, c: 0, r: null };
+					fresh = true;
+				}
+
+				var t = today();
+				if (d.l !== t) { d.n = (d.n|0) + 1; d.l = t; }
+
+				write(d);
+				d.fresh = fresh;
+				return d;
+			}
+
+			/**
+			 * 记一部看过的
+			 *
+			 * s 是个 id => 1 的表，去重靠它。上限 20000 条，
+			 * 到顶就只更新「最近看的」，不再往表里塞 —— 一个人看两万部
+			 * 已经不需要百分比来激励了，而 localStorage 一共就 5MB。
+			 */
+			function mark(){
+				if (!CUR || !CUR.id) return;
+
+				var d = read() || touch();
+				var id = String(CUR.id);
+
+				if (!d.s[id]) {
+					var n = d.c|0;
+					if (n < 20000) { d.s[id] = 1; d.c = n + 1; }
+				}
+
+				d.r = { t: CUR.title, u: CUR.url };
+				write(d);
+				render();
+			}
+
+			/**
+			 * 停留计时
+			 *
+			 * 只累计页面可见的时间：标签页在后台不走秒。
+			 * 开一堆囤着不看的，不算看过。
+			 */
+			function watch(need){
+				if (!CUR || !CUR.id) return;
+
+				if (need <= 0) { mark(); return; }
+
+				var spent = 0, last = Date.now();
+
+				var timer = setInterval(function(){
+					var now = Date.now();
+					if (!document.hidden) spent += now - last;
+					last = now;
+
+					if (spent >= need * 1000) { clearInterval(timer); mark(); }
+				}, 1000);
+
+				// 停留没满就走人的，按没看过算，不做补记
+				window.addEventListener('pagehide', function(){ clearInterval(timer); });
+			}
+
+			function daysAgo(ts){
+				return Math.max(0, Math.floor((Date.now()/1000 - ts) / 86400));
+			}
+
+			function esc(s){
+				return String(s).replace(/[&<>"]/g, function(m){
+					return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[m];
+				});
+			}
+
+			// 「上次看的是」那个链接是从读者自己的 localStorage 里读出来的。
+			// 正常情况下是我们自己写进去的固定链接，但那块地方读者改得动 ——
+			// 塞个 javascript: 进去最多是自己害自己，可白名单一行的事
+			function safeUrl(u){
+				return /^https?:\/\//i.test(String(u)) ? String(u) : '';
+			}
+
+			/**
+			 * 分母
+			 *
+			 * 上次问到的那张表存在 localStorage 里，六小时之内不再问。
+			 * 一个读者最多六小时一次、几十字节的请求。
+			 */
+			function totals(){
+				try {
+					var t = JSON.parse(localStorage.getItem(TOT_KEY));
+					if (t && typeof t === 'object' && t.m && typeof t.m === 'object') return t;
+				} catch (e) {}
+				return null;
+			}
+
+			function pullTotals(){
+				if (!TOTALS || !ok || typeof fetch !== 'function') return;
+
+				// 记录脚本在所有文章页都会挂，但这块内容不一定摆在这一页上。
+				// 没有要显示的地方就别去问了
+				if (!document.querySelector('.zm-bh')) return;
+
+				var t = totals();
+				if (t && (Date.now() - (t.at|0)) < TOT_TTL) return;
+
+				fetch(TOTALS, { credentials: 'omit' })
+					.then(function(r){ return r.ok ? r.json() : null; })
+					.then(function(m){
+						if (!m || typeof m !== 'object') return;
+						try { localStorage.setItem(TOT_KEY, JSON.stringify({ at: Date.now(), m: m })); } catch (e) {}
+						render();
+					})
+					.catch(function(){});
+			}
+
+			function shell(box){
+				var w = box.closest ? box.closest('.widget') : null;
+				return w || box.parentElement || box;
+			}
+
+			// 刚点过「清掉」的这一下，别让「新读者藏起来」那个开关
+			// 立刻把整块收走 —— 读者会以为按坏了。刷新后照常生效
+			var cleared = false;
+
+			function render(){
+				var boxes = document.querySelectorAll('.zm-bh');
+				if (!boxes.length) return;
+
+				var d = ok ? read() : null;
+
+				Array.prototype.forEach.call(boxes, function(box){
+					// 存不了东西的浏览器，整块收起来。
+					// 显示一块永远是 0 的足迹比不显示更奇怪
+					if (!ok) { shell(box).style.display = 'none'; return; }
+
+					// HTML 里那个是整页缓存冻住的快照，只当兜底。
+					// 接口问到过更新的就用新的
+					var total = parseInt(box.getAttribute('data-total'), 10) || 0;
+					var tk    = box.getAttribute('data-key');
+					var fresh = totals();
+
+					if (tk && fresh && typeof fresh.m[tk] === 'number' && fresh.m[tk] > 0) {
+						total = fresh.m[tk];
+					}
+
+					var unit  = box.getAttribute('data-unit') || '部';
+					var verb  = box.getAttribute('data-verb') || '看';
+					var isNew = !d || !d.c;
+
+					if (isNew && !cleared && box.getAttribute('data-hide-new') === '1') {
+						shell(box).style.display = 'none';
+						return;
+					}
+
+					var seen = d ? (d.c|0) : 0;
+					var pct  = (total > 0) ? (seen / total * 100) : 0;
+					var pctText;
+
+					// 看了一两部就报「0%」很伤人，改成「不到 1%」
+					if (seen > 0 && pct < 1) pctText = '不到 1%';
+					else pctText = Math.round(pct) + '%';
+
+					var el;
+
+					el = box.querySelector('[data-bh="first"]');
+					if (el) {
+						var ago = d ? daysAgo(d.f) : 0;
+						el.innerHTML = ago > 0
+							? '你是 <b>' + ago + '</b> 天前第一次来的'
+							: '你今天第一次来';
+					}
+
+					el = box.querySelector('[data-bh="days"]');
+					if (el) el.innerHTML = '来过 <b>' + (d ? (d.n|0) : 1) + '</b> 天';
+
+					el = box.querySelector('[data-bh="seen"]');
+					if (el) {
+						el.innerHTML = seen > 0
+							? verb + '了 <b>' + seen + '</b> ' + esc(unit) + '，全站的 <b>' + pctText + '</b>'
+							: '<span class="zm-bh-hi">还没' + verb + '过，随便点一部开始</span>';
+					}
+
+					el = box.querySelector('[data-bh="bar"]');
+					if (el) {
+						// 有记录但不足 1% 时给条缝，不然进度条看着像坏了
+						var w = (seen > 0 && pct < 1.2) ? 1.2 : pct;
+						el.style.width = Math.min(100, w) + '%';
+					}
+
+					el = box.querySelector('[data-bh="recent"]');
+					if (el) {
+						if (d && d.r && d.r.t) {
+							var href = safeUrl(d.r.u);
+							var lab  = '<span class="zm-bh-lab">上次' + verb + '的是</span> ';
+
+							// 地址不可信就只留片名，不给链接
+							el.innerHTML = href
+								? lab + '<a href="' + esc(href) + '">' + esc(d.r.t) + '</a>'
+								: lab + esc(d.r.t);
+							el.style.display = '';
+						} else {
+							el.style.display = 'none';
+						}
+					}
+
+					box.style.visibility = 'visible';
+					shell(box).style.display = '';
+				});
+			}
+
+			function bindClear(){
+				var btns = document.querySelectorAll('.zm-bh-clear');
+
+				Array.prototype.forEach.call(btns, function(btn){
+					btn.addEventListener('click', function(){
+						if (!window.confirm('清掉这台设备上的浏览记录？清了就找不回来了。')) return;
+
+						try { localStorage.removeItem(KEY); } catch (e) {}
+
+						// 清完立刻当新访客重新开张，不然这一刻的「来过 0 天」很怪
+						cleared = true;
+						touch();
+						render();
+					});
+				});
+			}
+
+			function boot(){
+				if (ok) touch();
+				render();
+				bindClear();
+				pullTotals();
+				if (ok) watch(5);
+			}
+
+			if (document.readyState === 'loading') {
+				document.addEventListener('DOMContentLoaded', boot);
+			} else {
+				boot();
+			}
+		})();</script> <script>(function(){
+			var boxes = document.querySelectorAll('.zm-nr[data-refresh]');
+			if (!boxes.length || !window.fetch) return;
+
+			// 收起来的时候连标题一起收。主题的 before_widget 可能套了两层，
+			// 只收内层会在侧栏留个带边框的空壳，所以先往上找 .widget
+			function shell(box){
+				var w = box.closest ? box.closest('.widget') : null;
+				return w || box.parentElement || box;
+			}
+
+			function tick(box){
+				if (box.getAttribute('data-busy')) return;
+				box.setAttribute('data-busy', '1');
+
+				var url = box.getAttribute('data-url')
+					+ '?action=zm_now_reading'
+					+ '&wid=' + encodeURIComponent(box.getAttribute('data-wid') || '')
+					+ '&pid=' + encodeURIComponent(box.getAttribute('data-pid') || '0')
+					// 分类得跟着请求走 —— admin-ajax.php 那头不知道读者停在哪个页面上
+					+ '&tid=' + encodeURIComponent(box.getAttribute('data-tid') || '0')
+					+ '&tax=' + encodeURIComponent(box.getAttribute('data-tax') || '')
+					// URL 一样的 GET，CDN 边缘规则一松就给你缓存了，数字从此不动
+					+ '&_=' + Date.now();
+
+				fetch(url, {credentials:'same-origin', cache:'no-store'})
+					.then(function(r){ return r.ok ? r.text() : null; })
+					.then(function(t){
+						// null / 空 = 这次没成功，留着旧的别动
+						if (t === null || t === '') return;
+
+						if (t.indexOf('zm-nr-off') !== -1) {
+							shell(box).style.display = 'none';
+							return;
+						}
+
+						box.innerHTML = t;
+						shell(box).style.display = '';
+					})
+					.catch(function(){})
+					.then(function(){ box.removeAttribute('data-busy'); });
+			}
+
+			Array.prototype.forEach.call(boxes, function(box){
+				// 页面缓存下首屏那份是死的，先立刻换一次
+				tick(box);
+				var every = Math.max(20, parseInt(box.getAttribute('data-refresh'), 10) || 60) * 1000;
+				setInterval(function(){ if (!document.hidden) tick(box); }, every);
+			});
+		})();</script> <script>(function(){try{var u="https:\/\/www.bdflixs.com\/wp-json\/be-rel\/v1\/hit?id=594",d=15000,s=false;
+function go(){if(s)return;s=true;
+if(navigator.sendBeacon){navigator.sendBeacon(u);}
+else{fetch(u,{method:'POST',credentials:'same-origin',keepalive:true}).catch(function(){});}}
+setTimeout(go,d);
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden'&&performance.now()>d/2)go();});
+}catch(e){}})();</script> <script id="bsu-script">(function () {
+	var CFG  = {"api":"https:\/\/www.bdflixs.com\/?bsu_suggest=1","base":"https:\/\/www.bdflixs.com\/?s=","pretty":0,"more":"\u67e5\u770b\u5168\u90e8\u7ed3\u679c","none":"\u6ca1\u627e\u5230\u76f8\u5173\u5185\u5bb9\uff0c\u56de\u8f66\u7528\u5b8c\u6574\u641c\u7d22\u518d\u8bd5\u4e00\u6b21","busy":"\u641c\u5f97\u592a\u5feb\u4e86\uff0c\u7f13\u4e00\u4e0b\u518d\u8bd5\uff0c\u6216\u8005\u76f4\u63a5\u56de\u8f66","recent":"\u6700\u8fd1\u641c\u7d22","clear":"\u6e05\u7a7a","debounce":140};
+	var root = document.getElementById('search-main');
+	if (!root) { return; }
+
+	var wrap = root.querySelector('.search-wrap');
+	if (!wrap) { return; }
+
+	var form  = root.querySelector('#searchform-so') || wrap.querySelector('form');
+	var input = form ? form.querySelector('input[name="s"]') : null;
+	var hot   = wrap.querySelector('.search-hot-main');
+	var nav   = wrap.querySelector('.search-nav');
+	var tabs  = wrap.querySelectorAll('.search-tabs .search-item');
+
+	if (tabs.length < 2) { root.classList.add('bsu-solo'); } else { root.classList.add('bsu-tabs'); }
+
+	/* ---------- 关闭按钮 ---------- */
+	var x = document.createElement('button');
+	x.type = 'button';
+	x.className = 'bsu-x';
+	x.setAttribute('aria-label', '关闭搜索');
+	x.innerHTML = '<i class="be be-cross"></i>';
+	wrap.appendChild(x);
+
+	function close() {
+		if (window.jQuery) { window.jQuery(root).fadeOut(200); }
+		else { root.style.display = 'none'; }
+	}
+
+	x.addEventListener('click', function (e) {
+		e.preventDefault();
+		e.stopPropagation();
+		close();
+	});
+
+	document.addEventListener('keydown', function (e) {
+		if (e.key === 'Escape' && root.offsetParent !== null) { close(); }
+	});
+
+	if (!input) { return; }
+
+	/* ---------- 最近搜索 ---------- */
+	var KEY = 'bsu-recent';
+
+	function readRecent() {
+		try { return JSON.parse(window.localStorage.getItem(KEY)) || []; }
+		catch (err) { return []; }
+	}
+
+	function pushRecent(term) {
+		term = String(term || '').trim();
+		if (!term) { return; }
+		try {
+			var list = readRecent().filter(function (t) { return t !== term; });
+			list.unshift(term);
+			window.localStorage.setItem(KEY, JSON.stringify(list.slice(0, 8)));
+		} catch (err) {}
+	}
+
+	var recent = document.createElement('div');
+	recent.className = 'bsu-recent';
+	if (hot) { wrap.insertBefore(recent, hot); }
+	else if (nav) { wrap.insertBefore(recent, nav); }
+	else { wrap.appendChild(recent); }
+
+	function drawRecent() {
+		var list = readRecent();
+		if (!list.length) { recent.className = 'bsu-recent'; recent.innerHTML = ''; return; }
+
+		var html = '<div class="bsu-head"><span>' + CFG.recent + '</span><button type="button" class="bsu-clear">' + CFG.clear + '</button></div><div class="bsu-chips">';
+		list.forEach(function (t) {
+			html += '<a href="' + linkFor(t) + '">' + esc(t) + '</a>';
+		});
+		recent.innerHTML = html + '</div>';
+		recent.className = 'bsu-recent on';
+
+		recent.querySelector('.bsu-clear').addEventListener('click', function () {
+			try { window.localStorage.removeItem(KEY); } catch (err) {}
+			drawRecent();
+		});
+	}
+
+	// 点已有的词，把它挪回最前面。委托挂在容器上，
+	// drawRecent 每次重画 innerHTML 也不会把这个监听冲掉。
+	recent.addEventListener('mousedown', function (e) {
+		var a = e.target;
+		while (a && a !== recent && a.tagName !== 'A') { a = a.parentNode; }
+		if (a && a.tagName === 'A') { pushRecent(a.textContent); }
+	});
+
+	/* ---------- 结果面板 ---------- */
+	var panel = document.createElement('div');
+	panel.className = 'bsu-panel';
+	panel.setAttribute('role', 'listbox');
+	if (recent.nextSibling) { wrap.insertBefore(panel, recent.nextSibling); }
+	else { wrap.appendChild(panel); }
+
+	function esc(s) {
+		return String(s).replace(/[&<>"']/g, function (c) {
+			return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+		});
+	}
+
+	function linkFor(term) {
+		return CFG.pretty
+			? CFG.base + encodeURIComponent(term) + '/'
+			: CFG.base + encodeURIComponent(term);
+	}
+
+	/* ---------- 归一化 ----------
+	 * 和 PHP 端 BE_Smart_Search::normalize() / bsb_normalize() 同一套规则：
+	 * 全角转半角、转小写、去掉全部标点符号空白。
+	 * 「Begin 搜索增强」的结果页高亮里有一份一模一样的实现，改这里记得同步。
+	 * Unicode 属性转义要 ES2018，老浏览器退回一个够用的标点集合。
+	 */
+	var STRIP;
+	try {
+		STRIP = new RegExp('[\\s\\p{P}\\p{S}\\p{Z}\\p{C}]+', 'gu');
+	} catch (err) {
+		STRIP = /[\s!-\/:-@\[-`{-~\u00A0\u2000-\u206F\u3000-\u303F\uFE30-\uFE4F\uFF00-\uFF0F\uFF1A-\uFF20\uFF3B-\uFF40\uFF5B-\uFF65]+/g;
+	}
+
+	function norm(s) {
+		return String(s).replace(/[\uFF10-\uFF19\uFF21-\uFF3A\uFF41-\uFF5A]/g, function (c) {
+			return String.fromCharCode(c.charCodeAt(0) - 0xFEE0);
+		}).toLowerCase().replace(STRIP, '');
+	}
+
+	// 边归一化边记住每个字符在原文里的起止位置，
+	// 这样搜「哈利波特」命中「哈利·波特」时，中间那个「·」能一起划进高亮。
+	function ranges(text, needle) {
+		var chars = Array.from ? Array.from(text) : text.split('');
+		var buf = '', pos = 0, map = [], i, j, ch, n;
+
+		for (i = 0; i < chars.length; i++) {
+			ch = chars[i];
+			n  = norm(ch);
+			for (j = 0; j < n.length; j++) {
+				buf += n[j];
+				map.push([pos, pos + ch.length]);
+			}
+			pos += ch.length;
+		}
+
+		var out = [], at, from = 0;
+		while ((at = buf.indexOf(needle, from)) !== -1) {
+			out.push([ map[at][0], map[at + needle.length - 1][1] ]);
+			from = at + needle.length;
+		}
+		return out;
+	}
+
+	// 在原文上定位，再逐段转义拼接。
+	// 1.0.0 是在 esc() 之后的串上跑正则的：标题里有 & 时会命中转义出来的
+	// &amp;，把实体切成 &<em>amp</em>;，输出直接花掉。
+	function mark(title, term) {
+		title = String(title);
+
+		var needle = norm(term);
+		if (needle.length < 2) { return esc(title); }
+
+		var rs = ranges(title, needle);
+		if (!rs.length) { return esc(title); }
+
+		var out = '', last = 0;
+		rs.forEach(function (r) {
+			out += esc(title.slice(last, r[0])) + '<em>' + esc(title.slice(r[0], r[1])) + '</em>';
+			last = r[1];
+		});
+		return out + esc(title.slice(last));
+	}
+
+	function idle() {
+		panel.className = 'bsu-panel';
+		panel.innerHTML = '';
+		if (hot) { hot.style.display = ''; }
+		if (nav) { nav.style.display = ''; }
+		drawRecent();
+	}
+
+	function busy(text) {
+		panel.className = 'bsu-panel on';
+		panel.innerHTML = '<div class="bsu-note">' + esc(text) + '</div>';
+		if (hot) { hot.style.display = 'none'; }
+		if (nav) { nav.style.display = 'none'; }
+		recent.className = 'bsu-recent';
+	}
+
+	function draw(data, term) {
+		// 限流挡下来的响应也是空 items，但原因完全不同，别谎报「没找到」
+		if (data.busy) { busy(CFG.busy); return; }
+		if (!data.items || !data.items.length) { busy(CFG.none); return; }
+
+		var html = '';
+		data.items.forEach(function (it) {
+			html += '<a class="bsu-item" href="' + esc(it.url) + '">';
+			if (it.thumb) { html += '<img class="bsu-thumb" src="' + esc(it.thumb) + '" alt="" loading="lazy">'; }
+			html += '<span class="bsu-txt"><span class="bsu-t">' + mark(it.title, term) + '</span>';
+			if (it.meta) { html += '<span class="bsu-m">' + esc(it.meta) + '</span>'; }
+			html += '</span></a>';
+		});
+
+		if (data.more) {
+			html += '<a class="bsu-all" href="' + linkFor(term) + '">' + CFG.more + '</a>';
+		}
+
+		panel.className = 'bsu-panel on';
+		panel.innerHTML = html;
+		if (hot) { hot.style.display = 'none'; }
+		if (nav) { nav.style.display = 'none'; }
+		recent.className = 'bsu-recent';
+	}
+
+	/* ---------- 请求 ---------- */
+	var timer = null;
+	var xhr   = null;
+	var last  = '';
+
+	// 本次会话的内存缓存：退格、重新输入、改了又改回去都不用再往返一趟。
+	// 服务端那层 transient 是跨访客共享的，这层省掉的是网络往返本身。
+	var CACHE = Object.create(null);
+	var ORDER = [];
+
+	function remember(term, data) {
+		if (!(term in CACHE)) {
+			ORDER.push(term);
+			if (ORDER.length > 60) { delete CACHE[ORDER.shift()]; }
+		}
+		CACHE[term] = data;
+	}
+
+	// 找一个更短的、已经有结果的前缀顶上，别让面板空着等
+	function prefixHit(term) {
+		for (var i = term.length - 1; i >= 1; i--) {
+			var p = term.slice(0, i);
+			if (CACHE[p] && CACHE[p].items && CACHE[p].items.length) { return CACHE[p]; }
+		}
+		return null;
+	}
+
+	function ask(term) {
+		if (xhr) { xhr.abort(); }
+		xhr = new XMLHttpRequest();
+		xhr.open('GET', CFG.api + '&q=' + encodeURIComponent(term), true);
+		// 没有超时的话，一次慢查询会让下拉一直停在上一批结果上
+		xhr.timeout = 8000;
+		xhr.onload = function () {
+			if (term !== last) { return; }
+			try {
+				var data = JSON.parse(xhr.responseText);
+				if (!data.busy) { remember(term, data); }
+				draw(data, term);
+			} catch (err) { idle(); }
+		};
+		xhr.onerror = function () { idle(); };
+		xhr.ontimeout = function () { idle(); };
+		xhr.send();
+	}
+
+	input.addEventListener('input', function () {
+		var term = input.value.trim();
+		last = term;
+		window.clearTimeout(timer);
+
+		if (!term) { if (xhr) { xhr.abort(); } idle(); return; }
+
+		// 这个词刚搜过：直接画，不防抖也不发请求
+		if (CACHE[term]) { draw(CACHE[term], term); return; }
+
+		// 拿更短的前缀结果先顶上（压暗表示还在查），请求回来再覆盖
+		var pre = prefixHit(term);
+		if (pre) {
+			draw(pre, term);
+			panel.className = 'bsu-panel on bsu-stale';
+		}
+
+		timer = window.setTimeout(function () { ask(term); }, CFG.debounce);
+	});
+
+	/* ---------- 键盘 ---------- */
+	function items() { return panel.querySelectorAll('.bsu-item, .bsu-all'); }
+
+	function move(step) {
+		var list = items();
+		if (!list.length) { return; }
+
+		var at = -1;
+		for (var i = 0; i < list.length; i++) {
+			if (list[i].classList.contains('on')) { at = i; list[i].classList.remove('on'); }
+		}
+
+		at = at + step;
+		if (at < 0) { at = list.length - 1; }
+		if (at >= list.length) { at = 0; }
+
+		list[at].classList.add('on');
+		list[at].scrollIntoView({ block: 'nearest' });
+	}
+
+	// 点下拉里的任何一条也要记一笔。
+	//
+	// 1.0.0 只在「回车且没选中任何项」和表单提交时记录，可点结果才是这个
+	// 弹窗的主要用法 —— 于是正常用一整天，最近搜索一条都不会多。
+	// 用 mousedown 而不是 click：中键、Cmd+点击开新标签这些也能记上，
+	// 而且它一定在浏览器开始导航之前触发。
+	function inside(node, sel) {
+		while (node && node !== panel) {
+			if (node.nodeType === 1 && node.classList && node.classList.contains(sel)) { return true; }
+			node = node.parentNode;
+		}
+		return false;
+	}
+
+	panel.addEventListener('mousedown', function (e) {
+		if (inside(e.target, 'bsu-item') || inside(e.target, 'bsu-all')) {
+			pushRecent(last || input.value);
+		}
+	});
+
+	input.addEventListener('keydown', function (e) {
+		if (e.key === 'ArrowDown') { e.preventDefault(); move(1); return; }
+		if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); return; }
+
+		if (e.key === 'Enter') {
+			// 记录要放在跳转之前，不然这一句根本没机会执行
+			pushRecent(input.value);
+			var on = panel.querySelector('.bsu-item.on, .bsu-all.on');
+			if (on) { e.preventDefault(); window.location.href = on.getAttribute('href'); }
+		}
+	});
+
+	if (form) {
+		form.addEventListener('submit', function () { pushRecent(input.value); });
+	}
+
+	/* ---------- 打开时 ---------- */
+	function opened() {
+		drawRecent();
+		window.setTimeout(function () {
+			var box = root.querySelector('.tab-search:not([style*="display: none"]) input[name="s"]') || input;
+			if (box) { box.focus(); }
+		}, 60);
+	}
+
+	if (window.MutationObserver) {
+		var shown = false;
+		new MutationObserver(function () {
+			var now = root.offsetParent !== null;
+			if (now && !shown) { opened(); }
+			shown = now;
+		}).observe(root, { attributes: true, attributeFilter: ['style', 'class'] });
+	}
+
+	idle();
+})();</script> </footer></div> <script defer src="https://www.bdflixs.com/wp-content/cache/autoptimize/js/autoptimize_017a6de0898b227c1c17196749979e39.js"></script></body></html>
+<!-- Dynamic page generated in 1.278 seconds. -->
+<!-- Cached page generated by WP-Super-Cache on 2026-10-25 04:50:54 -->
+
+<!-- super cache -->
