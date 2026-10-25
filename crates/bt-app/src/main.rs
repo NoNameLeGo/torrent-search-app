@@ -58,6 +58,7 @@ use std::sync::OnceLock;
 use bt_core::http::HttpClient;
 use bt_downloaders::{self as downloaders, Config, Kind};
 use bt_providers::aggregate::{self, SearchArgs};
+use bt_providers::video;
 use bt_providers::{registry as provider_registry, Provider};
 // ⚠️ `Model` 这个 trait 必须在作用域里：`VecModel` 的 `row_count` / `set_row_data`
 // 是 **trait 方法**而不是固有方法 —— 少了它 CI 报
@@ -207,6 +208,11 @@ struct UiState {
     app: AppState,
     /// 当前的 `.slint` 行模型。**增量 push**，不整块重建（否则滚动位置会被顶回去）。
     rows_model: Rc<VecModel<ResultRow>>,
+    /// Video 模式的模型与权威数据。与 BT 的 rows 完全分开 —— 两种行不能互相替换。
+    video_model: Rc<VecModel<VideoRow>>,
+    video_items: Vec<video::VideoItem>,
+    /// Video 搜索的代数围栏（与 [`Self::search_gen`] 同一套理由）。
+    video_gen: u64,
     /// 本轮搜索的关键词（用来算高亮 markup）
     query: String,
     /// 高亮色。⚠️ 高亮是**烘进 markup** 的，所以换主题必须整体重建这里的 markup
@@ -239,6 +245,9 @@ thread_local! {
         // `VecModel::from(vec![])` 而不是 `VecModel::default()` —— 后者不保证有实现，
         // 而 `From<Vec<T>>` 是 M1 spike 里已经用过的那条路径。
         rows_model: Rc::new(VecModel::from(Vec::new())),
+        video_model: Rc::new(VecModel::from(Vec::new())),
+        video_items: Vec::new(),
+        video_gen: 0,
         query: String::new(),
         accent: "#fab387".to_string(),
         downloader: None,
@@ -264,6 +273,29 @@ fn tone_color(ui: &AppWindow, tone: Tone) -> slint::Color {
         Tone::Ok => t.get_ok(),
         Tone::Err => t.get_err(),
         Tone::Dim => t.get_sub(),
+    }
+}
+
+/// provider id → 展示名（与 `video::registry()` 的 `name()` 一致）。
+///
+/// ⚠️ 这里刻意不查 registry：`VideoItem.provider` 是 id，而 UI 每行都要显示名字；
+/// 查一次 registry 会为每一行造一遍 Box。三家的映射写死更省，也与注册表有测试钉住。
+fn video_site_name(id: &str) -> &'static str {
+    match id {
+        "appmovie" => "APP影院",
+        "dbku" => "独播库",
+        "didahd" => "嘀嗒影视",
+        _ => "在线影视",
+    }
+}
+
+/// `VideoItem` → `.slint` 的 `VideoRow`。
+fn to_video_row(idx: usize, item: &video::VideoItem) -> VideoRow {
+    VideoRow {
+        idx: idx as i32,
+        title: item.title.clone().into(),
+        meta: "在线影视 · 点击打开原站".to_string().into(),
+        provider: video_site_name(&item.provider).to_string().into(),
     }
 }
 
@@ -372,12 +404,21 @@ fn sync_small(ui: &AppWindow, st: &UiState) {
     ui.set_cats(ModelRc::from(Rc::new(VecModel::from(cats))));
     // ⚠️ `total` 报的是**视图**条数（屏幕上真有几行），不是 `rows.len()` ——
     // 筛选状态下两者不同，显示后者会让用户以为筛坏了。
-    ui.set_total(st.app.view().len() as i32);
-    ui.set_searching(st.app.chips.iter().any(|c| c.tone == Tone::Dim));
-    ui.set_status_text(st.status.clone().into());
-    // ① 分页
-    ui.set_page(st.app.page as i32);
-    ui.set_has_more(st.app.has_more);
+    // Video 模式下报 video_items 的长度（两个模型互不相干）。
+    let total = if ui.get_video_mode() {
+        st.video_items.len()
+    } else {
+        st.app.view().len()
+    };
+    ui.set_total(total as i32);
+    // Video 模式下 BT 的 chips/分页不该覆盖视频状态 —— 两个模式的「忙碌/状态」分开。
+    if !ui.get_video_mode() {
+        ui.set_searching(st.app.chips.iter().any(|c| c.tone == Tone::Dim));
+        ui.set_status_text(st.status.clone().into());
+        // ① 分页
+        ui.set_page(st.app.page as i32);
+        ui.set_has_more(st.app.has_more);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -633,6 +674,114 @@ fn pick_category(ui: &AppWindow, id: String) {
         rebuild_rows_model(ui, &mut st);
         sync_small(ui, &st);
     });
+}
+
+// ---------------------------------------------------------------------------
+// 视频搜索（在线影视 → 打开网页）
+// ---------------------------------------------------------------------------
+
+/// 开始一轮 Video 搜索。**在 UI 线程调用**。
+///
+/// 3 家**顺序**请求：每家一次网络往返，但只有 3 家，顺序实现更简单；
+/// 「慢站不拖累快站」在 24 家的 BT 侧才明显。
+fn start_video_search(ui: &AppWindow, query: String) {
+    let weak = ui.as_weak();
+    close_detail(ui);
+
+    let (gen, q) = STATE.with(|s| {
+        let mut st = s.borrow_mut();
+        st.selected.clear();
+        st.video_items.clear();
+        st.video_model = Rc::new(VecModel::from(Vec::new()));
+        ui.set_selected_count(0);
+        ui.set_video_rows(ModelRc::from(st.video_model.clone()));
+        ui.set_total(0);
+        ui.set_searching(true);
+        ui.set_has_more(false);
+        st.status = format!("视频搜索中…（{} 家）", video::registry().len());
+        ui.set_status_text(st.status.clone().into());
+
+        // 代数围栏：与 BT 的 search_gen 同一套理由 —— 旧一轮的回报不能写进新列表。
+        st.video_gen += 1;
+        (st.video_gen, query)
+    });
+
+    spawn(async move {
+        let providers = video::registry();
+        let mut items = Vec::new();
+        let mut errs = Vec::new();
+
+        for p in providers {
+            let out = p.search(http(), &q, 1).await;
+            if let Some(e) = out.error {
+                errs.push(format!("{}: {e}", p.name()));
+            }
+            items.extend(out.results);
+        }
+
+        let _ = slint::invoke_from_event_loop(move || {
+            let Some(ui) = weak.upgrade() else { return };
+            STATE.with(|s| {
+                let mut st = s.borrow_mut();
+                if st.video_gen != gen || !ui.get_video_mode() {
+                    return;
+                }
+
+                st.video_items = items;
+                let rows: Vec<VideoRow> = st
+                    .video_items
+                    .iter()
+                    .enumerate()
+                    .map(|(i, it)| to_video_row(i, it))
+                    .collect();
+                st.video_model = Rc::new(VecModel::from(rows));
+                ui.set_video_rows(ModelRc::from(st.video_model.clone()));
+                ui.set_total(st.video_items.len() as i32);
+                ui.set_searching(false);
+
+                st.status = if st.video_items.is_empty() {
+                    if errs.is_empty() {
+                        "视频搜索：0 条".to_string()
+                    } else {
+                        format!("视频搜索失败：{}", errs.join("; "))
+                    }
+                } else if errs.is_empty() {
+                    format!("视频搜索：{} 条", st.video_items.len())
+                } else {
+                    format!(
+                        "视频搜索：{} 条（{} 家失败）",
+                        st.video_items.len(),
+                        errs.len()
+                    )
+                };
+                ui.set_status_text(st.status.clone().into());
+            });
+        });
+    });
+}
+
+/// 用系统默认浏览器打开 http(s) 链接。
+///
+/// ⚠️ 只接受 `http/https`：`file:`、`javascript:`、`magnet:` 都不该走到这里
+/// （磁力有自己的推送链路）。Windows 用 `explorer <url>` 走 ShellExecute，
+/// release 是 windows 子系统，不会弹控制台。
+fn open_url(url: &str) -> bool {
+    if !(url.starts_with("https://") || url.starts_with("http://")) {
+        return false;
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(url)
+            .spawn()
+            .is_ok()
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        false
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1317,6 +1466,7 @@ fn wire(ui: &AppWindow) {
     STATE.with(|s| {
         let st = s.borrow();
         ui.set_rows(ModelRc::from(st.rows_model.clone()));
+        ui.set_video_rows(ModelRc::from(st.video_model.clone()));
     });
 
     ui.set_downloader_status("未配置（点「探测」或手填地址后「保存」）".into());
@@ -1325,8 +1475,62 @@ fn wire(ui: &AppWindow) {
         let weak = ui.as_weak();
         ui.on_search(move |q| {
             if let Some(ui) = weak.upgrade() {
-                // ① 新搜索一律从第 1 页开始
-                start_search(&ui, q.to_string(), 1);
+                if ui.get_video_mode() {
+                    start_video_search(&ui, q.to_string());
+                } else {
+                    // ① 新搜索一律从第 1 页开始
+                    start_search(&ui, q.to_string(), 1);
+                }
+            }
+        });
+    }
+    // 磁力 / 视频 tab 切换。两个模式各有各的模型与代数围栏，互不干扰。
+    {
+        let weak = ui.as_weak();
+        ui.on_switch_mode(move |video| {
+            if let Some(ui) = weak.upgrade() {
+                close_detail(&ui);
+                ui.set_video_mode(video);
+                ui.set_has_more(false);
+                ui.set_searching(false);
+                STATE.with(|s| {
+                    let st = s.borrow();
+                    let n = if video {
+                        st.video_items.len()
+                    } else {
+                        st.app.view().len()
+                    };
+                    ui.set_total(n as i32);
+                    let text = if video {
+                        format!("在线影视：{n} 条")
+                    } else {
+                        st.status.clone()
+                    };
+                    ui.set_status_text(text.into());
+                });
+            }
+        });
+    }
+    // Video 行的「打开网页」：用系统浏览器打开，不内嵌、不缓存。
+    {
+        let weak = ui.as_weak();
+        ui.on_open_video(move |idx| {
+            if let Some(ui) = weak.upgrade() {
+                let msg = STATE.with(|s| {
+                    let st = s.borrow();
+                    let Some(item) = st.video_items.get(idx as usize) else {
+                        return None;
+                    };
+                    Some(if open_url(&item.detail_url) {
+                        format!("已打开：{}", item.title)
+                    } else {
+                        format!("打不开这个链接：{}", item.detail_url)
+                    })
+                });
+                if let Some(msg) = msg {
+                    STATE.with(|s| s.borrow_mut().status = msg.clone());
+                    ui.set_status_text(msg.into());
+                }
             }
         });
     }
