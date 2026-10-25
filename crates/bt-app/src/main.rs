@@ -705,6 +705,7 @@ fn push_row(ui: &AppWindow, idx: i32) {
         };
         sync_small(ui, &st);
         refresh_row(&st, plan.key);
+        refresh_detail(ui, &st);
     });
 
     let weak = ui.as_weak();
@@ -765,6 +766,7 @@ fn push_row(ui: &AppWindow, idx: i32) {
                 }
                 sync_small(&ui, &st);
                 refresh_row(&st, key);
+                refresh_detail(&ui, &st);
             });
         });
     });
@@ -793,6 +795,7 @@ fn finish(weak: &slint::Weak<AppWindow>, key: u64, msg: String) {
             st.status = format!("取磁力失败：{msg}");
             sync_small(&ui, &st);
             refresh_row(&st, key);
+            refresh_detail(&ui, &st);
         });
     });
 }
@@ -979,6 +982,93 @@ fn export_csv(ui: &AppWindow) {
         };
         sync_small(ui, &st);
     });
+}
+
+/// 写一行状态（避免每处都重复 borrow + sync）。
+fn set_status(ui: &AppWindow, msg: String) {
+    STATE.with(|s| {
+        let mut st = s.borrow_mut();
+        st.status = msg;
+        sync_small(ui, &st);
+    });
+}
+
+/// 复制文本到剪贴板。
+///
+/// `arboard` 已经是 Slint winit 后端的传递依赖（见 Cargo.toml 注释），
+/// 这里直接声明同一个包 —— 不新增下载，也不引第三方进程。
+fn copy_text(ui: &AppWindow, text: &str, ok_msg: String) {
+    let msg = match arboard::Clipboard::new().and_then(|mut c| c.set_text(text.to_string())) {
+        Ok(()) => ok_msg,
+        Err(e) => format!("复制失败：{e}"),
+    };
+    set_status(ui, msg);
+}
+
+/// 复制一条的磁力。没有磁力（那 6 家要惰性解析）就说清楚下一步怎么做。
+fn copy_magnet(ui: &AppWindow, idx: i32) {
+    let found = STATE.with(|s| {
+        let st = s.borrow();
+        st.app.row(idx).map(|r| r.magnet.clone())
+    });
+    match found {
+        Some(Some(m)) if !m.is_empty() => copy_text(ui, &m, "已复制磁力".to_string()),
+        Some(_) => set_status(
+            ui,
+            "这条还没有磁力：先点一次推送（会惰性解析），解析完再复制".to_string(),
+        ),
+        None => {}
+    }
+}
+
+/// 批量复制勾选行的磁力（一行一条，跳过没有磁力的）。
+fn copy_selected_magnets(ui: &AppWindow) {
+    let (magnets, missing) = STATE.with(|s| {
+        let st = s.borrow();
+        let sel: Vec<&RowData> = st
+            .app
+            .view()
+            .iter()
+            .filter(|r| st.selected.contains(&r.key))
+            .map(|r| *r)
+            .collect();
+        let magnets: Vec<String> = sel
+            .iter()
+            .filter_map(|r| r.magnet.clone())
+            .filter(|m| !m.is_empty())
+            .collect();
+        let missing = sel.len() - magnets.len();
+        (magnets, missing)
+    });
+    if magnets.is_empty() {
+        set_status(
+            ui,
+            "没有可复制的磁力（没勾选，或选中的都还没解析）".to_string(),
+        );
+        return;
+    }
+    let suffix = if missing > 0 {
+        format!("（{missing} 条无磁力已跳过）")
+    } else {
+        String::new()
+    };
+    let msg = format!("已复制 {} 条磁力{}", magnets.len(), suffix);
+    copy_text(ui, &magnets.join("\n"), msg);
+}
+
+/// 详情面板跟着行一起刷新。
+///
+/// ⚠️ 收 `&UiState` 而不是自己 `STATE.with` —— 调用点已经在 `borrow_mut()` 里了，
+/// 再进一次会 **RefCell 双重借用 panic**。
+fn refresh_detail(ui: &AppWindow, st: &UiState) {
+    if !ui.get_detail_open() {
+        return;
+    }
+    let idx = ui.get_detail_idx();
+    match st.app.row(idx) {
+        Some(r) => show_detail(ui, r),
+        None => close_detail(ui),
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1409,6 +1499,23 @@ fn wire(ui: &AppWindow) {
         ui.on_export_csv(move || {
             if let Some(ui) = weak.upgrade() {
                 export_csv(&ui);
+            }
+        });
+    }
+    // 复制磁力（单条 / 批量）
+    {
+        let weak = ui.as_weak();
+        ui.on_copy_magnet(move |idx| {
+            if let Some(ui) = weak.upgrade() {
+                copy_magnet(&ui, idx);
+            }
+        });
+    }
+    {
+        let weak = ui.as_weak();
+        ui.on_copy_selected_magnets(move || {
+            if let Some(ui) = weak.upgrade() {
+                copy_selected_magnets(&ui);
             }
         });
     }

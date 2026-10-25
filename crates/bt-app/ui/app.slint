@@ -114,6 +114,18 @@ component AppButton inherits Rectangle {
     border-width: 1px;
     background: !root.active ? Theme.surface0 : (root.primary ? Theme.mauve : Theme.surface1);
     border-color: !root.active ? Theme.surface0 : (root.primary ? Theme.mauve : Theme.surface0);
+    // hover 只降一点不透明度（Mocha 没有官方 hover 色，不自己造中间色）
+    opacity: ta.has-hover && root.active ? 0.86 : 1.0;
+
+    // TouchArea 放最前：它只收事件，不挡视觉；Text 叠在上面。
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            if (root.active) {
+                root.clicked();
+            }
+        }
+    }
 
     Text {
         text: root.label;
@@ -123,14 +135,6 @@ component AppButton inherits Rectangle {
         height: parent.height;
         horizontal-alignment: center;
         vertical-alignment: center;
-    }
-
-    TouchArea {
-        clicked => {
-            if (root.active) {
-                root.clicked();
-            }
-        }
     }
 }
 
@@ -396,6 +400,8 @@ export component AppWindow inherits Window {
     callback clear-selection();
     callback batch-push();
     callback export-csv();
+    callback copy-magnet(int);
+    callback copy-selected-magnets();
 
     title: "BT 聚合搜索";
     width: 1280px;
@@ -678,6 +684,13 @@ export component AppWindow inherits Window {
                             }
 
                             AppButton {
+                                label: "复制磁力";
+                                height: 28px;
+                                text-size: 11px;
+                                clicked => { root.copy-selected-magnets(); }
+                            }
+
+                            AppButton {
                                 label: "取消";
                                 height: 28px;
                                 text-size: 11px;
@@ -792,7 +805,7 @@ export component AppWindow inherits Window {
 
                 VerticalLayout {
                     padding: 20px;
-                    spacing: 10px;
+                    spacing: 8px;
 
                     HorizontalLayout {
                         spacing: 8px;
@@ -876,21 +889,16 @@ export component AppWindow inherits Window {
                         color: Theme.sub;
                     }
 
-                    Text {
-                        text: "详情页";
-                        font-size: 10px;
-                        color: Theme.dim;
-                    }
-
-                    Text {
-                        text: root.detail-url;
-                        font-size: 10px;
-                        color: Theme.accent;
-                    }
-
-                    // 把主按钮推到底部
+                    // 把按钮推到底部
                     Rectangle {
                         vertical-stretch: 1;
+                    }
+
+                    AppButton {
+                        label: "复制磁力";
+                        height: 34px;
+                        text-size: 12px;
+                        clicked => { root.copy-magnet(root.detail-idx); }
                     }
 
                     AppButton {

@@ -34,6 +34,10 @@ serde_json = "1"
 # 而 IO driver 由 `net` 特性把门 —— 少了它 reqwest 会在运行期报
 # "IO driver not enabled"（编译期不报）。这是 2026-10-16 补自检时发现的第二个坑。
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "net"] }
+# 剪贴板（复制磁力）。⚠️ **不是新依赖**：`arboard` 已经在 lockfile 里 ——
+# Slint 的 `i-slint-backend-winit` 用它做文本剪贴板，这里只是把同一个包直接声明出来。
+# 版本跟着 lockfile 的 3.7 走，避免多拉一份。
+arboard = "3"
 
 [build-dependencies]
 slint-build = "1.18"
