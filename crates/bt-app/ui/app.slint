@@ -10,10 +10,12 @@
 //      `StyledText::from_markdown()` 构造的 markup，`@markdown()` 会把插值整体转义。
 //   2. **别在 `init` 里写全局属性** —— 会形成属性依赖环（实测 200 条数据触发 2628 次实例化）。
 //   3. std-widgets 的 `Button` **没有 `color`** —— 颜色只能落在 `Text` / `Rectangle` 上。
+//      所以按钮是自绘的 `AppButton`（Rectangle + Text + TouchArea）。`TouchArea` 是本文件里
+//      唯一没在 M1 探针中出现过的元素，只用来收点击、不参与排版。
 //   4. `Theme.hl` 是 Rust 侧关键词高亮的**唯一来源**（main.rs `accent_hex`）；改名即静默变色。
 //      同理 `ok` / `err` / `sub` 由 `tone_color` 读取，不能删。
 
-import { LineEdit, Button, ListView } from "std-widgets.slint";
+import { LineEdit, ListView } from "std-widgets.slint";
 
 // 一条搜索结果 —— 字段全部由 Rust 侧 src/ui_model.rs 产出（那一层是纯函数、有单测）。
 export struct ResultRow {
@@ -93,6 +95,43 @@ export global Theme {
     out property <color> accent:   #89b4fa;
     out property <color> bg:       #11111b;
     out property <color> card:     #181825;
+}
+
+// 自绘按钮。std-widgets 的 `Button` **没有 `color`**（老坑，见文件头），
+// 而设计稿要紫底 CTA ⇒ 只能用 Rectangle + Text + TouchArea 拼一个。
+// ⚠️ 不用 `enabled`：那是内建属性名；这里用 `active` 同时管配色与点击。
+// ⚠️ 位置必须**在第一个使用它的组件之前** —— Slint 按声明顺序解析，放后面会报
+// `Unknown element 'AppButton'`（2026-10-25 CI 40174701768 就栽在这）。
+component AppButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> primary: false;
+    in property <bool> active: true;
+    in property <length> text-size: 12px;
+    callback clicked;
+
+    height: 30px;
+    border-radius: 6px;
+    border-width: 1px;
+    background: !root.active ? Theme.surface0 : (root.primary ? Theme.mauve : Theme.surface1);
+    border-color: !root.active ? Theme.surface0 : (root.primary ? Theme.mauve : Theme.surface0);
+
+    Text {
+        text: root.label;
+        font-size: root.text-size;
+        color: !root.active ? Theme.dim : (root.primary ? Theme.crust : Theme.subtext);
+        width: parent.width;
+        height: parent.height;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    TouchArea {
+        clicked => {
+            if (root.active) {
+                root.clicked();
+            }
+        }
+    }
 }
 
 // 一条结果行。
@@ -182,17 +221,20 @@ component ResultCard inherits Rectangle {
             HorizontalLayout {
                 spacing: 6px;
 
-                Button {
-                    text: "详情";
+                AppButton {
+                    label: "详情";
                     width: 64px;
                     height: 30px;
+                    text-size: 11px;
                     clicked => { root.open(item.idx); }
                 }
 
-                Button {
-                    text: item.action-label;
+                AppButton {
+                    label: item.action-label;
                     width: 112px;
                     height: 30px;
+                    text-size: 11px;
+                    primary: true;
                     clicked => { root.push(item.idx); }
                 }
             }
@@ -256,10 +298,11 @@ component SiteRow inherits Rectangle {
             horizontal-stretch: 1;
         }
 
-        Button {
-            text: "切换";
+        AppButton {
+            label: "切换";
             width: 48px;
             height: 22px;
+            text-size: 10px;
             clicked => { root.toggle(item.id); }
         }
     }
@@ -275,11 +318,12 @@ component ChipRow inherits Rectangle {
     height: 26px;
     background: transparent;
 
-    Button {
-        text: item.label;
+    AppButton {
+        label: item.label;
         horizontal-stretch: 1;
         height: 26px;
-        enabled: root.can-pick;
+        text-size: 11px;
+        active: root.can-pick;
         clicked => { root.pick(item.id); }
     }
 }
@@ -400,10 +444,11 @@ export component AppWindow inherits Window {
                     horizontal-stretch: 1;
                 }
 
-                Button {
-                    text: root.config-open ? "收起" : "设置";
+                AppButton {
+                    label: root.config-open ? "收起" : "设置";
                     width: 64px;
                     height: 26px;
+                    text-size: 11px;
                     clicked => { root.config-open = !root.config-open; }
                 }
             }
@@ -427,18 +472,21 @@ export component AppWindow inherits Window {
                         accepted(t) => { root.search(t); }
                     }
 
-                    Button {
-                        text: root.searching ? "搜索中…" : "搜索";
+                    AppButton {
+                        label: root.searching ? "搜索中…" : "搜索";
                         width: 88px;
-                        enabled: !root.searching;
+                        height: 34px;
+                        primary: true;
+                        active: !root.searching;
                         clicked => { root.search(root.query); }
                     }
 
                     // ① 分页：`has-more` 来自引擎层，不是"这页满了"的猜测
-                    Button {
-                        text: "第 \{root.page} 页 · 下一页";
+                    AppButton {
+                        label: "第 \{root.page} 页 · 下一页";
                         width: 124px;
-                        enabled: !root.searching && root.has-more;
+                        height: 34px;
+                        active: !root.searching && root.has-more;
                         clicked => { root.next-page(); }
                     }
                 }
@@ -466,10 +514,10 @@ export component AppWindow inherits Window {
                 HorizontalLayout {
                     spacing: 6px;
                     Text { text: "下载器"; color: Theme.sub; font-size: 11px; vertical-alignment: center; }
-                    Button { text: "qB";  clicked => { root.pick-kind("qbittorrent"); } }
-                    Button { text: "TR";  clicked => { root.pick-kind("transmission"); } }
-                    Button { text: "aria2"; clicked => { root.pick-kind("aria2"); } }
-                    Button { text: "Gopeed"; clicked => { root.pick-kind("gopeed"); } }
+                    AppButton { label: "qB";  height: 26px; text-size: 11px; clicked => { root.pick-kind("qbittorrent"); } }
+                    AppButton { label: "TR";  height: 26px; text-size: 11px; clicked => { root.pick-kind("transmission"); } }
+                    AppButton { label: "aria2"; height: 26px; text-size: 11px; clicked => { root.pick-kind("aria2"); } }
+                    AppButton { label: "Gopeed"; height: 26px; text-size: 11px; clicked => { root.pick-kind("gopeed"); } }
                     Text {
                         text: root.downloader-kind;
                         color: Theme.mauve;
@@ -503,8 +551,8 @@ export component AppWindow inherits Window {
                         placeholder-text: "密码 / token";
                         text <=> root.downloader-secret;
                     }
-                    Button { text: "探测"; clicked => { root.detect-downloader(); } }
-                    Button { text: "保存"; clicked => { root.save-downloader(); } }
+                    AppButton { label: "探测"; height: 26px; text-size: 11px; clicked => { root.detect-downloader(); } }
+                    AppButton { label: "保存"; height: 26px; text-size: 11px; clicked => { root.save-downloader(); } }
                 }
 
                 HorizontalLayout {
@@ -525,8 +573,8 @@ export component AppWindow inherits Window {
                         placeholder-text: "API key";
                         text <=> root.indexer-key;
                     }
-                    Button { text: "添加"; clicked => { root.add-indexer(); } }
-                    Button { text: "清空"; clicked => { root.clear-indexers(); } }
+                    AppButton { label: "添加"; height: 26px; text-size: 11px; clicked => { root.add-indexer(); } }
+                    AppButton { label: "清空"; height: 26px; text-size: 11px; clicked => { root.clear-indexers(); } }
                 }
 
                 HorizontalLayout {
@@ -545,8 +593,10 @@ export component AppWindow inherits Window {
                             font-size: 11px;
                             vertical-alignment: center;
                         }
-                        Button {
-                            text: ix.action;
+                        AppButton {
+                            label: ix.action;
+                            height: 26px;
+                            text-size: 11px;
                             clicked => { root.toggle-indexer(ix.id); }
                         }
                     }
@@ -605,27 +655,32 @@ export component AppWindow inherits Window {
                                 horizontal-stretch: 1;
                             }
 
-                            Button {
-                                text: "全选";
+                            AppButton {
+                                label: "全选";
                                 height: 28px;
+                                text-size: 11px;
                                 clicked => { root.select-all(); }
                             }
 
-                            Button {
-                                text: "批量推送";
+                            AppButton {
+                                label: "批量推送";
                                 height: 28px;
+                                text-size: 11px;
+                                primary: true;
                                 clicked => { root.batch-push(); }
                             }
 
-                            Button {
-                                text: "导出 CSV";
+                            AppButton {
+                                label: "导出 CSV";
                                 height: 28px;
+                                text-size: 11px;
                                 clicked => { root.export-csv(); }
                             }
 
-                            Button {
-                                text: "取消";
+                            AppButton {
+                                label: "取消";
                                 height: 28px;
+                                text-size: 11px;
                                 clicked => { root.clear-selection(); }
                             }
                         }
@@ -750,10 +805,11 @@ export component AppWindow inherits Window {
                             horizontal-stretch: 1;
                         }
 
-                        Button {
-                            text: "关闭";
+                        AppButton {
+                            label: "关闭";
                             width: 64px;
                             height: 26px;
+                            text-size: 11px;
                             clicked => { root.close-detail(); }
                         }
                     }
@@ -837,9 +893,10 @@ export component AppWindow inherits Window {
                         vertical-stretch: 1;
                     }
 
-                    Button {
-                        text: root.detail-action;
+                    AppButton {
+                        label: root.detail-action;
                         height: 40px;
+                        primary: true;
                         clicked => { root.push-row(root.detail-idx); }
                     }
                 }
