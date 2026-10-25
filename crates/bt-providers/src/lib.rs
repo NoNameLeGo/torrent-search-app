@@ -3,11 +3,12 @@
 //! 各站点 provider 的集合，一文件一站（对齐 `src/providers/*.js` 的组织方式）。
 //!
 //! ## 现状
-//! 已搬 **24 个站点**（对齐 `src/providers/*.js`）：
+//! 已搬 **25 个站点**（24 个对齐 `src/providers/*.js` + `bdflixs` Rust 独有）：
 //!
 //! - **JSON 组（7）**：`tpb`、`knaben`、`torrentscsv`、`yts`、`internetarchive`、`subsplease`、`bangumimoe`
 //! - **HTML 组（17）**：`linuxtracker`、`filemood`、`rutor`、`audiobookbay`、`therarbg`、
-//!   `limetorrents`、`torrent9`、`oxtorrent`、`nyaa`、`megapeer`、`zeromagnet`、`dmhy`、`mikan`、`animetosho`、`nekobt`、`anirena`、`xxxtracker`
+//!   `limetorrents`、`torrent9`、`oxtorrent`、`nyaa`、`megapeer`、`zeromagnet`、`dmhy`、`mikan`、`animetosho`、`nekobt`、`anirena`、`xxxtracker`、`bdflixs`
+//!   （`bdflixs` 是 2026-10-25 新增的 Rust 独有站点，**不进 M6 差分**——Node 侧没有对应实现）
 //!
 //! 另有 **Video 模式（独立 trait，不在这 24 家之内）**：[`video`] —— 通用 MacCMS 适配器，
 //! 只返回「标题 + 详情页 URL」，供 UI 打开系统浏览器。BT 与 Video **不混在一个 trait** 里：
@@ -33,6 +34,7 @@ pub mod animetosho;
 pub mod anirena;
 pub mod audiobookbay;
 pub mod bangumimoe;
+pub mod bdflixs;
 pub mod demo;
 pub mod dmhy;
 pub mod filemood;
