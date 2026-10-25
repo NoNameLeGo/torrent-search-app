@@ -19,6 +19,8 @@ import { LineEdit, Button, ListView } from "std-widgets.slint";
 export struct ResultRow {
     // 行号。`push-row(int)` 用它回指 Rust 的权威 Vec（UI 模型可能整体重建，行号必须稳）
     idx: int,
+    // 是否被勾选（批量推送 / 导出）。**由 Rust 侧的 key 集合算出**，UI 不自己存。
+    selected: bool,
     // 标题：styled-text + Rust 侧构造的 markup（关键词高亮）
     title-markup: styled-text,
     // 同一标题的纯文本版本（不做高亮时/无障碍用）
@@ -100,6 +102,8 @@ component ResultCard inherits Rectangle {
     callback push(int);
     // 打开详情面板（屏 03）。同样要转发。
     callback open(int);
+    // 勾选 / 取消勾选一行（批量操作用）
+    callback toggle(int);
 
     height: 88px;
     background: transparent;
@@ -112,6 +116,27 @@ component ResultCard inherits Rectangle {
         HorizontalLayout {
             vertical-stretch: 1;
             spacing: 12px;
+
+            // 勾选：实心块 = 选中（不用字形/图标，少一处排版风险）。
+            // 外面套一层 VerticalLayout 只为了**纵向居中** —— Rectangle 没有
+            // `vertical-alignment`（Text 才有），这是文件里已有的做法。
+            VerticalLayout {
+                width: 16px;
+                alignment: center;
+
+                Rectangle {
+                    width: 16px;
+                    height: 16px;
+                    border-radius: 4px;
+                    background: item.selected ? Theme.mauve : #00000000;
+                    border-width: 1px;
+                    border-color: item.selected ? Theme.mauve : Theme.surface1;
+
+                    TouchArea {
+                        clicked => { root.toggle(item.idx); }
+                    }
+                }
+            }
 
             // 做种数：整行的视觉锚点（设计稿的「海报数字」）
             Text {
@@ -303,6 +328,8 @@ export component AppWindow inherits Window {
     in-out property <string> detail-action: "";
     // 纯 UI 状态：配置区开合。Rust 侧不读它，默认收起 —— 主界面只留搜索与结果。
     in-out property <bool> config-open: false;
+    // 批量选择：Rust 侧按 key 集合算出（排序会重编号 idx，不能用 idx 存选择）
+    in-out property <int> selected-count: 0;
 
     callback search(string);
     callback push-row(int);
@@ -319,6 +346,12 @@ export component AppWindow inherits Window {
     // 屏 03
     callback open-row(int);
     callback close-detail();
+    // 批量：勾选一行 / 全选 / 清空 / 推送 / 导出
+    callback toggle-row(int);
+    callback select-all();
+    callback clear-selection();
+    callback batch-push();
+    callback export-csv();
 
     title: "BT 聚合搜索";
     width: 1280px;
@@ -545,6 +578,56 @@ export component AppWindow inherits Window {
                             item: row;
                             push(idx) => { root.push-row(idx); }
                             open(idx) => { root.open-row(idx); }
+                            toggle(idx) => { root.toggle-row(idx); }
+                        }
+                    }
+
+                    // 批量操作条：有勾选才出现（不勾选时列表占满）
+                    Rectangle {
+                        visible: root.selected-count > 0;
+                        height: 44px;
+                        background: Theme.base;
+
+                        HorizontalLayout {
+                            padding-left: 16px;
+                            padding-right: 16px;
+                            spacing: 8px;
+
+                            Text {
+                                text: "已选 \{root.selected-count} 项";
+                                font-size: 11px;
+                                font-weight: 600;
+                                color: Theme.text;
+                                vertical-alignment: center;
+                            }
+
+                            Rectangle {
+                                horizontal-stretch: 1;
+                            }
+
+                            Button {
+                                text: "全选";
+                                height: 28px;
+                                clicked => { root.select-all(); }
+                            }
+
+                            Button {
+                                text: "批量推送";
+                                height: 28px;
+                                clicked => { root.batch-push(); }
+                            }
+
+                            Button {
+                                text: "导出 CSV";
+                                height: 28px;
+                                clicked => { root.export-csv(); }
+                            }
+
+                            Button {
+                                text: "取消";
+                                height: 28px;
+                                clicked => { root.clear-selection(); }
+                            }
                         }
                     }
 
