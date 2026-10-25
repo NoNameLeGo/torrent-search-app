@@ -62,6 +62,10 @@ export struct IndexerRow {
     action: string,
 }
 
+// 详情面板（屏 03）用**扁平属性**而不是 struct：struct 性质的 property 需要初值，
+// 而 `styled-text` 的初值写法没在本机验证过 —— 本机没编译器，不值得赌。
+// 数据全部来自 `ui_model::RowData` 里已有的原始字段（magnet / info_hash / detail_url）。
+
 // Catppuccin Mocha —— 只用官方 token，不自己造中间色。
 // 语义分工（设计稿定稿）：mauve = 操作/选中，peach = 命中词，green = 做种，
 // blue = 来源链接，maroon = 低做种，red = 失败/超时。
@@ -94,6 +98,8 @@ export global Theme {
 component ResultCard inherits Rectangle {
     in property <ResultRow> item;
     callback push(int);
+    // 打开详情面板（屏 03）。同样要转发。
+    callback open(int);
 
     height: 88px;
     background: transparent;
@@ -147,12 +153,23 @@ component ResultCard inherits Rectangle {
                 vertical-alignment: center;
             }
 
-            // 动作（Rust 决定文案：取磁力/推送/解析中）
-            Button {
-                text: item.action-label;
-                width: 112px;
-                height: 30px;
-                clicked => { root.push(item.idx); }
+            // 动作（Rust 决定文案：取磁力/推送/解析中）+ 详情
+            HorizontalLayout {
+                spacing: 6px;
+
+                Button {
+                    text: "详情";
+                    width: 64px;
+                    height: 30px;
+                    clicked => { root.open(item.idx); }
+                }
+
+                Button {
+                    text: item.action-label;
+                    width: 112px;
+                    height: 30px;
+                    clicked => { root.push(item.idx); }
+                }
             }
         }
 
@@ -272,6 +289,18 @@ export component AppWindow inherits Window {
     in-out property <int> total: 0;
     in-out property <int> page: 1;
     in-out property <bool> has-more: false;
+    // 屏 03 详情面板（扁平属性；见 struct 区的注释）。Rust 侧在打开/关闭/新搜索/重排时写。
+    in-out property <bool> detail-open: false;
+    in-out property <int> detail-idx: -1;
+    in-out property <string> detail-title: "";
+    in-out property <string> detail-meta: "";
+    in-out property <string> detail-provider: "";
+    in-out property <int> detail-seeds: 0;
+    in-out property <int> detail-leechers: 0;
+    in-out property <string> detail-infohash: "";
+    in-out property <string> detail-magnet: "";
+    in-out property <string> detail-url: "";
+    in-out property <string> detail-action: "";
     // 纯 UI 状态：配置区开合。Rust 侧不读它，默认收起 —— 主界面只留搜索与结果。
     in-out property <bool> config-open: false;
 
@@ -287,6 +316,9 @@ export component AppWindow inherits Window {
     callback toggle-site(string);
     callback pick-sort(string);
     callback pick-category(string);
+    // 屏 03
+    callback open-row(int);
+    callback close-detail();
 
     title: "BT 聚合搜索";
     width: 1280px;
@@ -512,6 +544,46 @@ export component AppWindow inherits Window {
                         for row in root.rows : ResultCard {
                             item: row;
                             push(idx) => { root.push-row(idx); }
+                            open(idx) => { root.open-row(idx); }
+                        }
+                    }
+
+                    // ---- 屏 02 空态：还没结果时的海报（文案全静态，只有引擎数取自模型）----
+                    Rectangle {
+                        visible: root.rows.length == 0;
+                        vertical-stretch: 1;
+                        background: transparent;
+
+                        VerticalLayout {
+                            alignment: center;
+                            padding: 44px;
+                            spacing: 8px;
+
+                            Text {
+                                text: "一个关键词";
+                                font-size: 36px;
+                                font-weight: 300;
+                                color: Theme.text;
+                            }
+
+                            Text {
+                                text: "扫完 \{root.providers.length} 个站点。";
+                                font-size: 36px;
+                                font-weight: 700;
+                                color: Theme.mauve;
+                            }
+
+                            Text {
+                                text: "磁力聚合 · 跨站去重 · 直推 qBittorrent / Transmission / aria2 / Gopeed";
+                                font-size: 12px;
+                                color: Theme.sub;
+                            }
+
+                            Text {
+                                text: "在搜索框输入关键词，回车开始";
+                                font-size: 11px;
+                                color: Theme.dim;
+                            }
                         }
                     }
                 }
@@ -519,6 +591,7 @@ export component AppWindow inherits Window {
 
             Rectangle {
                 width: 300px;
+                visible: !root.detail-open;
                 background: Theme.mantle;
                 border-radius: 12px;
                 border-width: 1px;
@@ -566,6 +639,125 @@ export component AppWindow inherits Window {
                     ListView {
                         vertical-stretch: 1;
                         for p in root.providers : ProviderRow { item: p; }
+                    }
+                }
+            }
+
+            // ---- 屏 03 详情面板：占右栏位置（同一时刻只显示一个）----
+            Rectangle {
+                visible: root.detail-open;
+                width: 460px;
+                background: Theme.mantle;
+                border-radius: 12px;
+                border-width: 1px;
+                border-color: Theme.surface0;
+
+                VerticalLayout {
+                    padding: 20px;
+                    spacing: 10px;
+
+                    HorizontalLayout {
+                        spacing: 8px;
+
+                        Text {
+                            text: "详情";
+                            font-size: 10px;
+                            color: Theme.dim;
+                            vertical-alignment: center;
+                            horizontal-stretch: 1;
+                        }
+
+                        Button {
+                            text: "关闭";
+                            width: 64px;
+                            height: 26px;
+                            clicked => { root.close-detail(); }
+                        }
+                    }
+
+                    Text {
+                        text: root.detail-title;
+                        font-size: 17px;
+                        font-weight: 600;
+                        color: Theme.text;
+                    }
+
+                    Text {
+                        text: root.detail-meta;
+                        font-size: 11px;
+                        color: Theme.sub;
+                    }
+
+                    HorizontalLayout {
+                        spacing: 16px;
+
+                        Text {
+                            text: "做种 \{root.detail-seeds}";
+                            font-size: 11px;
+                            color: Theme.green;
+                            vertical-alignment: center;
+                        }
+
+                        Text {
+                            text: "下载 \{root.detail-leechers}";
+                            font-size: 11px;
+                            color: Theme.text;
+                            vertical-alignment: center;
+                        }
+
+                        Text {
+                            text: "来源 \{root.detail-provider}";
+                            font-size: 11px;
+                            color: Theme.accent;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    Text {
+                        text: "INFOHASH";
+                        font-size: 10px;
+                        color: Theme.dim;
+                    }
+
+                    Text {
+                        text: root.detail-infohash;
+                        font-size: 10px;
+                        color: Theme.text;
+                    }
+
+                    Text {
+                        text: "磁力";
+                        font-size: 10px;
+                        color: Theme.dim;
+                    }
+
+                    Text {
+                        text: root.detail-magnet;
+                        font-size: 10px;
+                        color: Theme.sub;
+                    }
+
+                    Text {
+                        text: "详情页";
+                        font-size: 10px;
+                        color: Theme.dim;
+                    }
+
+                    Text {
+                        text: root.detail-url;
+                        font-size: 10px;
+                        color: Theme.accent;
+                    }
+
+                    // 把主按钮推到底部
+                    Rectangle {
+                        vertical-stretch: 1;
+                    }
+
+                    Button {
+                        text: root.detail-action;
+                        height: 40px;
+                        clicked => { root.push-row(root.detail-idx); }
                     }
                 }
             }
