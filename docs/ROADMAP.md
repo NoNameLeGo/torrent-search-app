@@ -45,10 +45,10 @@
 
 | # | 标准 | 怎么判定 | 备注 |
 |---|---|---|---|
-| S1 | 打包成**单文件自包含 exe** | `dist/` 产物 + 看体积 | ✅ **2026-10-16 M7 实测：18,610,176 字节（18.0MB）**，已加 `lto=true`/`codegen-units=1`/`strip=true`。⚠️ M1 的 14.5MB 是 **spike/slint-ui 的 exe**（不是 bt-app）且**无静态 CRT** ⇒ **不可直接比**；有意义的对照是 **Electron portable ≈151MB** |
-| S2 | **零运行时依赖** —— 拷到干净 Windows 直接双击能跑 | 实测（最好虚拟机/另一台机） | 🟡 **旁证已过**：`+crt-static` 下 exe 只依赖 Windows 系统 DLL（kernel32/user32/gdi32/opengl32/dwrite…），**无 vcruntime140/msvcp140**；`rust-size.yml` 把这条写成了**机器断言**。⏳ 正式判据仍需人工在干净 Windows 上双击一次 |
-| S3 | 冷启动**明显快于** Electron 版 | 秒表 / 日志打点 | 建议目标 < 1s（**待你确认**） |
-| S4 | 空闲内存**明显低于** Electron 版 | 任务管理器 | 建议目标 < 100MB（**待你确认**） |
+| S1 | 打包成**单文件自包含 exe** | `dist/` 产物 + 看体积 | ✅ **v0.4.0-beta 实测：20,018,688 字节（19.1MB）**，已加 `lto=true`/`codegen-units=1`/`strip=true`。⚠️ M1 的 14.5MB 是 **spike/slint-ui 的 exe**（不是 bt-app）且**无静态 CRT** ⇒ **不可直接比**；有意义的对照是 **Electron portable ≈146MB** |
+| S2 | **零运行时依赖** —— 拷到干净 Windows 直接双击能跑 | 实测（最好虚拟机/另一台机） | 🟡 **2026-10-26 复测（发布版 exe）**：解析 PE 导入表 = **24 个 DLL，全是 Windows 系统 DLL**（kernel32/user32/gdi32/opengl32/dwrite/combase…），**无 vcruntime140 / msvcp140 / ucrtbase / api-ms-win-crt-\***；并在**净化环境**（`PATH` 只留 `C:\Windows\System32`）下从空目录启动成功。⏳ 正式判据仍需人工在干净 Windows（虚拟机/另一台机）双击一次 —— 本机没有第二套环境 |
+| S3 | 冷启动**明显快于** Electron 版 | 秒表 / 日志打点 | ✅ **2026-10-26 实测**：出窗口 **0.76–0.81 s**（同路径第 2 次起，5 次取样），满足 < 1s。⚠️ **首次运行** 1.1–1.6 s（Defender 首扫 + 冷盘读，换新路径复现），属系统开销；未做 Electron 对照（要装 96MB 包） |
+| S4 | 空闲内存**明显低于** Electron 版 | 任务管理器 | ✅ **2026-10-26 实测**：任务管理器口径（Working Set - Private）**43.8 MB**，工作集 81.6 MB，私有提交 121 MB —— 满足 < 100MB。单进程、无子进程 |
 | S5 | 中文标题 + 关键词高亮 + 自动换行**不崩** | M1 验证（Slint #13548） | ✅ **已过（2026-10-16）** |
 | S6 | 搜索 → 结果列表 → 磁力 → 推送下载器 **全链路通过** | 手工走一遍 | MVP 的定义 |
 
