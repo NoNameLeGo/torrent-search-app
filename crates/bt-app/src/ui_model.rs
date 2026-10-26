@@ -429,6 +429,11 @@ pub struct AppState {
     /// ⚠️ 用 `HashMap` 而不是 Vec：这里只按 id 查，不需要顺序
     /// —— 顺序由 `chips` 保证，那才是 UI 的显示顺序。
     pub stale: std::collections::HashMap<String, usize>,
+    /// 这一轮各站**报上来的原始条数之和**（跨站去重之前）。
+    ///
+    /// ⚠️ 「去重掉多少」只能这么算：聚合层只留下合并后的行，没有
+    /// "合并前是多少"的信息 ⇒ 在这个累加点记一份。屏 01 的「本次统计」卡要它。
+    pub raw_fetched: usize,
     /// 发号器（见 [`RowData::key`]）。只增不减 —— **不随 `begin_search` 归零**，
     /// 否则上一轮迟到的异步写回可能命中新搜索里的同号行。
     next_key: u64,
@@ -446,6 +451,7 @@ impl AppState {
         self.rows.clear();
         self.has_more = false;
         self.zero_hits = 0;
+        self.raw_fetched = 0;
         self.net_failures = 0;
         self.site_failures = 0;
         self.chips = providers
@@ -607,6 +613,10 @@ impl AppState {
                 .push(RowData::from_result(r, idx, key, query, accent));
         }
 
+        // 屏 01「本次统计」卡：跨站去重**之前**的原始条数（各站报数之和）。
+        // 去重掉多少 = 它 − `rows.len()`，见 [`AppState::dedup_dropped`]。
+        self.raw_fetched += report.status.count;
+
         // #2 「连上了但 0 条」单独计数 —— 它的 tone 也是 Ok，从 chips 里看不出来。
         // ⚠️ 只在**没有错误**时算：报错的家 count 也是 0，但那是"失败"不是"返回空"。
         if report.status.error.is_none() && report.status.count == 0 {
@@ -710,6 +720,14 @@ impl AppState {
             return None;
         }
         self.rows.get_mut(idx as usize)
+    }
+
+    /// 跨站去重**丢掉**的条数（各站报数之和 − 现在留下的行数）。屏 01「本次统计」卡用。
+    ///
+    /// ⚠️ `saturating_sub`：分类筛选不动 `rows`，但排序/重推等路径理论上不该让
+    /// `rows` 反超报数 —— 真反超了也只显示 0，不该把 UI 数字变成天文数字。
+    pub fn dedup_dropped(&self) -> usize {
+        self.raw_fetched.saturating_sub(self.rows.len())
     }
 
     /// 搜索结束后的状态行：`共 N 条 · X 家成功 / Y 家失败`。
