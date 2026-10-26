@@ -104,10 +104,14 @@ export global Theme {
     out property <color> green:    #a6e3a1;
     out property <color> blue:     #89b4fa;
     out property <color> maroon:   #eba0ac;
+    out property <color> yellow:   #f9e2af;
     out property <color> ok:       #a6e3a1;
     out property <color> err:      #f38ba8;
     // ⚠️ Rust 侧读取的三个名字：hl（高亮）/ accent（链接）/ bg·card（旧布局用）
-    out property <color> hl:       #fab387;
+    // hl 按设计稿定稿是 **yellow**（关键词高亮），peach 已经不是高亮色 ——
+    // 主操作色是 mauve，peach 与 yellow 同属暖色会抢焦点。改值即生效
+    // （main.rs 的 accent_hex 只读这个名字）。
+    out property <color> hl:       #f9e2af;
     out property <color> accent:   #89b4fa;
     out property <color> bg:       #11111b;
     out property <color> card:     #181825;
@@ -126,6 +130,11 @@ component AppButton inherits Rectangle {
     callback clicked;
 
     height: 30px;
+    // 默认宽度**按文字自适应**（屏 01 的分类/排序 chips 是横排的，需要它）。
+    // 显式 `width:` 仍然覆盖这条（现有调用大多显式给了宽度，行为不变）。
+    // ⚠️ 用 `txt.preferred-width` 不会成环：Text 的 preferred-width 只取决于
+    // 文字与字体，与它自己的 `width: parent.width` 无关。
+    width: txt.preferred-width + 24px;
     border-radius: 6px;
     border-width: 1px;
     background: !root.active ? Theme.surface0 : (root.primary ? Theme.mauve : Theme.surface1);
@@ -143,7 +152,7 @@ component AppButton inherits Rectangle {
         }
     }
 
-    Text {
+    txt := Text {
         text: root.label;
         font-size: root.text-size;
         color: !root.active ? Theme.dim : (root.primary ? Theme.crust : Theme.subtext);
@@ -458,11 +467,12 @@ component ChipRow inherits Rectangle {
     callback pick(string);
 
     height: 26px;
+    // 宽度跟着文字走 —— 横排（搜索区下方）需要它；竖排时也左对齐成紧凑 chip。
+    width: btn.width;
     background: transparent;
 
-    AppButton {
+    btn := AppButton {
         label: item.label;
-        horizontal-stretch: 1;
         height: 26px;
         text-size: 11px;
         active: root.can-pick;
@@ -618,6 +628,17 @@ export component AppWindow inherits Window {
                     clicked => { root.switch-mode(1); }
                 }
 
+                // 网盘模式（mode 2）。⚠️ 2026-10-26 之前**没有这个入口** ——
+                // Rust 侧 pan 搜索与 PanCard 都在，UI 上却点不到，等于功能不存在。
+                AppButton {
+                    label: "网盘";
+                    width: 56px;
+                    height: 26px;
+                    text-size: 11px;
+                    primary: root.mode == 2;
+                    clicked => { root.switch-mode(2); }
+                }
+
                 Rectangle {
                     horizontal-stretch: 1;
                 }
@@ -668,6 +689,37 @@ export component AppWindow inherits Window {
                         height: 34px;
                         active: !root.searching && root.has-more;
                         clicked => { root.next-page(); }
+                    }
+                }
+
+                // 分类 chips —— 屏 01 的位置：**搜索条下方横排**，不再塞在右栏里
+                // （右栏那个 104px 高的 ListView 只装得下 4 个，多的直接看不见）。
+                // ⚠️ 用 `for` 直接横排：`ListView` 只支持纵向；外层 Rectangle 加 clip
+                // 兜住"分类名特别多"时的溢出，避免画到窗口外面去。
+                if root.mode == 0 : Rectangle {
+                    height: 26px;
+                    clip: true;
+
+                    HorizontalLayout {
+                        spacing: 6px;
+
+                        Text {
+                            text: "分类";
+                            font-size: 10px;
+                            color: Theme.dim;
+                            width: 26px;
+                            vertical-alignment: center;
+                        }
+
+                        for c in root.cats : ChipRow {
+                            item: c;
+                            can-pick: !root.searching;
+                            pick(id) => { root.pick-category(id); }
+                        }
+
+                        Rectangle {
+                            horizontal-stretch: 1;
+                        }
                     }
                 }
 
@@ -1051,23 +1103,13 @@ export component AppWindow inherits Window {
 
                     RailLabel { text: "排序（再点一次反向）"; }
 
+                    // 4 个 chip × 26px = 104 —— 原来 96 会把最后一个（时间）裁掉半截
                     ListView {
-                        height: 96px;
+                        height: 104px;
                         for s in root.sorts : ChipRow {
                             item: s;
                             can-pick: !root.searching;
                             pick(id) => { root.pick-sort(id); }
-                        }
-                    }
-
-                    RailLabel { text: "分类"; }
-
-                    ListView {
-                        height: 104px;
-                        for c in root.cats : ChipRow {
-                            item: c;
-                            can-pick: !root.searching;
-                            pick(id) => { root.pick-category(id); }
                         }
                     }
 
