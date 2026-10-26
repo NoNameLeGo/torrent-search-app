@@ -123,6 +123,40 @@ try {
 } catch (e) {
   check(false, `读不到 Cargo.lock（${e.message}）—— --locked 构建需要它入库`);
 }
+
+// 6d) feat/tauri 的版本号必须跟着 main 走。
+// 为什么（2026-10-26 加，来自一次真事故）：`v0.4.0-beta` 发出去的资产里，
+// Rust / Electron 都是 0.4.0-beta，唯独 `BT-Search-Tauri-Setup-**0.3.15**-beta.exe`
+// 顶着上一版的号 —— 因为 `release.yml` 是**显式 checkout `feat/tauri`** 去构建
+// Tauri 包的，而 main bump 版本时没人动那个分支的三处版本号（外加它自己的
+// `src-tauri/Cargo.lock`）。上面 6b/6c 只管 main 一侧，所以这里补上另一侧。
+if (hasFeat && version) {
+  const featFile = (p) => gitOut(['show', `${FEAT}:${p}`]);
+  const featJson = (p) => {
+    try { return JSON.parse(featFile(p)); } catch (e) { return null; }
+  };
+  const tauriConf = featJson('src-tauri/tauri.conf.json') || {};
+  const vers = {
+    // tauri.conf.json 是**真源**：它决定安装包文件名里的版本
+    'tauri.conf.json': typeof tauriConf.version === 'string' ? tauriConf.version : '(非字符串，跳过)',
+    // 进 exe 的文件属性
+    'src-tauri/Cargo.toml':
+      (featFile('src-tauri/Cargo.toml').match(/^version\s*=\s*"([^"]+)"/m) || [])[1] || '?',
+    // 进产物名（electron-builder / 打包脚本会读）
+    'package.json': (featJson('package.json') || {}).version || '?',
+    // `cargo build --locked` 会对不上就红
+    'src-tauri/Cargo.lock':
+      (featFile('src-tauri/Cargo.lock').match(/name = "bt-aggregate-search"\s*\nversion = "([^"]+)"/) || [])[1] || '?',
+  };
+  const bad = Object.entries(vers).filter(([, v]) => v !== version && v !== '(非字符串，跳过)');
+  check(
+    bad.length === 0,
+    bad.length === 0
+      ? `feat/tauri 版本号与 main 一致（= ${version}）`
+      : `feat/tauri 版本号没跟上 main=${version}：${bad.map(([k, v]) => `${k}=${v}`).join(', ')} —— Tauri 安装包会顶着旧版本号`
+  );
+}
+
 if (lastTag && version && lastTag !== `v${version}`) {
   console.log(`   ⚠️ 最近 tag（${lastTag}）与当前版本（v${version}）不一致 —— 确认是真的忘了 bump，还是刚发完下一轮`);
 }

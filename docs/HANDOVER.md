@@ -1,52 +1,61 @@
-# 交接说明（写于 2026-10-16 收盘，2026-10-21 更新）
+# 交接说明（2026-10-26 核对，取代 2026-10-21 版）
 
 > 这份是**给下一个接手的人/AI** 的现状快照。历史决策在 `AGENTS.md`（很长，按需查），
 > 设计目标在 `docs/ROADMAP.md`，CI 事故总账在 `docs/CI_FAILURES.md`。
+> 本文件只写「现在是什么状态」和「别重复踩什么」，**不写流水账**。
 
 ## 一句话状态
 
-`main` = **`bfd7504`**（2026-10-24，`feat/xxxtracker` 合并；2026-10-25 核对时工作区干净、与 `origin/main` 同步）。
-Rust 主线功能面 100%（M0–M7 全通过），发版链已稳定：`v0.3.10` → `v0.3.11` → `v0.3.12` → `v0.3.13` → **`v0.3.14`** 连续五版一次成功。
+`main` = **`ba5fa1b`**（2026-10-26 核对：工作区干净、与 `origin/main` 同步、无未推送提交）。
+最新发布 = **`v0.4.0-beta`**（2026-10-25 11:22Z，GitHub *Latest*，tag → `ba5fa1b`），
+`release.yml` 一次跑绿（run `40187920449`，9m56s），产物 6 个：
 
-**最新发布 = `v0.3.14-beta`**（2026-10-23 06:2x UTC，GitHub Latest，tag `v0.3.14-beta` → `6916c8c`）。
-产物 6 个：`BT-Search-Rust-0.3.14-beta.exe`（18.6MB，体积门 25MB 内）/ `.zip`、
-`BT-Search-Electron-Setup-0.3.14-beta.exe`（96MB）、`BT-Search-Electron-Portable.zip`（146MB）、
-`BT-Search-Tauri-Setup-0.3.14-beta.exe`（29.7MB）、**`latest.yml`**。
-本版内容：`linuxtracker` 的「展开描述行」列映射修复 + 第 23 家引擎 `anirena`。
-（`v0.3.13` 带的是 nyaa 磁力修复 + audiobookbay 的 size/date 修复。）
+| 资产 | 大小 |
+|---|---|
+| `BT-Search-Rust-0.4.0-beta.exe` | 20,018,688 B（**19.1MB**，门限 25MB） |
+| `BT-Search-Rust-0.4.0-beta.zip` | 8,849,763 B |
+| `BT-Search-Electron-Setup-0.4.0-beta.exe` | 100,921,104 B |
+| `BT-Search-Electron-Portable.zip` | 152,774,518 B |
+| `BT-Search-Tauri-Setup-0.3.15-beta.exe` | 31,116,828 B ⚠️ 见下 |
+| `latest.yml` | 380 B |
 
-⚠️ **`main` 比这个 tag 多 9 个提交（2026-10-24），下一版待发**：第 24 家引擎 `xxxtracker`
-+ 审计收尾（`202562b` 删掉 `release.yml` 的 `gh release delete`，修 `latest.yml` 竞态）。
-版本号目前仍是 `0.3.14-beta` ⇒ 发下一版时要 bump 到 `0.3.15-beta`（`Cargo.toml`/`package.json`/`Cargo.lock`
-五处 + `feat/tauri` 三处）。⚠️ `202562b` 那个修复**尚未被任何一次发版验证**，只有下次发版能确认。
+**本版内容**：顶栏**三模式**（磁力 / 视频 / 网盘，结果不混流）· 在线影视 **5 家**
+（APP影院、独播库、嘀嗒、追影、宅男，搜索后 `open_url` 打开原站）· **PanSou 网盘客户端**
+（方案 A：外部服务，设置里填地址与 token，支持打开链接 + 复制提取码）· BT 引擎 **27 家**
+（24 对齐 Node + 3 家 Rust 独有：`bdflixs` / `pomo` / `cilixiong`）。
 
-⚠️ **`latest.yml` 从 0.3.11 起就没了**（0.3.10 有）。机制已查清，不是玄学：
+⚠️ **Tauri 包名是上一版的号**：main 从 `0.3.15-beta` 走到 `0.4.0-beta` 时，只 bump 了 main 自己的
+版本，`feat/tauri` 上那四处还是 `0.3.15-beta`，而 `release.yml` 是**显式 checkout `feat/tauri`**
+来构建 Tauri 包的。已发布的资产**不改名、不重打 tag**（仓库规矩）；分支当日已对齐到 `0.4.0-beta`
+（`c9af929`，`Tauri Build (validate)` 已跑），**下一版即可拿到正确包名** —— 这是唯一还欠验证的一环。
 
-| 谁 | 干什么 | 是否产出 `latest.yml` |
+## 规模（2026-10-26 实测，自己数一遍别抄）
+
+| 项 | 值 |
+|---|---|
+| Rust | **90 个 `.rs` / 26,107 行**，`TODO`/`FIXME` **0 处** |
+| 引擎 | BT **27** + 在线影视 **5** + `pan`（网盘）+ `demo`（离线演示） |
+| 测试 | `#[test]` **253** + `#[tokio::test]` **326**；另有 M4 `--selftest` 全链路 12/12 |
+| workflow | **14 条**，`python3 scripts/check-workflows.py` 全绿（含「引用的脚本是否存在」） |
+| 版本 | `Cargo.toml` / `package.json` / `Cargo.lock` 全 = `0.4.0-beta`，`node scripts/release-check.js` 通过 |
+
+## 分支
+
+| 分支 | ahead / behind `main` | 说明 |
 |---|---|---|
-| `build.yml`（tag 触发） | `npm run dist -- --publish=onTag`，**自己发 Release** | **会**（electron-builder 发布时才写） |
-| `release.yml` 的 electron job | `npm run dist -- --publish=never` | **不会**（日志里只有 `building block map`） |
-| `release.yml` 的 publish job | 先 `gh release delete`（保留 tag）再用自己的 6 个产物重建 | 于是 build.yml 那份 `latest.yml` 被连带删掉 |
+| `main` | — | Rust 主线，唯一发布源 |
+| `feat/tauri` | +79 / −354 | **永久 CI 分支**：`release.yml` 显式 checkout 它构建 Tauri 包。绝不能删。版本号要跟 main 走 |
+| `spike/slint-ui` | +3 / −195 | M1 证据（Slint 风险探针） |
+| `feat/rust` | +0 / −178 | 已并入 main，纯存档 |
+| `legacy/node-electron` | +0 / −278 | Node/Electron 旧实现存档（停在 `9b9461c`） |
 
-**2026-10-23 实测证据**：发版过程中 `gh release list` 能看到一个 **Draft** `0.3.13-beta`
-（`build.yml` 的 electron-builder 默认建 draft），最终留下的是 `draft=false` 那份，
-而 `latest.yml` 数量 = 0 —— 与上表推断一致。
+## 2026-10-26 这一轮改了什么（三项，都不改行为）
 
-**同一天的 `v0.3.14-beta` 反过来验证了「谁最后跑完谁决定」**：这次 **有** `latest.yml`（383B）、
-却**没有** `.exe.blockmap`。所以资产集是**竞态**结果，不是固定形态 ——
-`0.3.11/0.3.12/0.3.13` 缺 latest.yml、`0.3.14` 有；blockmap 则相反。
-
-**实际影响 ≈ 0**：全仓没有任何 `electron-updater` / `autoUpdater` 引用 ⇒ 没有自动更新在读它。
-真要修（二选一，都得下次发版验证）：
-① 去掉 `release.yml` 里那步 `gh release delete`（软 props 会按文件名合并，重复发同一 tag 时才会留下旧文件）；
-② 反过来让 `release.yml` 的 electron job 也产出并上传 `latest.yml`（需要 electron-builder 在 `--publish=never` 下也生成它 —— 目前不会，得加 `--config.publish` 之类的技巧，不如①稳）。
-
-⚠️ **`v0.3.9-beta` 从未发布成功**（历史更正，别再照旧文档复述）：
-那次发版 run（`38897429252`）里 `electron` / `tauri` 两个 job 都绿，
-只有 `Build Rust app` 失败 —— `895520a` 把版本 bump 到 0.3.9 却**没同步 `Cargo.lock`**，
-`cargo build --release --locked` 直接报 `cannot update the lock file`；
-`Publish to GitHub Release` 因此被 skip ⇒ **tag 打了、release 没生成**，之后 tag 被删。
-那次的修复（`2dbf9f6` 补 lock）**当时没被任何门验证过**，本轮才真正跑绿。
+| 事 | 之前 | 之后 |
+|---|---|---|
+| 残留 Draft Release | 同 tag `v0.4.0-beta` 下留了一个 `isDraft=true` 的空壳（2026-10-24 删掉 `release.yml` 的 `gh release delete` 后，`build.yml` 里 electron-builder 建的 draft 就没人清了），内含 1 个孤儿 `.blockmap` | 按 **release id** 精确删除（不是按 tag —— 同 tag 有两个 release，`gh release delete <tag>` 有删错的风险）。正式 release 与 tag 未动 |
+| Tauri 版本号 | `feat/tauri` 四处 = `0.3.15-beta`，导致 v0.4.0 的 Tauri 包顶旧号 | 四处对齐到 `0.4.0-beta`（`tauri.conf.json` 真源 / `src-tauri/Cargo.toml` / `package.json` / `src-tauri/Cargo.lock`）→ `c9af929` |
+| 门缺口 | `release-check.js` 只校验 main 一侧（`Cargo.toml` / `Cargo.lock`），**完全没看 `feat/tauri`** | 新增 **6d**：直接读 `feat/tauri` 的四处版本号与当前版本比对，不一致直接红 —— 下次 bump 只改一边会被预检拦下 |
 
 ## 这台机器上的硬约束（先读，否则会白折腾）
 
@@ -60,110 +69,33 @@ Rust 主线功能面 100%（M0–M7 全通过），发版链已稳定：`v0.3.10
 | 手动触发 workflow | `gh workflow run <file>` 要求该文件已在**默认分支**上 |
 | 期望值不许手算 | 跑真 JS 拿：`node -e "require('./src/lib/normalize.js')…"`（零依赖，本机可用） |
 
-## 最近这批改动（看 `git log --oneline 9cc732d..HEAD`）
-
-背景：用户要求「看下还有什么要修正/改善的」→ 4 个只读 reviewer 分头审计
-（`crates/bt-app` / `bt-providers`+`bt-core` / `bt-downloaders`+`bt-torznab` / 仓库卫生），
-共 **50 条发现 / 15 HIGH**，原文 4 份 `.md` 在 `.audit/`（**本地、已 gitignore、不入库**）。
-
-| 提交 | 内容 |
-|---|---|
-| `d1c860b` | 审计主体:bt-app 三个 race（第二次搜索无代数围栏 / `refresh_row` 坐标系错 / 网络回来后才写回的 `idx` 被排序重编号）· qB 的 `Fails.` 假成功（Rust + Node 两侧）· Torznab `<error>` 被当空结果 · `normalize_api_url` 裸字节切分 panic · 新增 `node.yml` CI 门 · `rust-size.yml` 从探针转成真门 · `check-workflows.py` 加「引用的脚本是否存在」 · 一批文档矛盾（AGENTS.md / AGENT_HANDBOOK.md）· `Cargo.toml` 版本 0.0.1→0.3.7-beta · `package.json` 清掉指向不存在的 `src-tauri/` 的脚本 · `server.js` async 路由 wrap + 错误中间件 · `electron/main.js` 的 `openExternal` scheme 白名单 · `catch_unwind` 包住 `search()` 调用本身 · 俄语日期大小写 · `btih` 下标不再用 `to_lowercase()` 副本 · `safe_http_url` 的归一化结果不再被丢 · `Kind::parse` 不再默认 qB |
-| `55a9dca` / `d9bed30` | `Cargo.lock`（6781 行）入库；门与发版构建加 `--locked`（探针类 workflow **刻意不加**） |
-| `ea20905` | 修我自己写错的用例期望值（没磁力的行是 `NeedsMagnet` 不是 `Ready`） |
-| `5f1865d` / `c524723` | 0.3.9-beta 版本号对齐 + 文档版本引用 |
-| `2b4a3e7` | 审计残留收口：① health 落盘不再占 UI 线程 + `--selftest` 不再写用户真实 `%APPDATA%`（新增 `BT_SEARCH_HOME`）② 用户配置改**原子写**（`write_atomic`: tmp + rename）③ Torznab `attr()` 对齐 JS（全后代 + 大小写不敏感）④ `v2nt` 补 `as_f64` 回退 ⑤ 删掉没人加载的 `build:frontend`（脚本 + `esbuild` 依赖）⑥ axios 锁到 1.20.0 |
-| `895520a` / `2dbf9f6` | 0.3.9-beta 版本号对齐（**只改了 `Cargo.toml`/`package.json`，漏了 `Cargo.lock`**）→ 发版失败 → 补上 lock（这条修复当时**没被体积门验证**，原因见下一节） |
-
-## 2026-10-21 这一轮：把发版链的两个缺口补上
-
-起因：一次只读进度核查（`git log` / `gh run list` / `gh release list` 三处对账）发现
-**「文档说已发 0.3.9、实际没有 release」**。根因不是代码，而是两道门都有洞：
-
-| 缺口 | 后果 | 修法 |
-|---|---|---|
-| `rust-size.yml` 的 `paths` 只有 `Cargo.toml` / `crates/**` / 自身，**没有 `Cargo.lock`** | `2dbf9f6` 只改 lock ⇒ 体积门不触发 ⇒ 那次 `--locked` 失败**从未被这道门重新验证**，「修复完成」只是口头结论 | `paths` 补 `Cargo.lock`（换依赖版本本来就是体积会变的场景） |
-| `release-check.js` 只比对 `package.json` ↔ `Cargo.toml`，**不查 `Cargo.lock`** | 正是 0.3.9 那次事故的形状：两个真源一致、lock 落后，`--locked` 在 CI 才炸，tag 已经推出去了 | 新增 6c 检查：扫 lock 里所有 `bt-*` 包的 version，不一致就红 |
-
-另外把版本推到 **`0.3.10-beta`**（`Cargo.toml` / `package.json` / `Cargo.lock` 五处一起），
-`feat/tauri` 的三处版本号（`tauri.conf.json` 是**真源** / `src-tauri/Cargo.toml` / `package.json`）
-同步到同一版本 —— 否则发版出来的 Tauri 安装包会顶着旧版本号（`AGENTS.md` §C 记过这个坑）。
-
-**结果（都实测过，不是推断）**：
-
-| 步骤 | 证据 |
-|---|---|
-| main 五道门 | `Rust (test)` 3m52s ✅ · `Rust exe size` **12m+ ✅**（这次真的跑完了 —— 它由 `Cargo.lock` 触发，`--locked` 通过）· `Node (test)` ✅ · `Build Windows 发行包` ✅ · `CI guard` ✅ |
-| `feat/tauri` 版本 | `Tauri Build (validate)` ✅（run `39627044618`） |
-| 发版 | run `39629141627` **success**；`gh release view` 五个资产全在，Tauri 包名 = `0.3.10-beta` |
-| 体积 | `BT-Search-Rust-0.3.10-beta.exe` = **19,398,144 字节（18.5MB）**，门限 25MB |
-
-⚠️ 顺带踩到一个 git 坑（记下来省下一个人半小时）：`git worktree add <dir> refs/heads/<branch>`
-用**完整 ref** 传进去会得到 **detached HEAD**，commit 不落到分支上 ——
-于是 `git push origin refs/heads/<branch>` 报 `Everything up-to-date`（推的是没动过的旧引用）。
-要么传短分支名，要么 `git push origin HEAD:refs/heads/<branch>`。
-
-## 2026-10-23 这一轮：搬了 6 家 + 修掉 nyaa 的数据级 bug
-
-**引擎 16 → 22 家**（`subsplease` / `dmhy` / `mikan` / `animetosho` / `bangumimoe` / `nekobt`），
-全部同步进 M6 差分门 ⇒ **22 家全量、0 处未豁免差异**。发了 `v0.3.12-beta`。
-
-三件值得记的事：
-
-1. **`nyaa` 的三处上游 bug 已修（JS + Rust 同轮）**。原来照抄的结果是：
-   磁力在 Link 格而代码在名字格里找 ⇒ **结果里根本没有磁力**；名字格带 `colspan="2"`
-   导致列索引整体错位一格 ⇒ size/date 全空、**seeders 变成 2009**（把日期串喂给 parseInt）。
-   修法：磁力在整行里找、索引改 3/4/5/6。**为什么现在敢修**：这是数据级 bug，不是外观差异；
-   两侧同轮改，差分门仍一致（它比的是「同一份 fixture 下两边是否相同」）。
-   ✅ **同类另两处也已在同一天修完**（见 `AGENTS.md` 的上游 bug 表）：
-   `audiobookbay` 的 size/date 双丢（按字段名切，不再按 `\n` 切）、
-   `linuxtracker` 的 19-td 展开行列错位（单独列映射 + 剥前缀）。
-   ⚠️ linuxtracker 那条**不能靠"跳过行"修** —— 实测那个 torrent 全页只出现一次，
-   是唯一一条真实结果；做法是给 19 格行单独映射，真值由新加的 cheerio 探针
-   `expanded.all_rows` 在 CI 里 dump 出来。
-2. **`fetch-fixture.yml` 支持 POST**（可选 `method` / `body`）—— 否则 `bangumimoe` 这类只吃
-   POST 的 API 站连快照都抓不到。curl 参数必须用**数组**拼，body 里的引号会被 shell 再解释。
-3. **探活结论**（别再白试）：`tokyotoshokan` CI 也 403（Cloudflare）；`sukebei` 超时、
-   `bitsearch` 520、`eztv` 403。剩下可试的约 12 家。
-
-## 2026-10-24 收尾：审计 LOW + `latest.yml` 竞态
-
-一次只读进度核查之后的清账，四项改动都不改行为、只改"说谎的地方"：
-
-| 改动 | 之前 | 之后 |
-|---|---|---|
-| `release.yml` 删掉 `gh release delete` 步骤 | 两个 workflow 都监听 tag push：`build.yml` 先建 Release 并放上 `latest.yml`，随后 `release.yml` 把整个 Release 删掉、只用自己 6 个产物重建 ⇒ `latest.yml` 连带消失 | 两侧合并到同一个 Release（`softprops/action-gh-release` **复用**同 tag 的既有 Release，且 `overwrite_files` 默认 true ⇒ 同名资产原地覆盖）。仓库规矩"绝不重打同名 tag"，所以"新旧文件共存"这个原担心不成立 |
-| `aria2.rs` / `transmission.rs` 的 `push` | 硬编码 `PushOutcome { status: 200 }`（照抄 JS），UI 显示「已推送到 aria2（HTTP 200）」是个**编造的数字** | 两个 `call()` 都改成 `Result<(Value, u16), String>`，把**真实**响应状态码带出来（审计 #12） |
-| `bt-downloaders/src/lib.rs` 的 `net_err` | `format!("请求下载器失败 ({e})")` —— reqwest 的 `Display` **带完整 URL**，而下载器地址常把 token 放 query、或内嵌 basic-auth；这段文案会进 UI 状态行 / `--health` 历史 / 日志 | `e.without_url()`（审计 #14） |
-| `bt-torznab/src/lib.rs` 的 `text()` | `Node::text()` **只返回第一个 text 子节点** ⇒ `<title>a<b>x</b>c</title>` 静默丢掉 `c` | 拼接全部后代文本节点，与 cheerio 的 `.text()` 一致（审计 #15） |
-
-**仍然「明确不修」**：`push_same_name_indexers_collapse_into_one_id`（审计 #11）——
-UI 按**名字**去重，同名索引器不会共存，撞 id 只可能来自手改 `indexers.json`；
-真要做先定 id 方案 + 迁移已有文件。理由见下面「明确不修」表。
-
 ## 还挂着的事（按「值得动」排序）
 
-1. ✅ **已发 `v0.3.10-beta`**（2026-10-21）—— 含 0.3.8 之后的全部修复。下次照本轮顺序走：
-   `npm run release:check`（现在会拦 lock 不同步）→ 等 main 五道门绿 → 打 tag。
-   **绝不重打同名 tag**（仓库规矩）。
-2. ✅ **已修**（本会话）：每个索引器一行「停用 / 启用」。~~索引器不能单独停用~~（真·产品缺口）。原文留档：`config_store::StoredIndexer.enabled` 与 `bt_torznab::IndexerConfig.enabled` 字段都在、`add_indexer`（`crates/bt-app/src/main.rs:854`）恒写 `true`，而 `crates/bt-app/ui/app.slint:365-390` 只有「添加 / 清空」两个按钮 ⇒ 某个索引器坏了只能全部清掉重加。最小做法：给每行加个开关 + `set_indexer_enabled` 回调 + `save_indexers`。
-3. **S2「零运行时依赖」还差人工那一次**：`rust-size.yml` 已机器断言「无 vcruntime140/msvcp140」，但 `docs/ROADMAP.md:47` 的判据是**拷到干净 Windows 双击** —— 需要在虚拟机/另一台机上做。
-4. **S3/S4 的性能目标还是「待你确认」**（`docs/ROADMAP.md:50-51`：冷启动 < 1s、空闲内存 < 100MB）—— 得先真机量一次。
-5. ✅ **已修**（本会话）：粘贴 feed URL 会自动抠 `apikey`（`bt_torznab::extract_api_key`，只在 key 框空着时用）。原文留档：~~粘贴 Jackett 的 feed URL 不会自动抠 `apikey`~~（`normalize_api_url` 刻意丢 query），key 得手填。错误现在会明说「Invalid API key」，所以只是省一步。
+1. **下一版验证 Tauri 包名**（唯一欠验证项）：`release:check` 通过 → 等 main 五道门绿 → 打 tag。
+   出来的 `BT-Search-Tauri-Setup-**0.4.x**-beta.exe` 才算这条修好了。**绝不重打同名 tag**。
+2. **S2「零运行时依赖」还差人工那一次**：`rust-size.yml` 已机器断言「无 vcruntime140/msvcp140」，
+   但 `docs/ROADMAP.md:47` 的判据是**拷到干净 Windows 双击** —— 需要在虚拟机/另一台机上做。
+3. **S3/S4 的性能目标还是「待确认」**（`docs/ROADMAP.md:50-51`：冷启动 < 1s、空闲内存 < 100MB）——
+   得先真机量一次。
+4. **`latest.yml` 竞态**（2026-10-24 去掉 `gh release delete` 之后，这次**有** `latest.yml`、没有
+   `.blockmap`）：全仓无 `electron-updater` / `autoUpdater` 引用 ⇒ **实际影响 ≈ 0**；
+   资产集是「谁最后跑完谁决定」的竞态结果，不修也不影响用户。
 
 ## 明确「不修」的决定（别重新发现一遍）
 
 | 项 | 为什么不动 |
 |---|---|
-| `crates/bt-torznab/src/provider.rs` 的 `Box::leak` | 要消掉必须把 `Provider::id()/name()` 从 `&'static str` 改成 `&str`，牵连 16 个 impl + 测试；收益是每 100 次搜索约 20KB。本机没 cargo，盲改 17 个文件的签名风险 > 收益 |
-| `add_indexer`（`crates/bt-app/src/main.rs:874`）的 `id` 恒空 | UI 是按**名字**去重的（`position(\|c\| c.name == name)` 命中即替换）⇒ 同名索引器不会共存；撞 id 只可能来自手改 `indexers.json`。真要做先定 id 方案 + 迁移已有文件 |
-| Node 侧 `/api/magnet`、`/api/torznab/test`、`/api/download/*` 只查 scheme | **已登记的设计决策**，缓解是只绑 `127.0.0.1`（`server.js:220`）。要放开远程访问必须先加 host 白名单 |
-| Node 依赖树的 `@xmldom/xmldom` / `brace-expansion` 告警 | 全在 **dev 树**（eslint / prettier / electron-builder），不进用户机器。运行时那条（axios）已修 |
+| `crates/bt-torznab/src/provider.rs` 的 `Box::leak` | 要消掉必须把 `Provider::id()/name()` 从 `&'static str` 改成 `&str`，牵连全部 impl + 测试；收益是每 100 次搜索约 20KB。本机没 cargo，盲改签名风险 > 收益 |
+| `add_indexer`（`crates/bt-app/src/main.rs`）的 `id` 恒空 | UI 按**名字**去重 ⇒ 同名索引器不会共存；撞 id 只可能来自手改 `indexers.json`。真要做先定 id 方案 + 迁移已有文件 |
+| Node 侧 `/api/magnet`、`/api/torznab/test`、`/api/download/*` 只查 scheme | **已登记的设计决策**，缓解是只绑 `127.0.0.1`（`server.js`）。要放开远程访问必须先加 host 白名单 |
+| Node 依赖树的 `@xmldom/xmldom` / `brace-expansion` 告警 | 全在 **dev 树**（eslint / prettier / electron-builder），不进用户机器 |
+| 已发布的 Tauri 包名 `0.3.15-beta` | 改名会让「文件名与安装包内部版本」对不上，那是造假 |
 
 ## 别的现状（免得重新确认）
 
-- `crates/` 里 **TODO/FIXME 0 处**。
-- 测试规模：Rust **478**（`bt-core` / `bt-providers` / `bt-downloaders` / `bt-torznab` / `bt-app`）+ M4 `--selftest` 全链路 + M6 差分（`m6-diff.yml`，探针不是门）。**别把某个数字抄进文档当现值**，要看就查最近一次 `rust.yml` 日志。
-- workflow 共 **14 条**，`python3 scripts/check-workflows.py` 全绿（含体积、YAML、`on:`/`jobs:`、以及**引用的脚本是否存在**）。
-- 引擎：Rust 版 **24 家**（2026-10-21/23 新增 `subsplease` / `dmhy` / `mikan` / `animetosho` / `bangumimoe` / `nekobt` / `anirena`，2026-10-24 新增 `xxxtracker`；**24 家全部在 M6 差分门里**，逐字段比对 0 处未豁免差异）；Node 版 **40 家**仍在（`D18`：留着作对照，删除是按**函数粒度**的，还没开始）。
-- 分支：`main`（Rust 主线）· `legacy/node-electron`（存档，停在 `9b9461c`）· `feat/rust`（合并后已与 main 同源）· `feat/tauri`（Tauri 壳，**有 78 个独有提交，必须保留**）· `spike/slint-ui`（M1 证据，3 个独有提交）。
+- `crates/` 里 **TODO/FIXME 0 处**；测试数与引擎数**别抄文档里的数字**，要看就查最近一次 `rust.yml`
+  日志（或直接 `grep -c '#\[test\]'`）。
+- M6 差分门覆盖 **24 家 BT**（0 处未豁免差异）；后加的 3 家 Rust 独有引擎在 Node 侧没有对照实现，
+  不进差分门，靠单测 + fixture 兜。
+- Node 版 40 家仍在 `main` 上共存（`D18`：留着作对照；删除按**函数粒度**推进，还没开始）。
+- 最近 12 条 CI 全绿；唯一红的是 `feat(pan)` 那次（Rust test + 体积门），由紧随的 `dc868b5` 修好。

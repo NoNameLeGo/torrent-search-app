@@ -48,11 +48,15 @@ Electron mode: `npm run electron` (picks a free port automatically, no collision
 本项目**推倒重开、用 Rust 重写**，在 `feat/rust` 上进行，长期长成主分支。
 `main` 上的 Node/Express + Electron/Tauri 实现继续可用；Rust 版每搬完一块就替代一块。
 
-**📊 进度快照（2026-10-24 —— **`main` 已是 Rust 主线，M0–M7 全部完成**）**：**24 个 provider 已搬**（7 JSON + 17 HTML），
-CI 全绿 + M4 全链路自检 12/12（clippy + fmt 均为硬门；**具体测试数看最近一次 `rust.yml` 日志** —— 本文件里出现的数字都是快照，别当现值）；
-探针 **138 条 / 18 fixture**；
+**📊 进度快照（2026-10-26 —— **`main` 已是 Rust 主线，M0–M7 全部完成**）**：
+**BT 引擎 27 家**（24 家与 Node 版对齐 + 3 家 Rust 独有：`bdflixs` / `pomo` / `cilixiong`）、
+**在线影视 5 家**（通用 MacCMS 适配器 + `open_url`）、**网盘 1 条路**（PanSou 客户端，
+方案 A：外部服务，设置里填地址与 token）—— 顶栏**三模式**（磁力 / 视频 / 网盘），结果不混流。
+CI 全绿 + M4 全链路自检 12/12（clippy + fmt 均为硬门；**具体测试数看最近一次 `rust.yml` 日志** ——
+本文件里出现的数字都是快照，别当现值）；
 **聚合层 = 100%（M2）、下载器 = 100%（M3）、UI = 100%（M4）、引擎体检 = 100%（M5，结论「不砍」）、
-差分 = 100%（M6，**24 家全量** 0 处未豁免差异）、打包 = 100%（M7，v0.3.6 / v0.3.8 / v0.3.10 / v0.3.12 / v0.3.13 / **v0.3.14-beta** 已发）**
+差分 = 100%（M6，**24 家 BT 全量** 0 处未豁免差异；后加的 3 家 Rust 独有引擎在 Node 侧没有对照实现）、
+打包 = 100%（M7，v0.3.6 / v0.3.8 / v0.3.10 / v0.3.12 / v0.3.13 / v0.3.14 / **v0.4.0-beta** 已发）**
 ⇒ **没有"下一个里程碑"了** —— 往后是审计/加固（见 §「Rust 侧遗留清单」）。
 Node 版整套仍在 `main` 上共存（D18：那道门（M6）已经开了，但"删"是按**函数粒度**的，还没开始）。
 
@@ -89,8 +93,9 @@ M3 ✅ bt-downloaders（2026-10-16，4 客户端 / 34 条离线测试）
 M4 ✅ bt-app Slint MVP（2026-10-16，UI + 接线 + 映射层 + **全链路 --selftest 12/12**）
 M5 ✅ 引擎体检（2026-10-16 —— **结论是「一个都不砍」**，见「provider 探活」；
 单边 403 不足以判死）
-M6 ✅ 差分验证（2026-10-16 起 16 家；**2026-10-23 扩到 23 家、2026-10-24 到 24 家** —— 新增的逐字段全等，0 处未豁免差异）
-M7 ✅ 打包 + GitHub Release（2026-10-16 —— **v0.3.6-beta 首发**，四套产物；**v0.3.8-beta** 带上 windows 子系统修复（不再弹控制台）+ Torznab 界面 + 离线 demo 引擎；**v0.3.12-beta**（2026-10-23）带上 mikan / animetosho / bangumimoe / nekobt 四家新引擎，共 22 家；**v0.3.13-beta** 带上 nyaa 磁力修复 + audiobookbay 的 size/date 修复；**v0.3.14-beta** 带上 linuxtracker 的展开行列映射 + 第 23 家 `anirena`）
+M6 ✅ 差分验证（2026-10-16 起 16 家；**2026-10-23 扩到 23 家、2026-10-24 到 24 家** —— 新增的逐字段全等，0 处未豁免差异。
+后加的 3 家（`bdflixs` / `pomo` / `cilixiong`）在 Node 侧无对照实现 ⇒ **不进差分门**，靠单测 + fixture 兜）
+M7 ✅ 打包 + GitHub Release（2026-10-16 —— **v0.3.6-beta 首发**，四套产物；**v0.3.8-beta** 带上 windows 子系统修复（不再弹控制台）+ Torznab 界面 + 离线 demo 引擎；**v0.3.12-beta**（2026-10-23）带上 mikan / animetosho / bangumimoe / nekobt 四家新引擎，共 22 家；**v0.3.13-beta** 带上 nyaa 磁力修复 + audiobookbay 的 size/date 修复；**v0.3.14-beta** 带上 linuxtracker 的展开行列映射 + 第 23 家 `anirena`；**v0.4.0-beta**（2026-10-25）三模式 + 在线影视 5 家 + PanSou 网盘 + BT 27 家）
 ```
 
 ### 🧹 2026-10-16 审计修复（50 条发现 → 三组已收口，15 HIGH 全部核验）
@@ -323,9 +328,23 @@ tag 事后删除 ⇒ **当前最新发布仍是 `v0.3.8-beta`**，下一版走 `
 且不要用 `Select-Object -Last 1` 过滤推送输出**，否则失败会被静默吃掉。
 （`main` 已在切主线时补上 upstream；`feat/tauri` 这次也推通了。）
 
+**🔁 2026-10-26：同一个坑复发了一次，而且这次进了正式发布。**
+
+`v0.4.0-beta` 的资产里 Rust / Electron 都是 `0.4.0-beta`，Tauri 那个却是
+`BT-Search-Tauri-Setup-**0.3.15**-beta.exe`。根因：main 从 `0.3.15-beta` bump 到 `0.4.0-beta` 时，
+只动了 main 自己的 `Cargo.toml` / `package.json` / `Cargo.lock`，而 `release.yml` 是**显式
+checkout `feat/tauri`** 去构建 Tauri 包的 ⇒ 那个分支上的四处（`tauri.conf.json` /
+`src-tauri/Cargo.toml` / `package.json` / `src-tauri/Cargo.lock`）还停在旧号。
+
+已发布的资产**不改名、不重打 tag**（见上面那条规则）；`feat/tauri` 当日已对齐到 `0.4.0-beta`
+（`c9af929`），下一版即可拿到正确的包名。
+
+**机器判据**：`scripts/release-check.js` 新增 **6d** —— 直接读 `feat/tauri` 的四处版本号与当前
+`version` 比对，不一致就红。**教训：「bump 版本」有两个真源（main / feat/tauri），只改一边必翻车。**
+
 **D. 不是遗留，是设计（别再当欠账）**：D17 Torznab 本期不做 · D18 Node 版留着
 （M6 已完成 ⇒ 那道门开了，但"删"是按**函数粒度**的，还没开始）·
-M5 那 5 个 403 是**机房 IP 被拦**不是死站 · Rust 版 **24 家 vs Node 40 家**已如实写明。
+M5 那 5 个 403 是**机房 IP 被拦**不是死站 · Rust 版 **BT 27 家**（24 对齐 + 3 独有）**vs Node 40 家**已如实写明。
 
 **🟡 M6 进行中（2026-10-16）—— 差分 harness 建成，5 个 JSON provider 首次真跑就零差异。**
 
