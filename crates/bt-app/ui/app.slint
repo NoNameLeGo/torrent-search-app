@@ -952,88 +952,43 @@ export component AppWindow inherits Window {
                         }
                     }
 
-                    // 批量操作条：有勾选才出现（不勾选时不占位，列表占满）
-                    if root.selected-count > 0 : Rectangle {
-                        height: 44px;
-                        background: Theme.base;
-
-                        HorizontalLayout {
-                            padding-left: 16px;
-                            padding-right: 16px;
-                            spacing: 8px;
-
-                            Text {
-                                text: "已选 \{root.selected-count} 项";
-                                font-size: 11px;
-                                font-weight: 600;
-                                color: Theme.text;
-                                vertical-alignment: center;
-                            }
-
-                            Rectangle {
-                                horizontal-stretch: 1;
-                            }
-
-                            AppButton {
-                                label: "全选";
-                                height: 28px;
-                                text-size: 11px;
-                                clicked => { root.select-all(); }
-                            }
-
-                            AppButton {
-                                label: "批量推送";
-                                height: 28px;
-                                text-size: 11px;
-                                primary: true;
-                                clicked => { root.batch-push(); }
-                            }
-
-                            AppButton {
-                                label: "导出 CSV";
-                                height: 28px;
-                                text-size: 11px;
-                                clicked => { root.export-csv(); }
-                            }
-
-                            AppButton {
-                                label: "复制磁力";
-                                height: 28px;
-                                text-size: 11px;
-                                clicked => { root.copy-selected-magnets(); }
-                            }
-
-                            AppButton {
-                                label: "取消";
-                                height: 28px;
-                                text-size: 11px;
-                                clicked => { root.clear-selection(); }
-                            }
-                        }
-                    }
-
-                    // ---- 屏 02 空态：还没结果时的海报（文案全静态，只有引擎数取自模型）----
+                    // ---- 屏 02 空态：海报式主视觉（巨型站点数水印 + 双行大标题）----
                     if root.mode == 0 && (root.rows.length == 0) : Rectangle {
                         vertical-stretch: 1;
                         background: transparent;
 
+                        // 水印：绝对定位、不参与布局；先声明所以在标题下层
+                        Text {
+                            x: 28px;
+                            y: 0px;
+                            text: "\{root.providers.length}";
+                            font-size: 132px;
+                            font-weight: 700;
+                            color: Theme.surface0;
+                            opacity: 0.30;
+                        }
+
                         VerticalLayout {
                             alignment: center;
                             padding: 44px;
-                            spacing: 8px;
+                            spacing: 2px;
 
                             Text {
                                 text: "一个关键词";
-                                font-size: 36px;
+                                font-size: 40px;
                                 font-weight: 300;
                                 color: Theme.text;
                             }
 
                             Text {
                                 text: "扫完 \{root.providers.length} 个站点。";
-                                font-size: 36px;
+                                font-size: 40px;
                                 font-weight: 700;
                                 color: Theme.mauve;
+                            }
+
+                            Rectangle {
+                                height: 10px;
                             }
 
                             Text {
@@ -1055,23 +1010,37 @@ export component AppWindow inherits Window {
                         vertical-stretch: 1;
                         background: transparent;
 
+                        Text {
+                            x: 28px;
+                            y: 0px;
+                            text: "\{root.video-sites}";
+                            font-size: 132px;
+                            font-weight: 700;
+                            color: Theme.surface0;
+                            opacity: 0.30;
+                        }
+
                         VerticalLayout {
                             alignment: center;
                             padding: 44px;
-                            spacing: 8px;
+                            spacing: 2px;
 
                             Text {
                                 text: "一个片名";
-                                font-size: 36px;
+                                font-size: 40px;
                                 font-weight: 300;
                                 color: Theme.text;
                             }
 
                             Text {
                                 text: "搜 \{root.video-sites} 家在线影视站。";
-                                font-size: 36px;
+                                font-size: 40px;
                                 font-weight: 700;
                                 color: Theme.mauve;
+                            }
+
+                            Rectangle {
+                                height: 10px;
                             }
 
                             Text {
@@ -1093,23 +1062,37 @@ export component AppWindow inherits Window {
                         vertical-stretch: 1;
                         background: transparent;
 
+                        Text {
+                            x: 28px;
+                            y: 0px;
+                            text: "pan";
+                            font-size: 132px;
+                            font-weight: 700;
+                            color: Theme.surface0;
+                            opacity: 0.30;
+                        }
+
                         VerticalLayout {
                             alignment: center;
                             padding: 44px;
-                            spacing: 8px;
+                            spacing: 2px;
 
                             Text {
                                 text: "一个关键词";
-                                font-size: 36px;
+                                font-size: 40px;
                                 font-weight: 300;
                                 color: Theme.text;
                             }
 
                             Text {
                                 text: "搜网盘。";
-                                font-size: 36px;
+                                font-size: 40px;
                                 font-weight: 700;
                                 color: Theme.mauve;
+                            }
+
+                            Rectangle {
+                                height: 10px;
                             }
 
                             Text {
@@ -1123,6 +1106,78 @@ export component AppWindow inherits Window {
                                 font-size: 11px;
                                 color: Theme.dim;
                             }
+                        }
+                    }
+                }
+
+                // ---- 批量操作条（屏 01：列表内**浮层**，绝对定位）----
+                // ⚠️ 原来它是 VerticalLayout 里的一行，勾选时把列表挤短 44px；
+                // 设计稿是浮层，不参与布局。父是列表外壳 Rectangle（不是布局），
+                // 所以 x/y 生效；外壳没有 `clip`，浮层不会被圆角裁掉。
+                if root.selected-count > 0 : Rectangle {
+                    x: (parent.width - 460px) / 2;
+                    y: parent.height - 60px;
+                    width: 460px;
+                    height: 44px;
+                    background: Theme.surface0;
+                    border-radius: 8px;
+                    border-width: 1px;
+                    border-color: Theme.dim;
+                    drop-shadow-color: #00000055;
+                    drop-shadow-blur: 12px;
+                    drop-shadow-offset-y: 4px;
+
+                    HorizontalLayout {
+                        padding-left: 14px;
+                        padding-right: 14px;
+                        spacing: 6px;
+
+                        Text {
+                            text: "已选 \{root.selected-count} 项";
+                            font-size: 11px;
+                            font-weight: 600;
+                            color: Theme.text;
+                            vertical-alignment: center;
+                        }
+
+                        Rectangle {
+                            horizontal-stretch: 1;
+                        }
+
+                        AppButton {
+                            label: "全选";
+                            height: 28px;
+                            text-size: 11px;
+                            clicked => { root.select-all(); }
+                        }
+
+                        AppButton {
+                            label: "批量推送";
+                            height: 28px;
+                            text-size: 11px;
+                            primary: true;
+                            clicked => { root.batch-push(); }
+                        }
+
+                        AppButton {
+                            label: "导出 CSV";
+                            height: 28px;
+                            text-size: 11px;
+                            clicked => { root.export-csv(); }
+                        }
+
+                        AppButton {
+                            label: "复制磁力";
+                            height: 28px;
+                            text-size: 11px;
+                            clicked => { root.copy-selected-magnets(); }
+                        }
+
+                        AppButton {
+                            label: "取消";
+                            height: 28px;
+                            text-size: 11px;
+                            clicked => { root.clear-selection(); }
                         }
                     }
                 }
@@ -1159,7 +1214,7 @@ export component AppWindow inherits Window {
                                     text: "引擎扫描";
                                     font-size: 9px;
                                     color: Theme.dim;
-                                    vertical-alignment: end;
+                                    vertical-alignment: bottom;
                                     horizontal-stretch: 1;
                                 }
 
@@ -1168,7 +1223,7 @@ export component AppWindow inherits Window {
                                     font-size: 17px;
                                     font-weight: 700;
                                     color: Theme.text;
-                                    vertical-alignment: end;
+                                    vertical-alignment: bottom;
                                 }
                             }
 
