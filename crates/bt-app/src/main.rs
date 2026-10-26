@@ -262,7 +262,7 @@ thread_local! {
         pansou_url: "http://127.0.0.1:8888".to_string(),
         pansou_token: String::new(),
         query: String::new(),
-        accent: "#fab387".to_string(),
+        accent: "#f9e2af".to_string(),
         downloader: None,
         indexers: Vec::new(),
         status: "就绪".to_string(),
@@ -467,6 +467,48 @@ fn sync_small(ui: &AppWindow, st: &UiState) {
         ui.set_page(st.app.page as i32);
         ui.set_has_more(st.app.has_more);
     }
+
+    // ---- 屏 01 右栏三卡 ----
+    // 引擎扫描：`done` = 已经有结论的家数（tone 不再是「进行中」）
+    let chips_total = st.app.chips.len();
+    let done = st.app.chips.iter().filter(|c| c.tone != Tone::Dim).count();
+    let ok = st.app.chips.iter().filter(|c| c.tone == Tone::Ok).count();
+    let failed = chips_total.saturating_sub(ok);
+    ui.set_scan_total(chips_total as i32);
+    ui.set_scan_done(done as i32);
+    // `.slint` 那边是 `parent.width * progress`，所以这里给 0.0~1.0
+    ui.set_scan_progress(if chips_total == 0 {
+        0.0
+    } else {
+        done as f32 / chips_total as f32
+    });
+    ui.set_scan_note(
+        if chips_total == 0 {
+            "还没有搜过".to_string()
+        } else if done < chips_total {
+            format!("还剩 {} 家返回中 · {failed} 失败", chips_total - done)
+        } else {
+            format!("{ok} 家返回 {} 条 · {failed} 失败", st.app.rows.len())
+        }
+        .into(),
+    );
+    // 本次统计（命中 / 去重 / 失败）。耗时**不在这里** —— 它只在收尾那一刻知道。
+    ui.set_stats_hits(st.app.rows.len() as i32);
+    ui.set_stats_dedup(st.app.dedup_dropped() as i32);
+    ui.set_stats_fail((st.app.net_failures + st.app.site_failures) as i32);
+    // 下载器卡：`Kind` 只有 id，展示名在这里映射
+    ui.set_downloader_name(downloader_label(&ui.get_downloader_kind()).into());
+}
+
+/// 下载器 id → 屏 01「下载器」卡上显示的展示名。
+fn downloader_label(kind: &str) -> String {
+    match kind {
+        "qbittorrent" => "qBittorrent".to_string(),
+        "transmission" => "Transmission".to_string(),
+        "aria2" => "aria2 / Motrix".to_string(),
+        "gopeed" => "Gopeed".to_string(),
+        other => other.to_string(),
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -485,6 +527,8 @@ fn start_search(ui: &AppWindow, query: String, page: u32) {
     // 新搜索 = 新的一批行（key 重新发号），勾选没有继承的意义
     STATE.with(|s| s.borrow_mut().selected.clear());
     ui.set_selected_count(0);
+    // 屏 01「本次统计」的耗时：上一轮的数不能留在这儿
+    ui.set_stats_elapsed("—".into());
 
     // ③ 先看用户勾了哪些。`None` = 全勾（不筛选）—— 与 JS 同口径。
     let (picked, none) = STATE.with(|s| {
@@ -646,6 +690,15 @@ fn start_search(ui: &AppWindow, query: String, page: u32) {
                 });
 
                 st.app.has_more = outcome.has_more;
+                // 耗时：各站是**并行**搜的，取最慢那家的 ms 才是用户真正等的时间
+                // （求和会算出十几倍）。
+                let slowest = outcome
+                    .providers
+                    .iter()
+                    .map(|(_, ps)| ps.ms)
+                    .max()
+                    .unwrap_or(0);
+                ui.set_stats_elapsed(format!("{slowest} ms").into());
                 st.status = st.app.summary(false);
                 sync_small(&ui, &st);
             });

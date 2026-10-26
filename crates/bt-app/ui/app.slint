@@ -512,6 +512,19 @@ export component AppWindow inherits Window {
     in-out property <string> downloader-user: "";
     in-out property <string> downloader-secret: "";
     in-out property <string> downloader-status: "未配置下载器";
+    // ---- 屏 01 右栏三卡 ----
+    // ⚠️ 所有数字都由 Rust 侧 `sync_small` 算好再灌进来，`.slint` 里不写统计逻辑
+    // （同 "文案与颜色由 Rust 算好" 的既有约定）。
+    in-out property <string> downloader-name: "未配置";
+    in-out property <int> scan-done: 0;
+    in-out property <int> scan-total: 0;
+    // 进度条用 0.0~1.0；Slint 的 length × float 是合法的
+    in-out property <float> scan-progress: 0.0;
+    in-out property <string> scan-note: "未开始";
+    in-out property <int> stats-hits: 0;
+    in-out property <int> stats-dedup: 0;
+    in-out property <int> stats-fail: 0;
+    in-out property <string> stats-elapsed: "—";
     in-out property <string> indexer-name: "";
     in-out property <string> indexer-url: "";
     in-out property <string> indexer-key: "";
@@ -717,8 +730,24 @@ export component AppWindow inherits Window {
                             pick(id) => { root.pick-category(id); }
                         }
 
+                        // 弹性占位：分类少的时候把排序推到右边，分类多的时候先挤它
                         Rectangle {
                             horizontal-stretch: 1;
+                            min-width: 8px;
+                        }
+
+                        Text {
+                            text: "排序";
+                            font-size: 10px;
+                            color: Theme.dim;
+                            width: 26px;
+                            vertical-alignment: center;
+                        }
+
+                        for s in root.sorts : ChipRow {
+                            item: s;
+                            can-pick: !root.searching;
+                            pick(id) => { root.pick-sort(id); }
                         }
                     }
                 }
@@ -850,10 +879,32 @@ export component AppWindow inherits Window {
                         }
                     }
                 }
+
+                // ---- 站点开关（从右栏搬来：右栏让位给屏 01 的三张卡）----
+                HorizontalLayout {
+                    spacing: 6px;
+
+                    Text {
+                        text: "站点";
+                        color: Theme.sub;
+                        font-size: 11px;
+                        vertical-alignment: top;
+                    }
+
+                    // 取消到零个时 Rust 侧**不发搜索**（不是"搜全部"）—— 见 ui_model 注释
+                    ListView {
+                        horizontal-stretch: 1;
+                        height: 148px;
+                        for s in root.sites : SiteRow {
+                            item: s;
+                            toggle(id) => { root.toggle-site(id); }
+                        }
+                    }
+                }
             }
         }
 
-        // ---- 主体：结果列表 + 右栏（站点 / 排序 / 分类 / 引擎）----
+        // ---- 主体：结果列表 + 右栏（屏 01：扫描 / 下载器 / 统计 + 逐站状态）----
         HorizontalLayout {
             vertical-stretch: 1;
             padding-left: 20px;
@@ -1087,33 +1138,170 @@ export component AppWindow inherits Window {
                 border-color: Theme.surface0;
 
                 VerticalLayout {
-                    padding: 14px;
-                    spacing: 6px;
+                    padding: 12px;
+                    spacing: 8px;
 
-                    RailLabel { text: "站点（点击切换）"; }
+                    // ---- 卡 1：引擎扫描（屏 01 右栏第一张）----
+                    Rectangle {
+                        background: Theme.base;
+                        border-radius: 8px;
+                        border-width: 1px;
+                        border-color: Theme.surface0;
 
-                    // 取消到零个时 Rust 侧**不发搜索**（不是"搜全部"）—— 见 ui_model 注释
-                    ListView {
-                        height: 148px;
-                        for s in root.sites : SiteRow {
-                            item: s;
-                            toggle(id) => { root.toggle-site(id); }
+                        VerticalLayout {
+                            padding: 10px;
+                            spacing: 6px;
+
+                            HorizontalLayout {
+                                spacing: 6px;
+
+                                Text {
+                                    text: "引擎扫描";
+                                    font-size: 9px;
+                                    color: Theme.dim;
+                                    vertical-alignment: end;
+                                    horizontal-stretch: 1;
+                                }
+
+                                Text {
+                                    text: "\{root.scan-done}/\{root.scan-total}";
+                                    font-size: 17px;
+                                    font-weight: 700;
+                                    color: Theme.text;
+                                    vertical-alignment: end;
+                                }
+                            }
+
+                            // 进度条：外层画底，内层按 scan-progress 占宽
+                            Rectangle {
+                                height: 4px;
+                                border-radius: 2px;
+                                background: Theme.surface0;
+
+                                Rectangle {
+                                    x: 0;
+                                    width: parent.width * root.scan-progress;
+                                    height: 4px;
+                                    border-radius: 2px;
+                                    background: Theme.green;
+                                }
+                            }
+
+                            Text {
+                                text: root.scan-note;
+                                font-size: 9px;
+                                color: Theme.dim;
+                                wrap: word-wrap;
+                            }
                         }
                     }
 
-                    RailLabel { text: "排序（再点一次反向）"; }
+                    // ---- 卡 2：下载器 ----
+                    Rectangle {
+                        background: Theme.base;
+                        border-radius: 8px;
+                        border-width: 1px;
+                        border-color: Theme.surface0;
 
-                    // 4 个 chip × 26px = 104 —— 原来 96 会把最后一个（时间）裁掉半截
-                    ListView {
-                        height: 104px;
-                        for s in root.sorts : ChipRow {
-                            item: s;
-                            can-pick: !root.searching;
-                            pick(id) => { root.pick-sort(id); }
+                        VerticalLayout {
+                            padding: 10px;
+                            spacing: 3px;
+
+                            Text {
+                                text: "下载器";
+                                font-size: 9px;
+                                color: Theme.dim;
+                            }
+
+                            Text {
+                                text: root.downloader-name;
+                                font-size: 13px;
+                                font-weight: 600;
+                                color: Theme.mauve;
+                            }
+
+                            Text {
+                                text: root.downloader-status;
+                                font-size: 9px;
+                                color: Theme.sub;
+                                wrap: word-wrap;
+                            }
                         }
                     }
 
-                    RailLabel { text: "引擎"; }
+                    // ---- 卡 3：本次统计（2×2）----
+                    Rectangle {
+                        background: Theme.base;
+                        border-radius: 8px;
+                        border-width: 1px;
+                        border-color: Theme.surface0;
+
+                        VerticalLayout {
+                            padding: 10px;
+                            spacing: 6px;
+
+                            Text {
+                                text: "本次统计";
+                                font-size: 9px;
+                                color: Theme.dim;
+                            }
+
+                            HorizontalLayout {
+                                spacing: 8px;
+
+                                VerticalLayout {
+                                    horizontal-stretch: 1;
+                                    spacing: 1px;
+                                    Text {
+                                        text: "\{root.stats-hits}";
+                                        font-size: 13px;
+                                        font-weight: 600;
+                                        color: Theme.text;
+                                    }
+                                    Text { text: "命中"; font-size: 9px; color: Theme.dim; }
+                                }
+
+                                VerticalLayout {
+                                    horizontal-stretch: 1;
+                                    spacing: 1px;
+                                    Text {
+                                        text: "\{root.stats-dedup}";
+                                        font-size: 13px;
+                                        font-weight: 600;
+                                        color: Theme.text;
+                                    }
+                                    Text { text: "去重"; font-size: 9px; color: Theme.dim; }
+                                }
+
+                                VerticalLayout {
+                                    horizontal-stretch: 1;
+                                    spacing: 1px;
+                                    Text {
+                                        text: "\{root.stats-fail}";
+                                        font-size: 13px;
+                                        font-weight: 600;
+                                        color: root.stats-fail > 0 ? Theme.err : Theme.text;
+                                    }
+                                    Text { text: "失败"; font-size: 9px; color: Theme.dim; }
+                                }
+
+                                VerticalLayout {
+                                    horizontal-stretch: 1;
+                                    spacing: 1px;
+                                    Text {
+                                        text: root.stats-elapsed;
+                                        font-size: 13px;
+                                        font-weight: 600;
+                                        color: Theme.text;
+                                    }
+                                    Text { text: "耗时"; font-size: 9px; color: Theme.dim; }
+                                }
+                            }
+                        }
+                    }
+
+                    // ---- 引擎明细（逐站状态；站点开关已移到「设置」里）----
+                    RailLabel { text: "逐站状态"; }
 
                     ListView {
                         vertical-stretch: 1;
