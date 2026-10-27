@@ -293,6 +293,9 @@ pub fn strip_has(selector: &str) -> (String, Vec<String>) {
 ///
 /// 含**其它**未解析占位符的 input 直接丢掉：那些是分类 id / 排序之类的站点专属参数，
 /// 猜一个值反而可能让结果变空。
+///
+/// ⚠️ 参数按 **key 的字典序**拼（`inputs` 是 `BTreeMap`）—— 不是 YAML 里的声明顺序。
+/// 服务端不看参数顺序，但**单测要按字典序写期望值**（2026-10-27 首轮 CI 就栽在这）。
 pub fn search_url(def: &Definition, query: &str, page: u32) -> Option<String> {
     let base = def.links.first()?.trim_end_matches('/').to_string();
     let search = def.search.as_ref()?;
@@ -312,23 +315,60 @@ pub fn search_url(def: &Definition, query: &str, page: u32) -> Option<String> {
     let mut sep = if url.contains('?') { '&' } else { '?' };
 
     for (k, v) in &search.inputs {
-        let raw = yaml_text(v);
-        let replaced = raw
-            .replace("{{ .Query.Keywords }}", &kw)
-            .replace("{{ .Keywords }}", &kw)
-            .replace("{{ .Query.Page }}", &page_s)
-            .replace("{{ .Page }}", &page_s);
-        if replaced.contains("{{") || replaced.trim().is_empty() {
+        // ⚠️ 替换后的值**已经编码过**，绝不能再 encode 一次 —— 否则
+        // `%E6%B5%81` 会变成 `%25E6%25B5%2581`（首轮 CI 抓到的就是这个）。
+        let Some(val) = fill_template(&yaml_text(v), &kw, &page_s) else {
+            continue;
+        };
+        if val.trim().is_empty() {
             continue;
         }
         url.push(sep);
         sep = '&';
         url.push_str(&encode_uri_component(k));
         url.push('=');
-        url.push_str(&encode_uri_component(replaced.trim()));
+        url.push_str(&val);
     }
 
     Some(url)
+}
+
+/// 关键词 / 页码两种占位符（Cardigann 里两种写法都见过）。
+const KW_VARS: [&str; 2] = ["{{ .Keywords }}", "{{ .Query.Keywords }}"];
+const PAGE_VARS: [&str; 2] = ["{{ .Page }}", "{{ .Query.Page }}"];
+
+/// 把模板里的占位符换成**已编码**的值，其余片段就地编码。
+///
+/// 返回 `None` = 里面有**不认识的**占位符（分类 id / 排序模板变量）—— 调用方应丢掉这个 input。
+///
+/// 为什么要逐段处理而不是「先替换再整体编码」：整体编码会把已经编码好的
+/// `%E6%B5%81` 再编一次（`%25E6...`）。这是 2026-10-27 首轮 CI 的真实失败。
+fn fill_template(raw: &str, kw: &str, page: &str) -> Option<String> {
+    let mut out = String::with_capacity(raw.len() + kw.len());
+    let mut i = 0;
+
+    while i < raw.len() {
+        let lit_end = raw[i..].find("{{").map_or(raw.len(), |p| i + p);
+        if lit_end > i {
+            out.push_str(&encode_uri_component(&raw[i..lit_end]));
+            i = lit_end;
+            continue;
+        }
+        // 这里必然以 `{{` 开头
+        let close = raw[i..].find("}}")?;
+        let var = &raw[i..i + close + 2];
+        let val = if KW_VARS.contains(&var) {
+            kw
+        } else if PAGE_VARS.contains(&var) {
+            page
+        } else {
+            return None;
+        };
+        out.push_str(val);
+        i += close + 2;
+    }
+
+    Some(out)
 }
 
 // ---------------------------------------------------------------------------
@@ -652,10 +692,13 @@ search:
     fn search_url_substitutes_keywords_and_drops_other_placeholders() {
         let def = parse_definition(DMHY).unwrap();
         let url = search_url(&def, "流浪地球", 1).unwrap();
+        // ⚠️ 参数按 key 的**字典序**：keyword < order < sort_id（不是 YAML 声明顺序）
         assert_eq!(
             url,
-            "https://share.dmhy.org/topics/list?keyword=%E6%B5%81%E6%B5%AA%E5%9C%B0%E7%90%83&sort_id=0&order=date-desc"
+            "https://share.dmhy.org/topics/list?keyword=%E6%B5%81%E6%B5%AA%E5%9C%B0%E7%90%83&order=date-desc&sort_id=0"
         );
+        // 回归：关键词**只能编码一次**（首轮 CI 出现过 %25E6%25B5%2581 的双重编码）
+        assert!(!url.contains("%25E6"), "{url}");
     }
 
     #[test]
@@ -671,6 +714,18 @@ search:
     }
 
     #[test]
+    fn unknown_placeholders_drop_the_input_entirely() {
+        let def = parse_definition(
+            "links: [https://x/]\nsearch:\n  paths: [{path: q}]\n  inputs: {kw: '{{ .Keywords }}', cat: '{{ .Categories }}'}\n  rows: {selector: tr}\n  fields: {title: {selector: a}}\n",
+        )
+        .unwrap();
+        let url = search_url(&def, "abc", 1).unwrap();
+        // 认识的占位符保留，不认识的（分类 id）整条丢掉
+        assert!(url.contains("kw=abc"), "{url}");
+        assert!(!url.contains("cat="), "{url}");
+    }
+
+    #[test]
     fn filters_apply_the_whitelist() {
         let f = |yaml: &str| -> RawFilter { serde_yaml::from_str(yaml).unwrap() };
 
@@ -683,8 +738,9 @@ search:
             apply_filters("720p", &[f("{name: append, args: ' HD'}")]),
             "720p HD"
         );
+        // YAML 单引号不处理转义 ⇒ 这里要传 `S(\d+)E`，Rust 里写成 `\\d`
         assert_eq!(
-            apply_filters("S01E02", &[f("{name: regexp, args: 'S(\\\\d+)E'}")]),
+            apply_filters("S01E02", &[f("{name: regexp, args: 'S(\\d+)E'}")]),
             "01"
         );
         assert_eq!(
