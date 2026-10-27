@@ -182,6 +182,7 @@ pub fn registry() -> Vec<Box<dyn Provider>> {
         Box::new(Dmhy),
         Box::new(Mikan),
         Box::new(SubsPlease),
+        Box::new(Sukebei),
         Box::new(NekoBt),
         Box::new(LimeTorrents),
         Box::new(TheRarBg),
