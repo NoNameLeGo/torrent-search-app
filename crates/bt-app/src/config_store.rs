@@ -296,6 +296,111 @@ pub fn save_indexers(list: &[bt_torznab::IndexerConfig]) -> Result<(), String> {
     write_atomic(&path, &text).map_err(|e| format!("写入失败：{e}"))
 }
 
+// ---------------------------------------------------------------------------
+// 影视源（TVBox 单仓导入，2026-10-27）
+// ---------------------------------------------------------------------------
+
+/// `%APPDATA%\bt-search\videosources.json` —— 用户导入的**在线影视 JSON 源**。
+///
+/// ## 为什么不塞进 `config.json` / `indexers.json`
+///
+/// 同 [`indexers_path`] 的理由：下载器、BT 索引器、影视源是三件独立的事，
+/// 一个文件坏了不该连累另外两个。而且这份文件被**整体覆盖**（重新导入即刷新），
+/// 单独放更好理解。
+///
+/// ## 为什么要存「解析结果」而不是「原始 TVBox 配置」
+///
+/// 原始配置动辄几百 KB、里面几百个站、地址天天变；而用户真正要的是
+/// **那一刻筛出来的可用 JSON 源**。想刷新就再导入一次 —— 新结果整体覆盖旧的，
+/// 不做增量合并（合并会让「这条是哪次导入来的」变得无从追溯）。
+pub fn video_sources_path() -> Option<PathBuf> {
+    Some(data_dir()?.join("videosources.json"))
+}
+
+/// 落盘结构。与 `bt_providers::maccms_json::JsonApiSite` 字段一一对应，
+/// 但**刻意不复用它做序列化** —— 那是引擎层类型，文件格式的演进不该被它绑住
+/// （同 [`Stored`] 与 `bt_downloaders::Config` 的关系）。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StoredVideoSource {
+    pub id: String,
+    pub name: String,
+    pub api: String,
+}
+
+impl StoredVideoSource {
+    fn from_site(s: &bt_providers::maccms_json::JsonApiSite) -> Self {
+        Self {
+            id: s.id.clone(),
+            name: s.name.clone(),
+            api: s.api.clone(),
+        }
+    }
+
+    /// 只放行 http(s) 的 api，且 id 不能空 —— 手改坏的文件不该把
+    /// `file://` / `ftp://` 带进搜索路径（同 `indexers.json` 那条信任边界）。
+    fn into_site(self) -> Option<bt_providers::maccms_json::JsonApiSite> {
+        let api = self.api.trim();
+        if !(api.starts_with("http://") || api.starts_with("https://")) {
+            return None;
+        }
+        let id = self.id.trim();
+        if id.is_empty() {
+            return None;
+        }
+        let name = if self.name.trim().is_empty() {
+            api.to_string()
+        } else {
+            self.name.trim().to_string()
+        };
+        Some(bt_providers::maccms_json::JsonApiSite {
+            id: id.to_string(),
+            name,
+            api: api.to_string(),
+        })
+    }
+}
+
+/// 读影视源。**任何一步失败都只是空列表**（"没导入过"与"读坏了"对调用方是一回事）。
+pub fn load_video_sources() -> Vec<bt_providers::maccms_json::JsonApiSite> {
+    let Some(path) = video_sources_path() else {
+        return Vec::new();
+    };
+    let Ok(text) = std::fs::read_to_string(&path) else {
+        return Vec::new();
+    };
+    let Ok(list) = serde_json::from_str::<Vec<StoredVideoSource>>(&text) else {
+        return Vec::new();
+    };
+    list.into_iter()
+        .filter_map(StoredVideoSource::into_site)
+        .collect()
+}
+
+/// 保存影视源（整体覆盖）。返回 `Err(人话)`，调用方不该当成致命错误。
+pub fn save_video_sources(list: &[bt_providers::maccms_json::JsonApiSite]) -> Result<(), String> {
+    let path = video_sources_path().ok_or_else(|| "取不到 %APPDATA%，影视源没保存".to_string())?;
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| format!("建目录失败：{e}"))?;
+    }
+    let stored: Vec<StoredVideoSource> = list.iter().map(StoredVideoSource::from_site).collect();
+    let text = serde_json::to_string_pretty(&stored).map_err(|e| format!("序列化失败：{e}"))?;
+    write_atomic(&path, &text).map_err(|e| format!("写入失败：{e}"))
+}
+
+/// 一行人类可读的影视源摘要（UI 状态文字）。**纯函数**，有单测。
+pub fn describe_video_sources(list: &[bt_providers::maccms_json::JsonApiSite]) -> String {
+    if list.is_empty() {
+        return "未导入影视源".to_string();
+    }
+    let names: Vec<&str> = list.iter().map(|s| s.name.as_str()).collect();
+    let shown = if names.len() > 6 {
+        format!("{} 等 {}", names[..6].join("、"), names.len())
+    } else {
+        names.join("、")
+    };
+    format!("已导入 {} 个：{shown}", list.len())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
