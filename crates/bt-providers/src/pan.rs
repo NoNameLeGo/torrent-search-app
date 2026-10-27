@@ -173,4 +173,71 @@ impl PanSouClient {
         let resp = http.get_text(&url, None).await;
         resp.error.is_none()
     }
+
+    /// 这个实例**支持哪些源**（`GET /api/health` 的 `plugins[]`）。
+    ///
+    /// 白拿的能力：PanSou 的插件是**编译期注册的 Go 代码**，没法搬到 Rust（`docs/DATA-SOURCES.md` §4），
+    /// 但它的 health 接口会把名字报出来 ⇒ 至少能告诉用户「你搜不到夸克，是因为这个实例没装 quark 插件」。
+    ///
+    /// 取不到（没起、没这字段、body 不是 JSON）一律 `None`，不报错 —— 这是锦上添花的信息。
+    pub async fn plugins(&self, http: &HttpClient) -> Option<Vec<String>> {
+        if self.base.is_empty() {
+            return None;
+        }
+        let url = format!("{}/api/health", self.base);
+        let opts = self
+            .token
+            .as_deref()
+            .map(|t| ReqOpts::default().header("Authorization", &format!("Bearer {t}")));
+
+        let resp = http.get_text(&url, opts.as_ref()).await;
+        let body = resp.html?;
+        let data: Value = serde_json::from_str(&body).ok()?;
+        let arr = data.get("plugins")?.as_array()?;
+        Some(
+            arr.iter()
+                .filter_map(Value::as_str)
+                .filter(|s| !s.is_empty())
+                .map(str::to_string)
+                .collect(),
+        )
+    }
+
+    /// 用户填的地址（状态栏拼提示用）。
+    pub fn base(&self) -> &str {
+        &self.base
+    }
+}
+
+/// 多实例**主备**搜索：按顺序试，第一个**没报错**的就返回。
+///
+/// ## 为什么是主备而不是并行
+///
+/// 并行会让同一个关键词在多个实例上重复搜（重复率高、还放大对方负载），
+/// 而多实例的动机只有一个：**主实例挂了别让整个网盘模式废掉**
+/// （`docs/DATA-SOURCES.md` §4 已把「不要依赖中心化服务」列为约束）。
+///
+/// ⚠️ 「返回 0 条」**不算失败** —— 那是一个合法答案，继续试备用实例只会得到同样的空结果。
+///
+/// 返回 `(最后尝试的下标, 结果)`：调用方拿下标拼「已切到第 N 个实例」这类提示。
+pub async fn search_failover(
+    clients: &[PanSouClient],
+    http: &HttpClient,
+    query: &str,
+    limit: usize,
+) -> (usize, PanSearchOutcome) {
+    if clients.is_empty() {
+        return (0, PanSearchOutcome::err("pansou_url_empty"));
+    }
+
+    let mut last_err = PanSearchOutcome::err("pansou_url_empty");
+    for (i, c) in clients.iter().enumerate() {
+        let out = c.search(http, query, limit).await;
+        if out.error.is_none() {
+            return (i, out);
+        }
+        last_err = out;
+    }
+
+    (clients.len().saturating_sub(1), last_err)
 }

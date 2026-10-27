@@ -221,9 +221,11 @@ struct UiState {
     pan_model: Rc<VecModel<PanRow>>,
     pan_items: Vec<pan::PanItem>,
     pan_gen: u64,
-    /// PanSou 端点与 token（方案 A：外部服务；从 pansou.json 读，设置里改）。
-    pansou_url: String,
-    pansou_token: String,
+    /// PanSou 实例列表（方案 A：外部服务；第一个是主，其余主备切换）。
+    ///
+    /// ⚠️ 从「单 URL + token」改成列表（2026-10-27）：PanSou 是本项目**唯一**的
+    /// 外部依赖，一个地址挂了整个网盘模式就废了。见 `docs/DATA-SOURCES.md` §4。
+    pansou: Vec<config_store::StoredPansou>,
     /// 用户导入的**在线影视 JSON 源**（TVBox 单仓导入，只留 `type == 1`）。
     ///
     /// ⚠️ 与 `video::registry()` 那些编译期常量是两类东西：
@@ -269,8 +271,7 @@ thread_local! {
         pan_model: Rc::new(VecModel::from(Vec::new())),
         pan_items: Vec::new(),
         pan_gen: 0,
-        pansou_url: "http://127.0.0.1:8888".to_string(),
-        pansou_token: String::new(),
+        pansou: Vec::new(),
         video_sources: Vec::new(),
         query: String::new(),
         accent: "#f9e2af".to_string(),
@@ -956,7 +957,7 @@ fn start_pan_search(ui: &AppWindow, query: String) {
     let weak = ui.as_weak();
     close_detail(ui);
 
-    let (gen, q, base, token) = STATE.with(|s| {
+    let (gen, q, endpoints) = STATE.with(|s| {
         let mut st = s.borrow_mut();
         st.selected.clear();
         st.pan_items.clear();
@@ -970,22 +971,36 @@ fn start_pan_search(ui: &AppWindow, query: String) {
         ui.set_status_text(st.status.clone().into());
 
         st.pan_gen += 1;
-        (
-            st.pan_gen,
-            query,
-            st.pansou_url.clone(),
-            st.pansou_token.clone(),
-        )
+        (st.pan_gen, query, st.pansou.clone())
     });
 
     spawn(async move {
-        let token = if token.trim().is_empty() {
-            None
+        // 一个实例都没配 ⇒ 用默认地址兜底（与老行为一致：开箱能连本机 PanSou）。
+        let list: Vec<config_store::StoredPansou> = if endpoints.is_empty() {
+            vec![config_store::StoredPansou {
+                url: "http://127.0.0.1:8888".to_string(),
+                token: String::new(),
+            }]
         } else {
-            Some(token.as_str())
+            endpoints
         };
-        let client = pan::PanSouClient::new(&base, token);
-        let out = client.search(http(), &q, 200).await;
+
+        let clients: Vec<pan::PanSouClient> = list
+            .iter()
+            .map(|e| {
+                let token = if e.token.trim().is_empty() {
+                    None
+                } else {
+                    Some(e.token.as_str())
+                };
+                pan::PanSouClient::new(&e.url, token)
+            })
+            .collect();
+
+        // 主备：第一个没报错的就用它（"0 条" 也算成功，不再往下试）
+        let (tried, out) = pan::search_failover(&clients, http(), &q, 200).await;
+        let used = clients.get(tried).map(|c| c.base().to_string());
+        let total_instances = clients.len();
 
         let _ = slint::invoke_from_event_loop(move || {
             let Some(ui) = weak.upgrade() else { return };
@@ -1007,13 +1022,103 @@ fn start_pan_search(ui: &AppWindow, query: String) {
                 ui.set_total(st.pan_items.len() as i32);
                 ui.set_searching(false);
 
+                // 主备切换要说出来：切到备用实例时用户得知道「主的那台挂了」，
+                // 否则会以为结果变少是站点的问题。
+                let switched = if total_instances > 1 && tried > 0 {
+                    match used.as_deref() {
+                        Some(u) => format!("（主实例不可用，已切到 {u}）"),
+                        None => String::new(),
+                    }
+                } else {
+                    String::new()
+                };
+
                 st.status = match out.error {
                     Some(e) => format!("网盘搜索失败：{e}"),
-                    None if st.pan_items.is_empty() => "网盘搜索：0 条".to_string(),
-                    None => format!("网盘搜索：{} 条", st.pan_items.len()),
+                    None if st.pan_items.is_empty() => format!("网盘搜索：0 条{switched}"),
+                    None => format!("网盘搜索：{} 条{switched}", st.pan_items.len()),
                 };
                 ui.set_status_text(st.status.clone().into());
             });
+        });
+    });
+}
+
+/// 保存 PanSou 端点：**并进列表**（同址覆盖 token，新址成为主实例）后整体落盘。
+fn save_pansou(ui: &AppWindow) {
+    let url = ui.get_pansou_url().to_string();
+    let token = ui.get_pansou_token().to_string();
+    let url = if url.trim().is_empty() {
+        "http://127.0.0.1:8888".to_string()
+    } else {
+        url.trim().to_string()
+    };
+
+    let list = STATE.with(|s| config_store::upsert_pansou(&s.borrow().pansou, &url, &token));
+    let msg = match config_store::save_pansou_all(&list) {
+        Ok(()) => config_store::describe_pansou(&list),
+        Err(e) => format!("网盘配置保存失败：{e}"),
+    };
+
+    // 主实例可能刚被换掉 —— UI 那两个框跟着回填成主实例的值，避免"填 A 显示 B"
+    if let Some(primary) = list.first() {
+        ui.set_pansou_url(primary.url.clone().into());
+        ui.set_pansou_token(primary.token.clone().into());
+    }
+    STATE.with(|s| {
+        let mut st = s.borrow_mut();
+        st.pansou = list;
+        st.status = msg.clone();
+    });
+    ui.set_pansou_status(msg.clone().into());
+    ui.set_status_text(msg.into());
+}
+
+/// 探活：先 `GET /api/health` 看活不活，活了再把 `plugins[]` 报出来。
+///
+/// 为什么要报插件：PanSou 的源是**编译期注册的 Go 插件**，本项目搬不过来；
+/// 但「这个实例支持哪些源」能直接回答用户最常见的那句「为什么搜不到夸克」。
+fn probe_pansou(ui: &AppWindow) {
+    let raw = ui.get_pansou_url().to_string();
+    let raw = if raw.trim().is_empty() {
+        "http://127.0.0.1:8888".to_string()
+    } else {
+        raw.trim().to_string()
+    };
+    let Some(url) = downloaders::safe_http_url(&raw) else {
+        ui.set_pansou_status("地址不合法：只接受 http:// 或 https://".into());
+        return;
+    };
+    let token = ui.get_pansou_token().to_string();
+
+    ui.set_pansou_status("探测中…".into());
+
+    let weak = ui.as_weak();
+    spawn(async move {
+        let tok = if token.trim().is_empty() {
+            None
+        } else {
+            Some(token.as_str())
+        };
+        let client = pan::PanSouClient::new(&url, tok);
+
+        let msg = if !client.health(http()).await {
+            format!("连不上：{url}")
+        } else {
+            match client.plugins(http()).await {
+                Some(list) if !list.is_empty() => {
+                    let shown: Vec<&str> = list.iter().take(6).map(String::as_str).collect();
+                    format!("在线 · {} 个源：{}", list.len(), shown.join("、"))
+                }
+                _ => format!("在线（没报插件列表）：{url}"),
+            }
+        };
+
+        let _ = slint::invoke_from_event_loop(move || {
+            let Some(ui) = weak.upgrade() else { return };
+            ui.set_pansou_status(msg.clone().into());
+            STATE.with(|s| s.borrow_mut().status = msg.clone());
+            ui.set_status_text(msg.into());
         });
     });
 }
@@ -1857,17 +1962,14 @@ fn wire(ui: &AppWindow) {
     // ⚠️ 影视源的家数在下面加载完 `videosources.json` 之后统一 set（含导入的源），
     // 这里不再单独设一次 —— 设两次只会让先设的那个成为误导。
 
-    // PanSou 配置（方案 A：外部服务；默认 127.0.0.1:8888）。
-    let (pansou_url, pansou_token) = match config_store::load_pansou() {
-        Some(p) if !p.url.trim().is_empty() => (p.url, p.token),
-        Some(p) => ("http://127.0.0.1:8888".to_string(), p.token),
+    // PanSou 配置（方案 A：外部服务；多实例，第一个是主）。
+    let pansou_list = config_store::load_pansou_all();
+    let (pansou_url, pansou_token) = match pansou_list.first() {
+        Some(p) => (p.url.clone(), p.token.clone()),
         None => ("http://127.0.0.1:8888".to_string(), String::new()),
     };
-    STATE.with(|s| {
-        let mut st = s.borrow_mut();
-        st.pansou_url = pansou_url.clone();
-        st.pansou_token = pansou_token.clone();
-    });
+    ui.set_pansou_status(config_store::describe_pansou(&pansou_list).into());
+    STATE.with(|s| s.borrow_mut().pansou = pansou_list);
     ui.set_pansou_url(pansou_url.into());
     ui.set_pansou_token(pansou_token.into());
 
@@ -1956,25 +2058,16 @@ fn wire(ui: &AppWindow) {
         let weak = ui.as_weak();
         ui.on_save_pansou(move || {
             if let Some(ui) = weak.upgrade() {
-                let url = ui.get_pansou_url().to_string();
-                let token = ui.get_pansou_token().to_string();
-                let url = if url.trim().is_empty() {
-                    "http://127.0.0.1:8888".to_string()
-                } else {
-                    url.trim().to_string()
-                };
-                let msg = match config_store::save_pansou(&url, &token) {
-                    Ok(()) => format!("网盘配置已保存：{url}"),
-                    Err(e) => format!("网盘配置保存失败：{e}"),
-                };
-                STATE.with(|s| {
-                    let mut st = s.borrow_mut();
-                    st.pansou_url = url.clone();
-                    st.pansou_token = token.clone();
-                    st.status = msg.clone();
-                });
-                ui.set_pansou_status(msg.clone().into());
-                ui.set_status_text(msg.into());
+                save_pansou(&ui);
+            }
+        });
+    }
+    // PanSou 探活：连不上要说清楚；连上了把「这个实例支持哪些源」报出来。
+    {
+        let weak = ui.as_weak();
+        ui.on_probe_pansou(move || {
+            if let Some(ui) = weak.upgrade() {
+                probe_pansou(&ui);
             }
         });
     }
