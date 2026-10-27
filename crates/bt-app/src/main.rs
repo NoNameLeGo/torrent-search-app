@@ -58,7 +58,10 @@ use std::sync::OnceLock;
 use bt_core::http::HttpClient;
 use bt_downloaders::{self as downloaders, Config, Kind};
 use bt_providers::aggregate::{self, SearchArgs};
+use bt_providers::maccms_json;
 use bt_providers::pan;
+use bt_providers::subs;
+use bt_providers::tvbox;
 use bt_providers::video;
 use bt_providers::{registry as provider_registry, Provider};
 // ⚠️ `Model` 这个 trait 必须在作用域里：`VecModel` 的 `row_count` / `set_row_data`
@@ -221,6 +224,13 @@ struct UiState {
     /// PanSou 端点与 token（方案 A：外部服务；从 pansou.json 读，设置里改）。
     pansou_url: String,
     pansou_token: String,
+    /// 用户导入的**在线影视 JSON 源**（TVBox 单仓导入，只留 `type == 1`）。
+    ///
+    /// ⚠️ 与 `video::registry()` 那些编译期常量是两类东西：
+    /// 这些来自用户配置，`id` / `name` 是运行时的 `String`，所以**不能**塞进
+    /// `VideoProvider`（那 trait 的 `id()` / `name()` 返回 `&'static str`）。
+    /// 搜索时它们是**额外的**一轮 `maccms_json::search_at`，与静态站并列。
+    video_sources: Vec<maccms_json::JsonApiSite>,
     /// 本轮搜索的关键词（用来算高亮 markup）
     query: String,
     /// 高亮色。⚠️ 高亮是**烘进 markup** 的，所以换主题必须整体重建这里的 markup
@@ -261,6 +271,7 @@ thread_local! {
         pan_gen: 0,
         pansou_url: "http://127.0.0.1:8888".to_string(),
         pansou_token: String::new(),
+        video_sources: Vec::new(),
         query: String::new(),
         accent: "#f9e2af".to_string(),
         downloader: None,
@@ -789,7 +800,7 @@ fn start_video_search(ui: &AppWindow, query: String) {
     let weak = ui.as_weak();
     close_detail(ui);
 
-    let (gen, q) = STATE.with(|s| {
+    let (gen, q, json_sites) = STATE.with(|s| {
         let mut st = s.borrow_mut();
         st.selected.clear();
         st.video_items.clear();
@@ -799,26 +810,69 @@ fn start_video_search(ui: &AppWindow, query: String) {
         ui.set_total(0);
         ui.set_searching(true);
         ui.set_has_more(false);
-        st.status = format!("视频搜索中…（{} 家）", video::registry().len());
+        // 家数 = 静态站（编译期常量）+ 用户导入的 JSON 源
+        let total = video::registry().len() + st.video_sources.len();
+        st.status = format!("视频搜索中…（{total} 家）");
         ui.set_status_text(st.status.clone().into());
 
         // 代数围栏：与 BT 的 search_gen 同一套理由 —— 旧一轮的回报不能写进新列表。
         st.video_gen += 1;
-        (st.video_gen, query)
+        (st.video_gen, query, st.video_sources.clone())
     });
 
     spawn(async move {
         let providers = video::registry();
         let mut items = Vec::new();
         let mut errs = Vec::new();
+        // #6 健康度：视频源以前完全没记录 —— 站改版后只会静默返回 0 条，
+        // 与「这个关键词真没资源」在界面上长得一模一样。这里按 BT 那套口径记一份。
+        let mut batch: Vec<health::Record> = Vec::new();
 
         for p in providers {
+            let started = std::time::Instant::now();
             let out = p.search(http(), &q, 1).await;
+            let ms = started.elapsed().as_millis() as u64;
+            batch.push(health::Record {
+                // `video:` 前缀：health.jsonl 与 BT 引擎共用一个文件，不加前缀会撞 id
+                id: format!("video:{}", p.id()),
+                n: out.results.len(),
+                ok: out.error.is_none(),
+                ms,
+            });
             if let Some(e) = out.error {
                 errs.push(format!("{}: {e}", p.name()));
             }
             items.extend(out.results);
         }
+
+        // 用户导入的 JSON 源（TVBox type=1）：一次 HTTP + 一次 JSON 解析。
+        for site in &json_sites {
+            let started = std::time::Instant::now();
+            let out = maccms_json::search_at(http(), site, &q, 1).await;
+            let ms = started.elapsed().as_millis() as u64;
+            batch.push(health::Record {
+                id: format!("video:{}", site.id),
+                n: out.results.len(),
+                ok: out.error.is_none(),
+                ms,
+            });
+            if let Some(e) = out.error {
+                errs.push(format!("{}: {e}", site.name));
+            }
+            items.extend(out.results);
+        }
+
+        // 落盘在后台线程上做（`health::append` 超 5000 行要重写整份文件，别占 UI 线程）。
+        if !batch.is_empty() {
+            let _ = health::append(&batch);
+        }
+
+        // #6：本轮之后谁「**最近连续**空手」—— 那才是「站可能改版了」的信号
+        // （单次 0 条很正常，`STALE_AFTER` 次连续才是）。读文件同样放后台。
+        let stale_n = health::summarize(&health::read_all())
+            .iter()
+            .filter(|(id, s)| id.starts_with("video:") && s.tail_empty >= health::STALE_AFTER)
+            .count();
 
         let _ = slint::invoke_from_event_loop(move || {
             let Some(ui) = weak.upgrade() else { return };
@@ -840,17 +894,25 @@ fn start_video_search(ui: &AppWindow, query: String) {
                 ui.set_total(st.video_items.len() as i32);
                 ui.set_searching(false);
 
+                // #6 视频源的「存活信号」：连空 N 次的站要单独说出来 ——
+                // 否则「静默返回 0 条」和「这个关键词真没资源」在界面上完全一样。
+                let stale_note = if stale_n == 0 {
+                    String::new()
+                } else {
+                    format!("，{stale_n} 家疑似改版")
+                };
+
                 st.status = if st.video_items.is_empty() {
                     if errs.is_empty() {
-                        "视频搜索：0 条".to_string()
+                        format!("视频搜索：0 条{stale_note}")
                     } else {
-                        format!("视频搜索失败：{}", errs.join("; "))
+                        format!("视频搜索失败：{}{stale_note}", errs.join("; "))
                     }
                 } else if errs.is_empty() {
-                    format!("视频搜索：{} 条", st.video_items.len())
+                    format!("视频搜索：{} 条{stale_note}", st.video_items.len())
                 } else {
                     format!(
-                        "视频搜索：{} 条（{} 家失败）",
+                        "视频搜索：{} 条（{} 家失败）{stale_note}",
                         st.video_items.len(),
                         errs.len()
                     )
@@ -976,6 +1038,135 @@ fn open_pan(ui: &AppWindow, idx: i32) {
             ui.set_status_text(msg.into());
         }
     }
+}
+
+/// 「找字幕」：把这一行的片名清洗成查询词，拼某家字幕站的搜索页，交给系统浏览器。
+///
+/// ⚠️ **不抓字幕列表、不下载** —— L1 只是把「已有能力漏掉的一个维度」补上，
+/// 分级理由见 `docs/BACKLOG-ZHUIJU.md` §2.1。站点改版/换域名只改
+/// [`bt_providers::subs`] 里的一条表项，不碰这里。
+fn find_subtitle(ui: &AppWindow, idx: i32, site_id: &str) {
+    let Some(site) = subs::site(site_id) else {
+        return;
+    };
+
+    let title = STATE.with(|s| s.borrow().app.row(idx).map(|r| r.title_plain.clone()));
+    let Some(title) = title else { return };
+
+    // 种子标题直接拿去搜基本搜不到 —— 先抠片名（纯函数，有单测）。
+    let query = subs::query_from_title(&title);
+    let Some(url) = subs::search_url(site, &query) else {
+        let msg = "这一行的标题里抠不出片名，没法搜字幕".to_string();
+        STATE.with(|s| s.borrow_mut().status = msg.clone());
+        ui.set_status_text(msg.into());
+        return;
+    };
+
+    let msg = if open_url(&url) {
+        format!("已在 {} 搜「{query}」", site.name)
+    } else {
+        format!("打不开这个链接：{url}")
+    };
+    STATE.with(|s| s.borrow_mut().status = msg.clone());
+    ui.set_status_text(msg.into());
+}
+
+// ---------------------------------------------------------------------------
+// 影视源（TVBox 单仓导入）
+// ---------------------------------------------------------------------------
+
+/// 导入一份 TVBox **单仓**配置，只留 `type == 1`（苹果CMS JSON）的源。
+///
+/// ⚠️ 这是全应用**唯一**会去抓用户随手粘贴的 URL 的地方（下载器探测只打本机）。
+/// 所以：只放行 `http(s)`，**不做递归**（多仓只提示用户去填子仓地址），
+/// 也不内置任何配置 —— 产品口径见 `bt_providers::tvbox` 文件头。
+fn import_tvbox(ui: &AppWindow) {
+    let raw = ui.get_tvbox_url().to_string();
+    let Some(url) = downloaders::safe_http_url(&raw) else {
+        ui.set_tvbox_status("地址不合法：只接受 http:// 或 https://".into());
+        return;
+    };
+
+    ui.set_tvbox_status("导入中…".into());
+    ui.set_status_text("正在下载影视源配置…".into());
+
+    let weak = ui.as_weak();
+    spawn(async move {
+        let resp = http().get_text(&url, None).await;
+        let parsed: Result<tvbox::TvBoxRepo, String> = match (resp.error, resp.html) {
+            (Some(e), _) => Err(format!("下载失败：{e}")),
+            (None, Some(body)) if !body.is_empty() => tvbox::parse(&body).map_err(tvbox_error_text),
+            _ => Err("下载失败：空响应".to_string()),
+        };
+
+        let _ = slint::invoke_from_event_loop(move || {
+            let Some(ui) = weak.upgrade() else { return };
+
+            let (tvbox_msg, status_msg) = match parsed {
+                // 有站点：覆盖保存（重新导入即刷新，不做增量合并）
+                Ok(repo) if !repo.sites.is_empty() => {
+                    let sites = repo.as_json_sites();
+                    match config_store::save_video_sources(&sites) {
+                        Ok(()) => {
+                            let n = sites.len();
+                            let total = video::registry().len() + n;
+                            ui.set_video_sites(total as i32);
+                            STATE.with(|s| s.borrow_mut().video_sources = sites);
+                            (
+                                format!(
+                                    "已导入 {n} 个影视源（跳过 {} 条非 JSON 源）",
+                                    repo.skipped
+                                ),
+                                format!("影视源已导入：{n} 个（共 {total} 家）"),
+                            )
+                        }
+                        // 存不下来就别改内存里的状态 —— 否则重启就"消失"，用户以为丢了
+                        Err(e) => (
+                            format!("解析到 {} 个但没存下来：{e}", sites.len()),
+                            format!("影视源导入失败：{e}"),
+                        ),
+                    }
+                }
+                // 只有多仓引用：不自动展开（递归会变成不受控的抓取器）
+                Ok(repo) => (
+                    format!(
+                        "这是多仓配置（{} 个子仓）—— 请改填其中某一个子仓的地址",
+                        repo.sources.len()
+                    ),
+                    "影视源：多仓未展开".to_string(),
+                ),
+                Err(e) => (e.clone(), format!("影视源导入失败：{e}")),
+            };
+
+            ui.set_tvbox_status(tvbox_msg.into());
+            STATE.with(|s| s.borrow_mut().status = status_msg.clone());
+            ui.set_status_text(status_msg.into());
+        });
+    });
+}
+
+/// 把 `tvbox::parse` 的机器码翻成人话（那几个码是给测试用的，不该出现在 UI 上）。
+fn tvbox_error_text(e: String) -> String {
+    if e == "no_sites_or_urls" {
+        "没解析到 sites / urls —— 这不像一份 TVBox 配置".to_string()
+    } else if let Some(rest) = e.strip_prefix("bad_json: ") {
+        format!("不是合法 JSON：{rest}")
+    } else {
+        e
+    }
+}
+
+/// 清空已导入的影视源（内存 + 磁盘一起清）。
+fn clear_tvbox(ui: &AppWindow) {
+    let msg = match config_store::save_video_sources(&[]) {
+        Ok(()) => "已清空影视源".to_string(),
+        Err(e) => format!("清空失败：{e}"),
+    };
+    STATE.with(|s| s.borrow_mut().video_sources.clear());
+    ui.set_video_sites(video::registry().len() as i32);
+    ui.set_tvbox_status(config_store::describe_video_sources(&[]).into());
+    STATE.with(|s| s.borrow_mut().status = msg.clone());
+    ui.set_status_text(msg.into());
 }
 
 // ---------------------------------------------------------------------------
@@ -1663,7 +1854,8 @@ fn wire(ui: &AppWindow) {
         ui.set_video_rows(ModelRc::from(st.video_model.clone()));
         ui.set_pan_rows(ModelRc::from(st.pan_model.clone()));
     });
-    ui.set_video_sites(video::registry().len() as i32);
+    // ⚠️ 影视源的家数在下面加载完 `videosources.json` 之后统一 set（含导入的源），
+    // 这里不再单独设一次 —— 设两次只会让先设的那个成为误导。
 
     // PanSou 配置（方案 A：外部服务；默认 127.0.0.1:8888）。
     let (pansou_url, pansou_token) = match config_store::load_pansou() {
@@ -1678,6 +1870,12 @@ fn wire(ui: &AppWindow) {
     });
     ui.set_pansou_url(pansou_url.into());
     ui.set_pansou_token(pansou_token.into());
+
+    // 影视源（TVBox 单仓导入，只留 type=1）——落 videosources.json，重启即恢复。
+    let video_sources = config_store::load_video_sources();
+    ui.set_video_sites((video::registry().len() + video_sources.len()) as i32);
+    ui.set_tvbox_status(config_store::describe_video_sources(&video_sources).into());
+    STATE.with(|s| s.borrow_mut().video_sources = video_sources);
 
     ui.set_downloader_status("未配置（点「探测」或手填地址后「保存」）".into());
 
@@ -1777,6 +1975,23 @@ fn wire(ui: &AppWindow) {
                 });
                 ui.set_pansou_status(msg.clone().into());
                 ui.set_status_text(msg.into());
+            }
+        });
+    }
+    // 影视源（TVBox 单仓导入）：导入 = 抓一次 URL + 只留 type=1 + 落盘。
+    {
+        let weak = ui.as_weak();
+        ui.on_import_tvbox(move || {
+            if let Some(ui) = weak.upgrade() {
+                import_tvbox(&ui);
+            }
+        });
+    }
+    {
+        let weak = ui.as_weak();
+        ui.on_clear_tvbox(move || {
+            if let Some(ui) = weak.upgrade() {
+                clear_tvbox(&ui);
             }
         });
     }
@@ -1908,6 +2123,15 @@ fn wire(ui: &AppWindow) {
         ui.on_close_detail(move || {
             if let Some(ui) = weak.upgrade() {
                 close_detail(&ui);
+            }
+        });
+    }
+    // 屏 03「找字幕」：只拼 URL 交给浏览器（不内置抓取）。
+    {
+        let weak = ui.as_weak();
+        ui.on_find_subtitle(move |idx, site_id| {
+            if let Some(ui) = weak.upgrade() {
+                find_subtitle(&ui, idx, &site_id);
             }
         });
     }

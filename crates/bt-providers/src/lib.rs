@@ -16,6 +16,9 @@
 //! 只返回「标题 + 详情页 URL」，供 UI 打开系统浏览器。BT 与 Video **不混在一个 trait** 里：
 //! 前者的行操作是「推送到下载器」，后者只有「打开网页」。
 //!
+//! 以及 **字幕入口（2026-10-27）**：[`subs`] —— 更薄，连抓取都没有，只拼各家搜索页 URL
+//! + 从种子标题里抠片名（`query_from_title`）。理由与分级见 `docs/BACKLOG-ZHUIJU.md` §2.1。
+//!
 //! ## 抽象：已提取的共用件 + [`Provider`] trait
 //!
 //! - ✅ [`run_mirrors`]：镜像回退的公共实现（2026-10-11 从 10 份逐字副本里提上来）
@@ -45,6 +48,7 @@ pub mod internetarchive;
 pub mod knaben;
 pub mod limetorrents;
 pub mod linuxtracker;
+pub mod maccms_json;
 pub mod megapeer;
 pub mod mikan;
 pub mod nekobt;
@@ -54,12 +58,14 @@ pub mod pan;
 pub mod pomo;
 pub mod registry;
 pub mod rutor;
+pub mod subs;
 pub mod subsplease;
 pub mod sukebei;
 pub mod therarbg;
 pub mod torrent9;
 pub mod torrentscsv;
 pub mod tpb;
+pub mod tvbox;
 pub mod value;
 pub mod video;
 pub mod xxxtracker;

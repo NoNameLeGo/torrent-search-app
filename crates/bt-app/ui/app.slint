@@ -501,6 +501,9 @@ export component AppWindow inherits Window {
     in-out property <string> pansou-url: "http://127.0.0.1:8888";
     in-out property <string> pansou-token: "";
     in-out property <string> pansou-status: "默认 127.0.0.1:8888";
+    // 影视源（TVBox 单仓导入，只取 type=1 的苹果CMS JSON 源）
+    in-out property <string> tvbox-url: "";
+    in-out property <string> tvbox-status: "未导入影视源";
     in-out property <[ProviderChip]> providers;
     in-out property <[SiteToggle]> sites;
     in-out property <[Chip]> sorts;
@@ -556,6 +559,9 @@ export component AppWindow inherits Window {
     callback open-video(int);
     callback open-pan(int);
     callback save-pansou();
+    // 影视源：导入一份 TVBox 单仓配置 / 清空已导入的源
+    callback import-tvbox();
+    callback clear-tvbox();
     callback push-row(int);
     callback pick-kind(string);
     callback detect-downloader();
@@ -570,6 +576,9 @@ export component AppWindow inherits Window {
     // 屏 03
     callback open-row(int);
     callback close-detail();
+    // 屏 03：拿这一行的片名去某家字幕站搜索（第二参数是 `subs::SubtitleSite.id`）。
+    // ⚠️ 只拼 URL 交给浏览器，不内置抓取 —— 见 docs/BACKLOG-ZHUIJU.md §2.1
+    callback find-subtitle(int, string);
     // 批量：勾选一行 / 全选 / 清空 / 推送 / 导出
     callback toggle-row(int);
     callback select-all();
@@ -853,6 +862,21 @@ export component AppWindow inherits Window {
                     }
                     AppButton { label: "保存"; height: 26px; text-size: 11px; clicked => { root.save-pansou(); } }
                     Text { text: root.pansou-status; color: Theme.sub; font-size: 11px; vertical-alignment: center; }
+                }
+
+                // 影视源：贴 TVBox 单仓地址 → 只留 type=1 的苹果CMS JSON 源。
+                // ⚠️ 不内置任何配置、不自动展开多仓 —— 见 docs/BACKLOG-ZHUIJU.md §2.2
+                HorizontalLayout {
+                    spacing: 6px;
+                    Text { text: "影视源"; color: Theme.sub; font-size: 11px; vertical-alignment: center; }
+                    LineEdit {
+                        horizontal-stretch: 1;
+                        placeholder-text: "TVBox 单仓地址（只取 type=1 的 JSON 源）";
+                        text <=> root.tvbox-url;
+                    }
+                    AppButton { label: "导入"; height: 26px; text-size: 11px; clicked => { root.import-tvbox(); } }
+                    AppButton { label: "清空"; height: 26px; text-size: 11px; clicked => { root.clear-tvbox(); } }
+                    Text { text: root.tvbox-status; color: Theme.sub; font-size: 11px; vertical-alignment: center; }
                 }
 
                 HorizontalLayout {
@@ -1462,6 +1486,44 @@ export component AppWindow inherits Window {
                     // 把按钮推到底部
                     Rectangle {
                         vertical-stretch: 1;
+                    }
+
+                    // 找字幕：只拼各家搜索页交给浏览器（不内置抓取）。
+                    // 三个按钮的 id 是 `bt_providers::subs::SubtitleSite.id`，Rust 侧按 id 查表。
+                    Text {
+                        text: "找字幕";
+                        font-size: 10px;
+                        color: Theme.dim;
+                    }
+
+                    HorizontalLayout {
+                        spacing: 6px;
+
+                        AppButton {
+                            label: "SubHD";
+                            height: 30px;
+                            text-size: 11px;
+                            clicked => { root.find-subtitle(root.detail-idx, "subhd"); }
+                        }
+
+                        AppButton {
+                            label: "ASSRT";
+                            height: 30px;
+                            text-size: 11px;
+                            clicked => { root.find-subtitle(root.detail-idx, "assrt"); }
+                        }
+
+                        AppButton {
+                            label: "字幕库";
+                            height: 30px;
+                            text-size: 11px;
+                            clicked => { root.find-subtitle(root.detail-idx, "zimuku"); }
+                        }
+
+                        // 吃掉剩余宽度，避免三个按钮被布局拉宽
+                        Rectangle {
+                            horizontal-stretch: 1;
+                        }
                     }
 
                     AppButton {
