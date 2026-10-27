@@ -5,8 +5,15 @@ name: Tauri Build (validate)
 on:
   push:
     branches: [feat/tauri]
+  # ⚠️ 2026-10-27 改：原写法是 `pull_request: branches: [feat/tauri, main]`，
+  # 于是**每个指向 main 的 PR 都会跑它** —— 而 `src-tauri/` 只存在于 `feat/tauri`，
+  # main 上根本没有这个目录 ⇒ 恒定红：`Couldn't detect Tauri dir`。
+  # 结果：任何功能 PR 都会挂一个与本改动无关的红叉（Rust (test) 绿了也没用）。
+  # 改成按路径触发：只有真的动了 Tauri 相关文件才跑。
   pull_request:
-    branches: [feat/tauri, main]
+    paths:
+      - 'src-tauri/**'
+      - '.github/workflows/tauri-build.yml'
 
 permissions:
   contents: read

@@ -43,29 +43,37 @@ pub struct SubtitleSite {
 }
 
 /// SubHD —— **URL 形态已实测确认**（`/search/<q>` 返回 200）。
-pub static SUBHD: SubtitleSite = SubtitleSite {
+///
+/// ⚠️ 是 `const` 不是 `static`：它要被 [`SITES`] 这个 `static` 数组的初始化式引用。
+/// `static` 不能出现在另一个 `static` 的初始化式里（会被当成读取运行期内存），
+/// 而 `const` 是编译期展开 —— 2026-10-27 首轮 CI 就栽在这（`E0515`）。
+pub const SUBHD: SubtitleSite = SubtitleSite {
     id: "subhd",
     name: "SubHD",
     search: "https://subhd.tv/search/{q}",
 };
 
 /// 射手网（伪）。形态按站内惯例（`/sub/?searchword=`），本机不可达、待复核。
-pub static ASSRT: SubtitleSite = SubtitleSite {
+pub const ASSRT: SubtitleSite = SubtitleSite {
     id: "assrt",
     name: "ASSRT",
     search: "https://assrt.net/sub/?searchword={q}",
 };
 
 /// 字幕库。形态按站内惯例（`/search?q=`），本机 404 疑似劫持、待复核。
-pub static ZIMUKU: SubtitleSite = SubtitleSite {
+pub const ZIMUKU: SubtitleSite = SubtitleSite {
     id: "zimuku",
     name: "字幕库",
     search: "https://zimuku.org/search?q={q}",
 };
 
+/// 静态数组本身。**不能**把 `&[...]` 直接写在 `registry()` 的返回式里 ——
+/// 那是**函数里的临时值**，借不出去（`E0515: cannot return reference to temporary value`）。
+static SITES: [SubtitleSite; 3] = [SUBHD, ASSRT, ZIMUKU];
+
 /// 静态注册表。**顺序 = UI 按钮顺序**：确认过的排前面。
 pub fn registry() -> &'static [SubtitleSite] {
-    &[SUBHD, ASSRT, ZIMUKU]
+    &SITES
 }
 
 /// 按 id 取站。`None` = 不认识的 id（UI 传错时静默忽略，不 panic）。
