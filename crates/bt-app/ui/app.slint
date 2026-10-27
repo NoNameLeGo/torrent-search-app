@@ -533,6 +533,8 @@ export component AppWindow inherits Window {
     in-out property <string> indexer-key: "";
     in-out property <string> indexer-status: "未配置索引器";
     in-out property <[IndexerRow]> indexers;
+    // 数据源统一注册表（sources.json）的摘要行。批次 1 只读 —— 列表/开关在批次 2。
+    in-out property <string> sources-status: "数据源：未加载";
     in-out property <int> total: 0;
     in-out property <int> page: 1;
     in-out property <bool> has-more: false;
@@ -904,6 +906,25 @@ export component AppWindow inherits Window {
                             text-size: 11px;
                             clicked => { root.toggle-indexer(ix.id); }
                         }
+                    }
+                }
+
+                // ---- 数据源（sources.json）摘要 ----
+                // 批次 1 只显示一句「内置 N · 导入 M · 订阅 K」；列表与开关在批次 2。
+                HorizontalLayout {
+                    spacing: 6px;
+                    Text {
+                        text: "数据源";
+                        color: Theme.sub;
+                        font-size: 11px;
+                        vertical-alignment: center;
+                    }
+                    Text {
+                        text: root.sources-status;
+                        color: Theme.sub;
+                        font-size: 11px;
+                        vertical-alignment: center;
+                        horizontal-stretch: 1;
                     }
                 }
 
