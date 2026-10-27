@@ -604,3 +604,81 @@ pub fn save(file: &SourcesFile) -> Result<(), String> {
     let text = to_text(file)?;
     crate::config_store::write_atomic(&p, &text).map_err(|e| format!("写入失败：{e}"))
 }
+
+/// 从注册表里取出**可搜索的** JSON 影视源（`enabled` 且 `adapter == maccms_json`）。
+///
+/// 这是批次 2 的接点：视频搜索不再直接读 `videosources.json`，而是读这份统一注册表
+/// —— 于是「关掉一个源」**真的**会让它不参与搜索。
+///
+/// 非 http(s) 的地址一律丢掉（手改文件不该把 `file://` 带进搜索路径）。
+pub fn video_json_sites(file: &SourcesFile) -> Vec<bt_providers::maccms_json::JsonApiSite> {
+    file.sources
+        .iter()
+        .filter(|s| s.enabled && s.kind == Kind::Video && s.adapter == Adapter::MaccmsJson)
+        .filter_map(|s| {
+            let api = s.url.as_deref()?.trim();
+            if !(api.starts_with("http://") || api.starts_with("https://")) {
+                return None;
+            }
+            Some(bt_providers::maccms_json::JsonApiSite {
+                id: s.id.clone(),
+                name: s.name.clone(),
+                api: api.to_string(),
+            })
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod video_view_tests {
+    use super::*;
+
+    /// 本地版（不能借 `mod tests` 里的同名 helper —— 兄弟模块之间互相看不见）
+    fn builtin(id: &str, enabled: bool) -> SourceEntry {
+        SourceEntry {
+            builtin: true,
+            adapter: Adapter::Builtin,
+            ..json_src(id, enabled, None)
+        }
+    }
+
+    fn json_src(id: &str, enabled: bool, url: Option<&str>) -> SourceEntry {
+        SourceEntry {
+            id: id.to_string(),
+            name: id.to_string(),
+            kind: Kind::Video,
+            adapter: Adapter::MaccmsJson,
+            builtin: false,
+            enabled,
+            group: None,
+            url: url.map(str::to_string),
+            r#override: false,
+            rule: None,
+            members: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn video_json_sites_respects_enabled_kind_and_scheme() {
+        let file = SourcesFile {
+            sources: vec![
+                json_src("user:a", true, Some("https://a/vod/")),
+                json_src("user:off", false, Some("https://off/vod/")),
+                json_src("user:ftp", true, Some("ftp://bad/")),
+                json_src("user:nourl", true, None),
+                builtin("builtin:appmovie", true),
+                SourceEntry {
+                    // BT 源不该混进视频视图
+                    kind: Kind::Bt,
+                    ..json_src("catalog:prowlarr", true, Some("https://p/indexers"))
+                },
+            ],
+            ..Default::default()
+        };
+
+        let sites = video_json_sites(&file);
+        assert_eq!(sites.len(), 1, "{sites:?}");
+        assert_eq!(sites[0].id, "user:a");
+        assert_eq!(sites[0].api, "https://a/vod/");
+    }
+}
