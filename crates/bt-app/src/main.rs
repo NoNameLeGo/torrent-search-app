@@ -46,6 +46,7 @@ mod config_store;
 mod health;
 mod highlight;
 mod selftest;
+mod sources;
 mod ui_model;
 
 slint::include_modules!();
@@ -1978,6 +1979,14 @@ fn wire(ui: &AppWindow) {
     ui.set_video_sites((video::registry().len() + video_sources.len()) as i32);
     ui.set_tvbox_status(config_store::describe_video_sources(&video_sources).into());
     STATE.with(|s| s.borrow_mut().video_sources = video_sources);
+
+    // 数据源统一注册表（批次 1：**只读展示**，搜索仍走编译期 registry）。
+    // 首次启动会生成 sources.json 并把 videosources.json / indexers.json 迁进来。
+    let (source_file, source_needs_save) = sources::load();
+    if source_needs_save {
+        let _ = sources::save(&source_file);
+    }
+    ui.set_sources_status(sources::describe(&source_file).into());
 
     ui.set_downloader_status("未配置（点「探测」或手填地址后「保存」）".into());
 
