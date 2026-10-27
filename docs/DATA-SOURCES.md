@@ -153,15 +153,25 @@ xunlei 123 magnet ed2k others）、PanHub、CloudSaver、懒盘、混合盘、�
 
 ## 6. 待办（按顺序）
 
-| # | 项 | 交付物 | 门 |
+| # | 项 | 交付物 | 状态 |
 |---|---|---|---|
-| 1 | **Cardigann 解析器**：清单 → 定义 → 搜索（只做 `type=public`） | `bt-providers/src/cardigann.rs` | 单测（解析 + 拼 URL + 取行）；`:has` 降级写法 |
-| 2 | 接线：磁力模式把公共索引器并入聚合层 | `registry` / `aggregate` 扩展 + 设置里开关 | 需 CI 编译 + 人工点一遍 |
-| 3 | **PanSou 多实例 + 插件枚举** | `config_store` 存地址列表；`/api/health` 读 `plugins` | 单测 + 人工 |
+| 1 | **Cardigann 解析器**：清单 → 定义 → 搜索（只做 `type=public`） | `bt-providers/src/cardigann.rs` | ✅ **已合入**（PR #6，9 条单测；`Cargo.lock` 由 `lockfile.yml` 重生成） |
+| 2 | 接线：磁力模式把公共索引器并入聚合层 | `registry` / `aggregate` 扩展 + 设置里开关 | ⬜ 未做（见下「接线的三个真问题」） |
+| 3 | **PanSou 多实例 + 插件枚举** | `pan::search_failover` / `plugins`、`config_store::*_pansou_all`、设置里「探活」 | ✅ **已合入**（PR #7，4 条单测） |
 
-⚠️ 依赖变更代价：`cardigann` 需要 `serde_yaml`（解析定义）与 `regex`（`re_replace`/`regexp`）。
-**本机没有 cargo，`Cargo.lock` 只能靠 `lockfile.yml` 重新生成**（`rust.yml` 是 `--locked` 的，
-只改 `Cargo.toml` 不改 lock ⇒ CI 直接红）。⇒ 改 `Cargo.toml` 之后必须跑一次：
+### 接线（#2）的三个真问题：动手前先答
+
+1. **清单与定义从哪来、什么时候拉？** 每次搜索都拉 577 条清单显然不行；
+   缓存多久、缓存放哪（`%APPDATA%\bt-search\` 还是内存）、过期怎么刷 —— 要定。
+2. **80 个 public 里能用几个？** 调研实测量：`share.dmhy.org`、`1337x.to` 本机 `000`，
+   24 个还要过 FlareSolverr ⇒ **不能一次性全塞进聚合层**（每次搜索 80 个并发请求 = 长时间等待 + 大面积失败）。
+   合理做法：先做一次「体检」把连不上的标掉，只把活着的接进搜索。
+3. **和现有 28 家怎么共存？** `dmhy` / `mikan` / `anirena` / `therarbg` 等已经手写过解析器，
+   接 Cardigann 后会出现**同一站点两条路径**（重复结果、双倍请求）。
+   ⇒ 要么按 id 去重（手写优先），要么干脆让 Cardigann 只补「没有手写实现」的那些站。
+
+⚠️ 依赖变更代价：`cardigann` 需要 `serde_yaml` 与 `regex`（**已加，lock 已重生成**）。
+以后再加依赖同样要跑一次：
 
 ```bash
 scripts/gh-retry.sh workflow run lockfile.yml --ref <branch>
