@@ -3,12 +3,14 @@
 //! 各站点 provider 的集合，一文件一站（对齐 `src/providers/*.js` 的组织方式）。
 //!
 //! ## 现状
-//! 已搬 **27 个站点**（24 个对齐 `src/providers/*.js` + `bdflixs` / `pomo` / `cilixiong` Rust 独有）：
+//! 已搬 **28 个站点**（25 个对齐 `src/providers/*.js` + `bdflixs` / `pomo` / `cilixiong` Rust 独有）：
 //!
 //! - **JSON 组（7）**：`tpb`、`knaben`、`torrentscsv`、`yts`、`internetarchive`、`subsplease`、`bangumimoe`
-//! - **HTML 组（17）**：`linuxtracker`、`filemood`、`rutor`、`audiobookbay`、`therarbg`、
+//! - **HTML 组（18）**：`linuxtracker`、`filemood`、`rutor`、`audiobookbay`、`therarbg`、
 //!   `limetorrents`、`torrent9`、`oxtorrent`、`nyaa`、`megapeer`、`zeromagnet`、`dmhy`、`mikan`、`animetosho`、`nekobt`、`anirena`、`xxxtracker`、`bdflixs`、`pomo`、`cilixiong`
 //!   （`bdflixs` / `pomo` / `cilixiong` 是 2026-10-25 新增的 Rust 独有站点，**不进 M6 差分**——Node 侧没有对应实现）
+//!   ⚠️ `sukebei`（2026-10-27）**没有自己的解析器**：它是 `nyaa.si` 的子域、页面同构，
+//!   直接复用 [`nyaa::search_as`]，见 [`sukebei`] 的文件头。
 //!
 //! 另有 **Video 模式（独立 trait，不在这 24 家之内）**：[`video`] —— 通用 MacCMS 适配器，
 //! 只返回「标题 + 详情页 URL」，供 UI 打开系统浏览器。BT 与 Video **不混在一个 trait** 里：
@@ -53,6 +55,7 @@ pub mod pomo;
 pub mod registry;
 pub mod rutor;
 pub mod subsplease;
+pub mod sukebei;
 pub mod therarbg;
 pub mod torrent9;
 pub mod torrentscsv;

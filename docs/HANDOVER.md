@@ -22,8 +22,8 @@
 
 **本版内容**：顶栏**三模式**（磁力 / 视频 / 网盘，结果不混流）· 在线影视 **5 家**
 （APP影院、独播库、嘀嗒、追影、宅男，搜索后 `open_url` 打开原站）· **PanSou 网盘客户端**
-（方案 A：外部服务，设置里填地址与 token，支持打开链接 + 复制提取码）· BT 引擎 **27 家**
-（24 对齐 Node + 3 家 Rust 独有：`bdflixs` / `pomo` / `cilixiong`）。
+（方案 A：外部服务，设置里填地址与 token，支持打开链接 + 复制提取码）· BT 引擎 **28 家**
+（25 对齐 Node + 3 家 Rust 独有：`bdflixs` / `pomo` / `cilixiong`）。
 
 ⚠️ **Tauri 包名是上一版的号**：main 从 `0.3.15-beta` 走到 `0.4.0-beta` 时，只 bump 了 main 自己的
 版本，`feat/tauri` 上那四处还是 `0.3.15-beta`，而 `release.yml` 是**显式 checkout `feat/tauri`**
@@ -35,7 +35,7 @@
 | 项 | 值 |
 |---|---|
 | Rust | **90 个 `.rs` / 26,107 行**，`TODO`/`FIXME` **0 处** |
-| 引擎 | BT **27** + 在线影视 **5** + `pan`（网盘）+ `demo`（离线演示） |
+| 引擎 | BT **28** + 在线影视 **5** + `pan`（网盘）+ `demo`（离线演示） |
 | 测试 | `#[test]` **253** + `#[tokio::test]` **326**；另有 M4 `--selftest` 全链路 12/12 |
 | workflow | **14 条**，`python3 scripts/check-workflows.py` 全绿（含「引用的脚本是否存在」） |
 | 版本 | `Cargo.toml` / `package.json` / `Cargo.lock` 全 = `0.4.0-beta`，`node scripts/release-check.js` 通过 |

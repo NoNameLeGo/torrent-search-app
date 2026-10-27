@@ -49,7 +49,7 @@ Electron mode: `npm run electron` (picks a free port automatically, no collision
 `main` 上的 Node/Express + Electron/Tauri 实现继续可用；Rust 版每搬完一块就替代一块。
 
 **📊 进度快照（2026-10-26 —— **`main` 已是 Rust 主线，M0–M7 全部完成**）**：
-**BT 引擎 27 家**（24 家与 Node 版对齐 + 3 家 Rust 独有：`bdflixs` / `pomo` / `cilixiong`）、
+**BT 引擎 28 家**（25 家与 Node 版对齐 + 3 家 Rust 独有：`bdflixs` / `pomo` / `cilixiong`）、
 **在线影视 5 家**（通用 MacCMS 适配器 + `open_url`）、**网盘 1 条路**（PanSou 客户端，
 方案 A：外部服务，设置里填地址与 token）—— 顶栏**三模式**（磁力 / 视频 / 网盘），结果不混流。
 CI 全绿 + M4 全链路自检 12/12（clippy + fmt 均为硬门；**具体测试数看最近一次 `rust.yml` 日志** ——
@@ -944,7 +944,7 @@ fixture 靠 CI 抓（`fetch-fixture.yml`），探针链路支持 **per-fixture �
 | `zeromagnet`（CI 29 行） | ✅ 已搬完（2026-10-11） |
 | `xxxtracker`（CI 1 行） | ✅ **已搬完（2026-10-24，第 24 家）** —— 本表里唯一一家「探活就能出结果」的 |
 | `nekobt` | ✅ **已搬完（2026-10-23）** |
-| `sukebei` | ⏸️ 2026-10-23 探活**超时**，仍排队（域名死活待确认） |
+| `sukebei` | ✅ **2026-10-27 已搬**（复用 nyaa 解析器，探活仍超时但成本≈0） |
 
 ⚠️ **B 组序号口径**：序号把 `#0 地基` 与 `#10 1337x（跳过）` 都算进去了，
 所以「B 组第 12 个」= `zeromagnet` = **第 11 个真搬的 HTML provider**（commit message 里也是这个口径）。
@@ -1057,19 +1057,21 @@ probe 用 `rows.count == 0` 把事实钉住）。
 
 ⚠️ 因此在 `bt-providers` 里**不要**实现 `1337x`：写出来只会是一个永远报错的 provider。
 
-### ⛔ `sukebei.js` —— 2026-10-21 实测：**两侧都探不通，暂不搬**
+### ✅ `sukebei.js` —— **2026-10-27 已搬**（复用 nyaa 解析器，不抄第二份）
 
-`sukebei` 的解析逻辑与 `nyaa.js` 几乎相同（都是 `table.torrent-list` + 磁力在行里），
-本来是最便宜的一家。但实测：
+`sukebei`（`sukebei.nyaa.si`）是 `nyaa.si` 的成人分站，页面由同一套服务端代码渲染
+（同一张 `table.torrent-list`、`colspan="2"` 的名字格、磁力在 Link 格）——
+所以 `crates/bt-providers/src/sukebei.rs` **没有自己的解析器**，只调
+`nyaa::search_as(http, BASE, q, page, "sukebei", "Sukebei")`（`nyaa.rs` 为此把
+provider id 与错误前缀参数化了）。
 
-| 出口 | 结果 |
-|---|---|
-| 本机 | `curl` 直接 `000`（DNS/连接失败） |
-| **CI**（`fetch-fixture.yml`，干净机房 IP） | `curl` **超时**（exit 28，60s 上限） |
+⚠️ **它仍然探不通**（2026-10-21 实测本机 `000` / CI 超时 60s），搬它的理由是
+**复用成本≈0 且解析已被 nyaa 的真快照钉住**，不是因为它现在能用。若哪天真通了，
+它自动就出结果；不通的时候它只是 28 家里多一个失败，不影响别人。
 
-⇒ 连真实快照都拿不到，写出来也无法验证（更别说用户那边能不能用）。
-**先挂着**，等哪天两侧有任一侧通了再搬。同类待办：`mikan` / `eztv`（本机 `000` / `403`，
-CI 尚未测）—— 搬之前先跑一次 `fetch-fixture.yml`，通不了就别写。
+- 测试：`crates/bt-providers/tests/sukebei.rs`（用 `nyaa-ubuntu.html` 验证复用路径 +
+  `provider == "sukebei"` + 错误前缀），**没有 sukebei 自己的 fixture**（抓不到）。
+- **不进 M6 差分**：`scripts/diff/fixtures.cjs` 是显式清单，没有它。
 
 ### 🐞 移植中发现的上游 bug（JS 版既有，值得单独修）
 
@@ -1472,11 +1474,11 @@ NODE_TLS_REJECT_UNAUTHORIZED=0 node --use-env-proxy scripts/provider-health.mjs
 | | `blueroms` / `torrentdatabase` / `uindex` / `1337x` | **Cloudflare 403**（两个环境都是） | 参考 1337x 小节那四条路（换环境抓 fixture / 第三方 API / 浏览器自动化 / 放弃），成本都高 |
 | **B. 机房 IP 被拦，本机可用** | `tpb` / `limetorrents` / `therarbg` / `torrent9` / `oxtorrent` | 本机 ✅ 出结果，CI ⛔ 403 | **不是问题** —— 用户在家里跑就能用。只是别拿 CI 的 403 当真相（这 5 家**都已搬**） |
 | **C. 两个环境都不通** | `bitsearch` / `bt4g` / `mypornclub` / `tokyotoshokan` / `torrentdownload` / `torrentdownloads` / `torrentkitty` / `xxxclub` | CI ⛔ 403，本机 timeout/连不上 | CI 全 403 → 大概率也是 Cloudflare；要确认得**换个住宅 IP 的环境**再探一次 |
-| | `sukebei` | 两边都连不上（`UND_ERR_CONNECT_TIMEOUT` / timeout） | 确认域名是否还活着（`sukebei` 是 `nyaa.si` 的子域，可能一起被网络层挡了） |
+| ~~`sukebei`~~ | ✅ **2026-10-27 已搬**（复用 `nyaa::search_as`）—— 探活仍两边超时，但解析器已被 nyaa 真快照钉住，搬它成本≈0 | 若哪天真通了自动出结果；不通只是多一个失败 |
 | **D. 页面在但拿不到结果行** | `anilibria` | 200 但响应只有 2~55 字节 | 空 JSON（`[]`）—— 说明接口通、只是这个关键词没结果。**换关键词再探一次就能定性** |
 | **未入表（有搬的价值）** | `btdigg` | 429（限流，不是封锁） | **还能试**，只是按 D13「不再盲搬」有意推迟。要动先跑 `fetch-fixture.yml` 拿真快照 |
 
-⇒ 未移植 16 家的分布：A 5 + C 9 + D 1 + 有救但推迟 1 = 16。
+⇒ 未移植 **15 家**的分布：A 5 + C 8 + D 1 + 有救但推迟 1 = 15（`sukebei` 已于 2026-10-27 搬入）。
 （`xxxtracker` 已于 2026-10-24 搬入，是本表里**唯一一家**「探活就能出结果」的 —— 见 `crates/bt-providers/src/xxxtracker.rs`。）
 
 **重新评估的触发条件**（满足任一条就该重探，不用等）：

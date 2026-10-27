@@ -85,17 +85,34 @@ fn search_url(base: &str, query: &str, page: u32) -> String {
 /// ⚠️ JS 里详情链接拼的是模块级 `BASE`（不是参数），本移植改用传入的 `base`
 /// —— 生产环境两者相同（nyaa 没有镜像），测试里才需要指向本地服务。
 pub async fn search_at(http: &HttpClient, base: &str, query: &str, page: u32) -> SearchOutcome {
+    search_as(http, base, query, page, "nyaa", "NYAA").await
+}
+
+/// 用指定基址 + 指定 provider id / 错误前缀搜索。
+///
+/// ⚠️ 存在的唯一理由是 **`sukebei`**：`sukebei.nyaa.si` 与 `nyaa.si` 由同一套
+/// 服务端代码渲染，页面结构**逐字节同构**（同一张 `table.torrent-list`、
+/// 同样的 `colspan="2"` 名字格、磁力同样在 Link 格）。复用它比抄第二份解析器安全得多
+/// —— 那边的选择器 bug（2026-10-23 修的三处）将来只需要修一次。
+pub async fn search_as(
+    http: &HttpClient,
+    base: &str,
+    query: &str,
+    page: u32,
+    provider: &str,
+    label: &str,
+) -> SearchOutcome {
     let url = search_url(base, query, page);
 
     let resp = http.get_text(&url, None).await;
     if resp.error.is_some() {
-        // JS: `error: \`NYAA unreachable (${error})\``
+        // JS: `error: \`NYAA unreachable (${error})\`` —— 前缀按站点给（sukebei 用自己的）
         let e = resp.error.unwrap_or_default();
-        return SearchOutcome::err(format!("NYAA unreachable ({e})"));
+        return SearchOutcome::err(format!("{label} unreachable ({e})"));
     }
     let Some(html) = resp.html.filter(|h| !h.is_empty()) else {
         // 正文为空、但接口没报错 —— JS 的模板会把 `undefined` **原样变成字面量**，照抄
-        return SearchOutcome::err("NYAA unreachable (undefined)");
+        return SearchOutcome::err(format!("{label} unreachable (undefined)"));
     };
 
     let dom = Dom::parse(&html);
@@ -107,14 +124,17 @@ pub async fn search_at(http: &HttpClient, base: &str, query: &str, page: u32) ->
     let results: Vec<TorrentResult> = dom
         .select(ROWS)
         .iter()
-        .filter_map(|row| parse_row(&dom, *row, base))
+        .filter_map(|row| parse_row(&dom, *row, base, provider))
         .collect();
 
     SearchOutcome::ok(results)
 }
 
 /// 解析一行。所有索引都**逐字照抄 JS**（含那三处 bug，见文件头）。
-fn parse_row(dom: &Dom, row: ElementRef<'_>, base: &str) -> Option<TorrentResult> {
+///
+/// `provider` 由调用方给 —— `sukebei` 复用同一个解析器，但结果里的 `provider`
+/// 必须是 `"sukebei"`（否则 UI 的来源列会把它标成 nyaa）。
+fn parse_row(dom: &Dom, row: ElementRef<'_>, base: &str, provider: &str) -> Option<TorrentResult> {
     let tds = dom.find(row, "td");
     // JS: `if (tds.length < 6) return;`
     if tds.len() < 6 {
@@ -176,7 +196,7 @@ fn parse_row(dom: &Dom, row: ElementRef<'_>, base: &str) -> Option<TorrentResult
     let leechers = cell_text(&tds, 6);
 
     Some(normalize(&RawResult {
-        provider: "nyaa".to_string(),
+        provider: provider.to_string(),
         name: Some(name),
         size: Some(NumOrText::Text(size)),
         date: Some(NumOrText::Text(date)),
@@ -240,7 +260,7 @@ mod tests {
         let dom = Dom::parse(&page(rows));
         dom.select(ROWS)
             .iter()
-            .filter_map(|r| parse_row(&dom, *r, BASE_URL))
+            .filter_map(|r| parse_row(&dom, *r, BASE_URL, "nyaa"))
             .collect()
     }
 

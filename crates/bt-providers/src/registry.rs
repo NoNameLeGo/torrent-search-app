@@ -108,7 +108,7 @@ macro_rules! site {
 }
 
 // ---------------------------------------------------------------------------
-// 27 个站点（前 24 个 = JS REGISTRY 顺序 = UI 显示顺序；bdflixs / pomo / cilixiong 是 Rust 独有，追加在末尾）
+// 28 个站点（前 25 个 = JS REGISTRY 顺序 = UI 显示顺序；bdflixs / pomo / cilixiong 是 Rust 独有，追加在末尾）
 // ---------------------------------------------------------------------------
 
 site!(Tpb, tpb, "tpb", "The Pirate Bay");
@@ -122,6 +122,10 @@ site!(BangumiMoe, bangumimoe, "bangumimoe", "Bangumi.Moe");
 site!(Dmhy, dmhy, "dmhy", "DMHY", paginated);
 site!(Mikan, mikan, "mikan", "Mikan");
 site!(SubsPlease, subsplease, "subsplease", "SubsPlease");
+// JS 里 sukebei 排在 subsplease 之后、tokyotoshokan 之前（`src/providers/index.js:93`）——
+// tokyotoshokan 没搬，所以紧跟在 subsplease 后面就是正确的相对位置。
+// ⚠️ JS 里这家**没有 paginated**（nyaa 有），照抄。
+site!(Sukebei, sukebei, "sukebei", "Sukebei");
 site!(NekoBt, nekobt, "nekobt", "NekoBT");
 site!(
     LimeTorrents,
@@ -178,6 +182,7 @@ pub fn registry() -> Vec<Box<dyn Provider>> {
         Box::new(Dmhy),
         Box::new(Mikan),
         Box::new(SubsPlease),
+        Box::new(Sukebei),
         Box::new(NekoBt),
         Box::new(LimeTorrents),
         Box::new(TheRarBg),
