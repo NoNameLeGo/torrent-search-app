@@ -392,14 +392,6 @@ pub struct StoredVideoSource {
 }
 
 impl StoredVideoSource {
-    fn from_site(s: &bt_providers::maccms_json::JsonApiSite) -> Self {
-        Self {
-            id: s.id.clone(),
-            name: s.name.clone(),
-            api: s.api.clone(),
-        }
-    }
-
     /// 只放行 http(s) 的 api，且 id 不能空 —— 手改坏的文件不该把
     /// `file://` / `ftp://` 带进搜索路径（同 `indexers.json` 那条信任边界）。
     fn into_site(self) -> Option<bt_providers::maccms_json::JsonApiSite> {
@@ -440,17 +432,9 @@ pub fn load_video_sources() -> Vec<bt_providers::maccms_json::JsonApiSite> {
         .collect()
 }
 
-/// 保存影视源（整体覆盖）。返回 `Err(人话)`，调用方不该当成致命错误。
-pub fn save_video_sources(list: &[bt_providers::maccms_json::JsonApiSite]) -> Result<(), String> {
-    let path = video_sources_path().ok_or_else(|| "取不到 %APPDATA%，影视源没保存".to_string())?;
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir).map_err(|e| format!("建目录失败：{e}"))?;
-    }
-    let stored: Vec<StoredVideoSource> = list.iter().map(StoredVideoSource::from_site).collect();
-    let text = serde_json::to_string_pretty(&stored).map_err(|e| format!("序列化失败：{e}"))?;
-    write_atomic(&path, &text).map_err(|e| format!("写入失败：{e}"))
-}
-
+// ⚠️ 2026-10-27：写入口已整体搬到 `sources.json`（见 `crate::sources`）。
+// 这里**故意只保留读**（`load_video_sources`）—— 它是旧配置迁移的唯一入口；
+// 写旧的 `videosources.json` 已无用（会与新注册表打架），函数已删除。
 /// 一行人类可读的影视源摘要（UI 状态文字）。**纯函数**，有单测。
 pub fn describe_video_sources(list: &[bt_providers::maccms_json::JsonApiSite]) -> String {
     if list.is_empty() {

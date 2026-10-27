@@ -869,14 +869,14 @@ export component AppWindow inherits Window {
                     Text { text: root.pansou-status; color: Theme.sub; font-size: 11px; vertical-alignment: center; }
                 }
 
-                // 影视源：贴 TVBox 单仓地址 → 只留 type=1 的苹果CMS JSON 源。
-                // ⚠️ 不内置任何配置、不自动展开多仓 —— 见 docs/BACKLOG-ZHUIJU.md §2.2
+                // 数据源导入：TVBox 单仓 / LibreTV 源列表 / Prowlarr 清单 / 一行一个 URL，
+                // 格式自动判断（判据见 source_import::guess_format）。网页贴进去也行 —— 会当纯文本猜。
                 HorizontalLayout {
                     spacing: 6px;
-                    Text { text: "影视源"; color: Theme.sub; font-size: 11px; vertical-alignment: center; }
+                    Text { text: "导入源"; color: Theme.sub; font-size: 11px; vertical-alignment: center; }
                     LineEdit {
                         horizontal-stretch: 1;
-                        placeholder-text: "TVBox 单仓地址（只取 type=1 的 JSON 源）";
+                        placeholder-text: "TVBox / LibreTV / Prowlarr 地址，或一行一个 URL";
                         text <=> root.tvbox-url;
                     }
                     AppButton { label: "导入"; height: 26px; text-size: 11px; clicked => { root.import-tvbox(); } }

@@ -46,6 +46,7 @@ mod config_store;
 mod health;
 mod highlight;
 mod selftest;
+mod source_import;
 mod sources;
 mod ui_model;
 
@@ -62,7 +63,7 @@ use bt_providers::aggregate::{self, SearchArgs};
 use bt_providers::maccms_json;
 use bt_providers::pan;
 use bt_providers::subs;
-use bt_providers::tvbox;
+
 use bt_providers::video;
 use bt_providers::{registry as provider_registry, Provider};
 // ⚠️ `Model` 这个 trait 必须在作用域里：`VecModel` 的 `row_count` / `set_row_data`
@@ -227,13 +228,15 @@ struct UiState {
     /// ⚠️ 从「单 URL + token」改成列表（2026-10-27）：PanSou 是本项目**唯一**的
     /// 外部依赖，一个地址挂了整个网盘模式就废了。见 `docs/DATA-SOURCES.md` §4。
     pansou: Vec<config_store::StoredPansou>,
-    /// 用户导入的**在线影视 JSON 源**（TVBox 单仓导入，只留 `type == 1`）。
+    /// 用户导入的**在线影视 JSON 源**（`sources.json` 里 `adapter == maccms_json` 且启用的那些）。
     ///
     /// ⚠️ 与 `video::registry()` 那些编译期常量是两类东西：
     /// 这些来自用户配置，`id` / `name` 是运行时的 `String`，所以**不能**塞进
     /// `VideoProvider`（那 trait 的 `id()` / `name()` 返回 `&'static str`）。
     /// 搜索时它们是**额外的**一轮 `maccms_json::search_at`，与静态站并列。
     video_sources: Vec<maccms_json::JsonApiSite>,
+    /// 数据源统一注册表（`sources.json`）。**权威副本在这里**，UI 只是它的镜像。
+    sources: sources::SourcesFile,
     /// 本轮搜索的关键词（用来算高亮 markup）
     query: String,
     /// 高亮色。⚠️ 高亮是**烘进 markup** 的，所以换主题必须整体重建这里的 markup
@@ -274,6 +277,7 @@ thread_local! {
         pan_gen: 0,
         pansou: Vec::new(),
         video_sources: Vec::new(),
+        sources: sources::SourcesFile::default(),
         query: String::new(),
         accent: "#f9e2af".to_string(),
         downloader: None,
@@ -1178,15 +1182,17 @@ fn find_subtitle(ui: &AppWindow, idx: i32, site_id: &str) {
 }
 
 // ---------------------------------------------------------------------------
-// 影视源（TVBox 单仓导入）
+// 数据源导入 / 清空
 // ---------------------------------------------------------------------------
 
-/// 导入一份 TVBox **单仓**配置，只留 `type == 1`（苹果CMS JSON）的源。
+/// 导入数据源：抓一次 URL → 猜格式 → 解析成 `SourceEntry` → 并进 `sources.json`。
+///
+/// 支持四种格式（TVBox 单仓/多仓、LibreTV SourceList v2、Prowlarr 清单、裸 URL 列表），
+/// 判据见 `source_import::guess_format`。
 ///
 /// ⚠️ 这是全应用**唯一**会去抓用户随手粘贴的 URL 的地方（下载器探测只打本机）。
-/// 所以：只放行 `http(s)`，**不做递归**（多仓只提示用户去填子仓地址），
-/// 也不内置任何配置 —— 产品口径见 `bt_providers::tvbox` 文件头。
-fn import_tvbox(ui: &AppWindow) {
+/// 所以：只放行 `http(s)`，**不做递归**（多仓只提示子仓地址），也不内置任何配置。
+fn import_sources(ui: &AppWindow) {
     let raw = ui.get_tvbox_url().to_string();
     let Some(url) = downloaders::safe_http_url(&raw) else {
         ui.set_tvbox_status("地址不合法：只接受 http:// 或 https://".into());
@@ -1194,85 +1200,107 @@ fn import_tvbox(ui: &AppWindow) {
     };
 
     ui.set_tvbox_status("导入中…".into());
-    ui.set_status_text("正在下载影视源配置…".into());
+    ui.set_status_text("正在下载数据源配置…".into());
 
     let weak = ui.as_weak();
     spawn(async move {
         let resp = http().get_text(&url, None).await;
-        let parsed: Result<tvbox::TvBoxRepo, String> = match (resp.error, resp.html) {
+        let parsed: Result<source_import::Imported, String> = match (resp.error, resp.html) {
             (Some(e), _) => Err(format!("下载失败：{e}")),
-            (None, Some(body)) if !body.is_empty() => tvbox::parse(&body).map_err(tvbox_error_text),
+            (None, Some(body)) if !body.is_empty() => {
+                let fmt = source_import::guess_format(&body);
+                source_import::import(&body, fmt)
+            }
             _ => Err("下载失败：空响应".to_string()),
         };
+        let notes = parsed.as_ref().map(|i| i.notes.clone()).unwrap_or_default();
 
         let _ = slint::invoke_from_event_loop(move || {
             let Some(ui) = weak.upgrade() else { return };
 
-            let (tvbox_msg, status_msg) = match parsed {
-                // 有站点：覆盖保存（重新导入即刷新，不做增量合并）
-                Ok(repo) if !repo.sites.is_empty() => {
-                    let sites = repo.as_json_sites();
-                    match config_store::save_video_sources(&sites) {
+            let (msg, status_msg) = match parsed {
+                Ok(imp) => {
+                    let mut file = STATE.with(|s| s.borrow().sources.clone());
+                    let added = source_import::apply(&mut file, &imp);
+                    match sources::save(&file) {
                         Ok(()) => {
-                            let n = sites.len();
-                            let total = video::registry().len() + n;
-                            ui.set_video_sites(total as i32);
-                            STATE.with(|s| s.borrow_mut().video_sources = sites);
-                            (
-                                format!(
-                                    "已导入 {n} 个影视源（跳过 {} 条非 JSON 源）",
-                                    repo.skipped
-                                ),
-                                format!("影视源已导入：{n} 个（共 {total} 家）"),
-                            )
+                            apply_sources_state(&ui, file);
+                            let note = if notes.is_empty() {
+                                String::new()
+                            } else {
+                                format!("（{}）", notes.join("；"))
+                            };
+                            let skipped = if imp.skipped > 0 {
+                                format!("，跳过 {} 条不支持的", imp.skipped)
+                            } else {
+                                String::new()
+                            };
+                            let msg = if added == 0 {
+                                format!("没有新增源{skipped}{note}")
+                            } else {
+                                format!("已导入 {added} 个源{skipped}{note}")
+                            };
+                            (msg.clone(), msg)
                         }
-                        // 存不下来就别改内存里的状态 —— 否则重启就"消失"，用户以为丢了
-                        Err(e) => (
-                            format!("解析到 {} 个但没存下来：{e}", sites.len()),
-                            format!("影视源导入失败：{e}"),
-                        ),
+                        // 存不下来就别改内存状态 —— 否则重启就"消失"，用户以为丢了
+                        Err(e) => (format!("导入失败：{e}"), format!("数据源导入失败：{e}")),
                     }
                 }
-                // 只有多仓引用：不自动展开（递归会变成不受控的抓取器）
-                Ok(repo) => (
-                    format!(
-                        "这是多仓配置（{} 个子仓）—— 请改填其中某一个子仓的地址",
-                        repo.sources.len()
-                    ),
-                    "影视源：多仓未展开".to_string(),
-                ),
-                Err(e) => (e.clone(), format!("影视源导入失败：{e}")),
+                Err(e) => {
+                    let m = import_error_text(e);
+                    (m.clone(), format!("数据源导入失败：{m}"))
+                }
             };
 
-            ui.set_tvbox_status(tvbox_msg.into());
+            ui.set_tvbox_status(msg.into());
             STATE.with(|s| s.borrow_mut().status = status_msg.clone());
             ui.set_status_text(status_msg.into());
         });
     });
 }
 
-/// 把 `tvbox::parse` 的机器码翻成人话（那几个码是给测试用的，不该出现在 UI 上）。
-fn tvbox_error_text(e: String) -> String {
-    if e == "no_sites_or_urls" {
-        "没解析到 sites / urls —— 这不像一份 TVBox 配置".to_string()
-    } else if let Some(rest) = e.strip_prefix("bad_json: ") {
-        format!("不是合法 JSON：{rest}")
-    } else {
-        e
+/// 把导入器的机器码翻成人话（那几个码是给测试用的，不该出现在 UI 上）。
+fn import_error_text(e: String) -> String {
+    match e.as_str() {
+        "no_sites_or_urls" => "没解析到 sites / urls —— 这不像一份 TVBox 配置".to_string(),
+        "no_sources" => "没解析到 sources —— 这不像一份 LibreTV 源列表".to_string(),
+        "no_public_indexers" => "没有可用的公共索引器（只取 type=public）".to_string(),
+        "empty_import" => "这份配置里没有能用的源".to_string(),
+        _ => match e.strip_prefix("bad_json: ") {
+            Some(rest) => format!("不是合法 JSON：{rest}"),
+            None => e,
+        },
     }
 }
 
-/// 清空已导入的影视源（内存 + 磁盘一起清）。
+/// 清掉所有**导入的** JSON 影视源（内置项与订阅不动）。
 fn clear_tvbox(ui: &AppWindow) {
-    let msg = match config_store::save_video_sources(&[]) {
-        Ok(()) => "已清空影视源".to_string(),
+    let mut file = STATE.with(|s| s.borrow().sources.clone());
+    let before = file.sources.len();
+    file.sources
+        .retain(|s| s.builtin || s.adapter != sources::Adapter::MaccmsJson);
+    let removed = before - file.sources.len();
+
+    let msg = match sources::save(&file) {
+        Ok(()) => format!("已移除 {removed} 个导入的影视源"),
         Err(e) => format!("清空失败：{e}"),
     };
-    STATE.with(|s| s.borrow_mut().video_sources.clear());
-    ui.set_video_sites(video::registry().len() as i32);
-    ui.set_tvbox_status(config_store::describe_video_sources(&[]).into());
+    apply_sources_state(ui, file);
+    ui.set_tvbox_status(msg.clone().into());
     STATE.with(|s| s.borrow_mut().status = msg.clone());
     ui.set_status_text(msg.into());
+}
+
+/// 把「注册表变了」同步到 UI 与内存：视频源视图、家数、摘要行。
+fn apply_sources_state(ui: &AppWindow, file: sources::SourcesFile) {
+    let sites = sources::video_json_sites(&file);
+    ui.set_video_sites((video::registry().len() + sites.len()) as i32);
+    ui.set_sources_status(sources::describe(&file).into());
+    STATE.with(|s| {
+        let mut st = s.borrow_mut();
+        st.video_sources = sites;
+        st.sources = file;
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -1974,19 +2002,23 @@ fn wire(ui: &AppWindow) {
     ui.set_pansou_url(pansou_url.into());
     ui.set_pansou_token(pansou_token.into());
 
-    // 影视源（TVBox 单仓导入，只留 type=1）——落 videosources.json，重启即恢复。
-    let video_sources = config_store::load_video_sources();
-    ui.set_video_sites((video::registry().len() + video_sources.len()) as i32);
-    ui.set_tvbox_status(config_store::describe_video_sources(&video_sources).into());
-    STATE.with(|s| s.borrow_mut().video_sources = video_sources);
-
-    // 数据源统一注册表（批次 1：**只读展示**，搜索仍走编译期 registry）。
-    // 首次启动会生成 sources.json 并把 videosources.json / indexers.json 迁进来。
+    // 数据源统一注册表（`sources.json`）：内置项 + 导入项 + 旧配置迁移。
+    // 首次启动（或文件损坏）时会生成/重写一次，把 `videosources.json` / `indexers.json` 迁进来。
     let (source_file, source_needs_save) = sources::load();
     if source_needs_save {
         let _ = sources::save(&source_file);
     }
+    // ⚠️ 顺序要紧：视频源视图必须**从注册表派生**，不能再去读 `videosources.json`
+    //（否则「关掉一个源」不会生效，两处真源会打架）。
+    let video_sources = sources::video_json_sites(&source_file);
+    ui.set_video_sites((video::registry().len() + video_sources.len()) as i32);
+    ui.set_tvbox_status(config_store::describe_video_sources(&video_sources).into());
     ui.set_sources_status(sources::describe(&source_file).into());
+    STATE.with(|s| {
+        let mut st = s.borrow_mut();
+        st.video_sources = video_sources;
+        st.sources = source_file;
+    });
 
     ui.set_downloader_status("未配置（点「探测」或手填地址后「保存」）".into());
 
@@ -2085,7 +2117,7 @@ fn wire(ui: &AppWindow) {
         let weak = ui.as_weak();
         ui.on_import_tvbox(move || {
             if let Some(ui) = weak.upgrade() {
-                import_tvbox(&ui);
+                import_sources(&ui);
             }
         });
     }
