@@ -10,10 +10,11 @@ on:
   # main 上根本没有这个目录 ⇒ 恒定红：`Couldn't detect Tauri dir`。
   # 结果：任何功能 PR 都会挂一个与本改动无关的红叉（Rust (test) 绿了也没用）。
   # 改成按路径触发：只有真的动了 Tauri 相关文件才跑。
+  # ⚠️ 这里**不列 workflow 自身**：`src-tauri/` 不在这个分支上时，
+  # 改本文件也跑不出任何有用的东西 —— 只会再红一次 `Couldn't detect Tauri dir`。
   pull_request:
     paths:
       - 'src-tauri/**'
-      - '.github/workflows/tauri-build.yml'
 
 permissions:
   contents: read
