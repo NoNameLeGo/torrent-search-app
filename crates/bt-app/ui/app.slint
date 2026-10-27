@@ -559,6 +559,8 @@ export component AppWindow inherits Window {
     callback open-video(int);
     callback open-pan(int);
     callback save-pansou();
+    // PanSou 探活：连不上要说清楚，连上了报「这个实例支持哪些源」
+    callback probe-pansou();
     // 影视源：导入一份 TVBox 单仓配置 / 清空已导入的源
     callback import-tvbox();
     callback clear-tvbox();
@@ -861,6 +863,7 @@ export component AppWindow inherits Window {
                         text <=> root.pansou-token;
                     }
                     AppButton { label: "保存"; height: 26px; text-size: 11px; clicked => { root.save-pansou(); } }
+                    AppButton { label: "探活"; height: 26px; text-size: 11px; clicked => { root.probe-pansou(); } }
                     Text { text: root.pansou-status; color: Theme.sub; font-size: 11px; vertical-alignment: center; }
                 }
 

@@ -155,24 +155,88 @@ pub fn pansou_path() -> Option<PathBuf> {
     Some(data_dir()?.join("pansou.json"))
 }
 
-/// 读 PanSou 配置。**任何一步失败都只是 `None`** —— 调用方用默认地址兜底。
-pub fn load_pansou() -> Option<StoredPansou> {
-    let text = std::fs::read_to_string(pansou_path()?).ok()?;
-    serde_json::from_str(&text).ok()
+// ---------------------------------------------------------------------------
+// PanSou 多实例（2026-10-27）
+// ---------------------------------------------------------------------------
+
+/// 最多记几个实例。
+///
+/// ⚠️ 4 是拍的：PanSou 是**外部依赖**，多配几个是为了「主挂了还有备」，
+/// 不是为了「配一堆然后并行搜」—— 并行会让同一个关键词在多个实例上重复搜，
+/// 结果重复率高、还会放大对方的负载。
+pub const MAX_PANSOU_INSTANCES: usize = 4;
+
+/// 读**全部** PanSou 实例。兼容老格式（单个对象）与新格式（数组）。
+///
+/// **任何一步失败都只是空列表** —— 与其它配置文件同一口径，绝不 panic。
+pub fn load_pansou_all() -> Vec<StoredPansou> {
+    let Some(text) = pansou_path().and_then(|p| std::fs::read_to_string(p).ok()) else {
+        return Vec::new();
+    };
+    let head = text.trim_start();
+    let raw: Vec<StoredPansou> = if head.starts_with('[') {
+        serde_json::from_str(&text).unwrap_or_default()
+    } else {
+        // 老格式：单对象 `{"url":…,"token":…}`
+        serde_json::from_str::<StoredPansou>(&text)
+            .map(|one| vec![one])
+            .unwrap_or_default()
+    };
+    raw.into_iter().filter_map(clean_pansou).collect()
 }
 
-/// 保存 PanSou 配置。返回 `Err(人话)` 供状态栏显示。
-pub fn save_pansou(url: &str, token: &str) -> Result<(), String> {
+/// 保存**全部**实例（整体覆盖）。
+pub fn save_pansou_all(list: &[StoredPansou]) -> Result<(), String> {
     let path = pansou_path().ok_or_else(|| "取不到 %APPDATA%，配置没保存".to_string())?;
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).map_err(|e| format!("建目录失败：{e}"))?;
     }
-    let text = serde_json::to_string_pretty(&StoredPansou {
-        url: url.trim().to_string(),
-        token: token.trim().to_string(),
-    })
-    .map_err(|e| format!("序列化失败：{e}"))?;
+    let text = serde_json::to_string_pretty(list).map_err(|e| format!("序列化失败：{e}"))?;
     write_atomic(&path, &text).map_err(|e| format!("写入失败：{e}"))
+}
+
+/// 把「设置里当前填的那一对」并进列表。
+///
+/// - 同 URL ⇒ **就地覆盖** token（用户多半是在改 token）；
+/// - 新 URL ⇒ **插到最前**，成为主实例；
+/// - 超过 [`MAX_PANSOU_INSTANCES`] 就丢尾部的（备用的备用意义不大）。
+///
+/// 地址不合法时**原样返回旧列表**（不让一次手滑把配置清空）。
+pub fn upsert_pansou(list: &[StoredPansou], url: &str, token: &str) -> Vec<StoredPansou> {
+    let Some(one) = clean_pansou(StoredPansou {
+        url: url.to_string(),
+        token: token.to_string(),
+    }) else {
+        return list.to_vec();
+    };
+
+    let mut out: Vec<StoredPansou> = list.to_vec();
+    match out.iter().position(|p| p.url == one.url) {
+        Some(pos) => out[pos] = one,
+        None => out.insert(0, one),
+    }
+    out.truncate(MAX_PANSOU_INSTANCES);
+    out
+}
+
+/// 地址归一 + 过滤：不是 http(s) 的整条丢掉（同 `indexers.json` 那条信任边界）。
+fn clean_pansou(mut p: StoredPansou) -> Option<StoredPansou> {
+    let url = p.url.trim().trim_end_matches('/').to_string();
+    if !(url.starts_with("http://") || url.starts_with("https://")) {
+        return None;
+    }
+    p.url = url;
+    p.token = p.token.trim().to_string();
+    Some(p)
+}
+
+/// 状态栏的人话摘要。
+pub fn describe_pansou(list: &[StoredPansou]) -> String {
+    match list.len() {
+        0 => "未配置网盘搜索（默认 127.0.0.1:8888）".to_string(),
+        1 => format!("1 个实例：{}", list[0].url),
+        n => format!("{n} 个实例（主：{}）", list[0].url),
+    }
 }
 
 /// 一个 Torznab 索引器的落盘形状（⑤）。
@@ -559,6 +623,66 @@ mod tests {
         assert_eq!(
             describe(&two),
             "已配置 2 个（1 个已停用）：Jackett、Prowlarr"
+        );
+    }
+}
+
+#[cfg(test)]
+mod pansou_tests {
+    use super::*;
+
+    fn ep(url: &str) -> StoredPansou {
+        StoredPansou {
+            url: url.to_string(),
+            token: String::new(),
+        }
+    }
+
+    #[test]
+    fn upsert_keeps_existing_position_and_overwrites_token() {
+        let list = vec![ep("http://a:8888"), ep("http://b:8888")];
+        let out = upsert_pansou(&list, "http://b:8888/", "tok");
+        // 尾斜杠被归一 ⇒ 认成同一个实例，就地覆盖（不是新增）
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0].url, "http://a:8888");
+        assert_eq!(out[1].url, "http://b:8888");
+        assert_eq!(out[1].token, "tok");
+    }
+
+    #[test]
+    fn upsert_puts_a_new_endpoint_first_and_caps_the_list() {
+        let mut list = vec![ep("http://a:8888")];
+        let out = upsert_pansou(&list, "http://new:8888", "");
+        assert_eq!(out[0].url, "http://new:8888", "新地址应成为主实例");
+
+        for i in 0..10 {
+            list = upsert_pansou(&list, &format!("http://n{i}:8888"), "");
+        }
+        assert_eq!(list.len(), MAX_PANSOU_INSTANCES);
+    }
+
+    #[test]
+    fn upsert_ignores_illegal_urls_instead_of_clearing_the_list() {
+        let list = vec![ep("http://a:8888")];
+        let out = upsert_pansou(&list, "file:///etc/passwd", "");
+        assert_eq!(out, list, "非法地址不能让配置变空");
+        let out = upsert_pansou(&list, "  ", "");
+        assert_eq!(out, list);
+    }
+
+    #[test]
+    fn describe_counts_instances() {
+        assert_eq!(
+            describe_pansou(&[]),
+            "未配置网盘搜索（默认 127.0.0.1:8888）"
+        );
+        assert_eq!(
+            describe_pansou(&[ep("http://a:8888")]),
+            "1 个实例：http://a:8888"
+        );
+        assert_eq!(
+            describe_pansou(&[ep("http://a:8888"), ep("http://b:8888")]),
+            "2 个实例（主：http://a:8888）"
         );
     }
 }
