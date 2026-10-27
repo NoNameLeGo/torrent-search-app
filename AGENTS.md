@@ -16,6 +16,10 @@ Electron mode: `npm run electron` (picks a free port automatically, no collision
 > 📋 **想加功能先看 [`docs/BACKLOG-ZHUIJU.md`](docs/BACKLOG-ZHUIJU.md)** —— 对外部资源池
 > （`awesome-zhuiju-free` 126 条）的逐类可行性判定：哪些是「扩数据」、哪 3 处是「能力增量」、
 > 哪些**明确不做**（直播源 / 内置多仓 / 其余网盘站）。别重新评估一遍。
+>
+> 🔌 **想加数据源先看 [`docs/DATA-SOURCES.md`](docs/DATA-SOURCES.md)** —— 可接入的外部源按
+> A/B/C/D 分级：**A 级只有 Prowlarr 的索引器清单**（577 条、80 条 public 免登录，
+> 一个 Cardigann 解析器覆盖上百站）；**网盘方向确认没有 A 级源**（维持 PanSou + 多实例）。
 
 ## 🏗️ 构建约束 — 先读这条（硬规则，2026-10-04 用户明令）
 

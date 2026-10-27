@@ -40,6 +40,7 @@ pub mod anirena;
 pub mod audiobookbay;
 pub mod bangumimoe;
 pub mod bdflixs;
+pub mod cardigann;
 pub mod cilixiong;
 pub mod demo;
 pub mod dmhy;
