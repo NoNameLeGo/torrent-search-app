@@ -12,6 +12,7 @@
 //! | LibreTV SourceList v2 | JSON 有 `sources[]` | 每条 → `maccms_json` |
 //! | Prowlarr 清单 | JSON 有 `indexers[]` | 一条 `cardigann_catalog` + N 个成员 |
 //! | 裸 URL 列表 | 一行一个 `http(s)` | 每条 → `maccms_json` |
+//! | 单条规则 | 有 `base`+`rows`+`fields`（JSON）或 `search:`（YAML） | 一条 `html_rule` |
 //!
 //! ## 为什么导入结果里要带 `notes`
 //!
@@ -29,6 +30,8 @@ pub enum Format {
     LibreTv,
     Prowlarr,
     BareList,
+    /// 单条抓取规则（Cardigann 语法；JSON 或 YAML 都认）。
+    Rule,
 }
 
 impl Format {
@@ -38,6 +41,7 @@ impl Format {
             Format::LibreTv => "libretv",
             Format::Prowlarr => "prowlarr",
             Format::BareList => "bare",
+            Format::Rule => "rule",
         }
     }
 }
@@ -55,7 +59,12 @@ pub struct Imported {
 /// 猜格式。判不出来就当裸列表（最宽松的那个）。
 pub fn guess_format(text: &str) -> Format {
     let Ok(root) = serde_json::from_str::<serde_json::Value>(text) else {
-        return Format::BareList;
+        // 不是 JSON：YAML 规则的两个必备段落
+        return if text.contains("search:") && text.contains("fields:") {
+            Format::Rule
+        } else {
+            Format::BareList
+        };
     };
 
     if root.get("sites").is_some() || root.get("urls").is_some() {
@@ -66,6 +75,10 @@ pub fn guess_format(text: &str) -> Format {
     }
     if root.get("sources").is_some() {
         return Format::LibreTv;
+    }
+    // 单条规则（扁平形态 or Cardigann 形态）
+    if looks_like_rule(&root) {
+        return Format::Rule;
     }
     // 裸数组：元素是对象且有 url ⇒ 当成 LibreTV 的「裸数组」形态
     if let Some(arr) = root.as_array() {
@@ -88,6 +101,7 @@ pub fn import(text: &str, format: Format) -> Result<Imported, String> {
         Format::LibreTv => import_libretv(text),
         Format::Prowlarr => import_prowlarr(text),
         Format::BareList => Ok(import_bare(text)),
+        Format::Rule => import_rule(text),
     }
 }
 
@@ -234,6 +248,54 @@ fn import_bare(text: &str) -> Imported {
         out.entries.push(maccms_entry(host_of(url), url));
     }
     out
+}
+
+/// 是不是一条**抓取规则**（而不是一份源清单）。
+///
+/// 两种形态都认：扁平（`base` + `rows` + `fields`）与 Cardigann（`search.paths` + `fields`）。
+fn looks_like_rule(v: &serde_json::Value) -> bool {
+    let flat = v.get("base").is_some() && v.get("rows").is_some() && v.get("fields").is_some();
+    let cardigann =
+        v.get("search").and_then(|s| s.get("paths")).is_some() && v.get("fields").is_some();
+    flat || cardigann
+}
+
+/// 单条规则：JSON（扁平或 Cardigann 形态）或 YAML。
+///
+/// 落库时统一**转成 Cardigann 形状的 JSON** 存进 `rule` 字段 —— 只维护一套形状，
+/// 读回来直接喂 [`bt_providers::cardigann::from_user_rule`]。
+fn import_rule(text: &str) -> Result<Imported, String> {
+    let trimmed = text.trim_start();
+
+    let def = if trimmed.starts_with('{') {
+        let v: serde_json::Value =
+            serde_json::from_str(text).map_err(|e| format!("bad_json: {e}"))?;
+        bt_providers::cardigann::from_user_rule(&v)?
+    } else {
+        bt_providers::cardigann::validate_rule(bt_providers::cardigann::parse_definition(text)?)?
+    };
+
+    let base = def.links.first().cloned().unwrap_or_default();
+    let name = host_of(&base).to_string();
+    let rule = serde_json::to_value(&def).map_err(|e| format!("bad_rule: {e}"))?;
+
+    Ok(Imported {
+        entries: vec![SourceEntry {
+            id: format!("rule:{name}"),
+            name,
+            kind: Kind::Bt,
+            adapter: Adapter::HtmlRule,
+            builtin: false,
+            enabled: true,
+            group: Some("规则".to_string()),
+            url: Some(base),
+            r#override: false,
+            rule: Some(rule),
+            members: Vec::new(),
+        }],
+        skipped: 0,
+        notes: vec!["规则已保存（BT 聚合接线在下一批）".to_string()],
+    })
 }
 
 fn maccms_entry(name: &str, url: &str) -> SourceEntry {
@@ -414,5 +476,68 @@ mod tests {
         assert_eq!(host_of("https://a.example:8080/x?y=1"), "a.example:8080");
         assert_eq!(host_of("http://b.example"), "b.example");
         assert_eq!(host_of("junk"), "junk");
+    }
+}
+
+#[cfg(test)]
+mod rule_import_tests {
+    use super::*;
+
+    const FLAT_RULE: &str = r#"{
+        "base": "https://share.dmhy.org",
+        "search": { "path": "/topics/list", "inputs": { "keyword": "{{ .Keywords }}" } },
+        "rows": "table tbody tr:has(a[href^=\"magnet:?\"])",
+        "fields": {
+            "title": { "selector": "a" },
+            "download": { "selector": "a[href^=\"magnet:?\"]", "attribute": "href" }
+        }
+    }"#;
+
+    const YAML_RULE: &str = "type: public\nlinks: [https://share.dmhy.org/]\nsearch://n  paths: [{ path: topics/list }]\n  inputs: { keyword: '{{ .Keywords }}' }\n  rows: { selector: 'table tbody tr' }\n  fields://n    title: { selector: a }\n";
+
+    #[test]
+    fn a_rule_is_not_mistaken_for_a_source_list() {
+        assert_eq!(guess_format(FLAT_RULE), Format::Rule);
+        assert_eq!(guess_format(YAML_RULE), Format::Rule);
+    }
+
+    #[test]
+    fn flat_json_rule_becomes_an_html_rule_entry() {
+        let out = import(FLAT_RULE, Format::Rule).unwrap();
+        assert_eq!(out.entries.len(), 1);
+        let e = &out.entries[0];
+        assert_eq!(e.adapter, Adapter::HtmlRule);
+        assert_eq!(e.kind, Kind::Bt);
+        assert_eq!(e.id, "rule:share.dmhy.org");
+        assert_eq!(e.url.as_deref(), Some("https://share.dmhy.org"));
+        // 存下来的是 Cardigann 形状（能再读回去）
+        let stored = e.rule.as_ref().unwrap();
+        assert!(stored.get("search").and_then(|s| s.get("paths")).is_some());
+        assert!(bt_providers::cardigann::from_user_rule(stored).is_ok());
+    }
+
+    #[test]
+    fn yaml_rule_is_accepted_too() {
+        let out = import(YAML_RULE, Format::Rule).unwrap();
+        assert_eq!(out.entries.len(), 1);
+        assert_eq!(out.entries[0].adapter, Adapter::HtmlRule);
+    }
+
+    #[test]
+    fn unsupported_filters_fail_with_the_name_so_the_user_can_fix_it() {
+        let bad = FLAT_RULE.replace(
+            r#""title": { "selector": "a" }"#,
+            r#""title": { "selector": "a", "filters": [{ "name": "dateparse" }] }"#,
+        );
+        let err = import(&bad, Format::Rule).unwrap_err();
+        assert_eq!(err, "unsupported_filter:dateparse");
+    }
+
+    #[test]
+    fn a_broken_rule_says_which_part_is_missing() {
+        let no_rows =
+            r#"{"base":"https://x/","search":{"path":"/s"},"fields":{"title":{"selector":"a"}}}"#;
+        let err = import(no_rows, Format::Rule).unwrap_err();
+        assert_eq!(err, "rule_no_rows");
     }
 }

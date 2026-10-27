@@ -40,7 +40,7 @@ use bt_core::dom::{attr, text_trim, Dom, ElementRef};
 use bt_core::http::HttpClient;
 use bt_core::normalize::{encode_uri_component, normalize, NumOrText, RawResult};
 use bt_core::TorrentResult;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_yaml::Value as Yaml;
 
 use crate::SearchOutcome;
@@ -146,7 +146,7 @@ pub fn definition_url(ver: &str, id: &str) -> String {
 // ---------------------------------------------------------------------------
 
 /// 一个站点的定义。字段几乎全部可选 —— 定义文件的版本差异很大，缺什么在执行时降级。
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct Definition {
     #[serde(rename = "type")]
     pub kind: Option<String>,
@@ -158,7 +158,7 @@ pub struct Definition {
     pub login: Option<Yaml>,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct RawSearch {
     #[serde(default)]
     pub paths: Vec<RawPath>,
@@ -169,7 +169,7 @@ pub struct RawSearch {
     pub fields: BTreeMap<String, RawField>,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct RawPath {
     #[serde(default)]
     pub path: String,
@@ -177,14 +177,14 @@ pub struct RawPath {
     pub method: Option<String>,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct RawRows {
     /// ⚠️ 从 YAML 里读出来是**含 `:has()`** 的原始串，执行前要过 [`strip_has`]。
     #[serde(default)]
     pub selector: String,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct RawField {
     pub selector: Option<String>,
     pub attribute: Option<String>,
@@ -192,7 +192,7 @@ pub struct RawField {
     pub filters: Vec<RawFilter>,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct RawFilter {
     pub name: String,
     #[serde(default)]
@@ -786,5 +786,257 @@ search:
             r.detail_url.as_deref(),
             Some("https://share.dmhy.org/topics/view/1")
         );
+    }
+}
+
+/// 把一条用户规则包装成 `Provider`，这样它就能进聚合层。
+///
+/// ⚠️ **`id()` / `name()` 要求 `&'static str`** —— 与 Torznab 同一个办法：构造时
+/// `Box::leak` 一次，之后一直用。代价是每次搜索每规则漏 2 个小 String
+/// （`AGENTS.md` 里对 Torznab 那条注释说的就是这件事；换成 `Cow` 要改 trait 签名，
+/// 不值得为一次搜索漏几十字节去动公共 API）。
+pub struct RuleProvider {
+    id: &'static str,
+    name: &'static str,
+    def: Definition,
+}
+
+impl RuleProvider {
+    pub fn new(id: &str, name: &str, def: Definition) -> Self {
+        Self {
+            id: Box::leak(id.to_string().into_boxed_str()),
+            name: Box::leak(name.to_string().into_boxed_str()),
+            def,
+        }
+    }
+}
+
+impl crate::Provider for RuleProvider {
+    fn id(&self) -> &'static str {
+        self.id
+    }
+
+    fn name(&self) -> &'static str {
+        self.name
+    }
+
+    fn search<'a>(
+        &'a self,
+        http: &'a HttpClient,
+        query: &'a str,
+        page: u32,
+    ) -> crate::BoxFuture<'a, SearchOutcome> {
+        Box::pin(search_at(http, &self.def, self.id, query, page))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 用户规则（`sources.json` 的 `rule` 字段）
+// ---------------------------------------------------------------------------
+
+/// 我们**实现**的 filter 白名单。
+///
+/// 白名单外的一律拒绝导入 —— 不是"悄悄忽略"。否则用户写了 `dateparse` 却发现日期是空的，
+/// 会以为是站点问题（`docs/SOURCES-DESIGN.md` D3：失败归因要清楚）。
+pub const SUPPORTED_FILTERS: [&str; 7] = [
+    "replace",
+    "re_replace",
+    "append",
+    "prepend",
+    "trim",
+    "split",
+    "regexp",
+];
+
+/// 规则里第一个**不支持**的 filter 名（`None` = 全在白名单内）。
+pub fn unsupported_filter(def: &Definition) -> Option<String> {
+    let search = def.search.as_ref()?;
+    for field in search.fields.values() {
+        for f in &field.filters {
+            if !SUPPORTED_FILTERS.contains(&f.name.as_str()) {
+                return Some(f.name.clone());
+            }
+        }
+    }
+    None
+}
+
+/// 用户规则 JSON → [`Definition`]。
+///
+/// 接受两种形态：
+///
+/// 1. **扁平形态**（`docs/SOURCES-DESIGN.md` §2 给用户写的那种，字段少、好写）：
+///    `{ "base", "search": { "path", "method"? , "inputs"? }, "rows", "fields" }`
+/// 2. **Cardigann 形态**（有 `search.paths[]`）—— 我们自己序列化出来的就是这种，
+///    也方便用户直接贴 Prowlarr 的定义转成 JSON
+///
+/// 校验两件事：能不能跑（[`is_supported`]）、filter 是否全在白名单里。
+pub fn from_user_rule(v: &serde_json::Value) -> Result<Definition, String> {
+    // 形态 2：已经是 Cardigann 形状
+    if v.get("search")
+        .and_then(|s| s.get("paths"))
+        .and_then(serde_json::Value::as_array)
+        .is_some()
+    {
+        let def: Definition =
+            serde_json::from_value(v.clone()).map_err(|e| format!("bad_rule: {e}"))?;
+        return validate_rule(def);
+    }
+
+    // 形态 1：扁平
+    let base = v
+        .get("base")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("")
+        .trim();
+    if !(base.starts_with("http://") || base.starts_with("https://")) {
+        return Err("rule_base_invalid".to_string());
+    }
+
+    let search = v
+        .get("search")
+        .ok_or_else(|| "rule_no_search".to_string())?;
+    let path = search
+        .get("path")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("")
+        .trim();
+    if path.is_empty() {
+        return Err("rule_no_path".to_string());
+    }
+    let method = search
+        .get("method")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("GET");
+    let inputs = search
+        .get("inputs")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!({}));
+
+    let rows = v
+        .get("rows")
+        .and_then(serde_json::Value::as_str)
+        .map(str::trim)
+        .filter(|r| !r.is_empty())
+        .ok_or_else(|| "rule_no_rows".to_string())?;
+    let fields = v
+        .get("fields")
+        .cloned()
+        .ok_or_else(|| "rule_no_fields".to_string())?;
+
+    // 拼成 Cardigann 形状再反序列化 —— 只维护**一套**解析路径
+    let shape = serde_json::json!({
+        "type": "public",
+        "links": [base],
+        "search": {
+            "paths": [{ "path": path, "method": method }],
+            "inputs": inputs,
+            "rows": { "selector": rows },
+            "fields": fields,
+        }
+    });
+
+    let def: Definition = serde_json::from_value(shape).map_err(|e| format!("bad_rule: {e}"))?;
+    validate_rule(def)
+}
+
+/// 能不能跑 + filter 白名单，两关一起过（YAML 路径也走这里）。
+pub fn validate_rule(def: Definition) -> Result<Definition, String> {
+    if !is_supported(&def) {
+        return Err("rule_unsupported".to_string());
+    }
+    if let Some(bad) = unsupported_filter(&def) {
+        return Err(format!("unsupported_filter:{bad}"));
+    }
+    Ok(def)
+}
+
+#[cfg(test)]
+mod rule_tests {
+    use super::*;
+
+    fn flat_rule() -> serde_json::Value {
+        serde_json::json!({
+            "base": "https://share.dmhy.org",
+            "search": {
+                "path": "/topics/list",
+                "inputs": { "keyword": "{{ .Keywords }}" }
+            },
+            "rows": "table tbody tr:has(a[href^=\"magnet:?\"])",
+            "fields": {
+                "title": { "selector": "a" },
+                "download": { "selector": "a[href^=\"magnet:?\"]", "attribute": "href" }
+            }
+        })
+    }
+
+    #[test]
+    fn flat_rule_becomes_a_runnable_definition() {
+        let def = from_user_rule(&flat_rule()).unwrap();
+        assert!(is_supported(&def));
+        assert!(unsupported_filter(&def).is_none());
+        assert_eq!(
+            search_url(&def, "abc", 1).unwrap(),
+            "https://share.dmhy.org/topics/list?keyword=abc"
+        );
+    }
+
+    #[test]
+    fn cardigann_shaped_rule_also_works_and_round_trips() {
+        let flat = from_user_rule(&flat_rule()).unwrap();
+        let canonical = serde_json::to_value(&flat).unwrap();
+        // 序列化出来的是 Cardigann 形状（search.paths[]），要能再读回去
+        assert!(canonical
+            .get("search")
+            .and_then(|s| s.get("paths"))
+            .is_some());
+        let back = from_user_rule(&canonical).unwrap();
+        assert_eq!(back.links, flat.links);
+        assert_eq!(
+            search_url(&back, "abc", 1).unwrap(),
+            search_url(&flat, "abc", 1).unwrap()
+        );
+    }
+
+    #[test]
+    fn missing_bits_are_named_exactly() {
+        let mut v = flat_rule();
+        v["base"] = serde_json::json!("ftp://nope/");
+        assert_eq!(from_user_rule(&v).unwrap_err(), "rule_base_invalid");
+
+        let mut v = flat_rule();
+        v.as_object_mut().unwrap().remove("rows");
+        assert_eq!(from_user_rule(&v).unwrap_err(), "rule_no_rows");
+
+        let mut v = flat_rule();
+        v.as_object_mut().unwrap().remove("fields");
+        assert_eq!(from_user_rule(&v).unwrap_err(), "rule_no_fields");
+
+        let mut v = flat_rule();
+        v.as_object_mut().unwrap().remove("search");
+        assert_eq!(from_user_rule(&v).unwrap_err(), "rule_no_search");
+    }
+
+    #[test]
+    fn unsupported_filters_are_rejected_with_the_name() {
+        let mut v = flat_rule();
+        v["fields"]["title"]["filters"] = serde_json::json!([{ "name": "dateparse" }]);
+        // 名字要带在错误里 —— 用户才知道该删哪个
+        assert_eq!(
+            from_user_rule(&v).unwrap_err(),
+            "unsupported_filter:dateparse"
+        );
+
+        // 白名单内的照旧通过
+        let mut v = flat_rule();
+        v["fields"]["title"]["filters"] = serde_json::json!([{ "name": "trim" }]);
+        assert!(from_user_rule(&v).is_ok());
+    }
+
+    #[test]
+    fn post_rules_are_unsupported_for_now() {
+        let mut v = flat_rule();
+        v["search"]["method"] = serde_json::json!("POST");
+        assert_eq!(from_user_rule(&v).unwrap_err(), "rule_unsupported");
     }
 }

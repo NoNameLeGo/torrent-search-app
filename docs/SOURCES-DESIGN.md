@@ -127,9 +127,13 @@
 | 批次 | 内容 | 状态 |
 |---|---|---|
 | **1** | `sources.rs`：schema + `load/save` + 旧文件迁移 + 内置项生成；设置里**只读摘要** | ✅ PR #8 |
-| **2** | 导入器四格式 → 统一写入；`maccms_json` 改成从 `sources.json` 取源 | ✅ 本批（`source_import.rs`） |
-| **3** | `html_rule` 适配器（把 `cardigann.rs` 从「Prowlarr 专用」提升为「通用规则执行器」）+ 表单编辑 | ⬜ |
-| **4** | 订阅刷新（启动 + 手动）+ 熔断（复用 `health.jsonl`）+ 成员展开 UI | ⬜ |
+| **2** | 导入器四格式 → 统一写入；`maccms_json` 改成从 `sources.json` 取源 | ✅ PR #9 |
+| **3a** | **规则引擎对外**：`cardigann::from_user_rule` / `validate_rule` / `unsupported_filter` / `RuleProvider`；导入器支持「单条规则」（JSON 扁平形态、Cardigann 形态、YAML） | ✅ 本批 |
+| **3b** | 编辑表单（选一条规则 → 改 base/path/rows/fields → 存）+ 「测试这条规则」 | ⬜ |
+| **4** | BT 聚合接线（`RuleProvider` 进 `provider_set`）+ 订阅刷新 + 熔断（复用 `health.jsonl`）+ 成员展开 UI | ⬜ |
+
+⚠️ **3a 之后规则还不能用**：`RuleProvider` 已经能包装成标准 provider，但**还没进
+`provider_set()`** —— 所以导入的规则现在只是存下来，不参与搜索。接线在批次 4。
 
 ## 5. 已知风险（不解决就要写进文档）
 
