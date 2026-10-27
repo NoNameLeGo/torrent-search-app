@@ -493,7 +493,23 @@ mod rule_import_tests {
         }
     }"#;
 
-    const YAML_RULE: &str = "type: public\nlinks: [https://share.dmhy.org/]\nsearch://n  paths: [{ path: topics/list }]\n  inputs: { keyword: '{{ .Keywords }}' }\n  rows: { selector: 'table tbody tr' }\n  fields://n    title: { selector: a }\n";
+    // ⚠️ 用**原始串 + block 风格**：flow 风格（`[a]` / `{k: v}`）在 serde_yaml 里
+    // 踩过「did not find expected key」（2026-10-27 首轮 CI），别再改回去。
+    const YAML_RULE: &str = r#"
+type: public
+links:
+  - https://share.dmhy.org/
+search:
+  paths:
+    - path: topics/list
+  inputs:
+    keyword: "{{ .Keywords }}"
+  rows:
+    selector: "table tbody tr"
+  fields:
+    title:
+      selector: a
+"#;
 
     #[test]
     fn a_rule_is_not_mistaken_for_a_source_list() {
