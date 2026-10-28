@@ -15,7 +15,9 @@
 //   4. `Theme.hl` 是 Rust 侧关键词高亮的**唯一来源**（main.rs `accent_hex`）；改名即静默变色。
 //      同理 `ok` / `err` / `sub` 由 `tone_color` 读取，不能删。
 
-import { LineEdit, ListView } from "std-widgets.slint";
+// ⚠️ 这个 import 是**显式列名**的 —— 用任何 std-widgets 组件都必须在这里列出来，
+// 否则报 `Unknown element 'X'`（2026-10-28：加 TextEdit 忘了加进这行，CI 直接红）。
+import { LineEdit, ListView, TextEdit } from "std-widgets.slint";
 
 // 一条搜索结果 —— 字段全部由 Rust 侧 src/ui_model.rs 产出（那一层是纯函数、有单测）。
 export struct ResultRow {
