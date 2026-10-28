@@ -1326,18 +1326,136 @@ fn import_sources(ui: &AppWindow) {
     });
 }
 
-/// 把导入器的机器码翻成人话（那几个码是给测试用的，不该出现在 UI 上）。
+/// 把导入器 / 规则引擎的机器码翻成人话（那些码是给测试用的，不该出现在 UI 上）。
 fn import_error_text(e: String) -> String {
     match e.as_str() {
         "no_sites_or_urls" => "没解析到 sites / urls —— 这不像一份 TVBox 配置".to_string(),
         "no_sources" => "没解析到 sources —— 这不像一份 LibreTV 源列表".to_string(),
         "no_public_indexers" => "没有可用的公共索引器（只取 type=public）".to_string(),
         "empty_import" => "这份配置里没有能用的源".to_string(),
-        _ => match e.strip_prefix("bad_json: ") {
-            Some(rest) => format!("不是合法 JSON：{rest}"),
-            None => e,
-        },
+        // —— 规则相关的码（批次 3b）——
+        "rule_empty" => "规则为空".to_string(),
+        "rule_base_invalid" => "规则里的 base 必须是 http:// 或 https:// 地址".to_string(),
+        "rule_no_search" => "规则缺 search 段".to_string(),
+        "rule_no_path" => "规则缺 search.path（搜索路径）".to_string(),
+        "rule_no_rows" => "规则缺 rows（结果行的选择器）".to_string(),
+        "rule_no_fields" => "规则缺 fields（标题/磁力等字段的选择器）".to_string(),
+        "rule_unsupported" => "这条规则当前不支持（例如 POST、需要登录）".to_string(),
+        _ => {
+            if let Some(bad) = e.strip_prefix("unsupported_filter:") {
+                format!(
+                    "不支持的 filter：{bad}（白名单：{}）",
+                    cardigann::SUPPORTED_FILTERS.join(" / ")
+                )
+            } else if let Some(rest) = e.strip_prefix("bad_json: ") {
+                format!("不是合法 JSON：{rest}")
+            } else if let Some(rest) = e.strip_prefix("bad_yaml: ") {
+                format!("YAML 解析失败：{rest}")
+            } else if let Some(rest) = e.strip_prefix("bad_rule: ") {
+                format!("规则格式不对：{rest}")
+            } else {
+                e
+            }
+        }
     }
+}
+
+/// 规则文本（JSON / YAML）→ 可执行的 `Definition`。
+fn rule_def_from_text(text: &str) -> Result<cardigann::Definition, String> {
+    let imp = source_import::import(text, source_import::Format::Rule)?;
+    let rule = imp
+        .entries
+        .first()
+        .and_then(|e| e.rule.clone())
+        .ok_or_else(|| "rule_empty".to_string())?;
+    cardigann::from_user_rule(&rule)
+}
+
+/// 「测试」：真跑一次搜索，报条数与耗时。
+///
+/// 为什么要真跑：规则里最多的错不是语法，而是**选择器选不中**（站点结构变了 / 猜错了）。
+/// 光校验语法通过、存进去、然后永远 0 条 —— 那种失败最难查。
+fn test_rule(ui: &AppWindow) {
+    let text = ui.get_rule_text().to_string();
+    if text.trim().is_empty() {
+        ui.set_rule_status("先贴一条规则".into());
+        return;
+    }
+    let def = match rule_def_from_text(&text) {
+        Ok(d) => d,
+        Err(e) => {
+            ui.set_rule_status(import_error_text(e).into());
+            return;
+        }
+    };
+
+    // 关键词：优先用当前搜索框里的，没有就 "test"（大多数站对任意串都会返回点什么）
+    let q = STATE.with(|s| {
+        let q = s.borrow().query.clone();
+        if q.trim().is_empty() {
+            "test".to_string()
+        } else {
+            q
+        }
+    });
+    ui.set_rule_status("测试中…".into());
+
+    let weak = ui.as_weak();
+    spawn(async move {
+        let started = std::time::Instant::now();
+        let out = cardigann::search_at(http(), &def, "rule:test", &q, 1).await;
+        let ms = started.elapsed().as_millis();
+        let msg = match out.error {
+            Some(e) => format!("测试失败：{e}"),
+            None => format!("搜「{q}」拿到 {} 条（{ms} ms）", out.results.len()),
+        };
+
+        let _ = slint::invoke_from_event_loop(move || {
+            let Some(ui) = weak.upgrade() else { return };
+            ui.set_rule_status(msg.clone().into());
+            STATE.with(|s| s.borrow_mut().status = msg.clone());
+            ui.set_status_text(msg.into());
+        });
+    });
+}
+
+/// 「保存」：走导入器 → 并进 `sources.json` → 重建 provider（下轮搜索即生效）。
+fn save_rule(ui: &AppWindow) {
+    let text = ui.get_rule_text().to_string();
+    if text.trim().is_empty() {
+        ui.set_rule_status("先贴一条规则".into());
+        return;
+    }
+    let imp = match source_import::import(&text, source_import::Format::Rule) {
+        Ok(i) => i,
+        Err(e) => {
+            ui.set_rule_status(import_error_text(e).into());
+            return;
+        }
+    };
+    let id = imp
+        .entries
+        .first()
+        .map(|e| e.id.clone())
+        .unwrap_or_default();
+
+    let mut file = STATE.with(|s| s.borrow().sources.clone());
+    let added = source_import::apply(&mut file, &imp);
+    let msg = match sources::save(&file) {
+        Ok(()) => {
+            apply_sources_state(ui, file);
+            if added == 0 {
+                format!("这条规则已经在列表里：{id}（内容已更新）")
+            } else {
+                format!("已保存规则 {id}，下轮搜索生效")
+            }
+        }
+        Err(e) => format!("保存失败：{e}"),
+    };
+
+    ui.set_rule_status(msg.clone().into());
+    STATE.with(|s| s.borrow_mut().status = msg.clone());
+    ui.set_status_text(msg.into());
 }
 
 /// 清掉所有**导入的** JSON 影视源（内置项与订阅不动）。
@@ -2197,6 +2315,23 @@ fn wire(ui: &AppWindow) {
         ui.on_clear_tvbox(move || {
             if let Some(ui) = weak.upgrade() {
                 clear_tvbox(&ui);
+            }
+        });
+    }
+    // 手写规则：测试（真跑一次）/ 保存（进注册表）
+    {
+        let weak = ui.as_weak();
+        ui.on_test_rule(move || {
+            if let Some(ui) = weak.upgrade() {
+                test_rule(&ui);
+            }
+        });
+    }
+    {
+        let weak = ui.as_weak();
+        ui.on_save_rule(move || {
+            if let Some(ui) = weak.upgrade() {
+                save_rule(&ui);
             }
         });
     }
