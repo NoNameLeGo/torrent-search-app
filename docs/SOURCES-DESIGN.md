@@ -130,10 +130,16 @@
 | **2** | 导入器四格式 → 统一写入；`maccms_json` 改成从 `sources.json` 取源 | ✅ PR #9 |
 | **3a** | **规则引擎对外**：`cardigann::from_user_rule` / `validate_rule` / `unsupported_filter` / `RuleProvider`；导入器支持「单条规则」（JSON 扁平形态、Cardigann 形态、YAML） | ✅ 本批 |
 | **3b** | 编辑表单（选一条规则 → 改 base/path/rows/fields → 存）+ 「测试这条规则」 | ⬜ |
-| **4** | BT 聚合接线（`RuleProvider` 进 `provider_set`）+ 订阅刷新 + 熔断（复用 `health.jsonl`）+ 成员展开 UI | ⬜ |
+| **4a** | **BT 聚合接线**：`rule_factories()` → `RULE_DYNAMIC` → `provider_set()`（规则真正参与搜索）；启动与每次导入后重建 | ✅ 本批 |
+| **4b** | 订阅刷新（启动 + 手动）+ 熔断（复用 `health.jsonl`）+ 成员展开 UI + 编辑表单（3b） | ⬜ |
 
-⚠️ **3a 之后规则还不能用**：`RuleProvider` 已经能包装成标准 provider，但**还没进
-`provider_set()`** —— 所以导入的规则现在只是存下来，不参与搜索。接线在批次 4。
+✅ **规则从 4a 起真正生效**：`sources.json` 里 `enabled && kind==Bt && adapter==html_rule`
+的条目会作为 provider 进聚合层，**排在静态 28 家与 Torznab 之后**（用户手写的规则最不可靠，
+不该拖住首批结果）。
+
+⚠️ `--selftest` 走 `INJECTED`（替换语义），但 `provider_set()` **仍然追加** `RULE_DYNAMIC` ——
+如果自检环境里有 `sources.json` 带规则，就会混进"离线测试"。目前自检用 `BT_SEARCH_HOME`
+指到临时目录，天然没有规则；将来要在自检里断言 provider 数量，记得先把 `RULE_DYNAMIC` 清空。
 
 ## 5. 已知风险（不解决就要写进文档）
 

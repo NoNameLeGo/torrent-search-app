@@ -60,6 +60,7 @@ use std::sync::OnceLock;
 use bt_core::http::HttpClient;
 use bt_downloaders::{self as downloaders, Config, Kind};
 use bt_providers::aggregate::{self, SearchArgs};
+use bt_providers::cardigann;
 use bt_providers::maccms_json;
 use bt_providers::pan;
 use bt_providers::subs;
@@ -105,6 +106,12 @@ thread_local! {
     ///   · 这里是**追加**语义 —— 静态 17 家照旧，另加用户配的索引器。
     /// 合成一条会让 `--selftest` 变成"假 provider + 真 Torznab"，那就不是离线测试了。
     static DYNAMIC: RefCell<Vec<ProviderFactory>> = const { RefCell::new(Vec::new()) };
+
+    /// 用户**规则** provider 的工厂（`sources.json` 里 `adapter == html_rule` 的那些）。
+    ///
+    /// ⚠️ 与 `DYNAMIC` **分开**：那份被 Torznab 索引器独占，`apply_indexers` 会整体重建；
+    /// 混在一起会让「加一条规则」和「加一个索引器」互相清空对方的 provider。
+    static RULE_DYNAMIC: RefCell<Vec<ProviderFactory>> = const { RefCell::new(Vec::new()) };
 }
 
 /// **本次搜索要用的 provider 集合** —— 每次现造一份。
@@ -126,6 +133,13 @@ fn provider_set() -> Vec<Box<dyn Provider>> {
             all.push(f());
         }
     });
+    // 用户规则**排在最后**：它们最不可靠（用户手写、站点随时改版），
+    // 排在后面能让首批结果先出来，不至于为了等一条坏规则拖住整个搜索。
+    RULE_DYNAMIC.with(|slot| {
+        for f in slot.borrow().iter() {
+            all.push(f());
+        }
+    });
     all
 }
 
@@ -134,6 +148,43 @@ fn provider_set() -> Vec<Box<dyn Provider>> {
 /// 可重复调用：每个配置好的索引器调一次。⚠️ 同样**只能在 UI 线程**调。
 fn add_dynamic_factory(factory: ProviderFactory) {
     DYNAMIC.with(|slot| slot.borrow_mut().push(factory));
+}
+
+/// 从注册表里挑出**可用的规则**并包成工厂。
+///
+/// 纯函数（不碰 thread_local），所以能单测。跳过的情况：
+/// `enabled == false`、不是 BT、不是 `html_rule`、没有 `rule` 体、规则本身不合法
+/// （`from_user_rule` 会再校验一次 —— 手改 `sources.json` 时可能已经不符合当前白名单）。
+fn rule_factories(file: &sources::SourcesFile) -> Vec<ProviderFactory> {
+    let mut out: Vec<ProviderFactory> = Vec::new();
+
+    for s in &file.sources {
+        if !s.enabled || s.kind != sources::Kind::Bt || s.adapter != sources::Adapter::HtmlRule {
+            continue;
+        }
+        let Some(rule) = s.rule.as_ref() else {
+            continue;
+        };
+        let Ok(def) = cardigann::from_user_rule(rule) else {
+            // 存的时候校验过，之后白名单可能收紧 / 文件可能被手改坏 —— 静默跳过，
+            // 不要因为一条坏规则让整个搜索起不来。
+            continue;
+        };
+
+        let id = s.id.clone();
+        let name = s.name.clone();
+        out.push(Box::new(move || {
+            Box::new(cardigann::RuleProvider::new(&id, &name, def.clone())) as Box<dyn Provider>
+        }));
+    }
+
+    out
+}
+
+/// 重建规则工厂（`sources.json` 变了就调）。**只能在 UI 线程**。
+fn rebuild_rule_providers(file: &sources::SourcesFile) {
+    let factories = rule_factories(file);
+    RULE_DYNAMIC.with(|slot| *slot.borrow_mut() = factories);
 }
 
 /// 清空所有动态工厂（`--selftest` 与"索引器列表变了 ⇒ 重建"都用）。
@@ -1301,6 +1352,8 @@ fn apply_sources_state(ui: &AppWindow, file: sources::SourcesFile) {
         st.video_sources = sites;
         st.sources = file;
     });
+    // 规则是 BT 侧的 provider —— 注册表变了要重建工厂，否则新加的规则不会参与搜索
+    rebuild_rule_providers(&STATE.with(|s| s.borrow().sources.clone()));
 }
 
 // ---------------------------------------------------------------------------
@@ -2019,6 +2072,8 @@ fn wire(ui: &AppWindow) {
         st.video_sources = video_sources;
         st.sources = source_file;
     });
+    // 启动就要把已有规则接进搜索（不然要等到下一次导入才生效）
+    rebuild_rule_providers(&STATE.with(|s| s.borrow().sources.clone()));
 
     ui.set_downloader_status("未配置（点「探测」或手填地址后「保存」）".into());
 
@@ -2502,4 +2557,94 @@ fn main() -> Result<(), slint::PlatformError> {
     }
 
     ui.run()
+}
+
+#[cfg(test)]
+mod rule_wiring_tests {
+    use super::*;
+
+    fn entry(
+        id: &str,
+        adapter: sources::Adapter,
+        kind: sources::Kind,
+        enabled: bool,
+        rule: Option<serde_json::Value>,
+    ) -> sources::SourceEntry {
+        sources::SourceEntry {
+            id: id.to_string(),
+            name: format!("名-{id}"),
+            kind,
+            adapter,
+            builtin: false,
+            enabled,
+            group: None,
+            url: Some("https://share.dmhy.org".to_string()),
+            r#override: false,
+            rule,
+            members: Vec::new(),
+        }
+    }
+
+    fn rule_json() -> serde_json::Value {
+        serde_json::json!({
+            "base": "https://share.dmhy.org",
+            "search": { "path": "/topics/list", "inputs": { "keyword": "{{ .Keywords }}" } },
+            "rows": "table tbody tr",
+            "fields": { "title": { "selector": "a" } }
+        })
+    }
+
+    #[test]
+    fn only_enabled_bt_html_rules_become_providers() {
+        let file = sources::SourcesFile {
+            sources: vec![
+                entry(
+                    "rule:ok",
+                    sources::Adapter::HtmlRule,
+                    sources::Kind::Bt,
+                    true,
+                    Some(rule_json()),
+                ),
+                // 关掉的不算
+                entry(
+                    "rule:off",
+                    sources::Adapter::HtmlRule,
+                    sources::Kind::Bt,
+                    false,
+                    Some(rule_json()),
+                ),
+                // 视频源不算（规则只用于 BT 聚合）
+                entry(
+                    "rule:video",
+                    sources::Adapter::HtmlRule,
+                    sources::Kind::Video,
+                    true,
+                    Some(rule_json()),
+                ),
+                // 不是规则适配器
+                entry(
+                    "tvbox:x",
+                    sources::Adapter::MaccmsJson,
+                    sources::Kind::Bt,
+                    true,
+                    None,
+                ),
+                // 规则体坏了 → 静默跳过（不能因为一条坏规则让搜索起不来）
+                entry(
+                    "rule:broken",
+                    sources::Adapter::HtmlRule,
+                    sources::Kind::Bt,
+                    true,
+                    Some(serde_json::json!({"base": "ftp://x/"})),
+                ),
+            ],
+            ..Default::default()
+        };
+
+        let factories = rule_factories(&file);
+        assert_eq!(factories.len(), 1);
+        let p = (factories[0])();
+        assert_eq!(p.id(), "rule:ok");
+        assert_eq!(p.name(), "名-rule:ok");
+    }
 }
