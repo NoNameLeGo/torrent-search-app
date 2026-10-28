@@ -194,8 +194,11 @@ fn rule_factories(
 fn rebuild_rule_providers(file: &sources::SourcesFile) {
     // 健康度是运行期事实：读一次 `health.jsonl`（≤5000 行，几毫秒）。
     // ⚠️ 只在启动与「导入/清空」时走这条路，不在每次搜索里读盘。
-    let stale: std::collections::HashMap<String, usize> =
-        health::summarize(&health::read_all()).into_iter().collect();
+    // `summarize` 给的是 `(id, Stat)`，这里只要「最近连续空手几次」
+    let stale: std::collections::HashMap<String, usize> = health::summarize(&health::read_all())
+        .into_iter()
+        .map(|(id, stat)| (id, stat.tail_empty))
+        .collect();
     let factories = rule_factories(file, &stale);
     RULE_DYNAMIC.with(|slot| *slot.borrow_mut() = factories);
 }
