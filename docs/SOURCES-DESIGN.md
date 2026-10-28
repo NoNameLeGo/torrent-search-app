@@ -131,7 +131,8 @@
 | **3a** | **规则引擎对外**：`cardigann::from_user_rule` / `validate_rule` / `unsupported_filter` / `RuleProvider`；导入器支持「单条规则」（JSON 扁平形态、Cardigann 形态、YAML） | ✅ 本批 |
 | **3b** | 编辑表单（选一条规则 → 改 base/path/rows/fields → 存）+ 「测试这条规则」 | ⬜ |
 | **4a** | **BT 聚合接线**：`rule_factories()` → `RULE_DYNAMIC` → `provider_set()`（规则真正参与搜索）；启动与每次导入后重建 | ✅ 本批 |
-| **4b** | 订阅刷新（启动 + 手动）+ 熔断（复用 `health.jsonl`）+ 成员展开 UI + 编辑表单（3b） | ⬜ |
+| **4b-1** | **熔断**：连续 `health::STALE_AFTER`(3) 次空手的规则**临时**退出搜索（不改 `enabled`） | ✅ 本批 |
+| **4b-2** | 订阅刷新（启动 + 手动）+ 成员展开 UI + 编辑表单（3b） | ⬜ |
 
 ✅ **规则从 4a 起真正生效**：`sources.json` 里 `enabled && kind==Bt && adapter==html_rule`
 的条目会作为 provider 进聚合层，**排在静态 28 家与 Torznab 之后**（用户手写的规则最不可靠，

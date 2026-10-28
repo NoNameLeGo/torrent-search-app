@@ -155,11 +155,20 @@ fn add_dynamic_factory(factory: ProviderFactory) {
 /// 纯函数（不碰 thread_local），所以能单测。跳过的情况：
 /// `enabled == false`、不是 BT、不是 `html_rule`、没有 `rule` 体、规则本身不合法
 /// （`from_user_rule` 会再校验一次 —— 手改 `sources.json` 时可能已经不符合当前白名单）。
-fn rule_factories(file: &sources::SourcesFile) -> Vec<ProviderFactory> {
+fn rule_factories(
+    file: &sources::SourcesFile,
+    stale: &std::collections::HashMap<String, usize>,
+) -> Vec<ProviderFactory> {
     let mut out: Vec<ProviderFactory> = Vec::new();
 
     for s in &file.sources {
         if !s.enabled || s.kind != sources::Kind::Bt || s.adapter != sources::Adapter::HtmlRule {
+            continue;
+        }
+        // 熔断：连续 `STALE_AFTER` 次空手就不再让这条规则参与搜索。
+        // ⚠️ 这是**临时**停用，不是改配置 —— `sources.json` 里的 `enabled` 一个字都不动
+        //（用户没关它，是它自己坏了；下一轮数据好转会自己回来）。
+        if s.triggers_breaker(stale.get(&s.id).copied().unwrap_or(0)) {
             continue;
         }
         let Some(rule) = s.rule.as_ref() else {
@@ -183,7 +192,14 @@ fn rule_factories(file: &sources::SourcesFile) -> Vec<ProviderFactory> {
 
 /// 重建规则工厂（`sources.json` 变了就调）。**只能在 UI 线程**。
 fn rebuild_rule_providers(file: &sources::SourcesFile) {
-    let factories = rule_factories(file);
+    // 健康度是运行期事实：读一次 `health.jsonl`（≤5000 行，几毫秒）。
+    // ⚠️ 只在启动与「导入/清空」时走这条路，不在每次搜索里读盘。
+    // `summarize` 给的是 `(id, Stat)`，这里只要「最近连续空手几次」
+    let stale: std::collections::HashMap<String, usize> = health::summarize(&health::read_all())
+        .into_iter()
+        .map(|(id, stat)| (id, stat.tail_empty))
+        .collect();
+    let factories = rule_factories(file, &stale);
     RULE_DYNAMIC.with(|slot| *slot.borrow_mut() = factories);
 }
 
@@ -2641,10 +2657,54 @@ mod rule_wiring_tests {
             ..Default::default()
         };
 
-        let factories = rule_factories(&file);
+        let factories = rule_factories(&file, &std::collections::HashMap::new());
         assert_eq!(factories.len(), 1);
         let p = (factories[0])();
         assert_eq!(p.id(), "rule:ok");
         assert_eq!(p.name(), "名-rule:ok");
+    }
+}
+
+#[cfg(test)]
+mod breaker_tests {
+    use super::*;
+
+    fn rule_source() -> sources::SourceEntry {
+        sources::SourceEntry {
+            id: "rule:ok".to_string(),
+            name: "规则".to_string(),
+            kind: sources::Kind::Bt,
+            adapter: sources::Adapter::HtmlRule,
+            builtin: false,
+            enabled: true,
+            group: None,
+            url: Some("https://share.dmhy.org".to_string()),
+            r#override: false,
+            rule: Some(serde_json::json!({
+                "base": "https://share.dmhy.org",
+                "search": { "path": "/topics/list", "inputs": { "keyword": "{{ .Keywords }}" } },
+                "rows": "table tbody tr",
+                "fields": { "title": { "selector": "a" } }
+            })),
+            members: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn a_tripped_rule_is_skipped_without_touching_the_config() {
+        let file = sources::SourcesFile {
+            sources: vec![rule_source()],
+            ..Default::default()
+        };
+
+        let mut stale = std::collections::HashMap::new();
+        stale.insert("rule:ok".to_string(), health::STALE_AFTER);
+        assert!(rule_factories(&file, &stale).is_empty(), "达到阈值应熔断");
+        // 配置一个字都没改（熔断是运行期事实，不是用户意图）
+        assert!(file.sources[0].enabled);
+
+        // 差一次仍参与
+        stale.insert("rule:ok".to_string(), health::STALE_AFTER - 1);
+        assert_eq!(rule_factories(&file, &stale).len(), 1);
     }
 }

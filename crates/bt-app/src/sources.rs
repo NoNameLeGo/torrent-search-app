@@ -139,6 +139,19 @@ fn default_true() -> bool {
     true
 }
 
+impl SourceEntry {
+    /// 熔断判定：这条源**最近连续空手**次数是否已达阈值。
+    ///
+    /// ⚠️ 阈值直接用 `health::STALE_AFTER`（3）—— 与磁力侧 chip 的「⚠连空 N 次」
+    /// 是同一个数，别在两处各写一份（改一处、另一处悄悄不一致是最难查的）。
+    ///
+    /// ⚠️ 熔断是**运行期临时停用**，不改 `enabled`：用户没关它，是它自己坏了；
+    /// 数据好转后会自动回来。
+    pub fn triggers_breaker(&self, tail_empty: usize) -> bool {
+        tail_empty >= crate::health::STALE_AFTER
+    }
+}
+
 impl SourcesFile {
     /// 按 id 找一条。
     pub fn get(&self, id: &str) -> Option<&SourceEntry> {
@@ -532,6 +545,16 @@ mod tests {
         assert!(text.contains("导入 1"), "{text}");
         assert!(text.contains("订阅 1"), "{text}");
         assert!(text.contains("1 条已关"), "{text}");
+    }
+
+    #[test]
+    fn breaker_trips_at_the_same_threshold_as_the_chip() {
+        let e = entry("rule:x", Adapter::HtmlRule, true);
+        // 阈值来自 health::STALE_AFTER —— 2 次不算、3 次算
+        assert!(!e.triggers_breaker(0));
+        assert!(!e.triggers_breaker(crate::health::STALE_AFTER - 1));
+        assert!(e.triggers_breaker(crate::health::STALE_AFTER));
+        assert!(e.triggers_breaker(99));
     }
 
     #[test]
