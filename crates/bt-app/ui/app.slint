@@ -503,6 +503,9 @@ export component AppWindow inherits Window {
     in-out property <string> pansou-status: "默认 127.0.0.1:8888";
     // 影视源（TVBox 单仓导入，只取 type=1 的苹果CMS JSON 源）
     in-out property <string> tvbox-url: "";
+    // 手写规则（JSON 或 YAML）：粘进来 → 测试 → 保存
+    in-out property <string> rule-text: "";
+    in-out property <string> rule-status: "未填写规则";
     in-out property <string> tvbox-status: "未导入影视源";
     in-out property <[ProviderChip]> providers;
     in-out property <[SiteToggle]> sites;
@@ -565,6 +568,9 @@ export component AppWindow inherits Window {
     callback probe-pansou();
     // 影视源：导入一份 TVBox 单仓配置 / 清空已导入的源
     callback import-tvbox();
+    // 规则：真跑一次搜索验证 / 存进注册表
+    callback test-rule();
+    callback save-rule();
     callback clear-tvbox();
     callback push-row(int);
     callback pick-kind(string);
@@ -882,6 +888,33 @@ export component AppWindow inherits Window {
                     AppButton { label: "导入"; height: 26px; text-size: 11px; clicked => { root.import-tvbox(); } }
                     AppButton { label: "清空"; height: 26px; text-size: 11px; clicked => { root.clear-tvbox(); } }
                     Text { text: root.tvbox-status; color: Theme.sub; font-size: 11px; vertical-alignment: center; }
+                }
+
+                // 手写规则：把「加一个站」从改代码变成贴一段规则。
+                // 语法见 docs/SOURCES-DESIGN.md §2（base / search / rows / fields）。
+                HorizontalLayout {
+                    spacing: 6px;
+                    Text { text: "规则"; color: Theme.sub; font-size: 11px; vertical-alignment: top; }
+                    VerticalLayout {
+                        horizontal-stretch: 1;
+                        spacing: 4px;
+                        TextEdit {
+                            height: 84px;
+                            text <=> root.rule-text;
+                        }
+                        HorizontalLayout {
+                            spacing: 6px;
+                            AppButton { label: "测试"; height: 26px; text-size: 11px; clicked => { root.test-rule(); } }
+                            AppButton { label: "保存"; height: 26px; text-size: 11px; clicked => { root.save-rule(); } }
+                            Text {
+                                text: root.rule-status;
+                                color: Theme.sub;
+                                font-size: 11px;
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                            }
+                        }
+                    }
                 }
 
                 HorizontalLayout {
