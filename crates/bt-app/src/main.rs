@@ -558,7 +558,9 @@ fn to_member_rows(ui: &AppWindow, file: &sources::SourcesFile) -> Vec<SiteToggle
 }
 
 fn refresh_member_rows(ui: &AppWindow, file: &sources::SourcesFile) {
-    ui.set_members(ModelRc::from(to_member_rows(ui, file)));
+    ui.set_members(ModelRc::from(Rc::new(VecModel::from(to_member_rows(
+        ui, file,
+    )))));
 }
 
 /// 切换一个目录成员的开关（改 `sources.json` 里的 `members[].enabled`）。
@@ -580,7 +582,7 @@ fn toggle_member(ui: &AppWindow, id: &str) {
     }
 
     if !hit {
-        ui.set_catalog_status(format!("没找到成员 {id}"));
+        ui.set_catalog_status(format!("没找到成员 {id}").into());
         return;
     }
 
