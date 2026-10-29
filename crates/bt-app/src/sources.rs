@@ -808,14 +808,14 @@ mod refresh_tests {
 
     #[test]
     fn refresh_does_not_clobber_a_hand_edited_rule() {
-        let mut mine = e("rule:x", "规则", "https://x/");
+        let mut mine = e("rule:x", "规则", "https://x/", true);
         mine.rule = Some(serde_json::json!({"base": "https://mine/"}));
         let mut file = SourcesFile {
             sources: vec![mine],
             ..Default::default()
         };
 
-        let mut incoming = e("rule:x", "规则", "https://x/");
+        let mut incoming = e("rule:x", "规则", "https://x/", true);
         incoming.rule = Some(serde_json::json!({"base": "https://theirs/"}));
         let (_, updated) = merge_refreshed(&mut file, &[incoming]);
 

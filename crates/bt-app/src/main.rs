@@ -1404,7 +1404,7 @@ fn add_subscription(ui: &AppWindow) {
     });
 
     if let Err(e) = sources::save(&file) {
-        ui.set_sub_status(format!("保存失败：{e}"));
+        ui.set_sub_status(format!("保存失败：{e}").into());
         return;
     }
     STATE.with(|s| s.borrow_mut().sources = file);
@@ -1429,7 +1429,7 @@ fn refresh_subscriptions(ui: &AppWindow) {
         ui.set_sub_status("还没有订阅".into());
         return;
     }
-    ui.set_sub_status(format!("刷新 {} 个订阅…", subs.len()));
+    ui.set_sub_status(format!("刷新 {} 个订阅…", subs.len()).into());
 
     let weak = ui.as_weak();
     spawn(async move {
