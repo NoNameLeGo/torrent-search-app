@@ -1066,24 +1066,24 @@ mod rule_tests {
     fn third_party_definitions_tolerate_unknown_filters_but_report_them() {
         // 真实情况：6 个默认中文索引器里 5 个用了 dateparse。
         // 拒绝它们 = 用户看到「成功 6/6」却一条结果都没有。
-        let yaml = concat!(
-            "type: public\n",
-            "links://n",
-            "  - https://share.dmhy.org/\n",
-            "search://n",
-            "  paths://n",
-            "    - path: topics/list\n",
-            "  rows://n",
-            "    selector: \"table tbody tr\"\n",
-            "  fields://n",
-            "    title://n",
-            "      selector: a\n",
-            "    date://n",
-            "      selector: td\n",
-            "      filters://n",
-            "        - name: dateparse\n",
-            "          args: \"yyyy-MM-dd\"\n",
-        );
+        let yaml = r#"
+type: public
+links:
+  - https://share.dmhy.org/
+search:
+  paths:
+    - path: topics/list
+  rows:
+    selector: "table tbody tr"
+  fields:
+    title:
+      selector: a
+    date:
+      selector: td
+      filters:
+        - name: dateparse
+          args: "yyyy-MM-dd"
+"#;
         let def = parse_definition(yaml).unwrap();
         // 目录路径：只校验结构，filter 放行
         assert!(validate_rule(def.clone()).is_ok());
