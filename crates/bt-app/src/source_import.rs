@@ -319,7 +319,7 @@ fn is_http(u: &str) -> bool {
 }
 
 /// `https://a.b/c?d` → `a.b`（拿不到就原样返回，不 panic）。
-fn host_of(url: &str) -> &str {
+pub(crate) fn host_of(url: &str) -> &str {
     let rest = url
         .strip_prefix("https://")
         .or_else(|| url.strip_prefix("http://"))

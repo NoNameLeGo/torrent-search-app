@@ -576,6 +576,63 @@ mod tests {
 // 读写（IO 层，放最后 —— 上面全是纯函数，单测不碰盘）
 // ---------------------------------------------------------------------------
 
+/// 订阅那一行的摘要。
+pub fn describe_subs(file: &SourcesFile) -> String {
+    match file.subscriptions.len() {
+        0 => "无订阅".to_string(),
+        1 => format!("1 个订阅：{}", file.subscriptions[0].name),
+        n => format!("{n} 个订阅"),
+    }
+}
+
+/// 把「刷新回来的一批条目」并进文件（D8：**只换定义，保留用户的开关**）。
+///
+/// 规则：
+/// - 同一 `id` 已存在 ⇒ 只更新 `name` / `url`（以及**原先没有**时的 `rule`），
+///   `enabled` 一个字不动 —— 用户关掉的源不能因为一次刷新又自己打开；
+/// - 用户手改过的 `rule` **不覆盖**（订阅里带了也不覆盖，只在原本为空时补上）；
+/// - 不存在的 ⇒ 新增。
+///
+/// 返回 `(新增, 更新)`。
+pub fn merge_refreshed(file: &mut SourcesFile, entries: &[SourceEntry]) -> (usize, usize) {
+    let mut added = 0;
+    let mut updated = 0;
+
+    for e in entries {
+        match file.sources.iter_mut().find(|s| s.id == e.id) {
+            Some(existing) => {
+                let mut changed = false;
+                if existing.url != e.url {
+                    existing.url = e.url.clone();
+                    changed = true;
+                }
+                if existing.name != e.name {
+                    existing.name = e.name.clone();
+                    changed = true;
+                }
+                // 只在「原本没有」时补规则/成员：有内容就是用户的，不动
+                if existing.rule.is_none() && e.rule.is_some() {
+                    existing.rule = e.rule.clone();
+                    changed = true;
+                }
+                if existing.members.is_empty() && !e.members.is_empty() {
+                    existing.members = e.members.clone();
+                    changed = true;
+                }
+                if changed {
+                    updated += 1;
+                }
+            }
+            None => {
+                file.sources.push(e.clone());
+                added += 1;
+            }
+        }
+    }
+
+    (added, updated)
+}
+
 /// `%APPDATA%\bt-search\sources.json`（与其它配置文件同目录）。
 pub fn path() -> Option<std::path::PathBuf> {
     Some(crate::config_store::data_dir()?.join("sources.json"))
@@ -703,5 +760,69 @@ mod video_view_tests {
         assert_eq!(sites.len(), 1, "{sites:?}");
         assert_eq!(sites[0].id, "user:a");
         assert_eq!(sites[0].api, "https://a/vod/");
+    }
+}
+
+#[cfg(test)]
+mod refresh_tests {
+    use super::*;
+
+    fn e(id: &str, name: &str, url: &str, enabled: bool) -> SourceEntry {
+        SourceEntry {
+            id: id.to_string(),
+            name: name.to_string(),
+            kind: Kind::Video,
+            adapter: Adapter::MaccmsJson,
+            builtin: false,
+            enabled,
+            group: None,
+            url: Some(url.to_string()),
+            r#override: false,
+            rule: None,
+            members: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn refresh_updates_definitions_but_never_the_users_switch() {
+        let mut file = SourcesFile {
+            sources: vec![e("url:a.example", "旧名", "https://a/old/", false)],
+            ..Default::default()
+        };
+
+        let (added, updated) = merge_refreshed(
+            &mut file,
+            &[
+                e("url:a.example", "新名", "https://a/new/", true),
+                e("url:b.example", "B", "https://b/", true),
+            ],
+        );
+
+        assert_eq!((added, updated), (1, 1));
+        let a = file.get("url:a.example").unwrap();
+        assert_eq!(a.name, "新名", "订阅说了算的是定义");
+        assert_eq!(a.url.as_deref(), Some("https://a/new/"));
+        // 关键：用户关掉的仍然是关着的（订阅里写 enabled:true 也不算数）
+        assert!(!a.enabled);
+    }
+
+    #[test]
+    fn refresh_does_not_clobber_a_hand_edited_rule() {
+        let mut mine = e("rule:x", "规则", "https://x/");
+        mine.rule = Some(serde_json::json!({"base": "https://mine/"}));
+        let mut file = SourcesFile {
+            sources: vec![mine],
+            ..Default::default()
+        };
+
+        let mut incoming = e("rule:x", "规则", "https://x/");
+        incoming.rule = Some(serde_json::json!({"base": "https://theirs/"}));
+        let (_, updated) = merge_refreshed(&mut file, &[incoming]);
+
+        assert_eq!(updated, 0, "没变化就不算更新");
+        assert_eq!(
+            file.get("rule:x").unwrap().rule.as_ref().unwrap()["base"],
+            "https://mine/"
+        );
     }
 }
