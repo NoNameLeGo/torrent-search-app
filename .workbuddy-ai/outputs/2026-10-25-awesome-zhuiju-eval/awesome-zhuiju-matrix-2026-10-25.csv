@@ -1,0 +1,75 @@
+﻿分类,站点,URL,仓库状态,本机HTTP,本机耗时ms,跳转后域名,仓库评分,建议,理由
+在线影视,看看鸭,https://www.kankanya.me/,reachable,200,701,,5.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
+在线影视,No影视,https://novipnoad.org/,restricted,200,2468,https://www.novipnoad.uk/,4.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
+在线影视,注视影视,https://gaze.red/,restricted,200,4401,,5.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
+在线影视,搜TV啦,https://www.sotvla.cc/,reachable,ERR,677,,4.0,不推荐,本机超时/SSL 失败，不可用
+在线影视,雪落影视,https://xlys.me/,removed,未探测,,,4.0,不推荐,仓库已标 removed（失效）
+在线影视,多瑙影视,https://www.duonaovod.com,removed,未探测,,,5.0,不推荐,仓库已标 removed（失效）
+在线影视,白嫖者联盟,https://www.tdgo.shop,reachable,200,1195,https://baipiaozhe.com/,5.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
+在线影视,蛋蛋魔法,https://ddmf.net,restricted,200,8219,,5.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
+在线影视,青空次元,https://www.sorani.net,reachable,200,2287,,5.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
+在线影视,APP影院,https://www.appmovie.art,reachable,200,1444,,5.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
+在线影视,爱电影,https://kuhh4jo.com,reachable,200,3350,,5.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
+在线影视,金牌影视,https://www.vv3nwjk.com,removed,未探测,,,5.0,不推荐,仓库已标 removed（失效）
+在线影视,937影视,https://www.937tv.vip,restricted,500,6105,,5.0,不推荐,本机 HTTP 500，不可用
+在线影视,爱壹帆,https://iyf.tv,restricted,403,515,,4.0,不推荐,本机 HTTP 403，不可用
+在线影视,厂长资源,https://www.czzymovie.com,restricted,403,988,,3.0,不推荐,本机 HTTP 403，不可用
+在线影视,LIBVIO,https://libviobd.com,restricted,403,519,,4.0,不推荐,本机 HTTP 403，不可用
+在线影视,Auete影视,https://www.aeete.com,reachable,200,1328,,5.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
+在线影视,电影人生,https://dyrs.tv,reachable,200,2118,https://dyrshd.net/,5.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
+在线影视,奈飞工厂,https://www.netflixgc.com,restricted,ERR,22881,,5.0,不推荐,本机超时/SSL 失败，不可用
+在线影视,奈菲影视,https://www.nfyingshi.com,reachable,200,3596,,3.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
+在线影视,泥视频,https://www.nivod.vip,removed,未探测,,,5.0,不推荐,仓库已标 removed（失效）
+在线影视,PPnix,https://www.ppnix.com/cn/,reachable,200,1201,,5.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
+在线影视,独播库,https://www.dbku.tv,reachable,ERR,23431,,4.0,不推荐,本机超时/SSL 失败，不可用
+在线影视,布布追剧,https://bubuzhuiju.com,reachable,200,1705,https://duoduozhuiju.com/,4.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
+在线影视,影猫仓库,https://www.ymck.pro,restricted,200,2315,,4.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
+在线影视,爱看机器人,https://www1.aikanbot.com,reachable,ERR,10050,,3.0,不推荐,本机超时/SSL 失败，不可用
+在线影视,91毒舌,https://www.duse0.com/,unreachable,850,911,,5.0,不推荐,本机 HTTP 850，不可用
+在线影视,光速影视,https://www.yingshiso.link/,removed,未探测,,,4.0,不推荐,仓库已标 removed（失效）
+在线影视,好好看,https://www.hhkan2.com/,unreachable,ERR,10026,,5.0,不推荐,本机超时/SSL 失败，不可用
+在线影视,IFN,https://ifn.watch/register?code=8B1EF6,removed,未探测,,,5.0,不推荐,仓库已标 removed（失效）
+BT/磁力,BD影视聚合,https://www.juhebd.com/,restricted,200,1586,,5.0,不推荐,搜索入口无效（?k= 返回首页），首页无详情链接
+BT/磁力,爱努努,https://video.ainunu.com/,restricted,200,1635,,4.0,不推荐,详情页 0 磁力，实为在线播放站（仓库分类标错）
+BT/磁力,BD电影首发,https://www.bdflixs.com/,reachable,200,1104,,5.0,推荐,搜索可用；详情页 102 条唯一磁力，锚文本带片名/规格/体积
+BT/磁力,找电影时光,https://www.ldysg.win/,reachable,200,1374,,5.0,不推荐,SPA，搜索无服务端结果
+BT/磁力,美剧粉,https://www.mjf2020.com,reachable,200,503,,5.0,不推荐,搜索页仅 4KB 空壳，无结果节点
+BT/磁力,磁力熊,https://www.cilixiong.org,reachable,200,7046,,5.0,推荐,POST 搜索可用；详情页 4 条唯一磁力，带规格/体积
+BT/磁力,磁力狗,https://ciligou.net,reachable,200,881,,3.0,不推荐,673B JS shell，SSL 异常
+BT/磁力,磁力帝,https://www.cld123.com,restricted,ERR,10038,,5.0,不推荐,502 不可达
+BT/磁力,BT影视,https://www.btbtla.com,reachable,200,801,,5.0,不推荐,仅 /down/ 中间页 + .torrent，无磁力
+BT/磁力,POMO,https://pomo.mom/,reachable,200,462,,5.0,推荐,搜索可用；搜索结果页 29–56 条唯一磁力，带体积
+BT/磁力,电影港网,https://www.dyg22.com,reachable,200,1513,,4.0,不推荐,下载按钮为 javascript:void(0)，需逆向 AJAX
+BT/磁力,BT世界网,https://www.btsj6.com,reachable,200,1390,,5.0,谨慎,搜索可用；仅 .torrent（down.php 回同页），需 bencode 能力
+BT/磁力,高清MP4,https://www.mp4ba.vip,restricted,200,1115,,4.0,不推荐,人机验证页
+BT/磁力,高清族,https://hdzu.org,restricted,200,1093,,3.0,不推荐,搜索返回 9 字节空响应
+网盘搜索,PanSou,https://pansou.de,reachable,200,1514,,5.0,不推荐,返回网盘链接非磁力；上游开源可自建，属新功能
+网盘搜索,KK网盘搜,https://kkso.net,reachable,200,1299,,5.0,不推荐,Vue SPA + 网盘链接；与追剧吧同模板
+网盘搜索,追剧吧,https://www.zhuiju.us/,reachable,200,2176,,5.0,不推荐,同上，同模板同接口
+网盘搜索,谷哥搜,https://gugeso.com/,reachable,ERR,20316,,5.0,不推荐,TLS 握手超时，本机不可达
+BT/磁力,SeedHub,https://sidhub.cc/,restricted,200,2439,https://jw.0uc36bq.com/home,5.0,不推荐,跳转 SPA「加载中」，与豆花电影网同域
+BT/磁力,ACG.RIP,https://acg.rip/,reachable,ERR,10027,,4.0,谨慎,站点质量高但本机 502；项目已有 4 家动漫源，增量低
+在线影视,4k影视,https://www.4kvm.cc/,reachable,ERR,20089,,3.0,不推荐,本机超时/SSL 失败，不可用
+在线影视,饭搭子影视,https://fdzys.com,reachable,200,4537,,5.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
+在线影视,SA视频,https://www.lsjys11.com/,reachable,200,979,,5.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
+在线影视,奈飞工厂,https://naifei.fyi/,unreachable,ERR,209,,4.0,不推荐,本机超时/SSL 失败，不可用
+在线影视,剧OK,https://juok3.top/,restricted,200,1614,,5.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
+在线影视,蛋蛋奇,https://www.dandanqi.cc/,removed,未探测,,,5.0,不推荐,仓库已标 removed（失效）
+在线影视,宅男影视,https://zndy.top/,reachable,200,593,,4.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
+在线影视,影视大全,https://yingshidaquan.top/,removed,未探测,,,5.0,不推荐,仓库已标 removed（失效）
+在线影视,剧踪影院,https://www.juzong01.me/,restricted,200,1007,,5.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
+在线影视,简云影视,https://jianyunys.com/,reachable,200,887,https://jisuzhuiju.com/,5.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
+在线影视,片库,https://4k01.pianku.online/,reachable,499,750,,5.0,不推荐,本机 HTTP 499，不可用
+在线影视,66 大片网,https://www.77dpw.vip/,reachable,200,1880,,5.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
+在线影视,嘀嗒影视,https://www.didahd.xyz/,restricted,200,1247,,5.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
+在线影视,追影,https://zhuiying3.cc/,reachable,200,431,,5.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
+在线影视,歪比巴卜,https://wbbb1.com/,unreachable,200,1750,,5.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
+在线影视,开心影院,https://www.kxyy1.cc/,restricted,200,406,,5.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
+在线影视,豆花电影网,https://dhvideo.cc/,reachable,200,661,https://jw.0uc36bq.com/home,5.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
+在线影视,ZIP0,https://zip0.com/?r=KBDIG8,reachable,200,2705,,5.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
+在线影视,爱盼,https://www.aipan.me/,reachable,200,3041,,4.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
+在线影视,可可影视,https://www.kkys14.com/,unreachable,850,843,,5.0,不推荐,本机 HTTP 850，不可用
+在线影视,樱之空,https://skr.skr1.cc:666/,restricted,403,202,,4.0,不推荐,本机 HTTP 403，不可用
+在线影视,洛雪TV,https://tv.lxyy.club/,reachable,200,15205,,5.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
+在线影视,西瓜影视,https://www.kanmovie.com/,reachable,200,2430,,5.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
+在线影视,创享影视,https://ys.cxkjg.cn/,reachable,200,4317,,5.0,不推荐,可访问的播放站（HLS/播放器），无磁力，与 BT 搜索无关
