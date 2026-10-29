@@ -513,6 +513,8 @@ export component AppWindow inherits Window {
     in-out property <string> sub-status: "无订阅";
     // 目录成员（Prowlarr）：定义要手动拉一次才进搜索
     in-out property <string> catalog-status: "目录未拉取";
+    // 目录成员（Prowlarr 子站）逐站开关；复用 SiteToggle（id/label/tone 三个字段刚好够）
+    in-out property <[SiteToggle]> members;
     in-out property <string> tvbox-status: "未导入影视源";
     in-out property <[ProviderChip]> providers;
     in-out property <[SiteToggle]> sites;
@@ -583,6 +585,8 @@ export component AppWindow inherits Window {
     callback refresh-subs();
     // 目录成员：拉取定义（拉完自动重建 provider）
     callback prepare-catalog();
+    // 目录成员：逐站开关（改的是 sources.json 里的 members[].enabled）
+    callback toggle-member(string);
     callback clear-tvbox();
     callback push-row(int);
     callback pick-kind(string);
@@ -954,6 +958,28 @@ export component AppWindow inherits Window {
                         font-size: 11px;
                         vertical-alignment: center;
                         horizontal-stretch: 1;
+                    }
+                }
+
+                // 目录成员逐站开关。空列表时这块自动不占高度（ListView 高度给 0 太丑，
+                // 所以用 if 包一层：没有成员就整块不渲染）。
+                if root.members.length > 0 : HorizontalLayout {
+                    spacing: 6px;
+
+                    Text {
+                        text: "成员";
+                        color: Theme.sub;
+                        font-size: 11px;
+                        vertical-alignment: top;
+                    }
+
+                    ListView {
+                        horizontal-stretch: 1;
+                        height: 132px;
+                        for m in root.members : SiteRow {
+                            item: m;
+                            toggle(id) => { root.toggle-member(id); }
+                        }
                     }
                 }
 
