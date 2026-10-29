@@ -1,111 +1,138 @@
-# 交接说明（2026-10-26 核对，取代 2026-10-21 版）
+# 交接说明（2026-10-29 核对，取代 2026-10-26 版）
 
 > 这份是**给下一个接手的人/AI** 的现状快照。历史决策在 `AGENTS.md`（很长，按需查），
-> 设计目标在 `docs/ROADMAP.md`，CI 事故总账在 `docs/CI_FAILURES.md`。
+> 设计目标在 `docs/ROADMAP.md`，数据源分级在 `docs/DATA-SOURCES.md`，
+> 数据源统一注册表的设计与批次账在 `docs/SOURCES-DESIGN.md`，CI 事故总账在 `docs/CI_FAILURES.md`。
 > 本文件只写「现在是什么状态」和「别重复踩什么」，**不写流水账**。
 
 ## 一句话状态
 
-`main` = **本文件所在的提交**（`git log -1 --format=%h`）。⚠️ 别再在这里写死哈希：
-2026-10-26 上一版就写歪过一次（写的是改这份文件之前的那条提交）。
-最新发布 = **`v0.4.0-beta`**（2026-10-25 11:22Z，GitHub *Latest*，tag → `ba5fa1b`），
-`release.yml` 一次跑绿（run `40187920449`，9m56s），产物 6 个：
+`main` = **本文件所在的提交**（`git log -1 --format=%h`，别在这里写死哈希）。
+最新发布 = **`v0.4.3-beta`**（2026-10-29，产物 6 个）。
+上一版 `v0.4.2-beta` 是**数据源插口化的第一版**，0.4.3 补了它一处致命默认行为（见下）。
 
-| 资产 | 大小 |
-|---|---|
-| `BT-Search-Rust-0.4.0-beta.exe` | 20,018,688 B（**19.1MB**，门限 25MB） |
-| `BT-Search-Rust-0.4.0-beta.zip` | 8,849,763 B |
-| `BT-Search-Electron-Setup-0.4.0-beta.exe` | 100,921,104 B |
-| `BT-Search-Electron-Portable.zip` | 152,774,518 B |
-| `BT-Search-Tauri-Setup-0.3.15-beta.exe` | 31,116,828 B ⚠️ 见下 |
-| `latest.yml` | 380 B |
+> ⚠️ **0.4.2 的 Prowlarr 目录那条链是坏的**：6 个默认中文索引器里 5 个用了 `dateparse`，
+> 而当时的校验会因「filter 不在白名单」整站拒绝 ⇒ 用户看到「成功 6/6」然后零结果，
+> 且和「站点挂了」长得一样。0.4.3 已修（`validate_rule` 只校验结构，未知 filter 按原样
+> 处理并在状态栏列出）。
 
-**本版内容**：顶栏**三模式**（磁力 / 视频 / 网盘，结果不混流）· 在线影视 **5 家**
-（APP影院、独播库、嘀嗒、追影、宅男，搜索后 `open_url` 打开原站）· **PanSou 网盘客户端**
-（方案 A：外部服务，设置里填地址与 token，支持打开链接 + 复制提取码）· BT 引擎 **28 家**
-（25 对齐 Node + 3 家 Rust 独有：`bdflixs` / `pomo` / `cilixiong`）。
-
-⚠️ **Tauri 包名是上一版的号**：main 从 `0.3.15-beta` 走到 `0.4.0-beta` 时，只 bump 了 main 自己的
-版本，`feat/tauri` 上那四处还是 `0.3.15-beta`，而 `release.yml` 是**显式 checkout `feat/tauri`**
-来构建 Tauri 包的。已发布的资产**不改名、不重打 tag**（仓库规矩）；分支当日已对齐到 `0.4.0-beta`
-（`c9af929`，`Tauri Build (validate)` 已跑），**下一版即可拿到正确包名** —— 这是唯一还欠验证的一环。
-
-## 规模（2026-10-26 实测，自己数一遍别抄）
+## 规模（2026-10-29 实测，自己数一遍别抄）
 
 | 项 | 值 |
 |---|---|
-| Rust | **90 个 `.rs` / 26,107 行**，`TODO`/`FIXME` **0 处** |
-| 引擎 | BT **28** + 在线影视 **5** + `pan`（网盘）+ `demo`（离线演示） |
-| 测试 | `#[test]` **253** + `#[tokio::test]` **326**；另有 M4 `--selftest` 全链路 12/12 |
-| workflow | **14 条**，`python3 scripts/check-workflows.py` 全绿（含「引用的脚本是否存在」） |
-| 版本 | `Cargo.toml` / `package.json` / `Cargo.lock` 全 = `0.4.0-beta`，`node scripts/release-check.js` 通过 |
+| Rust | **98 个 `.rs` / 31,369 行**（`crates/`），`TODO`/`FIXME` **0 处** |
+| 引擎 | BT **28 家**（另有离线 `demo`，不算真站）· 在线影视 **5 家** · 字幕 **3 站**（SUBHD / ASSRT / ZIMUKU）· PanSou 网盘 |
+| 测试 | `#[test]` **321** + `#[tokio::test]` **329**；另有 M4 `--selftest` 全链路 |
+| workflow | **14 条**，`python3 scripts/check-workflows.py` 全绿 |
+| 版本 | `Cargo.toml` / `package.json` / `Cargo.lock` / `feat/tauri` 四处 = `0.4.3-beta`，`node scripts/release-check.js` 8 项全过 |
+
+## 数据源体系（2026-10-29 新，**这是最大的结构变化**）
+
+以前是「写死 28 家 + 5 家 + 手改 `videosources.json`」。现在：
+
+**`%APPDATA%\bt-search\sources.json` 是唯一真源**，搜索从它派生，不再读旧文件。
+
+| 字段 | 作用 |
+|---|---|
+| `adapter` | **唯一分叉点**：`builtin` / `maccms_json` / `html_rule` / `cardigann_catalog` / `torznab`。加新取数方式 = 加一个枚举值 + 一个实现，不动 registry |
+| `enabled` | 用户开关。订阅刷新、熔断、迁移**都不动它** |
+| `rule` | 用户手写的抓取规则（统一存成 Cardigann 形状的 JSON） |
+| `members[]` | 目录（Prowlarr）的子站，带 `language`，逐站开关 |
+
+设置面板六个入口：
+
+| 行 | 作用 | 代码 |
+|---|---|---|
+| 数据源 | 摘要（`33 条（内置 33 · 导入 N）`） | `sources::describe` |
+| 导入源 | TVBox 单仓/多仓、LibreTV v2、Prowlarr 清单、裸 URL **自动识别** | `source_import::guess_format` |
+| 规则 | 贴 JSON/YAML → **测试**（真跑一次，报条数与耗时）→ 保存 | `main::test_rule` / `save_rule` |
+| 订阅 | 贴源清单 URL → 添加即拉 → 刷新全部 → 启动自动刷 | `main::refresh_subscriptions` |
+| 目录 | 拉取成员定义（只拉已启用且未缓存的） | `main::prepare_catalog` |
+| 成员 | 逐站 ✓/✗ 开关 | `main::toggle_member` |
+
+### 三条不能改的语义（都有单测钉着）
+
+1. **订阅刷新只换定义**（`name` / `url`），`enabled` 一个字不动，手改的 `rule` / `members` 不覆盖
+   —— 否则用户每次启动都会看到「自己没关过的源又亮了」（`sources::merge_refreshed`）。
+2. **熔断是运行期事实，不写进配置**：连续 `health::STALE_AFTER`(3) 次空手就临时退出搜索，
+   `enabled` 保持 true，数据好转自动回来（`SourceEntry::triggers_breaker`）。
+3. **手写规则严格、第三方定义宽松**：手写的 filter 不在白名单 → 报错并**带名字**（用户能改）；
+   Prowlarr 的定义 → 放行 + 状态栏报告（用户改不了，拒绝只会让功能看起来是坏的）。
+   分叉在 `cardigann::strict_validate` vs `validate_rule`。
+
+### 安全边界
+
+| 风险 | 处置 |
+|---|---|
+| 远程 JSON 里的成员 `id` | `sources::safe_member_id` 白名单；不校验可 `../../` 写到配置目录外 |
+| 用户随手贴的 URL | 只放行 `http(s)`；**不递归**多仓（只提示子仓地址） |
+| 正则 ReDoS | 不额外防护，靠单站超时 + 熔断兜底（用户自己的规则） |
+| 订阅回来的规则 | 不自动改开关、不覆盖手改内容 |
 
 ## 分支
 
 | 分支 | ahead / behind `main` | 说明 |
 |---|---|---|
 | `main` | — | Rust 主线，唯一发布源 |
-| `feat/tauri` | +79 / −354 | **永久 CI 分支**：`release.yml` 显式 checkout 它构建 Tauri 包。绝不能删。版本号要跟 main 走 |
-| `spike/slint-ui` | +3 / −195 | M1 证据（Slint 风险探针） |
-| `feat/rust` | +0 / −178 | 已并入 main，纯存档 |
-| `legacy/node-electron` | +0 / −278 | Node/Electron 旧实现存档（停在 `9b9461c`） |
-
-## 2026-10-26 第二轮：把「待确认」的四件事收口（都不改行为，除了一行假提示）
-
-| 事 | 之前 | 之后 |
-|---|---|---|
-| **S2/S3/S4** | ROADMAP 里全是「旁证 / 待你确认」 | 拿**发布版 exe** 实测：导入表 24 个 DLL 全是 Windows 系统 DLL（无 vcruntime140 / msvcp140 / ucrtbase / api-ms-win-crt-\*），净化环境（`PATH` 只留 System32）从空目录启动成功；出窗口 **0.76–0.81 s**；空闲 **43.8 MB**（任务管理器口径，工作集 81.6 MB）。数字已写进 `docs/ROADMAP.md` §1 与 README |
-| **Tauri 包名** | 只能「等下一版」验证 | 用 `workflow_dispatch` **干跑** `release.yml`（run `40283266380`，publish 步骤按设计跳过、不建 Release）：`tauri-dist` 里的文件是 `BT-Search-Tauri-Setup-0.4.0-beta.exe` ⇒ 版本对齐生效。**结论：不必为了验包名专门发一版** |
-| **UI 假提示** | 状态栏写「Ctrl K 搜索 · Ctrl D 推送」，但全仓 `FocusScope` / `key-pressed` / 键盘处理 **0 处** —— 提示是假的 | 删掉这行。真要做快捷键得给整窗包一层 `FocusScope` 并转发焦点，本机不能编译、风险高于收益，留给以后 |
-| **README** | 116 行，数字停在 24 家，没有三模式、没有实测 | 重写：三模式 / 27 BT + 5 视频 + PanSou / **实测指标表** / 快速上手（含 PanSou 起法）/ Node 对照 / 边界 |
-
-## 2026-10-26 第一轮：三项清理（不改行为）
-
-| 事 | 之前 | 之后 |
-|---|---|---|
-| 残留 Draft Release | 同 tag `v0.4.0-beta` 下留了一个 `isDraft=true` 的空壳（2026-10-24 删掉 `release.yml` 的 `gh release delete` 后，`build.yml` 里 electron-builder 建的 draft 就没人清了），内含 1 个孤儿 `.blockmap` | 按 **release id** 精确删除（不是按 tag —— 同 tag 有两个 release，`gh release delete <tag>` 有删错的风险）。正式 release 与 tag 未动 |
-| Tauri 版本号 | `feat/tauri` 四处 = `0.3.15-beta`，导致 v0.4.0 的 Tauri 包顶旧号 | 四处对齐到 `0.4.0-beta`（`tauri.conf.json` 真源 / `src-tauri/Cargo.toml` / `package.json` / `src-tauri/Cargo.lock`）→ `c9af929` |
-| 门缺口 | `release-check.js` 只校验 main 一侧（`Cargo.toml` / `Cargo.lock`），**完全没看 `feat/tauri`** | 新增 **6d**：直接读 `feat/tauri` 的四处版本号与当前版本比对，不一致直接红 —— 下次 bump 只改一边会被预检拦下 |
+| `feat/tauri` | +83 / −402 | **永久 CI 分支**：`release.yml` 显式 checkout 它构建 Tauri 包。绝不能删。版本号要跟 main 走（4 处） |
+| `spike/slint-ui` | +3 / −243 | M1 证据（Slint 风险探针） |
+| `feat/rust` | +0 / −226 | 已并入 main，纯存档 |
+| `legacy/node-electron` | +0 / −326 | Node/Electron 旧实现存档 |
 
 ## 这台机器上的硬约束（先读，否则会白折腾）
 
 | 约束 | 事实 |
 |---|---|
-| **没有 cargo** | `/d/Vibe-Coding/.cargo` 不存在 ⇒ `cargo build/test/clippy` **本机跑不了**，一律走 CI；`AGENTS.md` 也明令不在本机编译（2026-10-25 实测：C 盘剩 **15G**/96% 用、D 盘剩 **119G**/82% 用） |
-| **rustfmt 能单跑** | `/d/Vibe-Coding/.rustup/toolchains/stable-x86_64-pc-windows-msvc/bin/rustfmt.exe --edition 2021 <files>`（**必须带 edition**；先就地跑一遍再 `--check`，能省一轮 CI） |
-| **没有 node_modules** | `node test/run.js` 跑不了（`src/lib/http.js` 要 axios）；`node test/normalize.test.js` 能跑（零依赖）。Node 测试的真门是 CI 的 `node.yml` |
-| `gh` 间歇 403 | 一律 `scripts/gh-retry.sh <原样的 gh 参数>` |
+| **没有 cargo** | `D:\Vibe-Coding\.cargo` 已清理且不在 PATH ⇒ `cargo build/test/clippy` **本机跑不了**，一律走 CI（一轮约 1.5–4 分钟）。`AGENTS.md` 也明令不在本机编译（用户原话「别在本地新增构建环境，我电脑没空间了」，两盘长期 90%+） |
+| **rustfmt 能单跑** | `D:\Vibe-Coding\.rustup\toolchains\stable-x86_64-pc-windows-msvc\bin\rustfmt.exe --edition 2021 <files>`（**必须带 edition**）。push 前先就地跑一遍再 `--check`，能省一轮 CI；它同时是语法检查器 |
+| **没有 node_modules** | `node test/run.js` 跑不了；`node test/normalize.test.js` 能跑（零依赖）。Node 测试的真门是 CI |
+| `gh` 间歇 403 | 一律 `scripts/gh-retry.sh <原样的 gh 参数>`。长时间被拒时脚本也挡不住，等几分钟再试 |
 | `git push` 报 SSL 错 | 加 `GIT_SSL_NO_VERIFY=true`（本机 MITM 证书不在 CA bundle 里） |
-| 手动触发 workflow | `gh workflow run <file>` 要求该文件已在**默认分支**上 |
-| 期望值不许手算 | 跑真 JS 拿：`node -e "require('./src/lib/normalize.js')…"`（零依赖，本机可用） |
+| 手动触发 workflow | `gh workflow run <file>` 要求该文件已在**默认分支**上 —— live-smoke / html-probes / fetch-fixture / provider-health 在 `main` 上有副本，**改要同步两份** |
+| `Cargo.lock` 入库且 `--locked` | 只改 `Cargo.toml` 不改 lock ⇒ CI 直接红。改依赖后必须跑 `workflow run lockfile.yml --ref <branch>` 再 `git pull --rebase` |
+| 改结构体字段 | **所有构造点都要补**（`Member` 加 `language` 时 `source_import` 里 E0063 炸过一次）；测试 helper 加参数后所有调用点同理 |
+| 跨分支提交 | **永远显式列文件，别 `git add -A`**（2026-10-29 在 `feat/tauri` 上把本地 `.audit/`、`.workbuddy-ai/` 一起提交了 1829 行，已 `git rm --cached` 撤回） |
+| 加 std-widgets 组件 | `app.slint` 是**显式列名** import：`import { LineEdit, ListView, TextEdit } from "std-widgets.slint";` 用了没列的组件直接 `Unknown element`（2026-10-28 踩过） |
+| Slint 类型 | 所有 `set_xxx` 参数是 `SharedString` ⇒ `format!(...).into()`；`ModelRc` **不能** `From<Vec<T>>`，要 `ModelRc::from(Rc::new(VecModel::from(vec)))` |
+| 用脚本改源码 | **非 ASCII 锚点会偶发对不上**（肉眼相同但不匹配）—— 用 ASCII 锚点（`pub fn save(`）更稳；heredoc 里的 `\n` 也可能被写坏成 `//n`（2026-10-29 把一个 YAML 测试串毁了） |
 
 ## 还挂着的事（按「值得动」排序）
 
-1. **S2 的最后一步：干净 Windows 双击**（唯一还剩的人工判据）。本机能机器验的都验完了
-   （导入表 + 净化环境启动），差的只是「一台没装 VC++ Redistributable 的机器」—— 虚拟机/另一台机做。
-2. **S3/S4 没有 Electron 对照**：只量了 Rust 一侧（0.8s / 43.8MB）。要写「快多少倍」得装
-   96MB 的 Electron 包量一遍；不装也能说清绝对值已达标。
-3. **首次运行 1.1–1.6 s 超 1 s 目标**：换新路径可复现，主因是 Defender 首次扫描 + 冷盘读 20MB。
-   要压下来得改启动路径（比如延迟加载字体/GL），但**本机不能编译**，盲改不划算。
-4. **`latest.yml` 竞态**（2026-10-24 去掉 `gh release delete` 之后，这次**有** `latest.yml`、没有
-   `.blockmap`）：全仓无 `electron-updater` / `autoUpdater` 引用 ⇒ **实际影响 ≈ 0**；
-   资产集是「谁最后跑完谁决定」的竞态结果，不修也不影响用户。
+1. **端到端从未真机验证**（唯一真正的大空白）。所有数据源功能都是「编译过 + 单测过」，
+   没有一次在真机上点过界面、拉过 Prowlarr 定义、搜出过结果。要验的链：
+   ```
+   设置 → 导入源：贴 https://indexers.prowlarr.com/master/12 → 导入
+   设置 → 目录：点「拉取定义」→ 看状态栏报了几个成功
+   设置 → 成员：看 ✓ dmhy 之类的中文站
+   磁力模式：搜一个词 → 看结果里有没有这些站
+   ```
+   任何一环断，状态栏那句错误文案都是可定位的（会带 filter 名 / 失败站名 / 失败成员名）。
+2. **S2 的最后一步：干净 Windows 双击**。本机能机器验的都验完了（导入表 24 个全系统 DLL +
+   净化环境启动），差的只是「一台没装 VC++ Redistributable 的机器」。
+3. **Cardigann 只实现了 7 个 filter**（`replace` / `re_replace` / `append` / `prepend` / `trim` /
+   `split` / `regexp`）。真实高频的 `dateparse` / `timeparse` / `andmatch` / `sort` 没做 ⇒
+   目录站点的**日期字段是原始文本**（不影响标题 / 磁力 / 做种数）。要补就扩 `SUPPORTED_FILTERS`，
+   注意同步改 `unsupported_filter` 的报错文案。
+4. **首次运行 1.1–1.6 s 超 1 s 目标**：主因 Defender 首次扫描 + 冷盘读 20MB。要压下来得改启动路径
+   （延迟加载字体/GL），但**本机不能编译**，盲改不划算。
+5. **`latest.yml` 竞态**：全仓无 `electron-updater` 引用 ⇒ 实际影响 ≈ 0，不修。
 
 ## 明确「不修」的决定（别重新发现一遍）
 
 | 项 | 为什么不动 |
 |---|---|
-| `crates/bt-torznab/src/provider.rs` 的 `Box::leak` | 要消掉必须把 `Provider::id()/name()` 从 `&'static str` 改成 `&str`，牵连全部 impl + 测试；收益是每 100 次搜索约 20KB。本机没 cargo，盲改签名风险 > 收益 |
-| `add_indexer`（`crates/bt-app/src/main.rs`）的 `id` 恒空 | UI 按**名字**去重 ⇒ 同名索引器不会共存；撞 id 只可能来自手改 `indexers.json`。真要做先定 id 方案 + 迁移已有文件 |
-| Node 侧 `/api/magnet`、`/api/torznab/test`、`/api/download/*` 只查 scheme | **已登记的设计决策**，缓解是只绑 `127.0.0.1`（`server.js`）。要放开远程访问必须先加 host 白名单 |
+| `Provider::id()/name()` 的 `&'static str` + `Box::leak` | 要消掉必须把签名改成 `&str`，牵连全部 impl + 测试（含新加的 `RuleProvider`）；收益是每 100 次搜索约 20KB。本机没 cargo，盲改签名风险 > 收益 |
+| `add_indexer` 的 `id` 恒空 | UI 按**名字**去重 ⇒ 同名索引器不会共存；撞 id 只可能来自手改 `indexers.json` |
+| Node 侧 `/api/magnet`、`/api/torznab/test`、`/api/download/*` 只查 scheme | 已登记的设计决策，缓解是只绑 `127.0.0.1`。要放开远程访问必须先加 host 白名单 |
 | Node 依赖树的 `@xmldom/xmldom` / `brace-expansion` 告警 | 全在 **dev 树**（eslint / prettier / electron-builder），不进用户机器 |
-| 已发布的 Tauri 包名 `0.3.15-beta` | 改名会让「文件名与安装包内部版本」对不上，那是造假 |
+| 已发布的 Tauri 包名对不上 | 改名会让「文件名与安装包内部版本」不一致，那是造假。0.4.1 起已对齐 |
 
 ## 别的现状（免得重新确认）
 
-- `crates/` 里 **TODO/FIXME 0 处**；测试数与引擎数**别抄文档里的数字**，要看就查最近一次 `rust.yml`
-  日志（或直接 `grep -c '#\[test\]'`）。
-- M6 差分门覆盖 **24 家 BT**（0 处未豁免差异）；后加的 3 家 Rust 独有引擎在 Node 侧没有对照实现，
+- M6 差分门覆盖 **24 家 BT**（0 处未豁免差异）；后加的 4 家 Rust 独有引擎在 Node 侧没有对照，
   不进差分门，靠单测 + fixture 兜。
 - Node 版 40 家仍在 `main` 上共存（`D18`：留着作对照；删除按**函数粒度**推进，还没开始）。
-- 最近 12 条 CI 全绿；唯一红的是 `feat(pan)` 那次（Rust test + 体积门），由紧随的 `dc868b5` 修好。
+- `videosources.json` / `indexers.json` 仍会被读，但**只用于一次性迁移**进 `sources.json`；
+  写入已整体搬到 `sources.json`（`config_store::save_video_sources` 已删）。
+- 同一 tag 下可能同时有 draft 和正式 release（`build.yml` 的 electron-builder 会建 draft）⇒
+  删除一律按 **release id**（先 `gh api .../releases` 拿 id），别 `gh release delete <tag>`。

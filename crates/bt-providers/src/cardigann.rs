@@ -880,7 +880,7 @@ pub fn from_user_rule(v: &serde_json::Value) -> Result<Definition, String> {
     {
         let def: Definition =
             serde_json::from_value(v.clone()).map_err(|e| format!("bad_rule: {e}"))?;
-        return validate_rule(def);
+        return strict_validate(def);
     }
 
     // 形态 1：扁平
@@ -937,7 +937,7 @@ pub fn from_user_rule(v: &serde_json::Value) -> Result<Definition, String> {
     });
 
     let def: Definition = serde_json::from_value(shape).map_err(|e| format!("bad_rule: {e}"))?;
-    validate_rule(def)
+    strict_validate(def)
 }
 
 /// 能不能跑 + filter 白名单，两关一起过（YAML 路径也走这里）。
@@ -945,6 +945,35 @@ pub fn validate_rule(def: Definition) -> Result<Definition, String> {
     if !is_supported(&def) {
         return Err("rule_unsupported".to_string());
     }
+    Ok(def)
+}
+
+/// All filter names outside the whitelist (deduped, in first-seen order).
+///
+/// Used for a degraded-mode notice: do not block, but tell the caller so the UI can
+/// say "N members use unimplemented filters, their date may be raw text".
+pub fn unsupported_filters(def: &Definition) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    let Some(search) = def.search.as_ref() else {
+        return out;
+    };
+    for field in search.fields.values() {
+        for f in &field.filters {
+            if !SUPPORTED_FILTERS.contains(&f.name.as_str()) && !out.contains(&f.name) {
+                out.push(f.name.clone());
+            }
+        }
+    }
+    out
+}
+
+/// Hand-written rules only: structure AND filter whitelist.
+///
+/// The user wrote it, so naming the offending filter is actionable. Third-party
+/// definitions (Prowlarr) go through [`validate_rule`] instead -- they cannot be fixed
+/// by the user, and rejecting them would just make the feature look broken.
+fn strict_validate(def: Definition) -> Result<Definition, String> {
+    let def = validate_rule(def)?;
     if let Some(bad) = unsupported_filter(&def) {
         return Err(format!("unsupported_filter:{bad}"));
     }
@@ -1031,6 +1060,36 @@ mod rule_tests {
         let mut v = flat_rule();
         v["fields"]["title"]["filters"] = serde_json::json!([{ "name": "trim" }]);
         assert!(from_user_rule(&v).is_ok());
+    }
+
+    #[test]
+    fn third_party_definitions_tolerate_unknown_filters_but_report_them() {
+        // 真实情况：6 个默认中文索引器里 5 个用了 dateparse。
+        // 拒绝它们 = 用户看到「成功 6/6」却一条结果都没有。
+        let yaml = r#"
+type: public
+links:
+  - https://share.dmhy.org/
+search:
+  paths:
+    - path: topics/list
+  rows:
+    selector: "table tbody tr"
+  fields:
+    title:
+      selector: a
+    date:
+      selector: td
+      filters:
+        - name: dateparse
+          args: "yyyy-MM-dd"
+"#;
+        let def = parse_definition(yaml).unwrap();
+        // 目录路径：只校验结构，filter 放行
+        assert!(validate_rule(def.clone()).is_ok());
+        assert_eq!(unsupported_filters(&def), vec!["dateparse"]);
+        // 手写路径：仍报名字（用户能改）
+        assert!(from_user_rule(&serde_json::to_value(&def).unwrap()).is_err());
     }
 
     #[test]

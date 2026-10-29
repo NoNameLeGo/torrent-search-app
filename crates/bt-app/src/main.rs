@@ -1657,12 +1657,21 @@ fn prepare_catalog(ui: &AppWindow) {
     spawn(async move {
         let mut ok = 0usize;
         let mut bad: Vec<String> = Vec::new();
+        // 用了我们没实现的 filter 的成员：不拦（否则中文站几乎全废），但要报出来
+        let mut degraded: Vec<String> = Vec::new();
 
         for (ver, id, name) in &need {
             let url = cardigann::definition_url(ver, id);
             let resp = http().get_text(&url, None).await;
             match (resp.error, resp.html) {
                 (None, Some(body)) if !body.trim().is_empty() => {
+                    if let Ok(def) = cardigann::parse_definition(&body) {
+                        for f in cardigann::unsupported_filters(&def) {
+                            if !degraded.contains(&f) {
+                                degraded.push(f);
+                            }
+                        }
+                    }
                     if sources::save_definition(ver, id, &body).is_ok() {
                         ok += 1;
                     } else {
@@ -1680,6 +1689,13 @@ fn prepare_catalog(ui: &AppWindow) {
             rebuild_rule_providers(&STATE.with(|s| s.borrow().sources.clone()));
 
             let mut msg = format!("目录定义：成功 {ok} / {}", need.len());
+            if !degraded.is_empty() {
+                msg.push_str(&format!(
+                    "；{} 个 filter 未实现（按原样处理）：{}",
+                    degraded.len(),
+                    degraded.join("、")
+                ));
+            }
             if !bad.is_empty() {
                 let head: Vec<&str> = bad.iter().take(3).map(String::as_str).collect();
                 msg.push_str(&format!("；失败 {}：{}", bad.len(), head.join("、")));
