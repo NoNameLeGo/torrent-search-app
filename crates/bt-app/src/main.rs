@@ -536,6 +536,84 @@ fn to_slint_site(ui: &AppWindow, s: &crate::ui_model::SiteData) -> SiteToggle {
     }
 }
 
+/// 目录成员的开关行。复用 `SiteToggle`：没有专门的成员结构体，
+/// ✓/✗ 直接放在 label 里（列表行本来就只渲染一个文字）。
+fn to_member_rows(ui: &AppWindow, file: &sources::SourcesFile) -> Vec<SiteToggle> {
+    let g = ui.global::<Theme>();
+    let mut out = Vec::new();
+
+    for e in &file.sources {
+        if e.adapter != sources::Adapter::CardigannCatalog {
+            continue;
+        }
+        for m in &e.members {
+            out.push(SiteToggle {
+                id: m.id.clone().into(),
+                label: format!("{} {}", if m.enabled { "✓" } else { "✗" }, m.name).into(),
+                tone: if m.enabled { g.get_ok() } else { g.get_sub() },
+            });
+        }
+    }
+    out
+}
+
+fn refresh_member_rows(ui: &AppWindow, file: &sources::SourcesFile) {
+    ui.set_members(ModelRc::from(Rc::new(VecModel::from(to_member_rows(
+        ui, file,
+    )))));
+}
+
+/// 切换一个目录成员的开关（改 `sources.json` 里的 `members[].enabled`）。
+fn toggle_member(ui: &AppWindow, id: &str) {
+    let mut file = STATE.with(|s| s.borrow().sources.clone());
+    let mut hit = false;
+    let mut now_on = false;
+
+    for e in file.sources.iter_mut() {
+        if e.adapter != sources::Adapter::CardigannCatalog {
+            continue;
+        }
+        if let Some(m) = e.members.iter_mut().find(|m| m.id == id) {
+            m.enabled = !m.enabled;
+            now_on = m.enabled;
+            hit = true;
+            break;
+        }
+    }
+
+    if !hit {
+        ui.set_catalog_status(format!("没找到成员 {id}").into());
+        return;
+    }
+
+    let msg = match sources::save(&file) {
+        Ok(()) => {
+            apply_sources_state(ui, file);
+            // 打开了但还没缓存 ⇒ 明确告诉用户下一步点哪，否则他会以为没生效
+            let ver = STATE.with(|s| {
+                s.borrow()
+                    .sources
+                    .sources
+                    .iter()
+                    .find(|e| e.adapter == sources::Adapter::CardigannCatalog)
+                    .and_then(|e| e.url.as_deref())
+                    .map(sources::catalog_version)
+                    .unwrap_or_default()
+            });
+            if now_on && sources::cached_definition(&ver, id).is_none() {
+                format!("已启用 {id} —— 点「拉取定义」后才会参与搜索")
+            } else {
+                format!("{} {id}", if now_on { "已启用" } else { "已停用" })
+            }
+        }
+        Err(e) => format!("保存失败：{e}"),
+    };
+
+    ui.set_catalog_status(msg.clone().into());
+    STATE.with(|s| s.borrow_mut().status = msg.clone());
+    ui.set_status_text(msg.into());
+}
+
 /// #1 `.slint` 的 `Chip`（排序键 / 分类）—— 文案已经在 `ui_model` 里算好了，这里只搬运。
 fn to_slint_chip_row(c: &crate::ui_model::Chip) -> Chip {
     Chip {
@@ -1723,6 +1801,7 @@ fn apply_sources_state(ui: &AppWindow, file: sources::SourcesFile) {
     let sites = sources::video_json_sites(&file);
     ui.set_video_sites((video::registry().len() + sites.len()) as i32);
     ui.set_sources_status(sources::describe(&file).into());
+    refresh_member_rows(ui, &file);
     STATE.with(|s| {
         let mut st = s.borrow_mut();
         st.video_sources = sites;
@@ -2452,6 +2531,7 @@ fn wire(ui: &AppWindow) {
     });
     // 启动就要把已有规则接进搜索（不然要等到下一次导入才生效）
     rebuild_rule_providers(&STATE.with(|s| s.borrow().sources.clone()));
+    refresh_member_rows(ui, &STATE.with(|s| s.borrow().sources.clone()));
 
     ui.set_downloader_status("未配置（点「探测」或手填地址后「保存」）".into());
 
@@ -2602,6 +2682,14 @@ fn wire(ui: &AppWindow) {
         ui.on_prepare_catalog(move || {
             if let Some(ui) = weak.upgrade() {
                 prepare_catalog(&ui);
+            }
+        });
+    }
+    {
+        let weak = ui.as_weak();
+        ui.on_toggle_member(move |id| {
+            if let Some(ui) = weak.upgrade() {
+                toggle_member(&ui, &id);
             }
         });
     }
