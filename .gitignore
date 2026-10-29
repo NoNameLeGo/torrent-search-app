@@ -55,3 +55,8 @@ src-tauri/gen/
 .reasonix/
 skills-lock.json
 
+
+# 本地审计与 agent 记忆（main 上早已忽略，本分支一直漏 —— 2026-10-29 补齐）
+.audit/
+.workbuddy-ai/
+__pycache__/
