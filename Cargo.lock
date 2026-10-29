@@ -608,7 +608,7 @@ dependencies = [
 
 [[package]]
 name = "bt-app"
-version = "0.4.2-beta"
+version = "0.4.3-beta"
 dependencies = [
  "arboard",
  "bt-core",
@@ -624,7 +624,7 @@ dependencies = [
 
 [[package]]
 name = "bt-core"
-version = "0.4.2-beta"
+version = "0.4.3-beta"
 dependencies = [
  "chrono",
  "encoding_rs",
@@ -638,7 +638,7 @@ dependencies = [
 
 [[package]]
 name = "bt-downloaders"
-version = "0.4.2-beta"
+version = "0.4.3-beta"
 dependencies = [
  "reqwest",
  "serde_json",
@@ -647,7 +647,7 @@ dependencies = [
 
 [[package]]
 name = "bt-providers"
-version = "0.4.2-beta"
+version = "0.4.3-beta"
 dependencies = [
  "bt-core",
  "chrono",
@@ -661,7 +661,7 @@ dependencies = [
 
 [[package]]
 name = "bt-torznab"
-version = "0.4.2-beta"
+version = "0.4.3-beta"
 dependencies = [
  "bt-core",
  "bt-providers",
