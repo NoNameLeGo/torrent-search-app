@@ -184,8 +184,8 @@ fn import_libretv(text: &str) -> Result<Imported, String> {
 
 /// Prowlarr 清单：一条目录 + N 个成员。
 ///
-/// ⚠️ 成员默认 **`enabled: false`** —— 80 个 public 里境内能连的只是少数，
-/// 全开会让每次搜索都在等超时（`docs/DATA-SOURCES.md` §6）。
+/// ⚠️ 成员默认**只开中文站**（`language` 以 `zh` 开头）—— 80 个 public 里境内能连的
+/// 往往就是那几个，全开会让每次搜索都在等超时（`docs/DATA-SOURCES.md` §6）。
 fn import_prowlarr(text: &str) -> Result<Imported, String> {
     let list = bt_providers::cardigann::parse_catalog(text)?;
     if list.is_empty() {
@@ -197,9 +197,13 @@ fn import_prowlarr(text: &str) -> Result<Imported, String> {
         .map(|e| Member {
             id: e.id.clone(),
             name: e.name.clone(),
-            enabled: false,
+            // 默认只开中文站：80 个 public 里境内能连的往往是 zh 那几个，
+            // 全开等于每次搜索都在等超时（docs/DATA-SOURCES.md §6）
+            enabled: e.language.starts_with("zh"),
+            language: e.language.clone(),
         })
         .collect();
+    let zh = members.iter().filter(|m| m.enabled).count();
 
     Ok(Imported {
         entries: vec![SourceEntry {
@@ -217,7 +221,7 @@ fn import_prowlarr(text: &str) -> Result<Imported, String> {
         }],
         skipped: 0,
         notes: vec![format!(
-            "{} 个公共索引器，默认全部关闭 —— 先开几个能连上的",
+            "{} 个公共索引器，默认只开其中 {zh} 个中文站（其余在 sources.json 里开）",
             list.len()
         )],
     })
@@ -439,10 +443,9 @@ mod tests {
         assert_eq!(cat.kind, Kind::Bt);
         assert_eq!(cat.members.len(), 1, "private 不该进成员");
         assert_eq!(cat.members[0].id, "dmhy");
-        assert!(
-            !cat.members[0].enabled,
-            "成员默认关闭（80 个全开就是一片超时）"
-        );
+        // dmhy 是 zh-TW ⇒ 默认开；英文站才默认关
+        assert!(cat.members[0].enabled, "中文站默认开");
+        assert_eq!(cat.members[0].language, "zh-TW");
     }
 
     #[test]

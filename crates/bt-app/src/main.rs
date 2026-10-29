@@ -187,6 +187,45 @@ fn rule_factories(
         }));
     }
 
+    // 目录成员（Prowlarr）：定义必须在**缓存**里（用户点过一次「拉取」），否则跳过。
+    // 不在 provider_set 里现拉 —— 那是每次搜索都发 80 个请求。
+    for s in &file.sources {
+        if !s.enabled
+            || s.kind != sources::Kind::Bt
+            || s.adapter != sources::Adapter::CardigannCatalog
+        {
+            continue;
+        }
+        let Some(url) = s.url.as_deref() else {
+            continue;
+        };
+        let ver = sources::catalog_version(url);
+
+        for m in sources::enabled_members(s) {
+            let Some(text) = sources::cached_definition(&ver, &m.id) else {
+                continue;
+            };
+            let Ok(def) = cardigann::parse_definition(&text) else {
+                continue;
+            };
+            let Ok(def) = cardigann::validate_rule(def) else {
+                continue;
+            };
+
+            // 熔断按**成员**判（不是整个目录）：80 个站里坏几个很正常
+            let pid = format!("prowlarr:{}", m.id);
+            if stale.get(&pid).copied().unwrap_or(0) >= health::STALE_AFTER {
+                continue;
+            }
+
+            let name = m.name.clone();
+            out.push(Box::new(move || {
+                Box::new(cardigann::RuleProvider::new(&pid, &name, def.clone()))
+                    as Box<dyn Provider>
+            }));
+        }
+    }
+
     out
 }
 
@@ -1493,6 +1532,87 @@ fn refresh_subscriptions(ui: &AppWindow) {
     });
 }
 
+/// 拉取目录成员的定义（只拉**已启用且没缓存**的），存到 `%APPDATA%/bt-search/cardigann/`。
+///
+/// 为什么是手动按钮而不是启动自动拉：80 个站 × 每个一次请求，启动就干这事太贵；
+/// 而且用户可能只想开两三个。
+fn prepare_catalog(ui: &AppWindow) {
+    let (need, total) = STATE.with(|s| {
+        let st = s.borrow();
+        let mut need: Vec<(String, String, String)> = Vec::new();
+        let mut total = 0usize;
+
+        for e in &st.sources.sources {
+            if !e.enabled
+                || e.kind != sources::Kind::Bt
+                || e.adapter != sources::Adapter::CardigannCatalog
+            {
+                continue;
+            }
+            let Some(url) = e.url.as_deref() else {
+                continue;
+            };
+            let ver = sources::catalog_version(url);
+            for m in sources::enabled_members(e) {
+                total += 1;
+                if sources::cached_definition(&ver, &m.id).is_none() {
+                    need.push((ver.clone(), m.id.clone(), m.name.clone()));
+                }
+            }
+        }
+        (need, total)
+    });
+
+    if total == 0 {
+        ui.set_catalog_status("没有启用的目录成员（先导入 Prowlarr 清单）".into());
+        return;
+    }
+    if need.is_empty() {
+        rebuild_rule_providers(&STATE.with(|s| s.borrow().sources.clone()));
+        ui.set_catalog_status(format!("{total} 个成员都已缓存").into());
+        return;
+    }
+
+    ui.set_catalog_status(format!("拉取 {} 个定义…", need.len()).into());
+
+    let weak = ui.as_weak();
+    spawn(async move {
+        let mut ok = 0usize;
+        let mut bad: Vec<String> = Vec::new();
+
+        for (ver, id, name) in &need {
+            let url = cardigann::definition_url(ver, id);
+            let resp = http().get_text(&url, None).await;
+            match (resp.error, resp.html) {
+                (None, Some(body)) if !body.trim().is_empty() => {
+                    if sources::save_definition(ver, id, &body).is_ok() {
+                        ok += 1;
+                    } else {
+                        bad.push(format!("{name}：写缓存失败"));
+                    }
+                }
+                (Some(e), _) => bad.push(format!("{name}：{e}")),
+                _ => bad.push(format!("{name}：空响应")),
+            }
+        }
+
+        let _ = slint::invoke_from_event_loop(move || {
+            let Some(ui) = weak.upgrade() else { return };
+            // 缓存变了 ⇒ 重建 provider（新拉到的那些要参与搜索）
+            rebuild_rule_providers(&STATE.with(|s| s.borrow().sources.clone()));
+
+            let mut msg = format!("目录定义：成功 {ok} / {}", need.len());
+            if !bad.is_empty() {
+                let head: Vec<&str> = bad.iter().take(3).map(String::as_str).collect();
+                msg.push_str(&format!("；失败 {}：{}", bad.len(), head.join("、")));
+            }
+            ui.set_catalog_status(msg.clone().into());
+            STATE.with(|s| s.borrow_mut().status = msg.clone());
+            ui.set_status_text(msg.into());
+        });
+    });
+}
+
 /// 「测试」：真跑一次搜索，报条数与耗时。
 ///
 /// 为什么要真跑：规则里最多的错不是语法，而是**选择器选不中**（站点结构变了 / 猜错了）。
@@ -2473,6 +2593,15 @@ fn wire(ui: &AppWindow) {
         ui.on_refresh_subs(move || {
             if let Some(ui) = weak.upgrade() {
                 refresh_subscriptions(&ui);
+            }
+        });
+    }
+    // 目录成员：拉取定义（拉完自动重建 provider）
+    {
+        let weak = ui.as_weak();
+        ui.on_prepare_catalog(move || {
+            if let Some(ui) = weak.upgrade() {
+                prepare_catalog(&ui);
             }
         });
     }

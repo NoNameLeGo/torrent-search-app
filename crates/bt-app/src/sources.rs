@@ -63,6 +63,9 @@ pub struct Member {
     pub name: String,
     #[serde(default = "default_true")]
     pub enabled: bool,
+    /// 站点语言标签（`zh-CN` / `ja` / `en-US` …）。导入时用来决定**默认开哪些**。
+    #[serde(default)]
+    pub language: String,
 }
 
 /// 一条数据源。
@@ -576,6 +579,24 @@ mod tests {
 // 读写（IO 层，放最后 —— 上面全是纯函数，单测不碰盘）
 // ---------------------------------------------------------------------------
 
+/// 从目录 URL 里取 schema 版本号（`…/master/12` → `12`）。
+///
+/// 取不到就退回 `"12"` —— 这个值只在拼「单个定义的 URL」时用，
+/// 万一 Prowlarr 升到 13 而我们读不出，最坏情况是那一轮全部 404，状态里会显示出来。
+pub fn catalog_version(url: &str) -> String {
+    let last = url.trim_end_matches('/').rsplit('/').next().unwrap_or("");
+    if !last.is_empty() && last.chars().all(|c| c.is_ascii_digit()) {
+        last.to_string()
+    } else {
+        "12".to_string()
+    }
+}
+
+/// 目录里**已经启用**的成员。
+pub fn enabled_members(entry: &SourceEntry) -> Vec<&Member> {
+    entry.members.iter().filter(|m| m.enabled).collect()
+}
+
 /// 订阅那一行的摘要。
 pub fn describe_subs(file: &SourcesFile) -> String {
     match file.subscriptions.len() {
@@ -676,6 +697,53 @@ pub fn load() -> (SourcesFile, bool) {
 }
 
 /// 落盘（原子写，同 `config_store`）。
+// ---------------------------------------------------------------------------
+// Cardigann 定义缓存（目录成员按需下载，落到 %APPDATA%/bt-search/cardigann/）
+// ---------------------------------------------------------------------------
+
+/// 成员 id 是否安全（**来自远程 JSON，必须校验**）。
+///
+/// 不做这件事，一个 `"id": "../../evil"` 就能把文件写到配置目录之外。
+pub fn safe_member_id(id: &str) -> bool {
+    !id.is_empty()
+        && id.len() <= 64
+        && id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
+        && !id.contains("..")
+}
+
+fn definition_path(ver: &str, id: &str) -> Option<std::path::PathBuf> {
+    if !safe_member_id(id) || !safe_member_id(ver) {
+        return None;
+    }
+    Some(
+        crate::config_store::data_dir()?
+            .join("cardigann")
+            .join(format!("{ver}__{id}.yml")),
+    )
+}
+
+/// 读缓存里的定义文本（没有就是 `None`）。
+pub fn cached_definition(ver: &str, id: &str) -> Option<String> {
+    let text = std::fs::read_to_string(definition_path(ver, id)?).ok()?;
+    if text.trim().is_empty() {
+        None
+    } else {
+        Some(text)
+    }
+}
+
+/// 写入缓存（原子写）。
+pub fn save_definition(ver: &str, id: &str, text: &str) -> Result<(), String> {
+    let p =
+        definition_path(ver, id).ok_or_else(|| "member id unsafe, refuse to write".to_string())?;
+    if let Some(dir) = p.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| format!("mkdir failed: {e}"))?;
+    }
+    crate::config_store::write_atomic(&p, text).map_err(|e| format!("write failed: {e}"))
+}
+
 pub fn save(file: &SourcesFile) -> Result<(), String> {
     let p = path().ok_or_else(|| "取不到 %APPDATA%，数据源没保存".to_string())?;
     if let Some(dir) = p.parent() {
@@ -824,5 +892,57 @@ mod refresh_tests {
             file.get("rule:x").unwrap().rule.as_ref().unwrap()["base"],
             "https://mine/"
         );
+    }
+}
+
+#[cfg(test)]
+mod catalog_tests {
+    use super::*;
+
+    #[test]
+    fn catalog_version_reads_the_trailing_number() {
+        assert_eq!(
+            catalog_version("https://indexers.prowlarr.com/master/12"),
+            "12"
+        );
+        assert_eq!(
+            catalog_version("https://indexers.prowlarr.com/master/11/"),
+            "11"
+        );
+        // 读不出来时退回 12（拼 URL 用，最坏是 404，会在状态里暴露）
+        assert_eq!(catalog_version("https://indexers.prowlarr.com/"), "12");
+        assert_eq!(catalog_version(""), "12");
+    }
+
+    #[test]
+    fn only_enabled_members_are_returned() {
+        let e = SourceEntry {
+            id: "catalog:prowlarr".to_string(),
+            name: "目录".to_string(),
+            kind: Kind::Bt,
+            adapter: Adapter::CardigannCatalog,
+            builtin: false,
+            enabled: true,
+            group: None,
+            url: Some("https://indexers.prowlarr.com/master/12".to_string()),
+            r#override: false,
+            rule: None,
+            members: vec![
+                Member {
+                    id: "a".into(),
+                    name: "A".into(),
+                    enabled: true,
+                    language: "zh-CN".into(),
+                },
+                Member {
+                    id: "b".into(),
+                    name: "B".into(),
+                    enabled: false,
+                    language: "en-US".into(),
+                },
+            ],
+        };
+        assert_eq!(enabled_members(&e).len(), 1);
+        assert_eq!(enabled_members(&e)[0].id, "a");
     }
 }

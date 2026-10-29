@@ -511,6 +511,8 @@ export component AppWindow inherits Window {
     // 订阅：一个返回源清单的 URL（格式按内容自动判断）
     in-out property <string> sub-url: "";
     in-out property <string> sub-status: "无订阅";
+    // 目录成员（Prowlarr）：定义要手动拉一次才进搜索
+    in-out property <string> catalog-status: "目录未拉取";
     in-out property <string> tvbox-status: "未导入影视源";
     in-out property <[ProviderChip]> providers;
     in-out property <[SiteToggle]> sites;
@@ -579,6 +581,8 @@ export component AppWindow inherits Window {
     // 订阅：添加（并立刻刷新）/ 刷新全部
     callback add-subscription();
     callback refresh-subs();
+    // 目录成员：拉取定义（拉完自动重建 provider）
+    callback prepare-catalog();
     callback clear-tvbox();
     callback push-row(int);
     callback pick-kind(string);
@@ -937,6 +941,20 @@ export component AppWindow inherits Window {
                     AppButton { label: "添加"; height: 26px; text-size: 11px; clicked => { root.add-subscription(); } }
                     AppButton { label: "刷新"; height: 26px; text-size: 11px; clicked => { root.refresh-subs(); } }
                     Text { text: root.sub-status; color: Theme.sub; font-size: 11px; vertical-alignment: center; }
+                }
+
+                // 目录成员：Prowlarr 清单里的子站，定义要落地成缓存才参与搜索。
+                HorizontalLayout {
+                    spacing: 6px;
+                    Text { text: "目录"; color: Theme.sub; font-size: 11px; vertical-alignment: center; }
+                    AppButton { label: "拉取定义"; height: 26px; text-size: 11px; clicked => { root.prepare-catalog(); } }
+                    Text {
+                        text: root.catalog-status;
+                        color: Theme.sub;
+                        font-size: 11px;
+                        vertical-alignment: center;
+                        horizontal-stretch: 1;
+                    }
                 }
 
                 HorizontalLayout {
