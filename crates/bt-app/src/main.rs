@@ -1371,6 +1371,128 @@ fn rule_def_from_text(text: &str) -> Result<cardigann::Definition, String> {
     cardigann::from_user_rule(&rule)
 }
 
+/// 添加订阅（然后立刻刷新一次）。
+///
+/// 订阅就是一个「返回源清单的 URL」—— 格式按内容自动判断（与导入器同一套判据），
+/// 所以用户不用告诉我们是 TVBox 还是 LibreTV。
+fn add_subscription(ui: &AppWindow) {
+    let raw = ui.get_sub_url().to_string();
+    let Some(url) = downloaders::safe_http_url(&raw) else {
+        ui.set_sub_status("地址不合法：只接受 http:// 或 https://".into());
+        return;
+    };
+    let name = source_import::host_of(&url).to_string();
+    let id = format!("sub:{name}");
+
+    let mut file = STATE.with(|s| s.borrow().sources.clone());
+    if file
+        .subscriptions
+        .iter()
+        .any(|s| s.id == id || s.url == url)
+    {
+        ui.set_sub_status("这个订阅已经在列表里".into());
+        return;
+    }
+    file.subscriptions.push(sources::Subscription {
+        id,
+        name,
+        url,
+        // 空 ⇒ 刷新时按内容判断；不预判是因为同一个 URL 后面可能换格式
+        format: String::new(),
+        enabled: true,
+        last_sync: 0,
+    });
+
+    if let Err(e) = sources::save(&file) {
+        ui.set_sub_status(format!("保存失败：{e}").into());
+        return;
+    }
+    STATE.with(|s| s.borrow_mut().sources = file);
+    refresh_subscriptions(ui);
+}
+
+/// 刷新所有启用的订阅（启动时也会调一次）。
+///
+/// **合并规则见 [`sources::merge_refreshed`]**：只换定义，用户关掉的源不会被重新打开，
+/// 手改过的规则也不会被订阅覆盖。
+fn refresh_subscriptions(ui: &AppWindow) {
+    let subs: Vec<sources::Subscription> = STATE.with(|s| {
+        s.borrow()
+            .sources
+            .subscriptions
+            .iter()
+            .filter(|x| x.enabled)
+            .cloned()
+            .collect()
+    });
+    if subs.is_empty() {
+        ui.set_sub_status("还没有订阅".into());
+        return;
+    }
+    ui.set_sub_status(format!("刷新 {} 个订阅…", subs.len()).into());
+
+    let weak = ui.as_weak();
+    spawn(async move {
+        let mut got: Vec<sources::SourceEntry> = Vec::new();
+        let mut bad: Vec<String> = Vec::new();
+
+        // 串行拉：订阅通常只有个位数，串行更容易给出「谁失败了」的清晰归因
+        for sub in &subs {
+            let resp = http().get_text(&sub.url, None).await;
+            let body = match (resp.error, resp.html) {
+                (Some(e), _) => {
+                    bad.push(format!("{}：{e}", sub.name));
+                    continue;
+                }
+                (None, Some(b)) if !b.is_empty() => b,
+                _ => {
+                    bad.push(format!("{}：空响应", sub.name));
+                    continue;
+                }
+            };
+            let fmt = source_import::guess_format(&body);
+            match source_import::import(&body, fmt) {
+                Ok(imp) => got.extend(imp.entries),
+                Err(e) => bad.push(format!("{}：{}", sub.name, import_error_text(e))),
+            }
+        }
+
+        let _ = slint::invoke_from_event_loop(move || {
+            let Some(ui) = weak.upgrade() else { return };
+
+            let mut file = STATE.with(|s| s.borrow().sources.clone());
+            let (added, updated) = sources::merge_refreshed(&mut file, &got);
+
+            let ids: Vec<String> = subs.iter().map(|s| s.id.clone()).collect();
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs() as i64)
+                .unwrap_or(0);
+            for s in file.subscriptions.iter_mut() {
+                if ids.contains(&s.id) {
+                    s.last_sync = now;
+                }
+            }
+
+            let msg = match sources::save(&file) {
+                Ok(()) => {
+                    apply_sources_state(&ui, file);
+                    let mut m = format!("订阅刷新：新增 {added}、更新 {updated}");
+                    if !bad.is_empty() {
+                        m.push_str(&format!("；失败 {} 个：{}", bad.len(), bad.join("；")));
+                    }
+                    m
+                }
+                Err(e) => format!("保存失败：{e}"),
+            };
+
+            ui.set_sub_status(msg.clone().into());
+            STATE.with(|s| s.borrow_mut().status = msg.clone());
+            ui.set_status_text(msg.into());
+        });
+    });
+}
+
 /// 「测试」：真跑一次搜索，报条数与耗时。
 ///
 /// 为什么要真跑：规则里最多的错不是语法，而是**选择器选不中**（站点结构变了 / 猜错了）。
@@ -2201,6 +2323,8 @@ fn wire(ui: &AppWindow) {
     ui.set_video_sites((video::registry().len() + video_sources.len()) as i32);
     ui.set_tvbox_status(config_store::describe_video_sources(&video_sources).into());
     ui.set_sources_status(sources::describe(&source_file).into());
+    ui.set_sub_status(sources::describe_subs(&source_file).into());
+    let has_subs = !source_file.subscriptions.is_empty();
     STATE.with(|s| {
         let mut st = s.borrow_mut();
         st.video_sources = video_sources;
@@ -2334,6 +2458,27 @@ fn wire(ui: &AppWindow) {
                 save_rule(&ui);
             }
         });
+    }
+    // 订阅：添加（并立刻刷新）/ 刷新全部
+    {
+        let weak = ui.as_weak();
+        ui.on_add_subscription(move || {
+            if let Some(ui) = weak.upgrade() {
+                add_subscription(&ui);
+            }
+        });
+    }
+    {
+        let weak = ui.as_weak();
+        ui.on_refresh_subs(move || {
+            if let Some(ui) = weak.upgrade() {
+                refresh_subscriptions(&ui);
+            }
+        });
+    }
+    // D11：启动刷一次订阅（没有订阅就直接返回，不会发请求）
+    if has_subs {
+        refresh_subscriptions(ui);
     }
     // ① 下一页：拿**当前** query 与页号 +1 重跑一轮。
     // ⚠️ 别在这儿自己筛"哪些站能翻页" —— 聚合层的 `resolve_targets` 在 page>1 时

@@ -508,6 +508,9 @@ export component AppWindow inherits Window {
     // 手写规则（JSON 或 YAML）：粘进来 → 测试 → 保存
     in-out property <string> rule-text: "";
     in-out property <string> rule-status: "未填写规则";
+    // 订阅：一个返回源清单的 URL（格式按内容自动判断）
+    in-out property <string> sub-url: "";
+    in-out property <string> sub-status: "无订阅";
     in-out property <string> tvbox-status: "未导入影视源";
     in-out property <[ProviderChip]> providers;
     in-out property <[SiteToggle]> sites;
@@ -573,6 +576,9 @@ export component AppWindow inherits Window {
     // 规则：真跑一次搜索验证 / 存进注册表
     callback test-rule();
     callback save-rule();
+    // 订阅：添加（并立刻刷新）/ 刷新全部
+    callback add-subscription();
+    callback refresh-subs();
     callback clear-tvbox();
     callback push-row(int);
     callback pick-kind(string);
@@ -917,6 +923,20 @@ export component AppWindow inherits Window {
                             }
                         }
                     }
+                }
+
+                // 订阅：贴一个「返回源清单」的 URL，加完立刻拉一次。
+                HorizontalLayout {
+                    spacing: 6px;
+                    Text { text: "订阅"; color: Theme.sub; font-size: 11px; vertical-alignment: center; }
+                    LineEdit {
+                        horizontal-stretch: 1;
+                        placeholder-text: "源清单 URL（TVBox / LibreTV / Prowlarr 自动识别）";
+                        text <=> root.sub-url;
+                    }
+                    AppButton { label: "添加"; height: 26px; text-size: 11px; clicked => { root.add-subscription(); } }
+                    AppButton { label: "刷新"; height: 26px; text-size: 11px; clicked => { root.refresh-subs(); } }
+                    Text { text: root.sub-status; color: Theme.sub; font-size: 11px; vertical-alignment: center; }
                 }
 
                 HorizontalLayout {

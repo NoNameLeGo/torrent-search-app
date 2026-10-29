@@ -132,7 +132,8 @@
 | **3b** | 规则编辑框（贴 JSON/YAML）+ 「测试」（真跑一次搜索，报条数与耗时）+ 「保存」 | ✅ 本批 |
 | **4a** | **BT 聚合接线**：`rule_factories()` → `RULE_DYNAMIC` → `provider_set()`（规则真正参与搜索）；启动与每次导入后重建 | ✅ 本批 |
 | **4b-1** | **熔断**：连续 `health::STALE_AFTER`(3) 次空手的规则**临时**退出搜索（不改 `enabled`） | ✅ 本批 |
-| **4b-2** | 订阅刷新（启动 + 手动）+ 成员展开 UI + 编辑表单（3b） | ⬜ |
+| **4b-2** | **订阅刷新**：添加（立刻拉一次）+ 刷新全部 + 启动自动刷；`merge_refreshed` 只换定义、**不动用户的开关** | ✅ 本批 |
+| **4b-3** | Prowlarr 目录的**成员展开**（80 个子站逐站开关）+ 成员拉取 YAML 后变成 provider | ⬜ |
 
 ✅ **规则从 4a 起真正生效**：`sources.json` 里 `enabled && kind==Bt && adapter==html_rule`
 的条目会作为 provider 进聚合层，**排在静态 28 家与 Torznab 之后**（用户手写的规则最不可靠，
