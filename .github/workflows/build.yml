@@ -32,17 +32,22 @@ jobs:
       - name: 确保 electron 二进制已下载
         run: node node_modules/electron/install.js
 
-      # ---- 1) NSIS 安装包（不签名，仅打 tag 时发布到 Release）----
+      # ---- 1) NSIS 安装包（不签名，**只构建不发布**）----
       # 本地沙箱会卡死在代码签名子进程，但 GitHub 托管的真 Windows 不会。
       # 关闭证书自动发现即可跳过签名，产出未签名安装包（Windows 会弹 SmartScreen 警告）。
-      # --publish=onTag 显式传在这里，不写死在 package.json 的 dist 脚本里：
-      # 脚本里硬编码过一次，导致 release 流程传 --publish=never 时拼成两个
-      # --publish 参数、后者没能覆盖前者，缺 GH_TOKEN 直接失败。
+      #
+      # ⚠️ 2026-10-31 起这里是 `--publish=never`（原为 `onTag`）。原因是两条 workflow 都监听
+      # tag push，而 electron-builder 的 github publisher **默认 releaseType=draft**：
+      # `build.yml` 建出一个只含 `.blockmap` 的**草稿 Release**，`release.yml` 的 softprops 又
+      # 为同一个 tag 建出正式的那个 ⇒ 每个 tag 留下一个永远没人发布、也没人删的草稿
+      # （v0.4.1 / v0.4.2 / v0.4.3 各一个，2026-10-31 已按 release id 删除）。
+      # 发布职责只留在 `release.yml` 的 publish job，这里纯粹出产物。
+      # `--publish` 仍显式传在这里、不写死在 package.json 的 dist 脚本里：脚本里硬编码过一次，
+      # 导致 release 流程传 `--publish=never` 时拼成两个 `--publish` 参数、后者没能覆盖前者。
       - name: 构建 NSIS 安装包
-        run: npm run dist -- --publish=onTag
+        run: npm run dist -- --publish=never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # ---- 2) 免安装便携版（复用本地验证过的手动拼装）----
       - name: 拼装便携版文件夹

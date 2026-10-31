@@ -134,5 +134,8 @@
 - Node 版 40 家仍在 `main` 上共存（`D18`：留着作对照；删除按**函数粒度**推进，还没开始）。
 - `videosources.json` / `indexers.json` 仍会被读，但**只用于一次性迁移**进 `sources.json`；
   写入已整体搬到 `sources.json`（`config_store::save_video_sources` 已删）。
-- 同一 tag 下可能同时有 draft 和正式 release（`build.yml` 的 electron-builder 会建 draft）⇒
-  删除一律按 **release id**（先 `gh api .../releases` 拿 id），别 `gh release delete <tag>`。
+- ~~同一 tag 下可能同时有 draft 和正式 release~~ —— **2026-10-31 已收口**：草稿是 `build.yml` 里
+  electron-builder 的 `--publish=onTag`（默认 `releaseType=draft`）建的，每个 tag 留一个只剩
+  `.blockmap` 的空壳（v0.4.1/0.4.2/0.4.3 三个已按 release id 删除）。现在 `build.yml` 是
+  `--publish=never`，**只有 `release.yml` 的 publish job 建 Release**。
+  删除 release 仍一律按 **release id**（先 `gh api .../releases` 拿 id），别 `gh release delete <tag>`。

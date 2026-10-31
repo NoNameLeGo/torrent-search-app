@@ -58,6 +58,11 @@ jobs:
           name: electron-dist
           path: |
             dist/*Setup*.exe
+            # electron-updater 的元数据 + 增量包信息。
+            # 2026-10-31 之前这两样是 `build.yml` 的 electron-builder 顺手上传的（伴随着那个
+            # 多余的草稿 Release）；现在 build.yml 改成 `--publish=never`，只能从这里带上。
+            dist/latest.yml
+            dist/*.blockmap
             dist/portable/*.zip
           if-no-files-found: error
 
@@ -198,15 +203,14 @@ jobs:
 
       # ⚠️ **这里刻意不删同名旧 Release**（2026-10-24 删掉了原 `gh release delete` 步骤）。
       #
-      # 原步骤的注释说"避免 softprops 追加产物导致新旧文件名共存" —— **这个担心不成立**：
-      # `softprops/action-gh-release` 的 `overwrite_files` **默认为 true**，同名资产会原地覆盖；
-      # 而且它**复用**同 tag 的既有 Release（是 `build.yml` 的 electron-builder 先建的那个），
-      # 复用 draft 时在 `draft` 未显式设置的情况下会把它发布出去。
+      # 那个 `gh release delete` 是 `latest.yml` 时有时无的**直接原因**：两个 workflow 都监听
+      # tag push，`build.yml` 先建 Release 并放上 `latest.yml`，随后这里把整个 Release 删掉、
+      # 只用本 job 的产物重建 ⇒ `latest.yml` 连带消失。删掉本步骤后两侧合并到同一个 Release。
       #
-      # 反过来，原来那步 `gh release delete` 是 `latest.yml` 时有时无的**直接原因**：
-      # 两个 workflow 都监听 tag push，`build.yml` 先建 Release 并放上 `latest.yml`，
-      # 随后这里把整个 Release 删掉、只用本 job 的 6 个产物重建 ⇒ `latest.yml` 连带消失。
-      # 删掉本步骤后两侧合并到同一个 Release，资产是并集。
+      # 2026-10-31 起 `build.yml` 已改成 `--publish=never`（它原来会建一个只剩 `.blockmap`
+      # 的草稿 Release，每个 tag 留一个），所以现在这条链上**只有本 job 会建 Release**，
+      # 不再有草稿可复用、也不再有竞态。`latest.yml` / `*.blockmap` 由 electron job 的
+      # artifact 一起带过来。
       #
       # 仓库规矩是"绝不重打同名 tag"，所以"覆盖重发"这个场景本来就不该发生。
 
