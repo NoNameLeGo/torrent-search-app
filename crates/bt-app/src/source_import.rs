@@ -184,7 +184,7 @@ fn import_libretv(text: &str) -> Result<Imported, String> {
 
 /// Prowlarr 清单：一条目录 + N 个成员。
 ///
-/// ⚠️ 成员默认**只开中文站**（`language` 以 `zh` 开头）—— 80 个 public 里境内能连的
+/// ⚠️ 成员默认**只开中文站**（`language` 是 `zh` / `zh-XX`）—— 80 个 public 里境内能连的
 /// 往往就是那几个，全开会让每次搜索都在等超时（`docs/DATA-SOURCES.md` §6）。
 fn import_prowlarr(text: &str) -> Result<Imported, String> {
     let list = bt_providers::cardigann::parse_catalog(text)?;
@@ -199,7 +199,7 @@ fn import_prowlarr(text: &str) -> Result<Imported, String> {
             name: e.name.clone(),
             // 默认只开中文站：80 个 public 里境内能连的往往是 zh 那几个，
             // 全开等于每次搜索都在等超时（docs/DATA-SOURCES.md §6）
-            enabled: e.language.starts_with("zh"),
+            enabled: is_chinese_lang(&e.language),
             language: e.language.clone(),
         })
         .collect();
@@ -331,9 +331,50 @@ pub(crate) fn host_of(url: &str) -> &str {
     rest.split(['/', '?', '#']).next().unwrap_or(rest)
 }
 
+/// `language` 是否中文：`zh` / `zh-CN` / `zh-TW` / `zh_Hans`。
+///
+/// ⚠️ 不能写 `starts_with("zh")` —— `zha`（壮语）也是 zh 开头，会被当成中文站默认打开。
+fn is_chinese_lang(lang: &str) -> bool {
+    lang == "zh" || lang.starts_with("zh-") || lang.starts_with("zh_")
+}
+
+/// 目录条目（Prowlarr 清单）的**更新**语义：换 url、合并成员，保留用户开关。
+///
+/// 为什么不能沿用「同 id 跳过」：目录的 id 固定是 `catalog:prowlarr`，跳过等于用户
+/// 永远换不了目录地址/版本、也拿不到新成员；而直接覆盖又会把用户逐站勾过的开关冲掉。
+/// 折中：url 用新的，成员按 id 合并，`enabled` 以**已有值**为准（用户意图优先于导入默认）。
+fn merge_catalog(old: &mut SourceEntry, new: &SourceEntry) -> bool {
+    let mut changed = false;
+    if new.url.is_some() && old.url != new.url {
+        old.url = new.url.clone();
+        changed = true;
+    }
+    for m in &new.members {
+        match old.members.iter_mut().find(|x| x.id == m.id) {
+            Some(slot) => {
+                if slot.name != m.name {
+                    slot.name = m.name.clone();
+                    changed = true;
+                }
+                // 老配置里没有 language（这次才加的字段）⇒ 补上，将来改默认值还用得上
+                if slot.language.is_empty() && !m.language.is_empty() {
+                    slot.language = m.language.clone();
+                    changed = true;
+                }
+            }
+            None => {
+                old.members.push(m.clone());
+                changed = true;
+            }
+        }
+    }
+    changed
+}
+
 /// 把导入结果并进文件：**按 id 与 url 双重去重**（同 url 换个写法不该算新源）。
 ///
-/// 返回新增条数（0 = 全是已有的）。
+/// 返回新增 / 更新的条数（0 = 全是已有的）。目录类条目（Prowlarr）走 [`merge_catalog`]，
+/// 算「更新」而不是「新增」—— 所以调用方的文案不能只写「导入」。
 pub fn apply(file: &mut SourcesFile, imported: &Imported) -> usize {
     let mut ids: HashSet<String> = file.sources.iter().map(|s| s.id.clone()).collect();
     let mut urls: HashSet<String> = file
@@ -345,6 +386,15 @@ pub fn apply(file: &mut SourcesFile, imported: &Imported) -> usize {
 
     let mut added = 0;
     for e in &imported.entries {
+        // 目录类条目是「更新」不是「新增」（理由见 merge_catalog）
+        if e.adapter == Adapter::CardigannCatalog {
+            if let Some(slot) = file.sources.iter_mut().find(|s| s.id == e.id) {
+                if merge_catalog(slot, e) {
+                    added += 1;
+                }
+                continue;
+            }
+        }
         let url_key = e
             .url
             .as_deref()
@@ -479,6 +529,90 @@ mod tests {
         assert_eq!(host_of("https://a.example:8080/x?y=1"), "a.example:8080");
         assert_eq!(host_of("http://b.example"), "b.example");
         assert_eq!(host_of("junk"), "junk");
+    }
+
+    #[test]
+    fn chinese_language_is_matched_exactly() {
+        assert!(is_chinese_lang("zh"));
+        assert!(is_chinese_lang("zh-CN"));
+        assert!(is_chinese_lang("zh-TW"));
+        assert!(is_chinese_lang("zh_Hans"));
+        // `zha`（壮语）不是中文站 —— 之前 starts_with("zh") 会把它默认打开
+        assert!(!is_chinese_lang("zha"));
+        assert!(!is_chinese_lang("en-US"));
+        assert!(!is_chinese_lang(""));
+    }
+
+    /// 存量用户（成员全关、无 language）重新导入时：
+    /// url 要更新、新成员要进来、**用户关掉的不能被默认值打开**。
+    #[test]
+    fn reimporting_catalog_updates_url_but_keeps_user_toggles() {
+        let mut file = SourcesFile::default();
+        let first = import_catalog_sample("12", &[("dmhy", "DMHY", true), ("nyaa", "Nyaa", false)]);
+        assert_eq!(apply(&mut file, &first), 1);
+        // 用户手动把 nyaa 打开、把 dmhy 关掉
+        {
+            let e = &mut file.sources[0];
+            for m in e.members.iter_mut() {
+                m.enabled = m.id == "nyaa";
+            }
+        }
+
+        // 目录升到 13，并多了一个新成员 sokebei（默认关）
+        let second = import_catalog_sample(
+            "13",
+            &[
+                ("dmhy", "DMHY", true),
+                ("nyaa", "Nyaa", false),
+                ("sukebei", "Sukebei", false),
+            ],
+        );
+        assert_eq!(apply(&mut file, &second), 1, "应该算一次更新");
+        assert_eq!(file.sources.len(), 1, "不能变成两条目录");
+
+        let e = &file.sources[0];
+        assert_eq!(
+            e.url.as_deref(),
+            Some("https://indexers.prowlarr.com/master/13")
+        );
+        let dmhy = e.members.iter().find(|m| m.id == "dmhy").unwrap();
+        assert!(!dmhy.enabled, "用户关掉的中文站不能被导入默认重新打开");
+        let nyaa = e.members.iter().find(|m| m.id == "nyaa").unwrap();
+        assert!(nyaa.enabled, "用户打开的要保持打开");
+        let sukebei = e.members.iter().find(|m| m.id == "sukebei").unwrap();
+        assert!(!sukebei.enabled, "新成员用导入时的默认（英文站默认关）");
+
+        // 再导一次同样的内容 ⇒ 无变化，不该报「已更新」
+        assert_eq!(apply(&mut file, &second), 0);
+    }
+
+    /// 造一份与 `import_prowlarr` 同形的 Imported（不依赖远程 JSON 格式）。
+    fn import_catalog_sample(ver: &str, sites: &[(&str, &str, bool)]) -> Imported {
+        Imported {
+            entries: vec![SourceEntry {
+                id: "catalog:prowlarr".to_string(),
+                name: "Prowlarr 公共目录".to_string(),
+                kind: Kind::Bt,
+                adapter: Adapter::CardigannCatalog,
+                builtin: false,
+                enabled: true,
+                group: Some("目录".to_string()),
+                url: Some(format!("https://indexers.prowlarr.com/master/{ver}")),
+                r#override: false,
+                rule: None,
+                members: sites
+                    .iter()
+                    .map(|(id, name, zh)| Member {
+                        id: (*id).to_string(),
+                        name: (*name).to_string(),
+                        enabled: *zh,
+                        language: if *zh { "zh-CN".into() } else { "en-US".into() },
+                    })
+                    .collect(),
+            }],
+            skipped: 0,
+            notes: Vec::new(),
+        }
     }
 }
 
