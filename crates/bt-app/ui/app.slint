@@ -585,6 +585,8 @@ export component AppWindow inherits Window {
     callback refresh-subs();
     // 目录成员：拉取定义（拉完自动重建 provider）
     callback prepare-catalog();
+    // 目录成员：重拉已缓存的（站点改版 / 目录升级后用）
+    callback refresh-catalog();
     // 目录成员：逐站开关（改的是 sources.json 里的 members[].enabled）
     callback toggle-member(string);
     callback clear-tvbox();
@@ -952,6 +954,7 @@ export component AppWindow inherits Window {
                     spacing: 6px;
                     Text { text: "目录"; color: Theme.sub; font-size: 11px; vertical-alignment: center; }
                     AppButton { label: "拉取定义"; height: 26px; text-size: 11px; clicked => { root.prepare-catalog(); } }
+                    AppButton { label: "重拉全部"; height: 26px; text-size: 11px; clicked => { root.refresh-catalog(); } }
                     Text {
                         text: root.catalog-status;
                         color: Theme.sub;
