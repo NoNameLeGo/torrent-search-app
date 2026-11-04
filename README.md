@@ -1,123 +1,159 @@
 # BT 聚合搜索 · Torrent Meta-Search
 
-<p align="center">
-  <img src="./assets/readme/hero.svg" width="100%" alt="torrent-search-app — Desktop BT torrent meta-search with parallel engines and downloader integration">
-</p>
+Windows 桌面应用。输入一个关键词，**磁力 / 在线影视 / 网盘**三种来源并行检索，结果分三栏各自呈现、互不混流。
+只做搜索聚合，不托管、不分发任何内容。
 
-一个 Windows 桌面应用。输入一个关键词，**磁力 / 在线影视 / 网盘**三种来源并行搜，
-结果分三栏各自呈现、互不混流：
+> 本项目由 AI 辅助生成，代码可供学习、修改与再分发，但**不保证完整性与安全性**，使用前请自行审阅。
 
-| 模式 | 做什么 | 结果怎么用 |
+## 1. 项目用途
+
+| 模式 | 检索来源 | 结果怎么用 |
 |---|---|---|
-| **磁力** | 28 家 BT 站并发检索，跨站去重合并 | 复制磁力 / 一键推送到下载器 |
-| **视频** | 5 家在线影视站的搜索结果 | 点「打开网页」用系统浏览器看 |
-| **网盘** | 接 PanSou，搜夸克 / 百度 / 阿里 / UC / 115 / PikPak… | 打开链接 + 自动复制提取码 |
+| **磁力** | 多家 BT 站并发检索，跨站去重合并 | 复制磁力 / 一键推送到下载器 |
+| **视频** | 多家在线影视站的搜索结果 | 打开原站网页，不内嵌播放器 |
+| **网盘** | 接 PanSou 服务，搜夸克 / 百度 / 阿里 / UC / 115 / PikPak 等 | 打开链接 + 自动复制提取码 |
 
-主线是 **Rust**（单文件、零运行时依赖），`main` 上同时保留 **Node/Electron** 实现作对照。
+另有两处附属检索：**字幕**（3 站）与 **Torznab 索引器**（Jackett / Prowlarr / \*arr）。
 
-> ⚠️ **本项目由 AI 辅助生成**，多引擎并行聚合的思路参考
-> [prajwalch/TorrentSearch](https://github.com/prajwalch/TorrentSearch)（Kotlin/Android）。
-> 代码可供学习、修改与再分发，但**不保证完整性与安全性**，使用前请自行审阅。
+仓库内并存两套实现：
 
-## 下载哪个？
+| 实现 | 代码位置 | 形态 |
+|---|---|---|
+| **Rust 主线** | `crates/`（`bt-core` / `bt-providers` / `bt-downloaders` / `bt-torznab` / `bt-app`） | Slint 原生 UI，单文件 exe，核心是库、进程内直调（无 HTTP、无 SSE） |
+| Node 对照实现 | `server.js` + `src/` + `public/` + `electron/` | Express 后端 + 原生 JS 前端，被 Electron 壳复用 |
 
-三种 Windows 产物都在 [Releases](https://github.com/NoNameLeGo/torrent-search-app/releases)，
-**引擎数量并不相同**：
+两套实现独立可跑，配置与数据目录各自独立（见 §5）。
 
-| 产物 | 是什么 | 引擎 | 适合 |
+## 2. 安装步骤
+
+### 2.1 桌面版（Rust 主线，免安装）
+
+1. 从 [Releases](https://github.com/NoNameLeGo/torrent-search-app/releases) 取产物 `BT-Search-Rust-<版本>.exe`
+2. 放到任意目录即可 —— 单文件绿色版，不需要解压、不需要安装（同页的 `.zip` 只是同一个 exe 的压缩包）
+3. 双击运行，首次启动会在数据目录生成配置文件（见 §5）
+
+无需安装运行时：产物静态链接 CRT，不依赖 VC++ Redistributable。
+
+### 2.2 Node 对照版（需要 Node 环境）
+
+前置条件：**Node.js ≥ 22.12.0**（`package.json` 的 `engines` 约束）。
+
+1. 安装依赖：`npm install`（运行时依赖 `express` / `axios` / `cheerio`；另外 Electron 系的 dev 依赖只有桌面壳需要）
+2. 启动：`npm start`（后端 → `http://127.0.0.1:3000`）或 `npm run electron`（桌面窗口，自动选空闲端口）
+
+> 本仓库的约定是**不在开发机上编译**，构建 / 打包统一走 CI，产物从 Releases 取。
+
+### 2.3 网盘模式的前提（可选）
+
+「网盘」tab 依赖一个外部 PanSou 服务，本应用只是客户端，**不内置也不托管**它。
+
+1. 自备 PanSou 实例，例如：
+
+   ```bash
+   docker run -d --name pansou -p 8888:8888 ghcr.io/fish2018/pansou:latest
+   ```
+
+2. 在「设置 → 网盘」填入地址 `http://127.0.0.1:8888` 与 token（若该实例开了认证）
+3. 切到「网盘」tab 搜索
+
+服务没起来时只有网盘 tab 不可用，磁力与视频不受影响。
+
+## 3. 运行方式
+
+| 形态 | 入口 | 启动方式 | 说明 |
 |---|---|---|---|
-| **`BT-Search-Rust-*.exe`** | **Rust 主线**：单文件、零运行时依赖、19 MB | **28 家 BT + 5 家视频 + PanSou 网盘** | 推荐：体积小、启动快、三模式 |
-| `BT-Search-Electron-Setup-*.exe` | Node 后端 + Electron 壳（自带 Chromium） | **40 家 BT** + Torznab | 要最多 BT 引擎、收藏 / 历史 / 无限滚动 |
-| `BT-Search-Tauri-Setup-*.exe` | 同一套 Node 后端 + 系统 WebView2 | 40 家 BT + Torznab | 想要更小体积的 Node 版 |
+| 桌面窗口 | `bt-search`（Rust 产物） | 双击 `BT-Search-Rust-<版本>.exe` | 正常使用形态，Slint UI |
+| 全链路自检 | `bt-search --selftest` | `cargo run -p bt-app --bin bt-search -- --selftest` | 离线、无人、无窗口，用假 provider 跑完整链路，输出 `[m4]` 分段结果 |
+| 引擎健康度 | `bt-search --health` | `cargo run -p bt-app --bin bt-search -- --health` | 不开窗口，只读历史并打印各引擎成功率表 |
+| Node 后端 | `server.js` | `npm start` → `http://127.0.0.1:3000` | 起本地 HTTP 服务，浏览器或 Electron 壳访问；只绑回环地址 |
+| Electron 桌面壳 | `electron/main.js` | `npm run electron` | 复用 Node 后端，自动选空闲端口 |
 
-逐项差异见 [`docs/RELEASE_ARTIFACTS.md`](./docs/RELEASE_ARTIFACTS.md)。
+两种 CLI 模式（`--selftest` / `--health`）需要控制台才能看到输出；发布产物是 Windows 子系统程序，不弹黑框。
 
-## Rust 版（`main` 主线）
+## 4. 使用示例
 
-Windows 原生桌面应用：单文件、零运行时依赖、启动快、内存低。
+### 4.1 磁力搜索
 
-### 实测指标（v0.4.0-beta，本机 2026-10-26 实测）
+1. 顶栏切到「磁力」
+2. 输入关键词，例：`ubuntu 24.04`
+3. 状态条逐站显示 ✓ / ✕ 与耗时，慢站不阻塞其他站的结果
+4. 按做种数 / 相关度 / 体积 / 日期排序，或按分类筛选、关键词高亮、翻页
+5. 单条：复制磁力，或推送到已在设置里配好的下载器
+6. 批量：勾选多行后批量推送 / 批量复制 / 导出 CSV（写到数据目录下的 `selection.csv`）
 
-| 项 | 值 | 判据 |
+### 4.2 视频搜索
+
+切到「视频」→ 输入片名 → 结果条目点「打开网页」，交给系统浏览器。
+
+### 4.3 网盘搜索
+
+切到「网盘」→ 输入关键词 → 结果给出网盘链接，提取码自动进剪贴板。
+
+### 4.4 接入 Torznab 索引器
+
+「设置 → 索引器」填地址与 API key（Jackett / Prowlarr / \*arr 均可）→ 保存后该索引器参与后续搜索。
+
+### 4.5 接入自定义数据源
+
+「设置」里几个入口，职责互不重叠：
+
+| 入口 | 作用 |
+|---|---|
+| 数据源 | 汇总视图（内置 + 导入） |
+| 导入源 | TVBox 单仓 / 多仓、LibreTV v2、Prowlarr 清单、裸 URL，自动识别格式 |
+| 规则 | 贴 JSON / YAML → 先「测试」（真跑一次，报条数与耗时）→ 再保存 |
+| 订阅 | 贴源清单 URL → 添加即拉取，可「刷新全部」，启动时自动刷新 |
+| 目录 | 拉取 Prowlarr 目录里各成员站的定义。默认只拉**已启用且未缓存**的；「重拉全部」强制重下（站点改版 / 目录升级后用） |
+| 成员 | 逐站 ✓ / ✗ 开关（改的是 `sources.json` 里的 `members[].enabled`） |
+
+## 5. 关键配置说明
+
+数据目录：`%APPDATA%\bt-search\`。可用环境变量 `BT_SEARCH_HOME` 覆盖（`--selftest` 就是靠它把写入引到临时目录）。
+
+| 文件 | 作用 | 备注 |
 |---|---|---|
-| 单文件体积 | **19.1 MB**（20,018,688 B） | < 25 MB ✅ |
-| 冷启动（同路径第 2 次起） | **0.76 – 0.81 s** | < 1 s ✅ |
-| 首次运行（含 Defender 首扫） | 1.1 – 1.6 s | ⚠️ 超 1 s，属系统首次扫描 |
-| 空闲内存（任务管理器口径） | **43.8 MB**（工作集 81.6 MB） | < 100 MB ✅ |
-| 运行时依赖 | 导入表 24 个 DLL，**全是 Windows 系统 DLL** | 无 vcruntime140 / msvcp140 / ucrt ✅ |
+| `sources.json` | **唯一真源**：内置源 + 导入源，搜索从它派生 | 每条带 `adapter`（`builtin` / `maccms_json` / `html_rule` / `cardigann_catalog` / `torznab`）、`enabled`、`rule`、`members[]` |
+| `config.json` | 下载器配置：类型（qbittorrent / transmission / aria2 / gopeed）、地址、用户名、密码、token | **明文存储** |
+| `pansou.json` | 网盘服务端点列表 + token | **明文存储**；地址见 §2.3 |
+| `health.jsonl` | 各引擎每次搜索的成功 / 空手记录 | 追加写入，`--health` 读它 |
+| `cardigann/` | 目录成员站的抓取定义缓存 | 由「目录」入口拉取生成 |
+| `selection.csv` | 批量导出结果 | 固定写到数据目录 |
 
-"零运行时依赖"的机器证据：`release.yml` 用 `-C target-feature=+crt-static` 静态链 CRT，
-`rust-size.yml` 断言产物不含 MSVC 运行时 DLL。⚠️ 正式判据（干净 Windows 双击）仍需人工在虚拟机上走一次。
+配置语义（都有单测钉着，改之前先看 `docs/SOURCES-DESIGN.md`）：
 
-### 能力
+- **订阅刷新只换定义**（名称 / 地址），不会改动用户设过的开关，也不覆盖手写规则。
+- **熔断是运行期状态**：连续 3 次空手的源临时退出搜索，数据好转自动回来，`enabled` 不动。
+- **手写规则严格、第三方定义宽松**：手写规则里不认识的 filter 直接报错并带名字；Prowlarr 来的定义放行并在状态栏列出。
+- **目录成员的「成功」= 能搜**：结构上跑不了的定义（要登录 / POST / 没有行选择器…）**不落盘**，状态栏按原因列出 —— 否则就会出现「成功 6/6、结果 0 条」。
+- **只放行 http(s)**：配置里手填的 URL 与成员 id 都过白名单，挡掉 `file://` / `ftp://` 与路径穿越。
 
-| | 能力 |
+## 6. 常见问题
+
+| 现象 | 原因 | 处理 |
+|---|---|---|
+| 某个站长期 ✕，或结果明显比预期少 | 站点被地区 / 网络屏蔽，或站点改版后页面结构变了 | 用 `--health` 看该站历史成功率；连续失败多为网络层，偶发失败多为站点层 |
+| 网盘 tab 一直空 / 报未配置 | PanSou 服务没起，或地址 / token 不对 | 先确认服务可达，再回「设置 → 网盘」核对 |
+| 提示「已推送到 qBittorrent」但客户端里没有 | qB 拒绝时回的是 HTTP 200 + 正文 `Fails.`，不是错误码（同一磁力重复推送常见） | 应用已识别该响应；若仍报成功，检查磁力是否已存在于客户端 |
+| Torznab / Jackett 显示 0 结果，配置看着没错 | 索引器用 HTTP 200 + `<error code="100">` 报错，与「真的没结果」外形相同 | 应用已探测 `<error>` 节点；仍未定位就看 API key 与索引器是否启用 |
+| 目录站点的日期显示为原始文本 | 抓取定义里的 `dateparse` / `timeparse` 等 filter 未实现 | 已知缺口，不影响标题 / 磁力 / 做种数 |
+| 目录「拉取定义」显示「可搜 5 / 8」 | 另外 3 个成员的定义结构上跑不了（要登录 / 用 POST / 没有行选择器） | 看状态栏括号里的原因；这类站点本版本搜不了，不是网络问题 |
+| 首次启动要 1 秒以上 | Defender 首次扫描 + 冷盘读取大文件 | 同路径第二次启动明显更快；属系统首次扫描 |
+
+## 7. 已知限制
+
+| 类别 | 限制 |
 |---|---|
-| 🔍 | **28 家 BT 引擎**并发（25 家与 Node 版对齐 + 3 家 Rust 独有），每站独立超时，状态条逐个显示 ✓/✕/耗时 |
-| 🎬 | **5 家在线影视**（APP影院、独播库、嘀嗒、追影、宅男）：搜到条目后打开原站，不内嵌播放器 |
-| ☁️ | **网盘（PanSou）**：夸克 / 百度 / 阿里 / UC / 115 / PikPak… 打开链接 + 自动复制提取码 |
-| 🏷️ | 排序（做种 / 相关度 / 体积 / 日期）、分类筛选、关键词高亮、分页、站点开关 |
-| 🎛️ | **Torznab 索引器**（Jackett / Prowlarr / \*arr），界面里填地址与 API key 即可 |
-| ⬇️ | 四种下载器推送：qBittorrent / Transmission / aria2·Motrix / Gopeed；批量勾选推送、复制磁力、**导出 CSV**（写到 `selection.csv`） |
-| 🩺 | **失败说得清**：区分"网络层不通"与"站点层拒绝"；连续空手的引擎打 ⚠（`--health` 看历史） |
-
-**还差什么**：BT 引擎 28 家（Node 版 40 家），剩下 15 家多数两边都不通或已停摆
-（分档见 `AGENTS.md`「受阻引擎清单」）；无 `t=caps` 探测、无缓存、无收藏 / 搜索历史；
-网盘依赖外部 PanSou 服务，App 不内置也不托管它。
-
-**架构**：核心是**库**（进程内直调，无 HTTP、无 SSE），UI 是 Slint；与 Node 版逐字段差分对齐
-（24 家 × 15 字段，0 处未豁免差异）。细节见 [`docs/ROADMAP.md`](./docs/ROADMAP.md)、[`AGENTS.md`](./AGENTS.md)。
-
-## 快速上手
-
-**磁力 / 视频**：下载 `BT-Search-Rust-*.exe` 双击即可，无需安装、无需运行库。
-
-**网盘**需要先有一个 PanSou 服务（App 只当客户端）：
-
-```bash
-docker run -d --name pansou -p 8888:8888 ghcr.io/fish2018/pansou:latest
-```
-
-然后在「设置 → 网盘」确认地址（默认 `http://127.0.0.1:8888`，开了认证就填 token），
-切到「网盘」tab 搜索。服务没起来时只有网盘 tab 不可用，磁力与视频不受影响。
-
-**下载器 / 索引器**都在界面里配，落盘在 `%APPDATA%\bt-search\`
-（`config.json` / `indexers.json` / `pansou.json`）。
-
-## Node 版（对照实现，功能最全）
-
-`server.js`（Express）+ 原生 JS 前端，被两个桌面壳复用：**Electron**（自带 Chromium）与
-**Tauri**（复用系统 WebView2）。所有抓取在本地后端完成，天然规避浏览器 CORS。
-
-| | 能力 |
-|---|---|
-| 🔍 | **40 家引擎** + 离线 `demo` + Torznab 自定义索引器，8 路并发 |
-| ⚡ | SSE 实时流：逐引擎推送状态与结果，慢站不拖累快站；按 infoHash 跨站去重 |
-| 📚 | 搜索历史 & 收藏（跨会话）、详情预览（海报 / 描述 / 多站外链）、无限滚动 |
-| ⌨️ | 批量推送 / 批量复制 / 导出 CSV、快捷键（Ctrl+K / Ctrl+D）、亮暗主题、移动端响应式 |
-
-```bash
-npm install
-npm run electron     # 桌面窗口（自动选空闲端口）
-npm start            # 或 node server.js → http://localhost:3000
-```
-
-> 本仓库**不在本机编译任何东西** —— 编译与打包全部走 GitHub Actions，产物从 Releases 下载。
-
-分层、provider 契约、两个壳的差异见 [`CLAUDE.md`](./CLAUDE.md)。
-
-## 说明与边界
-
-- **只做搜索聚合**，不托管、不分发任何版权内容。第三方站点可能因区域 / 网络被屏蔽；
-  抓取依赖公开页面结构，站点改版就要更新对应 provider。
-- **凭据是明文存储的**：下载器密码 / token 在 `config.json`，Torznab API key 在 `indexers.json`，
-  PanSou token 在 `pansou.json`（都在 `%APPDATA%\bt-search\`）。写在这里是为了**别让人以为它加密了**。
-- 只支持 **Windows**（代码里没写死平台相关的东西，但没有其他平台的构建与验证）。
-- 若把 Node 版后端部署成公开服务，务必只绑 `127.0.0.1`，避免暴露代理端点。
+| 平台 | **仅 Windows**。代码未写死平台相关逻辑，但没有其他平台的构建与验证 |
+| 引擎覆盖 | Rust 主线站点数少于 Node 版；未覆盖的站点多数已停摆或两种实现都不通 |
+| 缓存与本地库 | Rust 主线**无结果缓存、无收藏、无搜索历史**；Node 版有这三项 |
+| 网盘 | 强依赖外部 PanSou 服务，应用不内建、不托管 |
+| 安全 | 下载器密码 / token / API key 均**明文**落在数据目录，没有加密；本机多人共用的机器上需自行注意 |
+| 抓取规则 | Cardigann 只实现 7 个 filter（`replace` / `re_replace` / `append` / `prepend` / `trim` / `split` / `regexp`） |
+| 稳定性验证 | 数据源相关功能以单测 + 编译为主，**端到端真机验证仍有空白**；「零运行时依赖」缺一台未装 VC++ 运行库的干净机器做最终确认 |
+| 部署边界 | 若把 Node 后端当公开服务跑，必须只绑本机回环地址；默认没有主机白名单 |
 
 ## 许可证
 
-**GNU General Public License v3.0**，完整文本见 [LICENSE](./LICENSE)。
+GNU General Public License v3.0，全文见 [`LICENSE`](./LICENSE)。
 
-> 选 GPL-3.0 而非 AGPL-3.0：本项目是本地运行的桌面应用，不提供公开网络服务。
-> 若你要把它部署成公开的在线搜索服务，建议改用 AGPL-3.0。
+本项目是本地运行的桌面应用，不提供公开网络服务；若部署成公开在线服务，建议改用 AGPL-3.0。
