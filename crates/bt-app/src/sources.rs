@@ -734,14 +734,44 @@ pub fn cached_definition(ver: &str, id: &str) -> Option<String> {
     }
 }
 
-/// 写入缓存（原子写）。
+/// 写入缓存（原子写），并清掉同一成员**旧版本**的文件。
 pub fn save_definition(ver: &str, id: &str, text: &str) -> Result<(), String> {
     let p =
         definition_path(ver, id).ok_or_else(|| "member id unsafe, refuse to write".to_string())?;
-    if let Some(dir) = p.parent() {
-        std::fs::create_dir_all(dir).map_err(|e| format!("mkdir failed: {e}"))?;
+    let Some(dir) = p.parent() else {
+        return Err("cache dir missing".to_string());
+    };
+    std::fs::create_dir_all(dir).map_err(|e| format!("mkdir failed: {e}"))?;
+    crate::config_store::write_atomic(&p, text).map_err(|e| format!("write failed: {e}"))?;
+    // 目录升级（`master/12` → `master/13`）后旧文件会永远留着，谁也不会去清。
+    prune_stale_definitions(dir, ver, id);
+    Ok(())
+}
+
+/// 同一成员**其他版本**的缓存文件名。
+///
+/// 纯函数：单测不碰盘。判定用完整后缀 `__{id}.yml`，不是 `ends_with(id)` ——
+/// 否则 id `x` 会把 `ax` 的文件一起删掉。
+fn stale_cache_names<'a>(names: impl Iterator<Item = &'a str>, ver: &str, id: &str) -> Vec<String> {
+    let suffix = format!("__{id}.yml");
+    let keep = format!("{ver}{suffix}");
+    names
+        .filter(|n| *n != keep.as_str() && n.ends_with(&suffix))
+        .map(str::to_string)
+        .collect()
+}
+
+fn prune_stale_definitions(dir: &std::path::Path, ver: &str, id: &str) {
+    let Ok(rd) = std::fs::read_dir(dir) else {
+        return;
+    };
+    let names: Vec<String> = rd
+        .flatten()
+        .filter_map(|e| e.file_name().into_string().ok())
+        .collect();
+    for name in stale_cache_names(names.iter().map(String::as_str), ver, id) {
+        let _ = std::fs::remove_file(dir.join(name));
     }
-    crate::config_store::write_atomic(&p, text).map_err(|e| format!("write failed: {e}"))
 }
 
 pub fn save(file: &SourcesFile) -> Result<(), String> {
@@ -944,5 +974,27 @@ mod catalog_tests {
         };
         assert_eq!(enabled_members(&e).len(), 1);
         assert_eq!(enabled_members(&e)[0].id, "a");
+    }
+
+    /// 目录升级后旧 ver 的文件要清掉；**同 id 后缀相近的其他成员不能误删**。
+    #[test]
+    fn stale_cache_names_only_match_the_same_member() {
+        let names = [
+            "12__dmhy.yml",
+            "11__dmhy.yml",
+            "13__dmhy.yml",
+            "12__x.yml",
+            "12__ax.yml",
+            "notes.txt",
+        ];
+        let stale = stale_cache_names(names.iter().copied(), "12", "dmhy");
+        assert_eq!(stale, vec!["11__dmhy.yml", "13__dmhy.yml"]);
+        assert!(!stale.contains(&"12__x.yml".to_string()));
+        // 当前版本的那个必须留着
+        assert!(!stale.contains(&"12__dmhy.yml".to_string()));
+
+        // id `x` 只能命中 `__x.yml`，不能把 `__ax.yml` 一起带走
+        let stale_x = stale_cache_names(names.iter().copied(), "12", "x");
+        assert_eq!(stale_x, Vec::<String>::new());
     }
 }

@@ -58,13 +58,25 @@ jobs:
           name: electron-dist
           path: |
             dist/*Setup*.exe
-            # electron-updater 的元数据 + 增量包信息。
-            # 2026-10-31 之前这两样是 `build.yml` 的 electron-builder 顺手上传的（伴随着那个
-            # 多余的草稿 Release）；现在 build.yml 改成 `--publish=never`，只能从这里带上。
-            dist/latest.yml
-            dist/*.blockmap
             dist/portable/*.zip
           if-no-files-found: error
+
+      # electron-updater 的元数据 + 增量包信息。
+      #
+      # ⚠️ 单独一步、`warn` 而不是 `error`：这两样是 electron-builder 在
+      # `--publish=never` 下的**副产品**，不是我们直接产出的。它某天不写了，
+      # 应该只丢增量更新能力，而不该让整个发版 job 在上传阶段红掉（`electron-dist`
+      # 里的安装包才是必须的）。
+      # 2026-10-31 之前这两样由 `build.yml` 的 electron-builder 顺手上传（伴随着那个
+      # 多余的草稿 Release）；build.yml 改成 `--publish=never` 后只能从这里带上。
+      - name: Upload Electron update metadata (optional)
+        uses: actions/upload-artifact@v6
+        with:
+          name: electron-update-meta
+          path: |
+            dist/latest.yml
+            dist/*.blockmap
+          if-no-files-found: warn
 
   tauri:
     name: Build Tauri (Windows)

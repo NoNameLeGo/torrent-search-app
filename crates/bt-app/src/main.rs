@@ -364,6 +364,17 @@ struct UiState {
     /// 批量勾选的结果 —— **存 key 不存 idx**：排序/筛选会重编号 idx（同 push_row 的教训），
     /// key 才是这一行一生不变的标识。
     selected: HashSet<u64>,
+    /// 目录定义正在拉取。
+    ///
+    /// 为什么需要：「拉取定义」是普通按钮，连点两下就是两个 `spawn` × 串行 80 个请求。
+    /// 目录站（indexers.prowlarr.com）被这么打很容易限流，而 UI 上只会看到状态文字闪烁。
+    catalog_pulling: bool,
+    /// 本轮**已知结构不支持**的目录成员（键 `{ver}__{id}`）。
+    ///
+    /// 不落盘（`sources.json` 是用户配置，不塞运行期错误），但本会话内要记住 ——
+    /// 否则每次点「拉取定义」都会重新下载并重新拒绝那几十个要登录 / 用 POST 的站。
+    /// 「重拉全部」会清空它（站点可能改好了）。
+    catalog_incompatible: HashSet<String>,
 }
 
 thread_local! {
@@ -391,6 +402,8 @@ thread_local! {
         status: "就绪".to_string(),
         search_gen: 0,
         selected: HashSet::new(),
+        catalog_pulling: false,
+        catalog_incompatible: HashSet::new(),
     });
 }
 
@@ -1419,10 +1432,12 @@ fn import_sources(ui: &AppWindow) {
                             } else {
                                 String::new()
                             };
+                            // `added` 对目录类条目是「更新」—— 文案别只说新增，否则用户
+                            // 换个目录地址后看到「没有新增源」会以为没生效
                             let msg = if added == 0 {
-                                format!("没有新增源{skipped}{note}")
+                                format!("没有新增或更新的源{skipped}{note}")
                             } else {
-                                format!("已导入 {added} 个源{skipped}{note}")
+                                format!("已导入 / 更新 {added} 个源{skipped}{note}")
                             };
                             (msg.clone(), msg)
                         }
@@ -1610,15 +1625,56 @@ fn refresh_subscriptions(ui: &AppWindow) {
     });
 }
 
-/// 拉取目录成员的定义（只拉**已启用且没缓存**的），存到 `%APPDATA%/bt-search/cardigann/`。
+/// 原因码 → 人话。未知码给个兜底（宁可含糊，也别把机器码漏给用户）。
+fn incompatible_text(code: &str) -> &'static str {
+    match code {
+        "login" => "需要登录",
+        "no_search" => "没有 search 段",
+        "no_path" => "没有搜索路径",
+        "method_not_get" => "搜索用的是 POST",
+        "no_rows" => "没有行选择器",
+        "no_fields" => "没有字段定义",
+        _ => "结构不支持",
+    }
+}
+
+/// 拉取目录成员的定义，存到 `%APPDATA%/bt-search/cardigann/`。
+///
+/// - `force == false`：只拉**已启用且没缓存**的（默认行为）。
+/// - `force == true`：已启用的全部重拉（站点改版 / 目录升级后要用）。
 ///
 /// 为什么是手动按钮而不是启动自动拉：80 个站 × 每个一次请求，启动就干这事太贵；
 /// 而且用户可能只想开两三个。
-fn prepare_catalog(ui: &AppWindow) {
-    let (need, total) = STATE.with(|s| {
+///
+/// ⚠️ 「成功」的口径是**能搜**，不是**下载成功**：解析失败或结构不支持（要登录 / POST /
+/// 没有 rows…）的定义**不落盘**，分别计入 `bad` / `incompatible` 报出来。之前只看
+/// `save_definition` 的返回值，于是「成功 6/6」换来零结果 —— 见 `.audit/` 的审查记录。
+fn prepare_catalog(ui: &AppWindow, force: bool) {
+    // 重入保护：连点两下不能变成两轮 × 串行 80 个请求（目录站是第三方公共服务）
+    let busy = STATE.with(|s| {
+        let mut st = s.borrow_mut();
+        if st.catalog_pulling {
+            true
+        } else {
+            st.catalog_pulling = true;
+            false
+        }
+    });
+    if busy {
+        ui.set_catalog_status("正在拉取，等这一轮结束".into());
+        return;
+    }
+
+    // 「重拉全部」= 用户认为之前判死的定义可能已经修好 ⇒ 忘掉那些结论
+    if force {
+        STATE.with(|s| s.borrow_mut().catalog_incompatible.clear());
+    }
+
+    let (need, total, known_bad) = STATE.with(|s| {
         let st = s.borrow();
         let mut need: Vec<(String, String, String)> = Vec::new();
         let mut total = 0usize;
+        let mut known_bad = 0usize;
 
         for e in &st.sources.sources {
             if !e.enabled
@@ -1633,21 +1689,39 @@ fn prepare_catalog(ui: &AppWindow) {
             let ver = sources::catalog_version(url);
             for m in sources::enabled_members(e) {
                 total += 1;
-                if sources::cached_definition(&ver, &m.id).is_none() {
+                // 本会话已经判定「结构不支持」的不再重复下载（否则每次点按钮都重来一遍）
+                if st
+                    .catalog_incompatible
+                    .contains(&format!("{ver}__{}", m.id))
+                {
+                    known_bad += 1;
+                    continue;
+                }
+                if force || sources::cached_definition(&ver, &m.id).is_none() {
                     need.push((ver.clone(), m.id.clone(), m.name.clone()));
                 }
             }
         }
-        (need, total)
+        (need, total, known_bad)
     });
 
+    let clear_busy = || STATE.with(|s| s.borrow_mut().catalog_pulling = false);
+
     if total == 0 {
+        clear_busy();
         ui.set_catalog_status("没有启用的目录成员（先导入 Prowlarr 清单）".into());
         return;
     }
     if need.is_empty() {
+        clear_busy();
+        // 缓存没变，但用户可能刚切过成员开关 —— 顺手重建一次（幂等）
         rebuild_rule_providers(&STATE.with(|s| s.borrow().sources.clone()));
-        ui.set_catalog_status(format!("{total} 个成员都已缓存").into());
+        let msg = if known_bad > 0 {
+            format!("{total} 个成员都已处理：{known_bad} 个结构不支持、其余已缓存（要重试点「重拉全部」）")
+        } else {
+            format!("{total} 个成员都已缓存（要重拉点「重拉全部」）")
+        };
+        ui.set_catalog_status(msg.into());
         return;
     }
 
@@ -1657,25 +1731,46 @@ fn prepare_catalog(ui: &AppWindow) {
     spawn(async move {
         let mut ok = 0usize;
         let mut bad: Vec<String> = Vec::new();
+        // 结构上跑不了的：不落盘、单独报（原因码见 incompatible_text）
+        let mut incompatible: Vec<String> = Vec::new();
+        // 它们的 `{ver}__{id}` 键 —— 写回 STATE，本会话别再重复下载
+        let mut incompatible_keys: Vec<String> = Vec::new();
         // 用了我们没实现的 filter 的成员：不拦（否则中文站几乎全废），但要报出来
         let mut degraded: Vec<String> = Vec::new();
 
         for (ver, id, name) in &need {
+            // 目录站是第三方公共服务：串行 + 每轮间隔，别把它打穿
+            tokio::time::sleep(std::time::Duration::from_millis(120)).await;
+
+            // id 来自远程 JSON：拼 URL 之前先过白名单（写盘那条路也用它）
+            if !sources::safe_member_id(id) {
+                bad.push(format!("{name}：id 不合法，已跳过"));
+                continue;
+            }
             let url = cardigann::definition_url(ver, id);
             let resp = http().get_text(&url, None).await;
             match (resp.error, resp.html) {
                 (None, Some(body)) if !body.trim().is_empty() => {
-                    if let Ok(def) = cardigann::parse_definition(&body) {
-                        for f in cardigann::unsupported_filters(&def) {
-                            if !degraded.contains(&f) {
-                                degraded.push(f);
-                            }
+                    let def = match cardigann::parse_definition(&body) {
+                        Ok(d) => d,
+                        Err(e) => {
+                            bad.push(format!("{name}：定义解析失败（{e}）"));
+                            continue;
+                        }
+                    };
+                    if let Some(reason) = cardigann::incompatible_reason(&def) {
+                        incompatible.push(format!("{name}（{}）", incompatible_text(reason)));
+                        incompatible_keys.push(format!("{ver}__{id}"));
+                        continue;
+                    }
+                    for f in cardigann::unsupported_filters(&def) {
+                        if !degraded.contains(&f) {
+                            degraded.push(f);
                         }
                     }
-                    if sources::save_definition(ver, id, &body).is_ok() {
-                        ok += 1;
-                    } else {
-                        bad.push(format!("{name}：写缓存失败"));
+                    match sources::save_definition(ver, id, &body) {
+                        Ok(()) => ok += 1,
+                        Err(_) => bad.push(format!("{name}：写缓存失败")),
                     }
                 }
                 (Some(e), _) => bad.push(format!("{name}：{e}")),
@@ -1685,10 +1780,27 @@ fn prepare_catalog(ui: &AppWindow) {
 
         let _ = slint::invoke_from_event_loop(move || {
             let Some(ui) = weak.upgrade() else { return };
+            STATE.with(|s| {
+                let mut st = s.borrow_mut();
+                st.catalog_pulling = false;
+                for k in incompatible_keys {
+                    st.catalog_incompatible.insert(k);
+                }
+            });
             // 缓存变了 ⇒ 重建 provider（新拉到的那些要参与搜索）
             rebuild_rule_providers(&STATE.with(|s| s.borrow().sources.clone()));
 
-            let mut msg = format!("目录定义：成功 {ok} / {}", need.len());
+            let preview = |v: &[String], n: usize| -> String {
+                v.iter().take(n).cloned().collect::<Vec<_>>().join("、")
+            };
+            let mut msg = format!("目录定义：可搜 {ok} / {}", need.len());
+            if !incompatible.is_empty() {
+                msg.push_str(&format!(
+                    "；{} 个结构不支持：{}",
+                    incompatible.len(),
+                    preview(&incompatible, 4)
+                ));
+            }
             if !degraded.is_empty() {
                 msg.push_str(&format!(
                     "；{} 个 filter 未实现（按原样处理）：{}",
@@ -1697,8 +1809,7 @@ fn prepare_catalog(ui: &AppWindow) {
                 ));
             }
             if !bad.is_empty() {
-                let head: Vec<&str> = bad.iter().take(3).map(String::as_str).collect();
-                msg.push_str(&format!("；失败 {}：{}", bad.len(), head.join("、")));
+                msg.push_str(&format!("；失败 {}：{}", bad.len(), preview(&bad, 3)));
             }
             ui.set_catalog_status(msg.clone().into());
             STATE.with(|s| s.borrow_mut().status = msg.clone());
@@ -2697,7 +2808,16 @@ fn wire(ui: &AppWindow) {
         let weak = ui.as_weak();
         ui.on_prepare_catalog(move || {
             if let Some(ui) = weak.upgrade() {
-                prepare_catalog(&ui);
+                prepare_catalog(&ui, false);
+            }
+        });
+    }
+    // 目录成员：重拉（已缓存的也重新下载 —— 站点改版 / 目录升级后用）
+    {
+        let weak = ui.as_weak();
+        ui.on_refresh_catalog(move || {
+            if let Some(ui) = weak.upgrade() {
+                prepare_catalog(&ui, true);
             }
         });
     }

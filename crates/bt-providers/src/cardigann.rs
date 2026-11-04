@@ -206,26 +206,41 @@ pub fn parse_definition(yaml: &str) -> Result<Definition, String> {
 
 /// 这份定义能不能跑（不能跑就别拉它，省一次请求）。
 pub fn is_supported(def: &Definition) -> bool {
+    incompatible_reason(def).is_none()
+}
+
+/// 跑不了的话**为什么**。`None` = 能跑。
+///
+/// [`is_supported`] 只给布尔，够 `validate_rule` 用；但「目录成员批量拉取」必须能
+/// 把原因说出来 —— 否则状态栏只能写「成功 6/6」，而用户搜出来一条结果都没有
+///（这 6 个里有的要登录、有的是 POST）。原因码是稳定的机器标识，中文化在 UI 层做。
+pub fn incompatible_reason(def: &Definition) -> Option<&'static str> {
     if def.login.is_some() {
-        return false;
+        return Some("login");
     }
     let Some(search) = &def.search else {
-        return false;
+        return Some("no_search");
     };
     let Some(path) = search.paths.first() else {
-        return false;
+        return Some("no_path");
     };
     if path.path.trim().is_empty() {
-        return false;
+        return Some("no_path");
     }
     if path.method.as_deref().unwrap_or("get").to_ascii_lowercase() != "get" {
-        return false;
+        return Some("method_not_get");
     }
-    search
+    if !search
         .rows
         .as_ref()
         .is_some_and(|r| !r.selector.trim().is_empty())
-        && !search.fields.is_empty()
+    {
+        return Some("no_rows");
+    }
+    if search.fields.is_empty() {
+        return Some("no_fields");
+    }
+    None
 }
 
 // ---------------------------------------------------------------------------
@@ -667,6 +682,47 @@ search:
         // 没有 search
         let empty = parse_definition("links: [https://x/]\n").unwrap();
         assert!(!is_supported(&empty));
+    }
+
+    /// 目录批量拉取要靠原因码告诉用户「这 6 个为什么一条结果都没有」。
+    /// 每个分支都断言**具体码**，不然退化成一个布尔就又回到「成功 6/6」。
+    #[test]
+    fn incompatible_reason_names_the_first_blocker() {
+        let post = parse_definition(
+            "links: [https://x/]\nsearch:\n  paths: [{path: q, method: post}]\n  rows: {selector: tr}\n  fields: {title: {selector: a}}\n",
+        )
+        .unwrap();
+        assert_eq!(incompatible_reason(&post), Some("method_not_get"));
+
+        let login = parse_definition(
+            "login: {path: login.php}\nlinks: [https://x/]\nsearch:\n  paths: [{path: q}]\n  rows: {selector: tr}\n  fields: {title: {selector: a}}\n",
+        )
+        .unwrap();
+        assert_eq!(incompatible_reason(&login), Some("login"));
+
+        let no_search = parse_definition("links: [https://x/]\n").unwrap();
+        assert_eq!(incompatible_reason(&no_search), Some("no_search"));
+
+        let no_path =
+            parse_definition("search:\n  rows: {selector: tr}\n  fields: {a: {}}\n").unwrap();
+        assert_eq!(incompatible_reason(&no_path), Some("no_path"));
+
+        // 有 paths 但没有 rows ⇒ 连行都选不出来
+        let no_rows =
+            parse_definition("search:\n  paths: [{path: q}]\n  fields: {a: {}}\n").unwrap();
+        assert_eq!(incompatible_reason(&no_rows), Some("no_rows"));
+
+        // 有 rows 但没有 fields ⇒ 选出行也没东西可填
+        let no_fields =
+            parse_definition("search:\n  paths: [{path: q}]\n  rows: {selector: tr}\n").unwrap();
+        assert_eq!(incompatible_reason(&no_fields), Some("no_fields"));
+
+        // 全齐 ⇒ 能跑
+        let ok = parse_definition(
+            "search:\n  paths: [{path: q}]\n  rows: {selector: tr}\n  fields: {title: {selector: a}}\n",
+        )
+        .unwrap();
+        assert_eq!(incompatible_reason(&ok), None);
     }
 
     #[test]
