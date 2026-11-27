@@ -9,7 +9,7 @@
 ## 一句话状态
 
 `main` = **本文件所在的提交**（`git log -1 --format=%h`，别在这里写死哈希）。
-最新发布 = **`v0.4.5-beta`**（2026-11-27）。
+最新发布 = **`v0.5.0-beta`**（2026-11-27）—— **第一个不含 Electron 产物的版本**（产物 3 个）。
 
 > 🔴 **2026-11-27：Node/Electron 实现已在 `main` 上退役**（D18 收口）。`main` 现在**只有 Rust 主线**：
 > `server.js` / `src/` / `public/` / `electron/` / Node 测试运行器 / 6 条 Node 相关 workflow 全部删除，
@@ -42,7 +42,7 @@
 | 引擎 | BT **28 家**（另有离线 `demo`，不算真站）· 在线影视 **5 家** · 字幕 **3 站**（SUBHD / ASSRT / ZIMUKU）· PanSou 网盘 |
 | 测试 | `#[test]` **326** + `#[tokio::test]` **330**（2026-11-27 退役当天重数）；另有 M4 `--selftest` 全链路 |
 | workflow | **9 条**（2026-11-27 退役后重数；退役前 14 条，删了 build/node/m6-diff/provider-health/html-probes 五条），`python3 scripts/check-workflows.py` 全绿 |
-| 版本 | `Cargo.toml` / `package.json` / `Cargo.lock` / `feat/tauri` 四处 = `0.4.5-beta`，`node scripts/release-check.js` 8 项全过 |
+| 版本 | `Cargo.toml` / `package.json` / `Cargo.lock` / `feat/tauri` 四处 = `0.5.0-beta`，`node scripts/release-check.js` 8 项全过 |
 
 ## 数据源体系（2026-10-29 新，**这是最大的结构变化**）
 

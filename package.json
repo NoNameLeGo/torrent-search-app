@@ -1,6 +1,6 @@
 {
   "name": "torrent-search-app",
-  "version": "0.4.5-beta",
+  "version": "0.5.0-beta",
   "private": true,
   "description": "BT 聚合搜索 —— Rust/Slint 桌面应用（Node/Electron 实现已于 2026-11-27 退役，历史见 git 与 docs/HANDOVER.md）",
   "scripts": {
