@@ -558,6 +558,9 @@ export component AppWindow inherits Window {
     in-out property <string> detail-provider: "";
     in-out property <int> detail-seeds: 0;
     in-out property <int> detail-leechers: 0;
+    // 屏 03 的 2×2 指标（大小 / 文件数）：值的格式化与「—」兜底都在 Rust 侧
+    in-out property <string> detail-size: "—";
+    in-out property <string> detail-files: "—";
     in-out property <string> detail-infohash: "";
     in-out property <string> detail-magnet: "";
     in-out property <string> detail-url: "";
@@ -1560,29 +1563,49 @@ export component AppWindow inherits Window {
                         color: Theme.sub;
                     }
 
+                    // 2×2 指标（设计稿屏 03）：做种 / 下载 / 大小 / 文件数。
+                    // 值与「—」兜底都在 Rust 侧算好（见 ui_model::RowData），这里只排版。
                     HorizontalLayout {
-                        spacing: 16px;
+                        spacing: 8px;
 
-                        Text {
-                            text: "做种 \{root.detail-seeds}";
-                            font-size: 11px;
-                            color: Theme.green;
-                            vertical-alignment: center;
+                        VerticalLayout {
+                            horizontal-stretch: 1;
+                            spacing: 1px;
+                            Text { text: "\{root.detail-seeds}"; font-size: 13px; font-weight: 600; color: Theme.green; }
+                            Text { text: "做种"; font-size: 9px; color: Theme.dim; }
                         }
 
-                        Text {
-                            text: "下载 \{root.detail-leechers}";
-                            font-size: 11px;
-                            color: Theme.text;
-                            vertical-alignment: center;
+                        VerticalLayout {
+                            horizontal-stretch: 1;
+                            spacing: 1px;
+                            Text { text: "\{root.detail-leechers}"; font-size: 13px; font-weight: 600; color: Theme.text; }
+                            Text { text: "下载"; font-size: 9px; color: Theme.dim; }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+
+                        VerticalLayout {
+                            horizontal-stretch: 1;
+                            spacing: 1px;
+                            Text { text: root.detail-size; font-size: 13px; font-weight: 600; color: Theme.text; }
+                            Text { text: "大小"; font-size: 9px; color: Theme.dim; }
                         }
 
-                        Text {
-                            text: "来源 \{root.detail-provider}";
-                            font-size: 11px;
-                            color: Theme.accent;
-                            vertical-alignment: center;
+                        VerticalLayout {
+                            horizontal-stretch: 1;
+                            spacing: 1px;
+                            Text { text: root.detail-files; font-size: 13px; font-weight: 600; color: Theme.text; }
+                            Text { text: "文件"; font-size: 9px; color: Theme.dim; }
                         }
+                    }
+
+                    // 来源单独一行：它是出处，不是指标
+                    VerticalLayout {
+                        spacing: 1px;
+                        Text { text: "来源"; font-size: 9px; color: Theme.dim; }
+                        Text { text: root.detail-provider; font-size: 11px; color: Theme.accent; }
                     }
 
                     Text {

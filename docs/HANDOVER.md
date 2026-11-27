@@ -2,7 +2,8 @@
 
 > 这份是**给下一个接手的人/AI** 的现状快照。历史决策在 `AGENTS.md`（很长，按需查），
 > 设计目标在 `docs/ROADMAP.md`，数据源分级在 `docs/DATA-SOURCES.md`，
-> 数据源统一注册表的设计与批次账在 `docs/SOURCES-DESIGN.md`，CI 事故总账在 `docs/CI_FAILURES.md`。
+> 数据源统一注册表的设计与批次账在 `docs/SOURCES-DESIGN.md`，界面规格（屏 01/02/03 + 未实现清单）在
+> `docs/UI-SPEC.md`，CI 事故总账在 `docs/CI_FAILURES.md`。
 > 本文件只写「现在是什么状态」和「别重复踩什么」，**不写流水账**。
 
 ## 一句话状态

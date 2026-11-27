@@ -89,6 +89,11 @@ pub struct RowData {
     pub size: Option<i64>,
     pub date: Option<i64>,
     pub category: Option<String>,
+    // ---- 详情面板 2×2 指标（设计稿屏 03）----
+    // 值都取 `TorrentResult` 里**已格式化好**的字段，缺了给「—」；
+    // ⚠️ 别从 `meta` 反解（那是人看的合并串，见上面那条注释）。
+    pub size_text: String,
+    pub files_text: String,
 }
 
 impl RowData {
@@ -96,6 +101,12 @@ impl RowData {
     /// （由 [`AppState::apply_report`] 发号，别自己编）。
     pub fn from_result(r: &TorrentResult, idx: i32, key: u64, query: &str, accent: &str) -> Self {
         let has_magnet = r.magnet.as_deref().is_some_and(|m| !m.is_empty());
+        // 文件数：详情面板 2×2 只要纯数字，缺了给「—」
+        // （`meta_text` 里那份是「N 个文件」，两者用途不同，别合并）
+        let files_text = match r.files {
+            Some(f) => f.to_string(),
+            None => "—".to_string(),
+        };
         Self {
             idx,
             key,
@@ -116,6 +127,8 @@ impl RowData {
             size: r.size,
             date: r.date,
             category: r.category.clone(),
+            size_text: non_empty_or_dash(&r.size_text),
+            files_text,
         }
     }
 
@@ -1008,6 +1021,23 @@ mod tests {
         empty.category = None;
         empty.files = None;
         assert_eq!(meta_text(&empty), "— · —");
+    }
+
+    /// 详情面板 2×2 的两个格子：值来自 `TorrentResult` 的格式化字段，
+    /// 缺了就「—」—— **不从 `meta` 反解**（同 `meta_text` 那条约定）。
+    #[test]
+    fn detail_metrics_take_the_formatted_fields_and_fall_back_to_a_dash() {
+        let r = hit("x", "tpb", None);
+        let row = RowData::from_result(&r, 0, 0, "q", "#fff");
+        assert_eq!(row.size_text, "1.0 GB");
+        assert_eq!(row.files_text, "2");
+
+        let mut empty = r.clone();
+        empty.size_text = String::new();
+        empty.files = None;
+        let row = RowData::from_result(&empty, 0, 0, "q", "#fff");
+        assert_eq!(row.size_text, "—");
+        assert_eq!(row.files_text, "—");
     }
 
     #[test]

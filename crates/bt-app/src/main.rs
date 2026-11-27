@@ -515,6 +515,9 @@ fn show_detail(ui: &AppWindow, r: &crate::ui_model::RowData) {
     ui.set_detail_provider(r.provider.clone().into());
     ui.set_detail_seeds(r.seeds);
     ui.set_detail_leechers(r.leechers);
+    // 屏 03 的 2×2 指标（大小 / 文件数）—— 值在 `ui_model` 里就算好了
+    ui.set_detail_size(r.size_text.clone().into());
+    ui.set_detail_files(r.files_text.clone().into());
     ui.set_detail_infohash(r.info_hash.clone().unwrap_or_default().into());
     ui.set_detail_magnet(r.magnet.clone().unwrap_or_default().into());
     ui.set_detail_url(r.detail_url.clone().unwrap_or_default().into());
