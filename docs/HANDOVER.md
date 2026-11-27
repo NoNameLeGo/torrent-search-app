@@ -8,13 +8,26 @@
 ## 一句话状态
 
 `main` = **本文件所在的提交**（`git log -1 --format=%h`，别在这里写死哈希）。
-最新发布 = **`v0.4.3-beta`**（2026-10-29，产物 6 个）。
-上一版 `v0.4.2-beta` 是**数据源插口化的第一版**，0.4.3 补了它一处致命默认行为（见下）。
+最新发布 = **`v0.4.4-beta`**（2026-11-27，产物 6 个）。
+上一版 `v0.4.3-beta`（2026-10-29）修掉了 0.4.2 的一处致命默认行为（见下）；0.4.4 收的是 10-31~11-04 那批已合入但没发版的修复（见「0.4.4-beta 增量」）。
 
 > ⚠️ **0.4.2 的 Prowlarr 目录那条链是坏的**：6 个默认中文索引器里 5 个用了 `dateparse`，
 > 而当时的校验会因「filter 不在白名单」整站拒绝 ⇒ 用户看到「成功 6/6」然后零结果，
 > 且和「站点挂了」长得一样。0.4.3 已修（`validate_rule` 只校验结构，未知 filter 按原样
 > 处理并在状态栏列出）。
+
+## 0.4.4-beta 增量（2026-11-27 发版时补记）
+
+`v0.4.3-beta` 之后、`v0.4.4-beta` 之前 main 上落地的 4 个提交（都不改数据源结构，属于「补洞 + 去风险」）：
+
+| 提交 | 改了什么 | 为什么重要 |
+|---|---|---|
+| `d4d1a7c` fix(catalog) | 目录成员的「成功」改成**「能搜」** | 之前只要定义导入成功就报 ✓，站点实际搜不出东西也显示成功，和「站点挂了」长得一样 |
+| `0b819e6` fix(import) | 重新导入目录时更新地址并合并成员，保留用户开关 | 换订阅地址不再丢用户的逐站开关 |
+| `8c65956` docs(readme) | README 补齐 14 处「待补」占位符 | 发版页面的说明不再缺免责与下载入口 |
+| `52733df` + `5c7c969` ci(release) | `build.yml` 改 `--publish=never`；`latest.yml`/`.blockmap` 拆成独立 artifact | 不再给每个 tag 留草稿 Release；附件缺失不再阻断发版 |
+
+同批发版准备时顺带修的：`package-lock.json` 根版本停在 `0.4.1-beta` 一直没人管（`release:check` 不查它），已对齐。
 
 ## 规模（2026-10-29 实测，自己数一遍别抄）
 
@@ -22,9 +35,9 @@
 |---|---|
 | Rust | **98 个 `.rs` / 31,369 行**（`crates/`），`TODO`/`FIXME` **0 处** |
 | 引擎 | BT **28 家**（另有离线 `demo`，不算真站）· 在线影视 **5 家** · 字幕 **3 站**（SUBHD / ASSRT / ZIMUKU）· PanSou 网盘 |
-| 测试 | `#[test]` **321** + `#[tokio::test]` **329**；另有 M4 `--selftest` 全链路 |
+| 测试 | `#[test]` **325** + `#[tokio::test]` **330**（2026-11-27 重数；2026-10-29 是 321/329）；另有 M4 `--selftest` 全链路 |
 | workflow | **14 条**，`python3 scripts/check-workflows.py` 全绿 |
-| 版本 | `Cargo.toml` / `package.json` / `Cargo.lock` / `feat/tauri` 四处 = `0.4.3-beta`，`node scripts/release-check.js` 8 项全过 |
+| 版本 | `Cargo.toml` / `package.json` / `Cargo.lock` / `feat/tauri` 四处 = `0.4.4-beta`，`node scripts/release-check.js` 8 项全过 |
 
 ## 数据源体系（2026-10-29 新，**这是最大的结构变化**）
 
@@ -107,6 +120,7 @@
    磁力模式：搜一个词 → 看结果里有没有这些站
    ```
    任何一环断，状态栏那句错误文案都是可定位的（会带 filter 名 / 失败站名 / 失败成员名）。
+   → **逐条勾选清单：[`docs/E2E-CHECKLIST.md`](E2E-CHECKLIST.md)**（每步都有预期文案与失败定位）。
 2. **S2 的最后一步：干净 Windows 双击**。本机能机器验的都验完了（导入表 24 个全系统 DLL +
    净化环境启动），差的只是「一台没装 VC++ Redistributable 的机器」。
 3. **Cardigann 只实现了 7 个 filter**（`replace` / `re_replace` / `append` / `prepend` / `trim` /
@@ -116,6 +130,26 @@
 4. **首次运行 1.1–1.6 s 超 1 s 目标**：主因 Defender 首次扫描 + 冷盘读 20MB。要压下来得改启动路径
    （延迟加载字体/GL），但**本机不能编译**，盲改不划算。
 5. **`latest.yml` 竞态**：全仓无 `electron-updater` 引用 ⇒ 实际影响 ≈ 0，不修。
+
+## Node 版何时能整块退役（2026-11-27 审计结论）
+
+结论先说：**现在还不能整块删**。Node/Electron 实现被 4 条硬依赖同时钉着，删任何一块都会让 CI 或产物直接坏：
+
+| 依赖 | 位置 | 删掉的后果 |
+|---|---|---|
+| **M6 差分硬门** | `.github/workflows/rust.yml`（M6 步骤）+ `scripts/diff/fixtures.cjs`（24 家） | 门没有对照物 → 只能降级成探针（`m6-diff.yml` 本来就是探针形态） |
+| **Node 自身测试门** | `.github/workflows/node.yml` → `npm test` | 门空转（这条最容易删，但也最容易删得没感觉） |
+| **Electron 安装包** | `build.yml` + `release.yml` 的 electron job | 每次发版少一个产物，也就是「引擎全 40 家」那一份 |
+| **Tauri 分支的同源后端** | `feat/tauri` 里的 `server.js` / `src/` / `public/` 副本 | `release.yml` 的 tauri job 打出来是白屏包 |
+
+**退役顺序（每步都能单独回滚）**：
+
+1. 把 M6 从 rust.yml 的**硬门**降级（删步骤，只留 `m6-diff.yml` 探针），同时下线 `node.yml`，并改掉 AGENTS 里 Q4/D18 的表述。
+2. 再决定 Electron 停不停发：停 → 删 `build.yml`、`release.yml` 的 electron job、`electron/`、`public/`、`start.bat` / `stop.bat`、`package.json` 的 `build` 段。
+3. 最后删 `src/providers/*`（按 AGENTS 待删清单逐条）、`src/lib/*`、`server.js`、`test/run.js`；⚠️ **`test/fixtures/` 永久保留**（Rust 侧测试直接读它）。
+4. `feat/tauri` 要单独处理（它持有自己的副本），否则 tauri job 红。
+
+审计数据（2026-11-27，逐文件核过引用）：`src/providers/` 42 个 provider **全在** `index.js` 的 REGISTRY，`src/lib/` 6 个文件**全被引用**（`scraper.js` 只被 eztv/torrentdownload/torrentkitty 三家用到，最容易误判成死代码）；全仓**真正零引用**的只有 5 个文件，已删（见 AGENTS「🗑 已清理」）。
 
 ## 明确「不修」的决定（别重新发现一遍）
 

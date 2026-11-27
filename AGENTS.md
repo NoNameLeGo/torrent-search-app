@@ -676,6 +676,19 @@ crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方
 | `src/providers/megapeer.js`（87 行） | `megapeer.rs` | 真 fixture（**CI 抓的**）：50 条结果（**windows-1251**）+ 详情页磁力 + 18 条集成 + 10 条单测（两处 divergence：编码 / 5-td 列语义） | **待删** |
 | `src/providers/zeromagnet.js`（60 行） | `zeromagnet.rs` | 真 fixture（**CI 抓的**）：29 条结果（无表头）+ 详情页磁力（`input#input-magnet` 的 value）+ 14 条集成 + 4 条单测 | **待删** |
 
+### 🗑 已清理（2026-11-27，零引用审计后删除）
+
+不是移植对位，而是**全仓零引用**的遗留物；判据是「不在任何 workflow 的 paths/命令、不在 `package.json` script 或 `build.files`、不被 Rust/文档点名」。
+
+| 文件 | 为什么能删 |
+|---|---|
+| `assets/readme/hero.svg` / `architecture.svg` / `made-with-beautify.svg` | README 与 8 篇 docs 全文都不引用（旧 README 徽章残留），也不在 Electron `build.files` 里 |
+| `scripts/check-struct-fields.py` | 一次性核对 serde 字段名偏差的脚本，已结案，无 workflow 调用 |
+| `scripts/check-demo-truth.sh` | 一次性对账，仅自身提到 `demo-truth.cjs`；`demo-truth.cjs` 本体保留（`demo.rs` 的期望值出处） |
+
+⚠️ 同时审计确认：`src/providers/` 42 个 provider + `src/lib/` 6 个文件**没有一个孤儿**（全在 `index.js` REGISTRY 或 server.js 里），
+所以 Node 侧的删除只能按「条目/函数」推进（D18），不存在 `git rm` 一个文件就走人的情况。四条硬依赖见 `docs/HANDOVER.md`「Node 何时能整块退役」。
+
 （另有 `bt-providers` 的 92 条单元测试（测 `src/value.rs` + `linuxtracker.rs` + `filemood.rs` + `rutor.rs` + `audiobookbay.rs` + `therarbg.rs` + `limetorrents.rs` + `torrent9.rs` + `oxtorrent.rs` + `nyaa.rs` + `megapeer.rs` + `zeromagnet.rs`）；
 `tests/live_smoke.rs` 3 条默认跳过。合计 **338 passed / 0 failed**（2026-10-11 CI）。）
 
