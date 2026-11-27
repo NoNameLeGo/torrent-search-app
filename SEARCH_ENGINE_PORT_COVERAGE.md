@@ -1,23 +1,24 @@
 # 搜索引擎移植情况对比报告
 
-> 对比对象：
-> - 原仓库：`https://github.com/prajwalch/TorrentSearch`（Android / Kotlin 实现）
-> - 当前项目：`D:\Vibe-Coding\torrent-search-app`（**Node.js / Electron 那一条线** —— 见下面的更正）
-> - 生成时间：2026-07-11
+> ⚠️ **状态：本文件已是历史记录（2026-11-27）。**
 >
-> ⚠️ **本文件描述的是 Node 版（40 家）的引擎覆盖情况，仍然成立** —— 那个版本还在 `main` 上。
-> 2026-10-08 起项目在用 Rust 重写，**Rust 侧的移植进度见 `AGENTS.md`** —— 那是另一条线的口径，
-> 别与本文件混用。
+> 它描述的是**已退役的 Node 版**——`server.js` + `src/providers/*.js` 那 40 家引擎。
+> 2026-11-27 该实现已从 `main` 删除（`server.js` / `src/` / `public/` / `electron/` 全删，
+> 只剩 `test/fixtures/` 给 Rust 侧测试用）。**`main` 上没有 Node 版，也跑不起来。**
 >
-> ⚠️ **2026-10-16 核对时更正两处过时说法**：
-> ① Rust 线**已经切到 `main`**（不再是 `feat/rust` 分支 —— 那个分支现在是 0 独有提交的指针）；
-> ② 所以"当前项目 = Node.js / Electron 实现"只对本文件的口径成立：
-> `main` 的**主线已经是 Rust**（2026-10-23 为 **24 家 = 23 个移植站点 + 离线 demo**），
-> Node 版是差分对照（M6）与备选交付。
+> 表格保留下来只为回答两件事：
+> ① 当初从上游移植的 40 家是哪 40 家（含后来停摆的）；
+> ② 与 Rust 主线对照——**Rust 侧当前 BT 28 家 + 离线 `demo`**，差的那几家多数已停摆或两种环境都不通。
+>
+> **要看当前状态请看 [`README.md`](README.md) 与 [`docs/HANDOVER.md`](docs/HANDOVER.md)，别拿本文件当现状。**
+> Rust 侧逐站移植进度见 `AGENTS.md`（那是另一条线的口径）。
+>
+> 对比对象：原仓库 `https://github.com/prajwalch/TorrentSearch`（Android / Kotlin 实现）；生成时间 2026-07-11。
+> ⚠️ 正文里出现的 `src/providers/`、`index.js` 的 REGISTRY、`/api/*` 路径都**已随退役删除**，只作历史索引。
 
 ## 结论
 
-**已全部移植完成。** 当前项目已覆盖原仓库 40 个内置站点引擎中的 **全部 40 个**（覆盖率 100%），并保留原仓库没有的本地 `Demo (offline)` 引擎（离线演示/测试用）。原仓库的 Torznab 自定义索引器框架（Jackett / Prowlarr / *arr 接入）**也已实现**，归入「自定义」分组（见 `src/providers/torznab.js` 与 `/api/torznab/*`）。详见下方“移植状态更新”。
+**已全部移植完成（历史结论，指已退役的 Node 版）。** 当时的 Node 版覆盖原仓库 40 个内置站点引擎中的 **全部 40 个**（覆盖率 100%），并保留原仓库没有的本地 `Demo (offline)` 引擎（离线演示/测试用）。原仓库的 Torznab 自定义索引器框架（Jackett / Prowlarr / *arr 接入）**也已实现**，归入「自定义」分组（见 `src/providers/torznab.js` 与 `/api/torznab/*`）。详见下方“移植状态更新”。
 
 ---
 
@@ -48,7 +49,7 @@
 ## 移植状态更新（已全部完成 ✅）
 
 > 更新于 2026-07-11：原报告撰写时的“未移植 34 个”现已全部移植完毕。
-> 当前项目 `src/providers/` 已覆盖原仓库全部 **40 个内置站点引擎** + 1 个本地 `Demo` 引擎（共 41 个，见 `index.js` 的 REGISTRY）。
+> 当时的 Node 版 `src/providers/` 已覆盖原仓库全部 **40 个内置站点引擎** + 1 个本地 `Demo` 引擎（共 41 个，见 `index.js` 的 REGISTRY）—— 该目录已随 2026-11-27 退役删除。
 
 ### 本次新增移植的 34 个引擎（对应原报告中的“未移植”清单）
 

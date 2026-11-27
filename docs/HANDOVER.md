@@ -1,4 +1,4 @@
-# 交接说明（2026-10-29 核对，取代 2026-10-26 版）
+# 交接说明（2026-11-27 核对，取代 2026-10-29 版）
 
 > 这份是**给下一个接手的人/AI** 的现状快照。历史决策在 `AGENTS.md`（很长，按需查），
 > 设计目标在 `docs/ROADMAP.md`，数据源分级在 `docs/DATA-SOURCES.md`，
@@ -9,8 +9,12 @@
 ## 一句话状态
 
 `main` = **本文件所在的提交**（`git log -1 --format=%h`，别在这里写死哈希）。
-最新发布 = **`v0.4.4-beta`**（2026-11-27，产物 6 个）。
-上一版 `v0.4.3-beta`（2026-10-29）修掉了 0.4.2 的一处致命默认行为（见下）；0.4.4 收的是 10-31~11-04 那批已合入但没发版的修复（见「0.4.4-beta 增量」）。
+最新发布 = **`v0.4.5-beta`**（2026-11-27）。
+
+> 🔴 **2026-11-27：Node/Electron 实现已在 `main` 上退役**（D18 收口）。`main` 现在**只有 Rust 主线**：
+> `server.js` / `src/` / `public/` / `electron/` / Node 测试运行器 / 6 条 Node 相关 workflow 全部删除，
+> 发布产物从 6 个降到 **3 个**（Rust exe + zip + Tauri Setup）。详见下面「✅ 已执行」一节。
+> ⚠️ `feat/tauri` 分支仍自带一份 Node 后端副本 —— Tauri 包跑的还是它，别以为全仓都没有 Node 了。
 
 > ⚠️ **0.4.2 的 Prowlarr 目录那条链是坏的**：6 个默认中文索引器里 5 个用了 `dateparse`，
 > 而当时的校验会因「filter 不在白名单」整站拒绝 ⇒ 用户看到「成功 6/6」然后零结果，
@@ -36,9 +40,9 @@
 |---|---|
 | Rust | **98 个 `.rs` / 31,369 行**（`crates/`），`TODO`/`FIXME` **0 处** |
 | 引擎 | BT **28 家**（另有离线 `demo`，不算真站）· 在线影视 **5 家** · 字幕 **3 站**（SUBHD / ASSRT / ZIMUKU）· PanSou 网盘 |
-| 测试 | `#[test]` **325** + `#[tokio::test]` **330**（2026-11-27 重数；2026-10-29 是 321/329）；另有 M4 `--selftest` 全链路 |
-| workflow | **14 条**，`python3 scripts/check-workflows.py` 全绿 |
-| 版本 | `Cargo.toml` / `package.json` / `Cargo.lock` / `feat/tauri` 四处 = `0.4.4-beta`，`node scripts/release-check.js` 8 项全过 |
+| 测试 | `#[test]` **326** + `#[tokio::test]` **330**（2026-11-27 退役当天重数）；另有 M4 `--selftest` 全链路 |
+| workflow | **9 条**（2026-11-27 退役后重数；退役前 14 条，删了 build/node/m6-diff/provider-health/html-probes 五条），`python3 scripts/check-workflows.py` 全绿 |
+| 版本 | `Cargo.toml` / `package.json` / `Cargo.lock` / `feat/tauri` 四处 = `0.4.5-beta`，`node scripts/release-check.js` 8 项全过 |
 
 ## 数据源体系（2026-10-29 新，**这是最大的结构变化**）
 
@@ -87,8 +91,8 @@
 
 | 分支 | ahead / behind `main` | 说明 |
 |---|---|---|
-| `main` | — | Rust 主线，唯一发布源 |
-| `feat/tauri` | +83 / −402 | **永久 CI 分支**：`release.yml` 显式 checkout 它构建 Tauri 包。绝不能删。版本号要跟 main 走（4 处） |
+| `main` | — | **只有 Rust 主线**（Node/Electron 于 2026-11-27 退役），唯一发布源 |
+| `feat/tauri` | +83 / −402 | **永久 CI 分支**：`release.yml` 显式 checkout 它构建 Tauri 包。绝不能删。版本号要跟 main 走（4 处）。⚠️ 它是**全仓唯一还带 Node 后端副本**的地方 |
 | `spike/slint-ui` | +3 / −243 | M1 证据（Slint 风险探针） |
 | `feat/rust` | +0 / −226 | 已并入 main，纯存档 |
 | `legacy/node-electron` | +0 / −326 | Node/Electron 旧实现存档 |
@@ -134,11 +138,29 @@
 6. **UI 设计稿还差两项**（详见 [`docs/UI-SPEC.md`](UI-SPEC.md) §5，2026-11-27 已裁清范围）：
    详情面板**封面图**（只做影视/网盘行，另开 `poster` 字段，不动 `TorrentResult` ⇒ 不碰 M6 门）、
    **Mocha/Latte 主题切换**（两步走：色表可切换 → 切主题时用 `set_row_data` 就地重建高亮）。
-7. **Node 版退役方向待拍板**：审计结论与顺序见下一节；目前只做了「零引用遗留」的清理（5 个文件）。
+7. ~~Node 版退役方向待拍板~~ —— **2026-11-27 已拍板并执行完毕**（含 Electron），见下一节。
 
-## Node 版何时能整块退役（2026-11-27 审计结论）
+## ✅ 已执行：Node / Electron 退役（2026-11-27，提交 `012f5db`）
 
-结论先说：**现在还不能整块删**。Node/Electron 实现被 4 条硬依赖同时钉着，删任何一块都会让 CI 或产物直接坏：
+用户拍板「Electron 也退」⇒ 一次性退干净。
+
+| 类别 | 内容 |
+|---|---|
+| 代码 | `server.js`、`src/`（40 家 Node provider + 6 个 lib）、`public/`（前端）、`electron/`、`start.bat` / `stop.bat`、`test/run.js` / `test/normalize.test.js`、`.eslintrc.json` / `.prettierrc` / `.env.example` / `package-lock.json` |
+| workflow | 删 `build.yml`（Electron 安装包）、`node.yml`、`m6-diff.yml`、`provider-health.yml`、`html-probes.yml`；`rust.yml` 移除 M6 差分步骤；`release.yml` 删 electron job、`publish.needs` 改 `[tauri, rust]` |
+| 脚本 | `scripts/diff/`（整目录）、`build-portable.js`、`html-probes.cjs`、`provider-health.mjs` |
+| **保留** | ⚠️ **`test/fixtures/` 永久保留**（Rust 侧 tests 直接读它，含 `html-probes.expected.json` 这份 cheerio 真值）；`demo-truth.cjs` / `torznab-url-truth.cjs` / `check-torznab-fixture.py` 是 Rust 侧期望值的**证据链**，留着 |
+| 结果 | 发布产物 6 → **3**（Rust exe + zip + Tauri Setup）；workflow 14 → **9**；`package.json` 收成最小（只留 `release:check`） |
+
+**代价（已接受）**：M6 逐字段差分门随之消失 —— 那是「Rust 行为 == Node 行为」的唯一机器判据。
+之后再动 provider 解析只有单测 + fixture 兜底，**别再假装它还在**（`rust.yml` 里已经没有那一步了）。
+
+**仍然存在的一份 Node**：`feat/tauri` 分支（Tauri 包跑的就是它，`release.yml` 显式 checkout 那个分支）。
+要彻底清零得单独处理那个分支，而 Tauri 产物会一起消失 —— 目前**保留**，是明确的技术债而不是漏网。
+
+### 退役前的依赖审计（留档）
+
+当时不能整块删的原因 —— 4 条硬依赖：
 
 | 依赖 | 位置 | 删掉的后果 |
 |---|---|---|
@@ -162,19 +184,15 @@
 |---|---|
 | `Provider::id()/name()` 的 `&'static str` + `Box::leak` | 要消掉必须把签名改成 `&str`，牵连全部 impl + 测试（含新加的 `RuleProvider`）；收益是每 100 次搜索约 20KB。本机没 cargo，盲改签名风险 > 收益 |
 | `add_indexer` 的 `id` 恒空 | UI 按**名字**去重 ⇒ 同名索引器不会共存；撞 id 只可能来自手改 `indexers.json` |
-| Node 侧 `/api/magnet`、`/api/torznab/test`、`/api/download/*` 只查 scheme | 已登记的设计决策，缓解是只绑 `127.0.0.1`。要放开远程访问必须先加 host 白名单 |
-| Node 依赖树的 `@xmldom/xmldom` / `brace-expansion` 告警 | 全在 **dev 树**（eslint / prettier / electron-builder），不进用户机器 |
+| ~~Node 侧 `/api/magnet` 等只查 scheme~~ | **已随 Node 退役删除**（2026-11-27），这条只剩历史价值 |
 | 已发布的 Tauri 包名对不上 | 改名会让「文件名与安装包内部版本」不一致，那是造假。0.4.1 起已对齐 |
 
 ## 别的现状（免得重新确认）
 
-- M6 差分门覆盖 **24 家 BT**（0 处未豁免差异）；后加的 4 家 Rust 独有引擎在 Node 侧没有对照，
-  不进差分门，靠单测 + fixture 兜。
-- Node 版 40 家仍在 `main` 上共存（`D18`：留着作对照；删除按**函数粒度**推进，还没开始）。
+- ~~M6 差分门覆盖 24 家 BT~~ —— **已随 Node 退役删除**（2026-11-27）。历史结论：退役前 0 处未豁免差异。
+- ~~Node 版 40 家仍在 `main` 上共存~~ —— **已删**（D18 收口）。`src/providers/*.js` 只在 git 历史与 `feat/tauri` 分支里。
 - `videosources.json` / `indexers.json` 仍会被读，但**只用于一次性迁移**进 `sources.json`；
   写入已整体搬到 `sources.json`（`config_store::save_video_sources` 已删）。
-- ~~同一 tag 下可能同时有 draft 和正式 release~~ —— **2026-10-31 已收口**：草稿是 `build.yml` 里
-  electron-builder 的 `--publish=onTag`（默认 `releaseType=draft`）建的，每个 tag 留一个只剩
-  `.blockmap` 的空壳（v0.4.1/0.4.2/0.4.3 三个已按 release id 删除）。现在 `build.yml` 是
-  `--publish=never`，**只有 `release.yml` 的 publish job 建 Release**。
+- ~~同一 tag 下可能同时有 draft 和正式 release~~ —— **2026-10-31 已收口**，且 **2026-11-27 后 `build.yml` 已不存在**：
+  现在**只有 `release.yml` 的 publish job 建 Release**（`publish` 仍只在 `refs/tags/*` 上生效，手动触发是干跑）。
   删除 release 仍一律按 **release id**（先 `gh api .../releases` 拿 id），别 `gh release delete <tag>`。

@@ -10,7 +10,7 @@
 
 | 项 | 事实 |
 |---|---|
-| 产物 | Releases 页取 BT-Search-Rust-<版本>.exe（单文件绿色版，静态链接 CRT，不需要装 VC++ 运行时）。同页另有 .zip（同一个 exe 的压缩包）、Electron Setup、Tauri Setup —— **本清单只验 Rust 主线**，那两个壳不在此范围。 |
+| 产物 | Releases 页取 BT-Search-Rust-<版本>.exe（单文件绿色版，静态链接 CRT，不需要装 VC++ 运行时）。本版本**只有 3 个产物**：这个 exe、它的 `.zip`（同一个 exe 的压缩包）、以及 `BT-Search-Tauri-Setup-<版本>.exe`（Tauri 壳，构建于 `feat/tauri`，自带 Node 后端，**不在此清单范围**）。**本清单只验 Rust 主线。** |
 | 数据目录 | %APPDATA%\bt-search；设环境变量 BT_SEARCH_HOME 可整体搬走（config_store::data_dir 优先读它）。 |
 | 目录里的文件 | config.json（下载器）、pansou.json、indexers.json、sources.json（数据源唯一真源）、health.jsonl（每站历史 + 熔断依据）、cardigann/（目录定义缓存）、selection.csv（导出结果）。 |
 | 彻底重来 | 退出应用 → 把 %APPDATA%\bt-search 整个改名或删掉（或把 BT_SEARCH_HOME 指到空目录）→ 重启。⚠️ 删 health.jsonl 会一并清掉熔断判断依据（见 §7）。 |

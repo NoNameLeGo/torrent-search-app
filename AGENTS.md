@@ -2,12 +2,19 @@
 
 ## Quick start
 
-```bash
-npm install   # express, axios, cheerio (runtime) + electron, electron-builder, esbuild (dev)
-npm start     # node server.js → http://localhost:3000
-```
+> 🔴 **2026-11-27：Node / Electron 实现已从 `main` 退役**（提交 `012f5db`）。
+> 现在 `main` 上**只有 Rust 主线**（`crates/`，Slint UI，单文件 exe）。
+> `server.js` / `src/`（40 家 Node provider）/ `public/` / `electron/` / `start.bat` / `stop.bat` /
+> Node 测试运行器 / 6 条 Node 相关 workflow 全部删除；**`test/fixtures/` 永久保留**（Rust 测试直接读）。
+> ⚠️ 本文件下方仍有大量写「Node 版 / `src/providers/*.js` / `npm`」的历史段落 —— 那些是**移植过程的账本**，
+> 读的时候把它们当历史；要看某个 JS 原文用 `git show 012f5db^:src/providers/<name>.js`。
+> 唯一还带 Node 后端的是 `feat/tauri` 分支（Tauri 安装包跑的就是它，`release.yml` 显式 checkout）。
 
-Electron mode: `npm run electron` (picks a free port automatically, no collision with a running `npm start`).
+```bash
+# 本机没有 cargo / node_modules —— 编译与测试一律走 CI（见下方「构建约束」）
+node scripts/release-check.js      # 发版前 8 项预检
+python scripts/check-workflows.py  # 改过 .github/workflows/** 后必跑
+```
 
 > 📌 **接手前先读 [`docs/HANDOVER.md`](docs/HANDOVER.md)** —— 一页的现状快照：
 > `main` 的 tip 与 CI 状态、最新发布、**本机跑不了 cargo / node_modules** 这类硬约束、
@@ -40,11 +47,9 @@ Electron mode: `npm run electron` (picks a free port automatically, no collision
 | 场景 | workflow | 触发 |
 |---|---|---|
 | Rust workspace（编译 + 测试 + bt-app 全链路自检） | `rust.yml` | push `main`/`feat/rust`、PR 改 `crates/**`、手动 |
-| Electron 安装包 + portable | `build.yml` | push `main`、`v*` tag |
-| Electron + Tauri 统一发版 | `release.yml` | `v*` tag |
+| Rust + Tauri 统一发版 | `release.yml` | `v*` tag |
 | Tauri 编译校验 | `tauri-build.yml` | push `feat/tauri` |
 | Slint spike / M1 自检 | `slint-spike.yml` | push `spike/slint-ui`、PR 改 `spike/**` ⚠️ 要手动触发得先同步到 `main` |
-| **Node 版测试** | `node.yml` | push `main`、PR 改 `src/**`/`test/**`/`server.js`/`package*.json`、手动 —— **2026-10-16 新建**：在此之前 CI 里**没有任何一步跑 Node 测试**（`npm test` 只存在于 `package.json`） |
 | **产物体积门（25MB）** | `rust-size.yml` | push `main` 改 `Cargo.toml`/`crates/**`、手动 —— **2026-10-16 才从探针改成门** |
 | **生成并提交 `Cargo.lock`** | `lockfile.yml` | 仅手动 —— 本机无 cargo，锁文件只能在这里生成 |
 | workflow 文件体检 | `ci-guard.yml` | push/PR 改 `.github/workflows/**` 或 `scripts/check-workflows.py`、手动 |
@@ -652,7 +657,7 @@ crates/bt-providers/    一文件一站，对齐 src/providers/*.js 的组织方
 ⚠️ `bt-torznab` **本期不建**（D17：只留抽象口子）；旧的 `docs/BT_APP_DESIGN.md` 已删
 ```
 
-**移植进度**：
+**移植进度（历史账本 —— Node 版已于 2026-11-27 删除，下表只剩查证价值）**：
 
 | JS 源 | Rust 目标 | 验收 | 旧 JS 状态 |
 |---|---|---|---|
@@ -1556,12 +1561,12 @@ GIT_SSL_NO_VERIFY=true git push origin feat/rust
 
 | workflow | 在哪 | 能手动触发吗 |
 |---|---|---|
-| `build.yml` / `release.yml` / `tauri-build.yml` | `main` | 能 |
+| `release.yml` / `tauri-build.yml` | `main` | 能 |
 | `live-smoke.yml` | `main`（**为能手动触发而特意放的**）+ `feat/rust` | 能（触发时用 `--ref feat/rust` 才检出 Rust 代码） |
 | `rust.yml` | `main` + `feat/rust`（2026-10-16 切 main 后**必须**在 main 上） | 能（`--ref main`） |
-| `html-probes.yml` | `main` + `feat/rust` | 能（选分支 `feat/rust`，生成 cheerio 真值**并自己提交**） |
 | `fetch-fixture.yml` | `main` + `feat/rust` | 能（带 `url`/`path`，让 CI 去抓本机探不通的页面快照，抓完自己提交） |
-| `provider-health.yml` | `main` + `feat/rust` | 能（全部 40 个引擎的联网探活） |
+
+~~`build.yml` / `node.yml` / `html-probes.yml` / `provider-health.yml` / `m6-diff.yml`~~ —— **2026-11-27 随 Node 退役删除**，上表不再列它们。`test/fixtures/html-probes.expected.json` 因此变成只读（生成器已删）。
 
 `live-smoke.yml` 用 `hashFiles('crates/bt-providers/Cargo.toml')` 兜底：
 在还没有 Rust workspace 的 ref 上会优雅跳过，不给假红灯。

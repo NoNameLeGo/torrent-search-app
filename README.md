@@ -15,14 +15,16 @@ Windows 桌面应用。输入一个关键词，**磁力 / 在线影视 / 网盘*
 
 另有两处附属检索：**字幕**（3 站）与 **Torznab 索引器**（Jackett / Prowlarr / \*arr）。
 
-仓库内并存两套实现：
+仓库现在只有**一套实现**：
 
 | 实现 | 代码位置 | 形态 |
 |---|---|---|
 | **Rust 主线** | `crates/`（`bt-core` / `bt-providers` / `bt-downloaders` / `bt-torznab` / `bt-app`） | Slint 原生 UI，单文件 exe，核心是库、进程内直调（无 HTTP、无 SSE） |
-| Node 对照实现 | `server.js` + `src/` + `public/` + `electron/` | Express 后端 + 原生 JS 前端，被 Electron 壳复用 |
 
-两套实现独立可跑，配置与数据目录各自独立（见 §5）。
+> 原先并存的 Node/Electron 实现已于 **2026-11-27** 退役：`server.js` / `src/` / `public/` / `electron/`
+> 均已删除，只有 `test/fixtures/` 保留下来给 Rust 侧测试用。历史见 git
+> 与 [`docs/HANDOVER.md`](docs/HANDOVER.md) 的「Node 版何时能整块退役」一段。
+> ⚠️ 唯一的例外是 `feat/tauri` 分支 —— 它自带一份 Node 后端副本，用来产 Tauri 安装包（见 §2.2）。
 
 ## 2. 安装步骤
 
@@ -34,12 +36,12 @@ Windows 桌面应用。输入一个关键词，**磁力 / 在线影视 / 网盘*
 
 无需安装运行时：产物静态链接 CRT，不依赖 VC++ Redistributable。
 
-### 2.2 Node 对照版（需要 Node 环境）
+### 2.2 Tauri 安装包（可选，需要 WebView2）
 
-前置条件：**Node.js ≥ 22.12.0**（`package.json` 的 `engines` 约束）。
-
-1. 安装依赖：`npm install`（运行时依赖 `express` / `axios` / `cheerio`；另外 Electron 系的 dev 依赖只有桌面壳需要）
-2. 启动：`npm start`（后端 → `http://127.0.0.1:3000`）或 `npm run electron`（桌面窗口，自动选空闲端口）
+Releases 里还有一个 `BT-Search-Tauri-Setup-<版本>.exe`。⚠️ 它构建在 **`feat/tauri` 分支**上，
+而那个分支**自带一份 Node 后端副本（40 家引擎）** —— 所以它的搜索源比 `main` 上的 Rust 版多；
+代价是 `main` 里已经没有这份后端代码，也无法从 `main` 构建它。需系统已装 WebView2 Runtime
+（Win10 / Win11 一般已预装，缺失时安装程序会提示下载）。详见 [`docs/RELEASE_ARTIFACTS.md`](docs/RELEASE_ARTIFACTS.md)。
 
 > 本仓库的约定是**不在开发机上编译**，构建 / 打包统一走 CI，产物从 Releases 取。
 
@@ -65,8 +67,6 @@ Windows 桌面应用。输入一个关键词，**磁力 / 在线影视 / 网盘*
 | 桌面窗口 | `bt-search`（Rust 产物） | 双击 `BT-Search-Rust-<版本>.exe` | 正常使用形态，Slint UI |
 | 全链路自检 | `bt-search --selftest` | `cargo run -p bt-app --bin bt-search -- --selftest` | 离线、无人、无窗口，用假 provider 跑完整链路，输出 `[m4]` 分段结果 |
 | 引擎健康度 | `bt-search --health` | `cargo run -p bt-app --bin bt-search -- --health` | 不开窗口，只读历史并打印各引擎成功率表 |
-| Node 后端 | `server.js` | `npm start` → `http://127.0.0.1:3000` | 起本地 HTTP 服务，浏览器或 Electron 壳访问；只绑回环地址 |
-| Electron 桌面壳 | `electron/main.js` | `npm run electron` | 复用 Node 后端，自动选空闲端口 |
 
 两种 CLI 模式（`--selftest` / `--health`）需要控制台才能看到输出；发布产物是 Windows 子系统程序，不弹黑框。
 
@@ -144,13 +144,12 @@ Windows 桌面应用。输入一个关键词，**磁力 / 在线影视 / 网盘*
 | 类别 | 限制 |
 |---|---|
 | 平台 | **仅 Windows**。代码未写死平台相关逻辑，但没有其他平台的构建与验证 |
-| 引擎覆盖 | Rust 主线站点数少于 Node 版；未覆盖的站点多数已停摆或两种实现都不通 |
-| 缓存与本地库 | Rust 主线**无结果缓存、无收藏、无搜索历史**；Node 版有这三项 |
+| 引擎覆盖 | BT **28 家** + 离线 `demo`（Node 版那 40 家已随退役消失，未移植的多数已停摆或两种环境都不通；Tauri 包仍是 40 家） |
+| 缓存与本地库 | **无结果缓存、无收藏、无搜索历史**（旧 Node 版有这三项，退役时未迁移过来） |
 | 网盘 | 强依赖外部 PanSou 服务，应用不内建、不托管 |
 | 安全 | 下载器密码 / token / API key 均**明文**落在数据目录，没有加密；本机多人共用的机器上需自行注意 |
 | 抓取规则 | Cardigann 只实现 7 个 filter（`replace` / `re_replace` / `append` / `prepend` / `trim` / `split` / `regexp`） |
 | 稳定性验证 | 数据源相关功能以单测 + 编译为主，**端到端真机验证仍有空白**；「零运行时依赖」缺一台未装 VC++ 运行库的干净机器做最终确认 |
-| 部署边界 | 若把 Node 后端当公开服务跑，必须只绑本机回环地址；默认没有主机白名单 |
 
 ## 许可证
 
