@@ -87,11 +87,29 @@
 - **要做的前提**：先决定封面从哪来 —— 影视模式（MacCMS JSON 源）可能带 `vod_pic`，网盘模式没有；BT 结果基本拿不到。可行路线是**只在线影视/网盘行显示封面**，BT 行显示占位。
 - **代价**：扩 `TorrentResult` 会牵动 M6 差分门（`scripts/diff/canonical.cjs` 的 `FIELDS` 必须同步），以及 24 家 provider 的测试期望值。不是一次能顺手做掉的小改。
 
+**决策（2026-11-27）：本次不做，范围已收窄。** 真要做的顺序是：
+
+1. 只在**影视 / 网盘**两类行显示封面（BT 行显示占位方框）—— BT 结果天然没有图，硬凑反而更丑。
+2. 数据上**不要**动 `TorrentResult`：另开一个 `poster: Option<String>` 在 `VideoRow` / `PanRow` 上就够了（这两类行的结构本来就和 BT 行分开，见 `app.slint:48`）。
+3. 这样 M6 差分门（只比 BT 的 15 个字段）**完全不受影响** —— 这是把「大改」拆成「不动门」的关键。
+4. 还需要一次真机确认：封面异步加载会造成行高抖动（Slint 里图片加载完不会自动重排时尤其明显），得先定占位尺寸。
+
 ### 5.2 主题切换 Mocha / Latte
 
 - **为什么没做**：高亮色烘进 markdown markup（`highlight.rs:15`），换主题必须**整体重建**所有行的`title_markup`；而且 Latte（浅色）整套色表 + 对比度要重新定，属于设计工作量，不只是加个开关。
 - **落地路径**：`Theme` global 改成可切换（两条 `out property` 组或一个 `theme-mode` + 三元），Rust 侧在切换回调里重建行模型并重推（`push_row` 已有重建路径，但要确认滚动位置不被重置）。
 - `AGENTS.md:1948` 也把「亮色主题」列在未做清单里，两处口径一致。
+
+**评估结论（2026-11-27）：能分两步走，成本可控，但不在本次发版内。**
+
+| 步 | 做什么 | 风险 |
+|---|---|---|
+| 1. 色表可切换 | `Theme` 的 20 个 `out property` 改成 `in-out property`，加一个 `theme-mode: 0/1`；Rust 侧一个 `apply_theme(ui, Latte)` 批量 set | 低。纯值替换，所有 `Theme.xxx` 引用不用改 |
+| 2. 高亮重建 | 切主题后遍历权威 `Vec<TorrentResult>`，用**新 accent** 重算每行 `title_markup`，再用 `VecModel::set_row_data(idx, …)` **就地替换** | 中。⚠️ 必须就地替换，**不能整体重建**（重建会把用户滚动位置打回顶部）；`RowData::from_result` 本来就收 `accent` 参数，这一步不需要改签名 |
+
+**为什么不是「顺手改几个颜色值」**：`highlight_markup` 把颜色烘进 markdown（`highlight.rs:15`），
+第 2 步才是真正的工作量；而且 Latte 的对比度得有人眼过一遍（浅色下 `dim #585b70` 与 `text #cdd6f4` 都要换值）。
+估计 ~150 行 + 一次出包真机看，**建议单开一次带 CI 的迭代**，别和发版混在一起。
 
 ## 6. 怎么验（CI 验不了的部分）
 
