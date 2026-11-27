@@ -2,60 +2,8 @@
   "name": "torrent-search-app",
   "version": "0.4.5-beta",
   "private": true,
-  "description": "Desktop BT torrent meta-search web app aggregating multiple engines (1337x, TPB, NYAA).",
-  "type": "commonjs",
-  "main": "electron/main.js",
-  "engines": {
-    "node": ">=22.12.0"
-  },
+  "description": "BT 聚合搜索 —— Rust/Slint 桌面应用（Node/Electron 实现已于 2026-11-27 退役，历史见 git 与 docs/HANDOVER.md）",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js",
-    "electron": "set ELECTRON_CACHE=.cache\\electron&& electron .",
-    "dist": "set ELECTRON_CACHE=.cache\\electron&& set ELECTRON_BUILDER_CACHE=.cache\\builder&& electron-builder",
-    "build:portable": "node scripts/build-portable.js",
-    "test": "node test/run.js && node test/normalize.test.js",
-    "test:watch": "nodemon test/run.js test/normalize.test.js",
-    "release:check": "node scripts/release-check.js",
-    "lint": "eslint public/js/ src/ server.js electron/ test/",
-    "format": "prettier --write \"public/js/**/*.js\" \"src/**/*.js\" \"server.js\" \"electron/**/*.js\" \"test/**/*.js\" \"public/styles.css\""
-  },
-  "dependencies": {
-    "axios": "^1.7.7",
-    "cheerio": "^1.0.0",
-    "express": "^4.21.0"
-  },
-  "build": {
-    "appId": "com.torrentsearch.app",
-    "productName": "torrent-search-app",
-    "files": [
-      "server.js",
-      "electron/**/*",
-      "src/**/*",
-      "public/**/*",
-      "package.json"
-    ],
-    "directories": {
-      "output": "dist"
-    },
-    "win": {
-      "target": "nsis",
-      "artifactName": "BT-Search-Electron-Setup-${version}.${ext}"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
-    },
-    "publish": {
-      "provider": "github",
-      "owner": "NoNameLeGo",
-      "repo": "torrent-search-app"
-    }
-  },
-  "devDependencies": {
-    "electron": "^43.1.0",
-    "electron-builder": "^26.15.3",
-    "eslint": "^8.57.1",
-    "prettier": "^3.9.6"
+    "release:check": "node scripts/release-check.js"
   }
 }

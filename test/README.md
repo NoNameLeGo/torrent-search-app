@@ -1,185 +1,30 @@
-# Test Runner Guide — Agent Call Instructions
+# 测试数据目录（test/）说明
 
-## Quick Commands
+⚠️ **这里已经没有 Node 测试运行器了**（2026-11-27 退役 Node/Electron 时一并删除）。
 
-```bash
-# Run all tests
-npm test
+## 现在还剩什么
 
-# Run specific test file
-node test/run.js              # Provider tests (TPB, LinuxTracker)
-node test/normalize.test.js   # Normalize utility tests
+| 路径 | 作用 |
+|---|---|
+| `test/fixtures/` | **永久保留**的离线快照。Rust 侧测试直接读它：`crates/bt-providers/tests/*.rs`（每家一份）、`crates/bt-core/tests/dom_probes.rs`（`html-probes.expected.json` 是 cheerio 给的真值）。 |
+| `test/fixtures/html-probes.expected.json` | HTML 选择器真值。**生成器已随 Node 一起删除**（曾由 `.github/workflows/html-probes.yml` 跑 cheerio 生成）⇒ 现在只读不写，若要更新只能从 git 历史里取回旧的生成脚本。 |
 
-# Watch mode (requires nodemon)
-npm run test:watch
-```
+## 怎么跑测试
 
-## When to Run Tests
-
-| Scenario | Action |
-|----------|--------|
-| 修改 provider 解析逻辑 | `npm test` 验证结果形状 |
-| 修改 normalize.js | `npm test` + `node test/normalize.test.js` |
-| 添加新 provider | 先写 fixture，再写测试，最后 `npm test` |
-| PR 提交前 | 确保所有测试通过 |
-
-## Test Structure
-
-```
-test/
-  run.js                  ← 主入口，测试 TPB + Knaben + LinuxTracker + FileMood
-  normalize.test.js       ← normalize.js 单元测试
-  fixtures/               ← 真实 HTML/JSON 快照（**金标准**，Rust 侧测试直接读它们）
-    tpb-ubuntu.json       ← TPB API 响应 (100 results)
-    tpb-empty.json        ← TPB 限流时的纯文本正文（不是 JSON，用来测解析失败路径）
-    knaben-ubuntu.json    ← Knaben API 响应
-    torrentscsv-ubuntu.json / yts-matrix.json ← 2026-10-08 本机抓
-    internetarchive-ubuntu.synthetic.json ← ⚠️ **合成**的（archive.org 本机 DNS 被污染抓不到）
-    html-probes.json      ← 选择器语义对照的 probe 清单（cheerio vs scraper，两侧读同一份）
-    html-probes.expected.json ← cheerio 侧真值（**由 CI 自动生成并提交**，别手改）
-    1337x-ubuntu.html     ← ⚠️ 不是结果页：FingerprintJS 反爬跳转页；该域名 2026-10-09 已停放
-    # HTML 组（B 组 11 个站）每站 1~2 份：结果页 + 详情页（detail 后缀）
-    # 例：rutor-ubuntu.html / audiobookbay-detail.html / megapeer-1080p.html（windows-1251）…
-    # ⚠️ 完整清单以 `ls test/fixtures/` 为准 —— 本节只列代表性文件，别追平全量
-```
-
-**fixture 永久保留**：即使对应 provider 已迁到 Rust，`test/fixtures/` 也不删 ——
-Rust 侧的金标准测试直接读这些文件（见 `AGENTS.md` 的「边搬边删」）。
-
-⚠️ **fixture 全绿 ≠ 抓取还能用**：多数快照是 2026-07 的，站点早已改版。
-离线测试只证明"解析逻辑没退化"，证明不了"现在还能搜出东西"。
-
-### 带 `.synthetic` 的 fixture 是假的，别当真快照
-
-`internetarchive-ubuntu.synthetic.json` 是照 JS 的 `fl[]` 参数与 archive.org 公开文档
-**手工构造**的（本机对 `archive.org` 有 DNS 污染，抓不到真数据）。文件内有 `_synthetic` 说明字段，
-Rust 侧有一条 `fixture_is_still_marked_as_synthetic` 测试钉着它 ——
-**换真快照时必须删掉那个字段并改名去掉 `.synthetic`**，测试会强制你这么做。
-
-抓真数据的路子：在 CI 上跑联网冒烟（`.github/workflows/live-smoke.yml`），
-日志里会 dump InternetArchive 的原始 doc。
-
-### 选择器对照（cheerio vs scraper）
-
-`html-probes.json` 是一份 probe 清单，**两侧读同一份**：
-- cheerio 侧：`node scripts/html-probes.cjs`（需要 cheerio；本机没装，走 CI 的 `html-probes.yml`）
-- Rust 侧：`crates/bt-core/tests/dom_probes.rs`（用 `bt_core::dom`）
-
-`html-probes.expected.json` 就是 cheerio 的输出。Rust 测会**逐条比对**，
-不一致时打印每条差异（而不是只扔一句 assert）。改 probe 后要重新生成真值。
-
-⚠️ 写 HTML 测试的两个坑（都已实测）：
-裸 `<tr>`/`<td>` 片段会被解析器丢掉（要包 `<table>`）；类名匹配**区分大小写**。
-
-⚠️ **非 UTF-8 站点**（如 megapeer 是 windows-1251）：条目里加 `"encoding": "windows-1251"`，
-cheerio 侧走 `TextDecoder(label)`、Rust 侧走 `encoding_rs`；fixture 存**原始字节**（别转码）。
-
-### 抓新 fixture 的姿势
-
-**本机可直接访问的站**（用 curl 绕开本机那个坏代理）：
+测试全在 Rust 侧：
 
 ```bash
-curl -s --noproxy "*" --max-time 25 "https://<api-url>" -o test/fixtures/<provider>-<query>.json
+cargo test --workspace          # 全部（本机没有 cargo，走 CI 的 rust.yml）
+cargo test -p bt-providers      # 只跑 provider 解析
 ```
 
-**本机探不通、但 CI 能通的站**（nyaa / megapeer / zeromagnet / …）——用 `fetch-fixture.yml` 让 CI 抓：
+## 怎么加一份新 fixture
+
+用 `.github/workflows/fetch-fixture.yml` 手动触发（它用 `curl`，不依赖 Node）：
 
 ```bash
-scripts/gh-retry.sh workflow run fetch-fixture.yml --ref feat/rust \
-  -f url='<结果页 / 详情页 URL>' -f path='test/fixtures/<site>-<query>.html'
-# 20 秒后 git pull --rebase 取回；⚠️ 先 head -c 300 看内容（挑战页/停放页也是 200）
+scripts/gh-retry.sh workflow run fetch-fixture.yml --ref main \
+  -f url='https://nyaa.si/?f=0&c=0_0&q=ubuntu' -f path='test/fixtures/nyaa-ubuntu.html'
 ```
 
-**期望值别手抄**：写个临时脚本 require `src/lib/normalize.js`，把同一份 fixture 喂进去，
-把输出逐字段抄进 Rust 断言 —— 这样"Rust 版与 Node 版一致"才有实据。
-
-## How to Add a New Provider Test
-
-### Step 1: Save Fixture
-```bash
-# 手动抓取真实响应，保存到 test/fixtures/<provider>-<query>.html 或 .json
-node -e "
-const https = require('https');
-const fs = require('fs');
-const url = 'https://example.com/search?q=test';
-const out = 'test/fixtures/example-search.html';
-https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, (res) => {
-  let data = '';
-  res.on('data', c => data += c);
-  res.on('end', () => fs.writeFileSync(out, data));
-});
-"
-```
-
-### Step 2: Add Test Block
-在 `test/run.js` 末尾添加：
-```javascript
-console.log('=== ExampleProvider ===\n');
-
-(async () => {
-  console.log('Test 1: Parse HTML fixture...');
-  const html = loadHTML('example-search.html');
-  const cleanup = createMockHTTPForHTML([
-    [/(?:^https?:)?\/\/example\.com/i, { html, error: null }]
-  ]);
-
-  const { search } = require('../src/providers/example');
-  const result = await search('test', { page: 1 });
-  cleanup();
-
-  assert.ok(!result.error, 'should not have error');
-  assert.ok(Array.isArray(result.results), 'results should be array');
-  assert.ok(result.results.length > 0, 'should have results');
-
-  const first = result.results[0];
-  assert.equal(first.provider, 'example', 'provider should match');
-  assert.ok(first.name, 'should have name');
-  assert.ok(typeof first.size === 'number', 'size should be parsed');
-
-  console.log(`  ✓ Found ${result.results.length} results\n`);
-})();
-```
-
-### Step 3: Run Tests
-```bash
-npm test
-```
-
-## Mock HTTP Functions
-
-| Function | Use Case |
-|----------|----------|
-| `createMockHTTP(responses)` | JSON API providers (tpb, apibay) |
-| `createMockHTTPForHTML(responses)` | HTML scraper providers (linuxtracker, rutor) |
-
-### Response Format
-```javascript
-[
-  [/regex-or-prefix/, { data: fixtureData, error: null }],
-  [/another-domain/i, { html: fixtureHTML, error: null }]
-]
-```
-
-## Current Coverage
-
-| Provider | Tests | Status |
-|----------|-------|--------|
-| `tpb.js` | search parsing, category mapping, empty results, HTTP error | ✅ |
-| `knaben.js` | JSON API (POST) parsing, category mapping | ✅ |
-| `linuxtracker.js` | HTML parsing, infoHash extraction, size/date/seeds | ✅ |
-| `filemood.js` | HTML parsing, infoHash extraction from URL, size/seeds | ✅ |
-| `normalize.js` | parseSize, parseDate, buildMagnet, extractInfoHash, ruDate | ✅ |
-
-## Troubleshooting
-
-### Test fails with "EPERM"
-- Windows 权限问题，尝试以管理员身份运行
-- 或检查是否有其他进程占用文件
-
-### Mock not working
-- 确保调用 `cleanup()` 清理 mock
-- 检查 RegExp 是否正确匹配 URL
-
-### Fixture missing
-- 确认文件在 `test/fixtures/` 目录
-- 使用 `loadJSON()` 或 `loadHTML()` 加载
+⚠️ 抓到的东西**先看一眼内容**再当 fixture 用 —— Cloudflare 挑战页 / 停放页都是 200 且几千字节。
